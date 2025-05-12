@@ -1,0 +1,1 @@
+# Django configuration for Fedha project.
