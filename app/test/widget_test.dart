@@ -8,23 +8,25 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:app/main.dart';
+import 'package:fedha/main.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
+  testWidgets('Profile creation flow', (WidgetTester tester) async {
+    // Build app
     await tester.pumpWidget(const MyApp());
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    // Tap "Create Business Profile" button
+    await tester.tap(find.text('Create Business Profile'));
+    await tester.pumpAndSettle();
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+    // Enter PIN
+    await tester.enterText(find.byType(TextField), '1234');
+    await tester.tap(find.text('Submit'));
+    await tester.pumpAndSettle();
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    // Verify UUID is displayed
+    expect(find.textContaining(RegExp(r'biz_')), findsOneWidget);
   });
 }
+// This test verifies the profile creation flow by simulating user interactions
+// such as tapping buttons and entering text. It checks that the UUID is
