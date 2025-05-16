@@ -26,9 +26,8 @@ class ProfileSelectorScreen extends StatelessWidget {
       ),
     );
   }
-
   void _createProfile(BuildContext context, {required bool isBusiness}) {
-    final profileId = authService.generateProfileId(isBusiness: isBusiness);
-    // Navigate to dashboard
+  final authService = Provider.of<AuthService>(context, listen: false);
+  final profileId = authService.generateProfileId(isBusiness: isBusiness);
   }
 }

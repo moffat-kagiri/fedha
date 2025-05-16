@@ -2,6 +2,7 @@
 
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import '../models/transaction.dart';
 
 class ApiClient {
   static const String _baseUrl = "http://10.0.2.2:8000/api"; // Android emulator localhost

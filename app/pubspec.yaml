@@ -24,8 +24,8 @@ dev_dependencies:
   hive_generator: ^2.0.1
   build_runner: ^2.4.4
 
-flutter:
-  uses-material-design: true
+#flutter:
+  #uses-material-design: true
   #assets:
   #  - assets/images/
   #  - assets/icons/
