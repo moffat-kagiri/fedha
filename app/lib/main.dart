@@ -18,8 +18,16 @@ void main() async {
 
   await Hive.openBox('profiles');
   await Hive.openBox('transactions');
-  
-  runApp(const MyApp());
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider<AuthService>(
+          create: (_) => AuthService(),
+        ),
+      ],
+      child: const MyApp(), // MyApp must be a child of MultiProvider
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {
