@@ -7,8 +7,6 @@ class ProfileSelectorScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final authService = Provider.of<AuthService>(context);
-
     return Scaffold(
       appBar: AppBar(title: const Text('Select Profile')),
       body: Center(
@@ -29,7 +27,7 @@ class ProfileSelectorScreen extends StatelessWidget {
   // Update the _createProfile method
 void _createProfile(BuildContext context, {required bool isBusiness}) {
   final authService = Provider.of<AuthService>(context, listen: false);
-  final profileId = authService.generateProfileId(isBusiness: isBusiness);
+  authService.generateProfileId(isBusiness: isBusiness);
   // Navigate to dashboard
 }
 }

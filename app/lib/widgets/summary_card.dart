@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart';
+
 class SummaryCard extends StatelessWidget {
   final String title;
   final double amount;

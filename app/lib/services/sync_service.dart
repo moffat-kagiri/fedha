@@ -1,3 +1,7 @@
+import '../models/transaction.dart' show Transaction;
+import '../services/api_client.dart'; // Adjust the import path based on your project structure
+import 'package:hive/hive.dart';
+
 class SyncService {
   final ApiClient _apiClient = ApiClient();
   final Box<Transaction> _transactionBox = Hive.box('transactions');
@@ -17,11 +21,12 @@ class SyncService {
     // Update local state
     for (var t in response['synced_transactions']) {
       final transaction = _transactionBox.get(t['local_id']);
-      transaction?.isSynced = true;
-      transaction?.save();
+      if (transaction != null) {
+        transaction.isSynced = true;
+        await _transactionBox.put(t['local_id'], transaction);
+      }
     }
   }
-  final ApiClient _apiClient = ApiClient();
 
   Future<void> syncTransactions(String profileId) async {
     final localTransactions = Hive.box<Transaction>('transactions')
@@ -31,15 +36,15 @@ class SyncService {
 
     if (localTransactions.isEmpty) return;
 
-    final response = await _apiClient.syncTransactions(
+    await _apiClient.syncTransactions(
       profileId,
-      localTransactions.map((t) => t.toJson()).toList(),
+      localTransactions,
     );
 
     // Mark as synced
     for (var t in localTransactions) {
       t.isSynced = true;
-      t.save();
+      await _transactionBox.put(t.id, t);
     }
   }
 }

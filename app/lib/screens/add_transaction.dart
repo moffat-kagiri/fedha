@@ -1,3 +1,8 @@
+import 'package:flutter/material.dart';
+import 'package:hive/hive.dart';
+import 'package:uuid/uuid.dart';
+import '../models/transaction.dart';
+
 class AddTransactionScreen extends StatefulWidget {
   const AddTransactionScreen({super.key});
 
@@ -9,7 +14,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   final _formKey = GlobalKey<FormState>();
   final _amountController = TextEditingController();
   String _selectedType = 'IN'; // IN=Income, EX=Expense
-  String _selectedCategory = 'OTHER';
+  final String _selectedCategory = 'OTHER';
 
   @override
   Widget build(BuildContext context) {

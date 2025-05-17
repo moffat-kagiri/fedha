@@ -46,4 +46,23 @@ class ApiClient {
     );
     return jsonDecode(response.body)['total_repayment'];
   }
+  Future<Map<String, dynamic>> verifyProfile({
+    required String profileId,
+    required String pinHash,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$_baseUrl/profiles/verify/'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'id': profileId,
+        'pin_hash': pinHash,
+      }),
+    );
+    
+    if (response.statusCode != 200) {
+      throw Exception('Failed to verify profile');
+    }
+    
+    return jsonDecode(response.body);
+  }
 }

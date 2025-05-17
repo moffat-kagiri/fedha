@@ -3,7 +3,6 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'models/profile.dart';
 import 'models/transaction.dart';
 import 'package:fedha/services/auth_service.dart';
-import 'package:fedha/services/api_client.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'screens/profile_selector.dart';

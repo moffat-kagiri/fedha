@@ -1,3 +1,7 @@
+import 'package:flutter/material.dart';
+import 'package:syncfusion_flutter_charts/charts.dart';
+import '../models/transaction.dart';
+
 class CashFlowChart extends StatelessWidget {
   final List<Transaction> transactions;
 
@@ -7,7 +11,7 @@ class CashFlowChart extends StatelessWidget {
   Widget build(BuildContext context) {
     return SfCartesianChart(
       primaryXAxis: CategoryAxis(),
-      series: <ChartSeries>[
+      series: <CartesianSeries>[
         LineSeries<Transaction, String>(
           dataSource: transactions,
           xValueMapper: (Transaction t, _) => t.date.toString(),

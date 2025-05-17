@@ -1,3 +1,8 @@
+import 'package:fedha/services/auth_service.dart';
+import 'package:flutter/material.dart';
+import 'package:fedha/screens/dashboard_screen.dart';
+import 'package:provider/provider.dart';
+
 class PinEntryScreen extends StatelessWidget {
   final bool isNewProfile;
   final String profileId; // For existing profiles
@@ -32,7 +37,9 @@ class PinEntryScreen extends StatelessWidget {
               } else {
                 final success = await authService.login(profileId, pinController.text);
                 if (success) {
-                  Navigator.pushReplacement(...);
+                  Navigator.pushReplacement(context, MaterialPageRoute(
+                    builder: (_) => DashboardScreen(),
+                  ));
                 }
               }
             },
