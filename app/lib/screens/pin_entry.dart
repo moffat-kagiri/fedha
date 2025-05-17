@@ -1,3 +1,5 @@
+// ignore_for_file: use_build_context_synchronously
+
 import 'package:fedha/services/auth_service.dart';
 import 'package:flutter/material.dart';
 import 'package:fedha/screens/dashboard_screen.dart';
