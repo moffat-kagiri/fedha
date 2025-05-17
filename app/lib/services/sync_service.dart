@@ -21,4 +21,25 @@ class SyncService {
       transaction?.save();
     }
   }
+  final ApiClient _apiClient = ApiClient();
+
+  Future<void> syncTransactions(String profileId) async {
+    final localTransactions = Hive.box<Transaction>('transactions')
+        .values
+        .where((t) => !t.isSynced)
+        .toList();
+
+    if (localTransactions.isEmpty) return;
+
+    final response = await _apiClient.syncTransactions(
+      profileId,
+      localTransactions.map((t) => t.toJson()).toList(),
+    );
+
+    // Mark as synced
+    for (var t in localTransactions) {
+      t.isSynced = true;
+      t.save();
+    }
+  }
 }

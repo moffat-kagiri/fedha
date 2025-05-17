@@ -1,19 +1,14 @@
----
 # Fedha Development Roadmap
 
-A phased agile checklist for tracking progress.
----
 ## **Phase 0: Setup & Planning**
 
 - [ ] Finalize tech stack (Flutter, React, Django, PostgreSQL)
 - [ ] Set up Git repository and branching strategy
 - [ ] Design database schema (Transactions, Loans, Profiles)
 
----
-
 ## **Phase 1: Core Features (Sprint 1-2)**
 
-### **Profile System**
+## **Profile System**
 
 - [ ] UUID generator for business/personal profiles
 - [ ] PIN-based authentication (no personal data)
@@ -22,7 +17,9 @@ A phased agile checklist for tracking progress.
 ### **Transaction Tracking**
 
 - [ ] Add/Edit/Delete income and expenses
+- [ ] Create UI for capturing transactions
 - [ ] Categorize transactions (e.g., "Marketing", "Utilities")
+- [ ] Sync transactions between app and Django.
 
 ---
 

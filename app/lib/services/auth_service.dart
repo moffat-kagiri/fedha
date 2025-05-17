@@ -28,3 +28,23 @@ class AuthService extends ChangeNotifier {
     return hashPin(pin) == hashedPin;
   }
 }
+
+Future<void> createProfile({required bool isBusiness, required String pin}) async {
+  final profileId = generateProfileId(isBusiness: isBusiness);
+  final pinHash = _hashPin(pin);
+
+  // Save to Hive
+  final profileBox = await Hive.openBox('profiles');
+  await profileBox.put(profileId, {
+    'id': profileId,
+    'isBusiness': isBusiness,
+    'pinHash': pinHash,
+  });
+
+  // Sync with Django (optional)
+  await _apiClient.createProfile(
+    profileId: profileId,
+    isBusiness: isBusiness,
+    pinHash: pinHash,
+  );
+}
