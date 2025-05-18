@@ -2,7 +2,6 @@
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 import '../models/transaction.dart';
-
 class TransactionList extends StatelessWidget {
   const TransactionList({super.key});
 
