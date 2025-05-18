@@ -15,22 +15,28 @@ class DashboardScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final authService = Provider.of<AuthService>(context);
-    final syncService = Provider.of<SyncService>(context);
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Dashboard'),
         actions: [
           IconButton(
             icon: const Icon(Icons.sync),
-            onPressed: () => syncService.syncTransactions(authService.currentProfileId!),
+            onPressed: () {
+              final authService = context.read<AuthService>();
+              final syncService = context.read<SyncService>();
+              syncService.syncTransactions(authService.currentProfileId!);
+            },
           ),
         ],
       ),
       body: Consumer<Box<Transaction>>(
         builder: (context, transactionBox, _) {
-          final transactions = transactionBox.values.toList().cast<Transaction>();
+          final transactions = transactionBox.values
+              .toList()
+              .cast<Transaction>()
+              .reversed
+              .take(100) // Limit to 100 most recent
+              .toList();
           
           // Calculate totals
           double income = transactions

@@ -3,6 +3,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'models/profile.dart';
 import 'models/transaction.dart';
 import 'package:fedha/services/auth_service.dart';
+import 'package:fedha/services/sync_service.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'screens/dashboard_screen.dart';
@@ -13,22 +14,27 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Hive.initFlutter();
   
-  // Register adapters
+  // Register adapters first
   Hive.registerAdapter(ProfileAdapter());
   Hive.registerAdapter(TransactionAdapter());
 
+  // Open boxes once
   await Hive.openBox('profiles');
-  await Hive.openBox('transactions');
+  await Hive.openBox<Transaction>('transactions'); // Specify generic type
+
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider<AuthService>(
           create: (_) => AuthService(),
         ),
+        Provider<SyncService>(
+          create: (_) => SyncService(),
+        ),
       ],
-      child: const MyApp(), // MyApp must be a child of MultiProvider
+      child: const MyApp(),
     ),
-  );
+    );
 }
 
 
