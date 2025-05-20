@@ -4,6 +4,7 @@ import 'models/profile.dart';
 import 'models/transaction.dart';
 import 'package:fedha/services/auth_service.dart';
 import 'package:fedha/services/sync_service.dart';
+import 'package:fedha/services/api_client.dart'; // Import ApiClient
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'screens/dashboard_screen.dart';
@@ -13,7 +14,7 @@ import 'widgets/transaction_list.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Hive.initFlutter();
-  
+
   // Register adapters first
   Hive.registerAdapter(ProfileAdapter());
   Hive.registerAdapter(TransactionAdapter());
@@ -25,18 +26,19 @@ void main() async {
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider<AuthService>(
-          create: (_) => AuthService(),
-        ),
+        ChangeNotifierProvider<AuthService>(create: (_) => AuthService()),
         Provider<SyncService>(
-          create: (_) => SyncService(),
+          create:
+              (_) => SyncService(
+                apiClient: ApiClient(),
+                transactionBox: Hive.box<Transaction>('transactions'),
+              ),
         ),
       ],
       child: const MyApp(),
     ),
-    );
+  );
 }
-
 
 // Update MyApp in main.dart
 class MyApp extends StatelessWidget {
@@ -76,8 +78,14 @@ class _MainNavigationWrapperState extends State<MainNavigationWrapper> {
         currentIndex: _selectedIndex,
         onTap: (index) => setState(() => _selectedIndex = index),
         items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: 'Dashboard'),
-          BottomNavigationBarItem(icon: Icon(Icons.list), label: 'Transactions'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.dashboard),
+            label: 'Dashboard',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.list),
+            label: 'Transactions',
+          ),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
         ],
       ),

@@ -1,3 +1,5 @@
+import '../models/profile.dart';
+
 class ConverterUtils {
   // Enum Converters
   static String profileTypeToJson(ProfileType type) => type.name;

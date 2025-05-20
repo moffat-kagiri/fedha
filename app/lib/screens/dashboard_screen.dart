@@ -31,18 +31,19 @@ class DashboardScreen extends StatelessWidget {
       ),
       body: Consumer<Box<Transaction>>(
         builder: (context, transactionBox, _) {
-          final transactions = transactionBox.values
-              .toList()
-              .cast<Transaction>()
-              .reversed
-              .take(100) // Limit to 100 most recent
-              .toList();
-          
+          final transactions =
+              transactionBox.values
+                  .toList()
+                  .cast<Transaction>()
+                  .reversed
+                  .take(100) // Limit to 100 most recent
+                  .toList();
+
           // Calculate totals
           double income = transactions
               .where((t) => t.type == 'IN')
               .fold(0, (sum, t) => sum + t.amount);
-          
+
           double expense = transactions
               .where((t) => t.type == 'EX')
               .fold(0, (sum, t) => sum + t.amount);
@@ -59,23 +60,27 @@ class DashboardScreen extends StatelessWidget {
               ),
 
               // Chart
-              Expanded(
-                child: CashFlowChart(transactions: transactions),
-              ),
+              Expanded(child: CashFlowChart(transactions: transactions)),
 
               // Recent Transactions
-              const Expanded(
-                child: TransactionList(),
-              ),
+              const Expanded(child: TransactionList()),
             ],
           );
         },
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const AddTransactionScreen()),
-        ),
+        onPressed: () {
+          final authService = context.read<AuthService>();
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder:
+                  (_) => AddTransactionScreen(
+                    profileId: authService.currentProfileId!,
+                  ),
+            ),
+          );
+        },
         child: const Icon(Icons.add),
       ),
     );

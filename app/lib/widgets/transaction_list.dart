@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../models/transaction.dart';
+
 class TransactionList extends StatelessWidget {
   const TransactionList({super.key});
 
@@ -18,14 +19,14 @@ class TransactionList extends StatelessWidget {
             final transaction = box.getAt(index);
             return ListTile(
               leading: Icon(
-                transaction!.type == 'IN' 
-                ? Icons.arrow_circle_up 
-                : Icons.arrow_circle_down,
+                transaction!.type == 'IN'
+                    ? Icons.arrow_circle_up
+                    : Icons.arrow_circle_down,
                 color: transaction.type == 'IN' ? Colors.green : Colors.red,
-                ),
-          title: Text(transaction.category),
-          subtitle: Text(transaction.date.toString()),
-          trailing: Text('\$${transaction.amount.toStringAsFixed(2)}'),
+              ),
+              title: Text(transaction.category as String),
+              subtitle: Text(transaction.date.toString()),
+              trailing: Text('\$${transaction.amount.toStringAsFixed(2)}'),
             );
           },
         );
