@@ -1,50 +1,36 @@
-import '../models/transaction.dart' show Transaction;
-import '../services/api_client.dart'; // Adjust the import path based on your project structure
+// app/lib/services/sync_service.dart
 import 'package:hive/hive.dart';
+import '../models/transaction.dart';
+import 'api_client.dart';
 
 class SyncService {
   final ApiClient _apiClient = ApiClient();
-  final Box<Transaction> _transactionBox = Hive.box('transactions');
-
-  Future<void> syncData(String profileId) async {
-    // Get unsynced local transactions
-    final localTransactions = _transactionBox.values
-        .where((t) => !t.isSynced)
-        .toList();
-
-    // Send to Django
-    final response = await _apiClient.syncTransactions(
-      profileId,
-      localTransactions,
-    );
-
-    // Update local state
-    for (var t in response['synced_transactions']) {
-      final transaction = _transactionBox.get(t['local_id']);
-      if (transaction != null) {
-        transaction.isSynced = true;
-        await _transactionBox.put(t['local_id'], transaction);
-      }
-    }
-  }
+  final Box<Transaction> _transactionBox = Hive.box<Transaction>(
+    'transactions',
+  );
 
   Future<void> syncTransactions(String profileId) async {
-    final localTransactions = Hive.box<Transaction>('transactions')
-        .values
-        .where((t) => !t.isSynced)
-        .toList();
+    final unsynced =
+        _transactionBox.values
+            .where((t) => !t.isSynced)
+            .map((t) => t.toJson())
+            .toList();
 
-    if (localTransactions.isEmpty) return;
+    if (unsynced.isEmpty) return;
 
-    await _apiClient.syncTransactions(
-      profileId,
-      localTransactions,
-    );
+    try {
+      await _apiClient.syncTransactions(profileId, unsynced);
 
-    // Mark as synced
-    for (var t in localTransactions) {
-      t.isSynced = true;
-      await _transactionBox.put(t.id, t);
+      // Update local sync status
+      final batch = _transactionBox.batch();
+      for (var t in unsynced) {
+        final transaction = _transactionBox.get(t['id']);
+        transaction?.isSynced = true;
+        batch.put(transaction!.id, transaction);
+      }
+      await batch.commit();
+    } catch (e) {
+      throw Exception('Sync failed: $e');
     }
   }
 }

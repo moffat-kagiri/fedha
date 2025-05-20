@@ -1,48 +1,108 @@
+// lib/models/transaction.dart
 import 'package:hive/hive.dart';
+import 'package:json_annotation/json_annotation.dart';
+import 'package:uuid/uuid.dart';
 
-part 'transaction.g.dart'; // Critical for code generation
+part 'transaction.g.dart';
 
-@HiveType(typeId: 1) // Unique typeId (0 is used by Profile)
+@HiveType(typeId: 1)
+@JsonSerializable(explicitToJson: true)
 class Transaction {
   @HiveField(0)
-  final String id;
-  
+  @JsonKey(name: 'id')
+  final String uuid;
+
   @HiveField(1)
+  @JsonKey(name: 'amount')
   final double amount;
 
   @HiveField(2)
-  final String type; // "IN" or "EX"
+  @JsonKey(
+    name: 'type',
+    toJson: _transactionTypeToJson,
+    fromJson: _transactionTypeFromJson,
+  )
+  final TransactionType type;
 
   @HiveField(3)
-  final String category; // e.g., "MARKETING"
+  @JsonKey(
+    name: 'category',
+    toJson: _categoryToJson,
+    fromJson: _categoryFromJson,
+  )
+  final TransactionCategory category;
 
   @HiveField(4)
+  @JsonKey(name: 'date', toJson: _dateToJson, fromJson: _dateFromJson)
   final DateTime date;
 
   @HiveField(5)
+  @JsonKey(name: 'notes')
   final String? notes;
 
   @HiveField(6)
-  bool isSynced; // Local sync status
+  @JsonKey(name: 'is_synced', defaultValue: false)
+  bool isSynced;
+
+  @HiveField(7)
+  @JsonKey(name: 'profile_id')
+  final String profileId;
 
   Transaction({
-    required this.id,
     required this.amount,
     required this.type,
     required this.category,
-    required this.date,
+    required this.profileId,
     this.notes,
+    String? uuid,
+    DateTime? date,
     this.isSynced = false,
-  });
- // Convert to JSON for API sync
-Map<String, dynamic> toJson() {
-  return {
-    'id': id,
-    'amount': amount,
-    'type': type,
-    'category': category,
-    'date': date.toIso8601String(),
-    'notes': notes,
-  };
+  }) : uuid = uuid ?? const Uuid().v4(),
+       date = date ?? DateTime.now();
+
+  // JSON Serialization
+  factory Transaction.fromJson(Map<String, dynamic> json) =>
+      _$TransactionFromJson(json);
+
+  Map<String, dynamic> toJson() => _$TransactionToJson(this);
+
+  // Type Converters
+  static String _transactionTypeToJson(TransactionType type) => type.name;
+  static TransactionType _transactionTypeFromJson(String json) =>
+      TransactionType.values.firstWhere(
+        (e) => e.name.toLowerCase() == json.toLowerCase(),
+        orElse: () => throw FormatException('Invalid TransactionType: $json'),
+      );
+
+  static String _categoryToJson(TransactionCategory category) => category.name;
+  static TransactionCategory _categoryFromJson(String json) =>
+      TransactionCategory.values.firstWhere(
+        (e) => e.name.toLowerCase() == json.toLowerCase(),
+        orElse:
+            () => throw FormatException('Invalid TransactionCategory: $json'),
+      );
+
+  // Date Converters (UTC for backend, local for app)
+  static String _dateToJson(DateTime date) => date.toUtc().toIso8601String();
+  static DateTime _dateFromJson(String json) => DateTime.parse(json).toLocal();
+
+  @override
+  String toString() {
+    return 'Transaction(uuid: $uuid, amount: $amount, type: $type, '
+        'category: $category, date: $date, profileId: $profileId)';
+  }
 }
+
+// Enums with matching values to Django choices
+enum TransactionType {
+  income, // Maps to Django's 'IN'
+  expense, // Maps to Django's 'EX'
+}
+
+enum TransactionCategory {
+  sales, // Maps to Django's 'SALE'
+  marketing, // Maps to Django's 'MRKT'
+  groceries, // Maps to Django's 'GROC'
+  rent, // Maps to Django's 'RENT'
+  other, // Maps to Django's 'OTHR'
 }

@@ -50,13 +50,14 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   void _saveTransaction() {
     if (_formKey.currentState!.validate()) {
       final transaction = Transaction(
-        id: const Uuid().v4(),
+        id: const Uuid().v4(), // Using 'id' as defined in Transaction class
         amount: double.parse(_amountController.text),
         type: _selectedType,
         category: _selectedCategory,
         date: DateTime.now(),
+        profileId: 'default', // Added required profileId parameter
       );
-      
+
       // Save to Hive
       Hive.box<Transaction>('transactions').add(transaction);
       Navigator.pop(context);

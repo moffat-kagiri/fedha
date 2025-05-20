@@ -17,19 +17,24 @@ class ProfileAdapter extends TypeAdapter<Profile> {
       for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
     };
     return Profile(
-      id: fields[0] as String,
-      isBusiness: fields[1] as bool,
+      type: fields[1] as ProfileType,
+      pinHash: fields[2] as String,
+      id: fields[0] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, Profile obj) {
     writer
-      ..writeByte(2)
+      ..writeByte(4)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
-      ..write(obj.isBusiness);
+      ..write(obj.type)
+      ..writeByte(2)
+      ..write(obj.pinHash)
+      ..writeByte(3)
+      ..write(obj.createdAt);
   }
 
   @override
