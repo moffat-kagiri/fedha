@@ -1,88 +1,71 @@
-// app/lib/screens/dashboard_screen.dart
+// lib/screens/dashboard_screen.dart
 import 'package:flutter/material.dart';
-import 'package:hive/hive.dart';
 import 'package:provider/provider.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import '../models/transaction.dart';
-import '../services/auth_service.dart';
-import '../services/sync_service.dart';
-import '../widgets/summary_card.dart';
-import '../widgets/cash_flow_chart.dart';
-import '../widgets/transaction_list.dart';
-import 'add_transaction.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    // Access the provided Hive box
+    final transactionBox = Provider.of<Box<Transaction>>(context);
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Dashboard'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.sync),
-            onPressed: () {
-              final authService = context.read<AuthService>();
-              final syncService = context.read<SyncService>();
-              syncService.syncTransactions(authService.currentProfileId!);
-            },
-          ),
-        ],
-      ),
-      body: Consumer<Box<Transaction>>(
-        builder: (context, transactionBox, _) {
-          final transactions =
-              transactionBox.values
-                  .toList()
-                  .cast<Transaction>()
-                  .reversed
-                  .take(100) // Limit to 100 most recent
-                  .toList();
+      appBar: AppBar(title: const Text('Dashboard')),
+      body: ValueListenableBuilder(
+        valueListenable: transactionBox.listenable(),
+        builder: (context, Box<Transaction> box, _) {
+          final transactions = box.values.toList();
 
           // Calculate totals
           double income = transactions
-              .where((t) => t.type == 'IN')
+              .where((t) => t.type == TransactionType.income)
               .fold(0, (sum, t) => sum + t.amount);
 
-          double expense = transactions
-              .where((t) => t.type == 'EX')
+          double expenses = transactions
+              .where((t) => t.type == TransactionType.expense)
               .fold(0, (sum, t) => sum + t.amount);
 
           return Column(
             children: [
-              // Summary Cards
+              // Summary cards
               Row(
                 children: [
-                  SummaryCard(title: 'Income', amount: income),
-                  SummaryCard(title: 'Expense', amount: expense),
-                  SummaryCard(title: 'Balance', amount: income - expense),
+                  _buildSummaryCard('Income', income),
+                  _buildSummaryCard('Expenses', expenses),
+                  _buildSummaryCard('Balance', income - expenses),
                 ],
               ),
-
-              // Chart
-              Expanded(child: CashFlowChart(transactions: transactions)),
-
-              // Recent Transactions
-              const Expanded(child: TransactionList()),
+              // Transaction list
+              Expanded(
+                child: ListView.builder(
+                  itemCount: transactions.length,
+                  itemBuilder: (context, index) {
+                    final transaction = transactions[index];
+                    return ListTile(
+                      title: Text(transaction.amount.toString()),
+                      subtitle: Text(transaction.category.toString()),
+                    );
+                  },
+                ),
+              ),
             ],
           );
         },
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          final authService = context.read<AuthService>();
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder:
-                  (_) => AddTransactionScreen(
-                    profileId: authService.currentProfileId!,
-                  ),
-            ),
-          );
-        },
-        child: const Icon(Icons.add),
+    );
+  }
+
+  Widget _buildSummaryCard(String title, double amount) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(children: [Text(title), Text(amount.toStringAsFixed(2))]),
       ),
     );
   }
 }
+// This widget builds a summary card for the dashboard.
+// It takes a title and an amount as parameters and displays them.

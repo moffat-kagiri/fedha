@@ -23,9 +23,22 @@ void main() async {
   await Hive.openBox('profiles');
   await Hive.openBox<Transaction>('transactions'); // Specify generic type
 
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Hive
+  await Hive.initFlutter();
+  Hive.registerAdapter(TransactionAdapter());
+
+  // Open the transactions box
+  final transactionBox = await Hive.openBox<Transaction>('transactions');
+
   runApp(
     MultiProvider(
       providers: [
+        // Provide the opened Hive box
+        Provider<Box<Transaction>>.value(value: transactionBox),
+
+        // Add other providers as needed
         ChangeNotifierProvider<AuthService>(create: (_) => AuthService()),
         Provider<SyncService>(
           create:
@@ -43,12 +56,16 @@ void main() async {
 // Update MyApp in main.dart
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
-
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Fedha',
-      theme: ThemeData(primarySwatch: Colors.blue),
+      theme: ThemeData(
+        primaryColor: const Color.fromARGB(255, 0, 50, 91),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color.fromARGB(255, 0, 50, 91),
+        ),
+      ),
       home: const MainNavigationWrapper(),
     );
   }
@@ -92,3 +109,4 @@ class _MainNavigationWrapperState extends State<MainNavigationWrapper> {
     );
   }
 }
+// End of file
