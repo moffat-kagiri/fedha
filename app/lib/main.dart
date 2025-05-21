@@ -1,112 +1,71 @@
-//App entry point
-import 'package:hive_flutter/hive_flutter.dart';
-import 'models/profile.dart';
-import 'models/transaction.dart';
-import 'package:fedha/services/auth_service.dart';
-import 'package:fedha/services/sync_service.dart';
-import 'package:fedha/services/api_client.dart'; // Import ApiClient
+// lib/main.dart
 import 'package:flutter/material.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
-import 'screens/dashboard_screen.dart';
-import 'screens/profile_selector.dart';
-import 'widgets/transaction_list.dart';
+import 'models/transaction.dart';
+import 'models/profile.dart';
+
+Future<void> _initHive() async {
+  await Hive.initFlutter();
+
+  // Register adapters only once
+  if (!Hive.isAdapterRegistered(0)) {
+    Hive.registerAdapter(ProfileAdapter());
+  }
+  if (!Hive.isAdapterRegistered(1)) {
+    Hive.registerAdapter(TransactionAdapter());
+  }
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Hive.initFlutter();
 
-  // Register adapters first
-  Hive.registerAdapter(ProfileAdapter());
-  Hive.registerAdapter(TransactionAdapter());
+  try {
+    await _initHive();
+    final transactionBox = await Hive.openBox<Transaction>('transactions');
+    final profileBox = await Hive.openBox<Profile>('profiles');
 
-  // Open boxes once
-  await Hive.openBox('profiles');
-  await Hive.openBox<Transaction>('transactions'); // Specify generic type
-
-  WidgetsFlutterBinding.ensureInitialized();
-
-  // Initialize Hive
-  await Hive.initFlutter();
-  Hive.registerAdapter(TransactionAdapter());
-
-  // Open the transactions box
-  final transactionBox = await Hive.openBox<Transaction>('transactions');
-
-  runApp(
-    MultiProvider(
-      providers: [
-        // Provide the opened Hive box
-        Provider<Box<Transaction>>.value(value: transactionBox),
-
-        // Add other providers as needed
-        ChangeNotifierProvider<AuthService>(create: (_) => AuthService()),
-        Provider<SyncService>(
-          create:
-              (_) => SyncService(
-                apiClient: ApiClient(),
-                transactionBox: Hive.box<Transaction>('transactions'),
-              ),
-        ),
-      ],
-      child: const MyApp(),
-    ),
-  );
-}
-
-// Update MyApp in main.dart
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Fedha',
-      theme: ThemeData(
-        primaryColor: const Color.fromARGB(255, 0, 50, 91),
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color.fromARGB(255, 0, 50, 91),
-        ),
+    runApp(
+      MultiProvider(
+        providers: [
+          Provider<Box<Transaction>>.value(value: transactionBox),
+          Provider<Box<Profile>>.value(value: profileBox),
+          // Add other providers
+        ],
+        child: const MyApp(),
       ),
-      home: const MainNavigationWrapper(),
+    );
+  } catch (e) {
+    runApp(
+      MaterialApp(
+        home: Scaffold(body: Center(child: Text('Initialization failed: $e'))),
+      ),
     );
   }
 }
 
-class MainNavigationWrapper extends StatefulWidget {
-  const MainNavigationWrapper({super.key});
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
 
   @override
-  State<MainNavigationWrapper> createState() => _MainNavigationWrapperState();
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Budget Tracker',
+      theme: ThemeData(primarySwatch: Colors.blue),
+      home: const DashboardScreen(),
+      debugShowCheckedModeBanner: false,
+    );
+  }
 }
 
-class _MainNavigationWrapperState extends State<MainNavigationWrapper> {
-  int _selectedIndex = 0;
-
-  final List<Widget> _screens = [
-    const DashboardScreen(),
-    const TransactionList(), // Using existing TransactionList widget
-    const ProfileSelectorScreen(), // Using existing ProfileSelectorScreen
-  ];
+class DashboardScreen extends StatelessWidget {
+  const DashboardScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _screens[_selectedIndex],
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _selectedIndex,
-        onTap: (index) => setState(() => _selectedIndex = index),
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.dashboard),
-            label: 'Dashboard',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.list),
-            label: 'Transactions',
-          ),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
-        ],
-      ),
+      appBar: AppBar(title: const Text('Dashboard')),
+      body: Center(child: Text('Welcome to your Budget Tracker!')),
     );
   }
 }
-// End of file

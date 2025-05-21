@@ -9,11 +9,8 @@ part 'transaction.g.dart';
 @JsonSerializable(explicitToJson: true)
 class Transaction {
   @HiveField(0)
-  @JsonKey(name: 'id')
   final String uuid;
-
   @HiveField(1)
-  @JsonKey(name: 'amount')
   final double amount;
 
   @HiveField(2)
@@ -59,7 +56,7 @@ class Transaction {
     this.isSynced = false,
   }) : uuid = uuid ?? const Uuid().v4(),
        date = date ?? DateTime.now();
-
+  // Constructor for creating a transaction from JSON
   // JSON Serialization
   factory Transaction.fromJson(Map<String, dynamic> json) =>
       _$TransactionFromJson(json);
@@ -93,6 +90,9 @@ class Transaction {
   }
 }
 
+// ... other parameters ...
+
+// Enums with matching values to Django choices
 // Enums with matching values to Django choices
 enum TransactionType {
   income, // Maps to Django's 'IN'
