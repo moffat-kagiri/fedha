@@ -3,9 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/transaction.dart';
 
 class AddTransactionScreen extends StatefulWidget {
-  final String profileId;
-
-  const AddTransactionScreen({super.key, required this.profileId});
+  const AddTransactionScreen({super.key});
 
   @override
   State<AddTransactionScreen> createState() => _AddTransactionScreenState();
@@ -14,8 +12,6 @@ class AddTransactionScreen extends StatefulWidget {
 class _AddTransactionScreenState extends State<AddTransactionScreen> {
   final _formKey = GlobalKey<FormState>();
   final _amountController = TextEditingController();
-  final _notesController = TextEditingController();
-
   TransactionType _selectedType = TransactionType.expense;
   TransactionCategory _selectedCategory = TransactionCategory.other;
   DateTime _selectedDate = DateTime.now();
@@ -28,117 +24,66 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
         padding: const EdgeInsets.all(16.0),
         child: Form(
           key: _formKey,
-          child: Column(
+          child: ListView(
             children: [
-              // Transaction Type Dropdown
+              // Type selector
               DropdownButtonFormField<TransactionType>(
                 value: _selectedType,
                 items:
                     TransactionType.values.map((type) {
-                      return DropdownMenuItem<TransactionType>(
+                      return DropdownMenuItem(
                         value: type,
-                        child: Text(
-                          type.toString().split('.').last,
-                          style: Theme.of(context).textTheme.bodyMedium,
-                        ),
+                        child: Text(type.toString().split('.').last),
                       );
                     }).toList(),
-                onChanged: (TransactionType? newValue) {
-                  setState(() {
-                    _selectedType = newValue!;
-                  });
-                },
-                decoration: const InputDecoration(
-                  labelText: 'Transaction Type',
-                  border: OutlineInputBorder(),
-                ),
+                onChanged: (value) => setState(() => _selectedType = value!),
+                decoration: const InputDecoration(labelText: 'Type'),
               ),
 
-              const SizedBox(height: 16),
-
-              // Category Dropdown
+              // Category selector
               DropdownButtonFormField<TransactionCategory>(
                 value: _selectedCategory,
                 items:
                     TransactionCategory.values.map((category) {
-                      return DropdownMenuItem<TransactionCategory>(
+                      return DropdownMenuItem(
                         value: category,
-                        child: Text(
-                          category.toString().split('.').last,
-                          style: Theme.of(context).textTheme.bodyMedium,
-                        ),
+                        child: Text(category.toString().split('.').last),
                       );
                     }).toList(),
-                onChanged: (TransactionCategory? newValue) {
-                  setState(() {
-                    _selectedCategory = newValue!;
-                  });
-                },
-                decoration: const InputDecoration(
-                  labelText: 'Category',
-                  border: OutlineInputBorder(),
-                ),
+                onChanged:
+                    (value) => setState(() => _selectedCategory = value!),
+                decoration: const InputDecoration(labelText: 'Category'),
               ),
 
-              const SizedBox(height: 16),
-
-              // Amount Input
+              // Amount input
               TextFormField(
                 controller: _amountController,
                 keyboardType: TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(
-                  labelText: 'Amount',
-                  border: OutlineInputBorder(),
-                ),
+                decoration: const InputDecoration(labelText: 'Amount'),
                 validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter an amount';
-                  }
-                  if (double.tryParse(value) == null) {
-                    return 'Please enter a valid number';
-                  }
+                  if (value == null || value.isEmpty) return 'Required';
+                  if (double.tryParse(value) == null) return 'Invalid number';
                   return null;
                 },
               ),
 
-              const SizedBox(height: 16),
-
-              // Date Picker
+              // Date picker
               ListTile(
-                title: Text(
-                  'Date: ${_selectedDate.toLocal().toString().split(' ')[0]}',
-                ),
+                title: const Text('Date'),
+                subtitle: Text(_selectedDate.toString().split(' ')[0]),
                 trailing: const Icon(Icons.calendar_today),
                 onTap: () async {
-                  final DateTime? picked = await showDatePicker(
+                  final date = await showDatePicker(
                     context: context,
                     initialDate: _selectedDate,
                     firstDate: DateTime(2000),
                     lastDate: DateTime(2100),
                   );
-                  if (picked != null && picked != _selectedDate) {
-                    setState(() {
-                      _selectedDate = picked;
-                    });
-                  }
+                  if (date != null) setState(() => _selectedDate = date);
                 },
               ),
 
-              const SizedBox(height: 16),
-
-              // Notes Input
-              TextFormField(
-                controller: _notesController,
-                decoration: const InputDecoration(
-                  labelText: 'Notes (Optional)',
-                  border: OutlineInputBorder(),
-                ),
-                maxLines: 3,
-              ),
-
-              const SizedBox(height: 24),
-
-              // Submit Button
+              // Save button
               ElevatedButton(
                 onPressed: _saveTransaction,
                 child: const Text('Save Transaction'),
@@ -156,13 +101,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
         amount: double.parse(_amountController.text),
         type: _selectedType,
         category: _selectedCategory,
-        profileId: widget.profileId,
-        notes: _notesController.text.isNotEmpty ? _notesController.text : null,
         date: _selectedDate,
       );
-
-      // Save the transaction (to Hive or API)
-      // Example: Hive.box<Transaction>('transactions').add(transaction);
 
       Navigator.pop(context, transaction);
     }
@@ -171,7 +111,6 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   @override
   void dispose() {
     _amountController.dispose();
-    _notesController.dispose();
     super.dispose();
   }
 }

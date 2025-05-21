@@ -1,7 +1,7 @@
 // lib/screens/dashboard_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:hive_flutter/hive_flutter.dart';
+import 'package:hive/hive.dart';
 import '../models/transaction.dart';
 
 class DashboardScreen extends StatelessWidget {
@@ -9,7 +9,6 @@ class DashboardScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Access the provided Hive box
     final transactionBox = Provider.of<Box<Transaction>>(context);
 
     return Scaffold(
@@ -20,33 +19,50 @@ class DashboardScreen extends StatelessWidget {
           final transactions = box.values.toList();
 
           // Calculate totals
-          double income = transactions
+          final income = transactions
               .where((t) => t.type == TransactionType.income)
-              .fold(0, (sum, t) => sum + t.amount);
+              .fold(0.0, (sum, t) => sum + t.amount);
 
-          double expenses = transactions
+          final expenses = transactions
               .where((t) => t.type == TransactionType.expense)
-              .fold(0, (sum, t) => sum + t.amount);
+              .fold(0.0, (sum, t) => sum + t.amount);
 
           return Column(
             children: [
-              // Summary cards
-              Row(
-                children: [
-                  _buildSummaryCard('Income', income),
-                  _buildSummaryCard('Expenses', expenses),
-                  _buildSummaryCard('Balance', income - expenses),
-                ],
+              // Summary Cards
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Row(
+                  children: [
+                    _buildSummaryCard(context, 'Income', income, Colors.green),
+                    _buildSummaryCard(
+                      context,
+                      'Expenses',
+                      expenses,
+                      Colors.red,
+                    ),
+                    _buildSummaryCard(
+                      context,
+                      'Balance',
+                      income - expenses,
+                      Colors.blue,
+                    ),
+                  ],
+                ),
               ),
-              // Transaction list
+
+              // Recent Transactions
               Expanded(
                 child: ListView.builder(
-                  itemCount: transactions.length,
+                  itemCount: transactions.take(5).length,
                   itemBuilder: (context, index) {
                     final transaction = transactions[index];
                     return ListTile(
-                      title: Text(transaction.amount.toString()),
-                      subtitle: Text(transaction.category.toString()),
+                      title: Text('\$${transaction.amount.toStringAsFixed(2)}'),
+                      subtitle: Text(
+                        transaction.category.toString().split('.').last,
+                      ),
+                      trailing: Text(transaction.date.toString().split(' ')[0]),
                     );
                   },
                 ),
@@ -58,14 +74,32 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildSummaryCard(String title, double amount) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(children: [Text(title), Text(amount.toStringAsFixed(2))]),
+  Widget _buildSummaryCard(
+    BuildContext context,
+    String title,
+    double amount,
+    Color color,
+  ) {
+    return Expanded(
+      child: Card(
+        color: color.withOpacity(0.1),
+        child: Padding(
+          padding: const EdgeInsets.all(12.0),
+          child: Column(
+            children: [
+              Text(title, style: Theme.of(context).textTheme.titleSmall),
+              const SizedBox(height: 4),
+              Text(
+                '\$${amount.toStringAsFixed(2)}',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  color: color,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
 }
-// This widget builds a summary card for the dashboard.
-// It takes a title and an amount as parameters and displays them.
