@@ -102,6 +102,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
         type: _selectedType,
         category: _selectedCategory,
         date: _selectedDate,
+        profileId:
+            '1', // Replace with the actual profile ID from your authentication or state management
       );
 
       Navigator.pop(context, transaction);

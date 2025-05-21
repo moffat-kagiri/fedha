@@ -19,6 +19,7 @@ class TransactionList extends StatelessWidget {
             final transaction = box.getAt(index);
             return ListTile(
               leading: Icon(
+                // ignore: unrelated_type_equality_checks
                 transaction!.type == 'IN'
                     ? Icons.arrow_circle_up
                     : Icons.arrow_circle_down,

@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
 import 'screens/main_navigation.dart'; // New file we'll create
+import 'models/profile.dart'; // Import file containing ProfileAdapter
+import 'models/transaction.dart'; // Import file containing TransactionAdapter
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

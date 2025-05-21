@@ -1,5 +1,6 @@
 // lib/screens/main_navigation.dart
 import 'package:flutter/material.dart';
+import 'add_transaction.dart';
 import 'dashboard_screen.dart';
 import 'transactions_screen.dart';
 import 'profile_screen.dart';
