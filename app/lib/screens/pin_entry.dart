@@ -9,7 +9,11 @@ class PinEntryScreen extends StatelessWidget {
   final bool isNewProfile;
   final String profileId; // For existing profiles
 
-  const PinEntryScreen({super.key, required this.isNewProfile, this.profileId = ''});
+  const PinEntryScreen({
+    super.key,
+    required this.isNewProfile,
+    this.profileId = '',
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -33,15 +37,20 @@ class PinEntryScreen extends StatelessWidget {
                   isBusiness: true, // Or from previous screen
                   pin: pinController.text,
                 );
-                Navigator.pushReplacement(context, MaterialPageRoute(
-                  builder: (_) => DashboardScreen(),
-                ));
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (_) => DashboardScreen()),
+                );
               } else {
-                final success = await authService.login(profileId, pinController.text);
+                final success = await authService.login(
+                  profileId,
+                  pinController.text,
+                );
                 if (success) {
-                  Navigator.pushReplacement(context, MaterialPageRoute(
-                    builder: (_) => DashboardScreen(),
-                  ));
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(builder: (_) => DashboardScreen()),
+                  );
                 }
               }
             },

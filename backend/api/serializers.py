@@ -1,5 +1,15 @@
+# backend/api/serializers.py
 from rest_framework import serializers
 from .models import Transaction, Profile
+class ProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Profile
+        fields = ['id', 'name', 'profile_type', 'created_at']
+        read_only_fields = ['id', 'created_at']
+
+    def validate(self, data):
+        # Add any custom validation here
+        return data
 
 class TransactionSerializer(serializers.ModelSerializer):
     type = serializers.CharField(source='get_type_display')
