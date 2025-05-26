@@ -7,7 +7,6 @@ import 'models/transaction.dart'; // Import file containing TransactionAdapter
 import 'services/auth_service.dart'; // Import AuthService
 import 'screens/dashboard_screen.dart'; // Import DashboardScreen
 import 'screens/profile_screen.dart'; // Import ProfileScreen
-import 'screens/login_screen.dart'; // Import LoginScreen
 import 'screens/profile_type_screen.dart'; // Import ProfileTypeScreen
 
 void main() async {
@@ -34,6 +33,8 @@ void main() async {
 }
 
 class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     final authService = Provider.of<AuthService>(context);
@@ -48,7 +49,9 @@ class MyApp extends StatelessWidget {
                 authService.isLoggedIn
                     ? const DashboardScreen()
                     : const ProfileTypeScreen(),
-        '/login': (context) => const LoginScreen(),
+        '/login':
+            (context) =>
+                const ProfileTypeScreen(), // Redirect to ProfileTypeScreen to select a profile type first
         '/dashboard': (context) => const DashboardScreen(),
         '/profile': (context) => const ProfileScreen(),
       },

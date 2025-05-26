@@ -1,143 +1,288 @@
 # Fedha Budget Tracker
 
-A privacy-focused cross-platform budget tracker for SMEs and personal finance, offering advanced financial calculators, goal tracking, and cash flow analysis. Built with **Flutter (Android)**, **React.js (Web)**, **Django (Backend)**, and **Python (Financial Microservice)**.
+A privacy-focused cross-platform business and personal finance management system designed for SMEs and individuals. Features advanced financial calculators, invoice management, tax preparation, cash flow analysis, and comprehensive budget tracking. Built with **Flutter (Android)**, **React.js (Web)**, **Django (Backend)**, and **Python (Financial Microservice)**.
+
+---
+
+## **Key Features**
+
+### **Core Financial Management**
+- **UUID-based Authentication**: Complete privacy with randomized business/personal profile IDs
+- **Offline-First Design**: Hive database ensures functionality without internet connectivity
+- **Cross-Platform Sync**: Real-time data synchronization between mobile and web platforms
+- **Multi-Profile Support**: Separate business and personal financial tracking
+
+### **Advanced Financial Tools**
+- **Loan Calculators**: 
+  - Total cost of credit calculation with multiple interest models (simple, reducing balance)
+  - Reverse interest rate calculation from known repayment amounts
+  - Amortization schedule generation
+- **Investment Tracking**: ROI calculations and portfolio performance monitoring
+- **Goal Setting**: Financial targets with progress tracking and projections
+
+### **Business Features**
+- **Invoice Management**: 
+  - Professional invoice generation with customizable templates
+  - Invoice tracking (sent, paid, overdue)
+  - Client management and payment history
+  - Automated payment reminders
+- **Cash Flow Statements**: SME-focused operating, investing, and financing activity tracking
+- **Tax Preparation**: 
+  - Transaction categorization for tax compliance
+  - Automated tax report generation
+  - Deductible expense tracking
+  - Multi-period tax summaries
+
+### **Analytics & Reporting**
+- **Financial Ratios**: Liquidity, profitability, and efficiency metrics for businesses
+- **Trend Analysis**: Historical data visualization and forecasting
+- **Export Capabilities**: CSV/PDF reports for accountants and stakeholders
+- **Dashboard Analytics**: Real-time financial health indicators
 
 ---
 
 ## **Project Structure**
 
 ```bash
-Fedha-Budget-Tracker/
-├── app/ # Flutter Mobile App (Android)
-│ ├── lib/
-│ │ ├── models/ # Data classes (Transaction, Loan, Goal)
-│ │ ├── services/ # Business logic & utilities
-│ │ │ ├── auth_service.dart # UUID/PIN management
-│ │ │ ├── local_db.dart # Hive (offline storage)
-│ │ │ └── api_client.dart # Backend communication
-│ │ ├── widgets/ # Reusable UI components
-│ │ ├── screens/ # App screens (Dashboard, Transactions, etc.)
-│ │ └── main.dart # App entry point
-│ ├── assets/ # Icons, fonts, localization files
-│ └── pubspec.yaml # Flutter dependencies
+fedha/
+├── app/                           # Flutter Mobile Application
+│   ├── lib/
+│   │   ├── main.dart             # Application entry point
+│   │   ├── models/               # Data models with Hive adapters
+│   │   │   ├── profile.dart      # User profile model
+│   │   │   ├── transaction.dart  # Transaction model
+│   │   │   ├── invoice.dart      # Invoice model
+│   │   │   ├── loan.dart         # Loan model
+│   │   │   └── tax_record.dart   # Tax record model
+│   │   ├── screens/              # Application screens
+│   │   │   ├── dashboard_screen.dart
+│   │   │   ├── transaction_screen.dart
+│   │   │   ├── invoice_screen.dart
+│   │   │   ├── tax_screen.dart
+│   │   │   └── calculator_screen.dart
+│   │   ├── services/             # Business logic services
+│   │   │   ├── hive_service.dart # Local database management
+│   │   │   ├── api_service.dart  # Backend communication
+│   │   │   ├── invoice_service.dart # Invoice operations
+│   │   │   └── tax_service.dart  # Tax calculations
+│   │   ├── widgets/              # Reusable UI components
+│   │   └── utils/                # Utility functions
+│   ├── assets/                   # Application assets
+│   │   ├── fonts/               # Custom fonts
+│   │   ├── icons/               # SVG icons
+│   │   ├── images/              # Image assets
+│   │   └── logos/               # Brand logos
+│   ├── android/                 # Android platform configuration
+│   ├── ios/                     # iOS platform configuration
+│   └── pubspec.yaml            # Flutter dependencies
 │
-├── web/ # React.js Web App
-│ ├── src/
-│ │ ├── components/ # React components (Dashboard, Forms)
-│ │ ├── contexts/ # State management (Auth, Data)
-│ │ ├── hooks/ # Custom hooks (e.g., useLoans)
-│ │ ├── utils/ # Calculators, UUID generator, formatters
-│ │ └── App.js # Main router
-│ ├── public/ # Static assets
-│ └── package.json # Web dependencies
+├── backend/                     # Django REST API Backend
+│   ├── manage.py               # Django management script
+│   ├── requirements.txt        # Python dependencies
+│   ├── api/                    # Main API application
+│   │   ├── models.py          # Database models
+│   │   ├── serializers.py     # API serializers
+│   │   ├── views.py           # API endpoints
+│   │   ├── urls.py            # URL routing
+│   │   ├── admin.py           # Admin interface
+│   │   ├── migrations/        # Database migrations
+│   │   └── utils/             # Utility functions
+│   └── backend/               # Django project settings
+│       ├── settings.py        # Application configuration
+│       ├── urls.py           # Root URL configuration
+│       └── wsgi.py           # WSGI application
 │
-├── backend/ # Django Backend
-│ ├── fedha/
-│ │ ├── settings.py # Django config
-│ │ ├── urls.py # API routes
-│ │ └── wsgi.py
-│ ├── api/
-│ │ ├── models.py # Database schemas
-│ │ ├── serializers.py # Data serialization
-│ │ ├── views.py # API controllers
-│ │ └── utils/ # Data sync, error handling
-│ ├── manage.py
-│ └── requirements.txt # Python dependencies
+├── web/                       # React.js Web Application
+│   ├── src/
+│   │   ├── App.js            # Main application component
+│   │   ├── components/       # React components
+│   │   │   ├── Dashboard/    # Dashboard components
+│   │   │   ├── Invoices/     # Invoice management
+│   │   │   ├── Transactions/ # Transaction components
+│   │   │   └── Tax/          # Tax preparation components
+│   │   ├── contexts/         # React context providers
+│   │   ├── hooks/           # Custom React hooks
+│   │   └── utils/           # Utility functions
+│   ├── public/              # Static assets
+│   └── package.json         # Node.js dependencies
 │
-├── calculators-microservice/ # Python Financial Logic
-│ ├── interest_calculator.py # Loan/interest solvers
-│ └── requirements.txt # numpy, scipy
+├── calculators-microservice/ # Financial Calculation Engine
+│   ├── interest_calculator.py # Loan and interest calculations
+│   ├── tax_calculator.py     # Tax computation logic
+│   └── requirements.txt      # Python scientific dependencies
 │
-└── docs/ # Project documentation
-├── roadmap.md # Development checklist
-└── api-reference.md # Backend endpoints
+├── test_flows/              # Testing framework
+│   ├── api_tests/          # API integration tests
+│   └── e2e/               # End-to-end testing
+│
+└── docs/                   # Project documentation
+    ├── api-reference.md    # API documentation
+    └── roadmap.md         # Development roadmap
 ```
 
 ---
 
 ## **Setup Guide**
 
-### **1. Flutter Mobile App**
-**Prerequisites**:
-- Flutter 3.19+ and Dart 3.3+
-- Android Studio/Xcode
+### **Prerequisites**
+- **Flutter SDK 3.19+** with Dart 3.3+
+- **Node.js 18+** for web development
+- **Python 3.11+** with pip
+- **PostgreSQL 14+** (or SQLite for development)
+- **Android Studio** or **VS Code** with Flutter extension
 
-**Steps**:
-```bash
-cd app
-flutter pub get  # Install dependencies
-flutter run      # Launch app
-```
+### **1. Backend Setup (Django)**
 
-### **2. React Web App**
-**Prerequisites**:
-
-Node.js 18+
-
-Steps:
-
-```bash
-cd web
-npm install      # Install packages
-npm start        # Start dev server
-```
-
-### **3. Django Backend**
-Prerequisites:
-
--- Python 3.11+
-
--- PostgreSQL
-
-Steps:
-
-```bash
+```powershell
 cd backend
-python -m venv venv
-source venv/bin/activate  # Linux/macOS) or venv\Scripts\activate (Windows)
+python -m venv .venv
+.venv\Scripts\activate
 pip install -r requirements.txt
+
+# Database setup
 python manage.py migrate
-python manage.py runserver
+python manage.py createsuperuser  # Optional: for admin access
+python manage.py runserver 8000
 ```
 
-### **4. Python Calculators Microservice**
+### **2. Mobile App Setup (Flutter)**
 
-```bash
+```powershell
+cd app
+flutter pub get
+flutter doctor  # Verify setup
+flutter run     # Launch on connected device/emulator
+```
+
+### **3. Web App Setup (React.js)**
+
+```powershell
+cd web
+npm install
+npm start       # Starts development server on port 3000
+```
+
+### **4. Financial Calculators Microservice**
+
+```powershell
 cd calculators-microservice
 pip install -r requirements.txt
-# Integrate via API (see backend/api/services/calculator_service.py)
+# Integration handled via Django backend API calls
 ```
 
-## **Key Features**
+---
 
-**UUID Authentication**: Randomized user/business IDs (e.g., biz_8a7d2f).
+## **Database Schema Overview**
 
-**Offline Support**: Hive database for mobile app.
+The application uses an enhanced database schema designed for comprehensive financial management:
 
-**Loan Calculators**:
+### **Core Models**
+- **Profile**: Business/Personal account management with UUID-based privacy
+- **Transaction**: Income/expense tracking with advanced categorization
+- **Invoice**: Professional invoice generation and management
+- **Loan**: Complex loan tracking with multiple interest calculation models
+- **TaxRecord**: Automated tax preparation and compliance tracking
+- **Goal**: Financial target setting and progress monitoring
 
-Total repayment schedule from principal/rate.
+### **Advanced Features**
+- **Hierarchical Categories**: Parent-child category relationships for detailed classification
+- **Multi-Currency Support**: International business transaction handling
+- **Recurring Transactions**: Automated transaction scheduling
+- **Asset Management**: Depreciation tracking for business assets
+- **Client Management**: Customer relationship tracking for invoicing
 
-Interest rate reverse-calculation from repayments.
+---
 
-Sync: Real-time updates between app and web via Django REST API.
+## **API Endpoints**
 
-## **Environment Variables**
-Create .env files as needed:
+### **Authentication**
+- `POST /api/profiles/` - Create new profile
+- `POST /api/auth/verify-pin/` - PIN verification
 
-``` bash
-ini
-# backend/.env
-DATABASE_URL=postgres://user:pass@localhost:5432/fedha
-SECRET_KEY=django-secret-key
+### **Financial Management**
+- `GET/POST /api/transactions/` - Transaction CRUD operations
+- `GET/POST /api/invoices/` - Invoice management
+- `GET/POST /api/loans/` - Loan tracking
+- `GET /api/tax-reports/` - Tax preparation reports
+
+### **Analytics**
+- `GET /api/dashboard/summary/` - Financial overview
+- `GET /api/reports/cash-flow/` - Cash flow statements
+- `GET /api/analytics/trends/` - Financial trend analysis
+
+---
+
+## **Environment Configuration**
+
+Create environment files for each component:
+
+### **Backend (.env)**
+```env
+DEBUG=True
+SECRET_KEY=your-django-secret-key
+DATABASE_URL=postgresql://user:password@localhost:5432/fedha
+ALLOWED_HOSTS=localhost,127.0.0.1
+CORS_ALLOWED_ORIGINS=http://localhost:3000
 ```
 
-## **Dependencies**
+### **Web (.env.local)**
+```env
+REACT_APP_API_BASE_URL=http://localhost:8000/api
+REACT_APP_ENV=development
+```
 
-**Flutter**: hive, flutter_bloc, http, syncfusion_flutter_charts
+---
 
-**React**: axios, recharts, react-query, zustand
+## **Technology Stack**
 
-**Django**: djangorestframework, django-cors-headers, psycopg2
+### **Frontend**
+- **Flutter**: Cross-platform mobile development with Dart
+- **React.js**: Modern web application with hooks and context
+- **Material Design**: Consistent UI/UX across platforms
 
-**Python**: numpy, scipy (for numerical solvers)
+### **Backend**
+- **Django REST Framework**: Robust API development
+- **PostgreSQL**: Production-grade database with advanced features
+- **Hive**: Local offline storage for mobile app
+
+### **Financial Engine**
+- **NumPy/SciPy**: Advanced mathematical calculations
+- **Custom Algorithms**: Loan amortization and interest rate solving
+
+### **Key Dependencies**
+- **Flutter**: `hive_flutter`, `provider`, `http`, `syncfusion_flutter_charts`, `pdf`
+- **React**: `axios`, `recharts`, `react-query`, `material-ui`, `jspdf`
+- **Django**: `djangorestframework`, `django-cors-headers`, `psycopg2-binary`, `celery`
+- **Python**: `numpy`, `scipy`, `pandas`, `reportlab`
+
+---
+
+## **Security & Privacy**
+
+- **No Personal Data Collection**: Only UUID-based identification
+- **PIN-based Authentication**: Secure 4-digit PIN with salted hashing
+- **Offline-First Design**: Data remains on device until explicitly synced
+- **Encrypted Local Storage**: Sensitive data protection on mobile devices
+- **API Security**: JWT tokens and CSRF protection
+
+---
+
+## **Contributing**
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+---
+
+## **License**
+
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+
+---
+
+## **Support**
+
+For support, feature requests, or bug reports, please open an issue on GitHub or contact the development team.
