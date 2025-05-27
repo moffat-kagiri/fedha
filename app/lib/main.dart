@@ -2,27 +2,32 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
-import 'screens/main_navigation.dart'; // New file we'll create
 import 'models/profile.dart'; // Import file containing ProfileAdapter
 import 'models/transaction.dart'; // Import file containing TransactionAdapter
+import 'services/auth_service.dart'; // Import AuthService
+import 'screens/dashboard_screen.dart'; // Import DashboardScreen
+import 'screens/profile_screen.dart'; // Import ProfileScreen
+import 'screens/profile_type_screen.dart'; // Import ProfileTypeScreen
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
   await Hive.initFlutter();
-  if (!Hive.isAdapterRegistered(0)) Hive.registerAdapter(ProfileAdapter());
+  Hive.registerAdapter(ProfileAdapter());
+
   if (!Hive.isAdapterRegistered(1)) Hive.registerAdapter(TransactionAdapter());
 
-  final transactionBox = await Hive.openBox<Transaction>('transactions');
   final profileBox = await Hive.openBox<Profile>('profiles');
+  final transactionBox = await Hive.openBox<Transaction>('transactions');
+  final authService = AuthService();
 
   runApp(
     MultiProvider(
       providers: [
-        Provider<Box<Transaction>>.value(value: transactionBox),
         Provider<Box<Profile>>.value(value: profileBox),
+        Provider<Box<Transaction>>.value(value: transactionBox),
+        ChangeNotifierProvider(create: (_) => authService),
       ],
-      child: const MyApp(),
+      child: MyApp(),
     ),
   );
 }
@@ -32,11 +37,24 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final authService = Provider.of<AuthService>(context);
+
     return MaterialApp(
-      title: 'Budget Tracker',
-      theme: ThemeData(primarySwatch: Colors.blue, useMaterial3: true),
-      home: const MainNavigationWrapper(), // Updated home
-      debugShowCheckedModeBanner: false,
+      title: 'Fedha',
+      theme: ThemeData(primaryColor: const Color.fromARGB(255, 0, 122, 57)),
+      initialRoute: '/',
+      routes: {
+        '/':
+            (context) =>
+                authService.isLoggedIn
+                    ? const DashboardScreen()
+                    : const ProfileTypeScreen(),
+        '/login':
+            (context) =>
+                const ProfileTypeScreen(), // Redirect to ProfileTypeScreen to select a profile type first
+        '/dashboard': (context) => const DashboardScreen(),
+        '/profile': (context) => const ProfileScreen(),
+      },
     );
   }
 }

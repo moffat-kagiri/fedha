@@ -27,6 +27,15 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
 
+flutter:
+  assets:
+    - assets/icons/
+    - assets/images/
+    - assets/logos/
+  fonts:
+    - family: CustomFont
+      fonts:
+        - asset: assets/fonts/CustomFont-Regular.ttf
 #flutter:
   #uses-material-design: true
   #assets:

@@ -5,7 +5,8 @@ import 'package:http/http.dart' as http;
 import '../models/transaction.dart';
 
 class ApiClient {
-  static const String _baseUrl = "http://10.0.2.2:8000/api"; // Android emulator localhost
+  static const String _baseUrl =
+      "http://10.0.2.2:8000/api"; // Android emulator localhost
 
   // Create Profile
   Future<Map<String, dynamic>> createProfile({
@@ -46,6 +47,7 @@ class ApiClient {
     );
     return jsonDecode(response.body)['total_repayment'];
   }
+
   Future<Map<String, dynamic>> verifyProfile({
     required String profileId,
     required String pinHash,
@@ -53,16 +55,35 @@ class ApiClient {
     final response = await http.post(
       Uri.parse('$_baseUrl/profiles/verify/'),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'id': profileId,
-        'pin_hash': pinHash,
-      }),
+      body: jsonEncode({'id': profileId, 'pin_hash': pinHash}),
     );
-    
+
     if (response.statusCode != 200) {
       throw Exception('Failed to verify profile');
     }
-    
+
     return jsonDecode(response.body);
+  }
+
+  Future<Profile> createProfile({
+    required String? name,
+    required ProfileType profileType,
+    required String pin,
+  }) async {
+    final response = await _http.post(
+      Uri.parse('$_baseUrl/profiles/'),
+      body: jsonEncode({
+        'name': name,
+        'profile_type': profileType.toString().split('.').last,
+        'pin': pin,
+      }),
+      headers: {'Content-Type': 'application/json'},
+    );
+
+    if (response.statusCode == 201) {
+      return Profile.fromJson(jsonDecode(response.body));
+    } else {
+      throw Exception('Failed to create profile');
+    }
   }
 }
