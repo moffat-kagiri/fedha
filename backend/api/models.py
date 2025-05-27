@@ -144,12 +144,12 @@ class Profile(models.Model):
     # Base currency and localization
     base_currency = models.CharField(
         max_length=3,
-        default='USD',
+        default='KES',
         help_text="ISO 4217 currency code for primary calculations"
     )
     timezone = models.CharField(
         max_length=50,
-        default='UTC',
+        default='GMT+3',
         help_text="Timezone for date/time display"
     )
     
@@ -166,7 +166,8 @@ class Profile(models.Model):
         indexes = [
             models.Index(fields=['profile_type']),
             models.Index(fields=['created_at']),
-            models.Index(fields=['is_active']),        ]
+            models.Index(fields=['is_active']),
+            ]
         ordering = ['-created_at']
         verbose_name = "User Profile"
         verbose_name_plural = "User Profiles"
