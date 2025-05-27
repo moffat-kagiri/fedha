@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:fedha/screens/dashboard_screen.dart';
 import 'package:provider/provider.dart';
 
+import '../models/profile.dart';
+
 class PinEntryScreen extends StatelessWidget {
   final bool isNewProfile;
   final String profileId; // For existing profiles
@@ -43,7 +45,7 @@ class PinEntryScreen extends StatelessWidget {
                 );
               } else {
                 final success = await authService.login(
-                  profileId,
+                  ProfileType.business, // business profile type
                   pinController.text,
                 );
                 if (success) {

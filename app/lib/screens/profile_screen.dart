@@ -2,9 +2,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
+import '../models/profile.dart';
 import 'login_screen.dart';
-
-enum ProfileType { personal, business }
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -29,7 +28,7 @@ class ProfileScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Profile ID: ${currentProfile?.uuid}',
+                      'Profile ID: ${currentProfile?.id}',
                       style: const TextStyle(fontFamily: 'monospace'),
                     ),
                     const SizedBox(height: 8),
@@ -133,7 +132,9 @@ class ProfileScreen extends StatelessWidget {
     authService.logout();
     Navigator.pushAndRemoveUntil(
       context,
-      MaterialPageRoute(builder: (_) => const ProfileTypeScreen()),
+      MaterialPageRoute(
+        builder: (_) => const LoginScreen(profileType: ProfileType.personal),
+      ),
       (route) => false,
     );
   }

@@ -1,0 +1,400 @@
+# ==============================================================================
+# FEDHA PROJECT - COMPREHENSIVE .GITIGNORE
+# ==============================================================================
+# This file covers Flutter/Dart, Python/Django, Node.js/React, and general files
+# for the Fedha Budget Tracker multi-platform project
+# ==============================================================================
+
+# ==============================================================================
+# VIRTUAL ENVIRONMENTS & PYTHON ENVIRONMENTS
+# ==============================================================================
+# Virtual environment (your specific .en/ directory)
+.en/
+.env/
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Python virtual environments (various naming conventions)
+*venv/
+*env/
+.virtualenv/
+.pyenv/
+
+# Conda environments
+.conda/
+
+# ==============================================================================
+# PYTHON / DJANGO BACKEND
+# ==============================================================================
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+cover/
+
+# Django specific
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+media/
+staticfiles/
+static/
+
+# Django migrations (uncomment if you want to ignore migrations)
+# */migrations/*.py
+# !*/migrations/__init__.py
+
+# Celery
+celerybeat-schedule
+celerybeat.pid
+
+# SageMath parsed files
+*.sage.py
+
+# Environments
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Spyder project settings
+.spyderproject
+.spyproject
+
+# Rope project settings
+.ropeproject
+
+# mkdocs documentation
+/site
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# pytype static type analyzer
+.pytype/
+
+# Cython debug symbols
+cython_debug/
+
+# PyCharm
+.idea/
+
+# ==============================================================================
+# NODE.JS / REACT WEB FRONTEND
+# ==============================================================================
+# Dependencies
+node_modules/
+/.pnp
+.pnp.js
+
+# Testing
+/coverage
+
+# Production
+/build
+/dist
+
+# Misc
+.DS_Store
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Yarn
+.yarn-integrity
+.yarn/
+.pnp.*
+
+# Package manager locks (uncomment if you want to ignore them)
+# package-lock.json
+# yarn.lock
+
+# ==============================================================================
+# FLUTTER / DART MOBILE APP
+# ==============================================================================
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.buildlog/
+.history
+.svn/
+.swiftpm/
+migrate_working_dir/
+
+# IntelliJ related
+*.iml
+*.ipr
+*.iws
+
+# Flutter/Dart/Pub related
+**/doc/api/
+**/ios/Flutter/.last_build_id
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+/build/
+
+# Symbolication related
+app.*.symbols
+
+# Obfuscation related
+app.*.map.json
+
+# Android Studio will place build artifacts here
+/android/app/debug
+/android/app/profile
+/android/app/release
+
+# Generated files
+*.freezed.dart
+*.g.dart
+*.gr.dart
+*.config.dart
+*.gen.dart
+
+# Flutter build artifacts
+**/build/
+**/android/app/debug
+**/android/app/profile
+**/android/app/release
+
+# iOS build artifacts
+**/ios/build/
+**/ios/Runner.app.dSYM.zip
+
+# Web build artifacts
+**/web/build/
+
+# ==============================================================================
+# PLATFORM SPECIFIC
+# ==============================================================================
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# ==============================================================================
+# DEVELOPMENT TOOLS
+# ==============================================================================
+# VS Code (keep some settings, ignore others)
+.vscode/settings.json
+.vscode/tasks.json
+.vscode/launch.json
+.vscode/extensions.json
+.vscode/*.code-snippets
+.vscode/.ropeproject
+
+# Local History for Visual Studio Code
+.history/
+
+# Built Visual Studio Code Extensions
+*.vsix
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+
+# Diagnostic reports
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+*.lcov
+
+# nyc test coverage
+.nyc_output
+
+# ESLint cache
+.eslintcache
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Optional stylelint cache
+.stylelintcache
+
+# Microbundle cache
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
+
+# Temporary folders
+tmp/
+temp/
+
+# ==============================================================================
+# DATABASE & SECRETS
+# ==============================================================================
+# Local database files
+*.db
+*.sqlite
+*.sqlite3
+db.sqlite3-journal
+
+# Configuration files with secrets
+config/local.py
+config/production.py
+secrets.json
+.secrets/
+
+# SSL certificates
+*.pem
+*.key
+*.crt
+*.cert
+
+# ==============================================================================
+# MICROSERVICES
+# ==============================================================================
+# Calculator microservice specific
+calculators-microservice/__pycache__/
+calculators-microservice/*.pyc
+
+# ==============================================================================
+# DOCUMENTATION & OUTPUT
+# ==============================================================================
+# Documentation builds
+docs/_build/
+docs/build/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Backup files
+*.bak
+*.backup
+*.orig
+
+# ==============================================================================
+# TESTING & CI/CD
+# ==============================================================================
+# Test outputs
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+.tox/
+
+# CI/CD
+.github/workflows/secrets/
+
+# ==============================================================================
+# CUSTOM PROJECT FILES
+# ==============================================================================
+# Add any project-specific files or patterns here
+# Example:
+# custom-config.json
+# local-development-settings/

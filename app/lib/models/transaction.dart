@@ -40,10 +40,13 @@ class Transaction {
   @HiveField(6)
   @JsonKey(name: 'is_synced', defaultValue: false)
   bool isSynced;
-
   @HiveField(7)
   @JsonKey(name: 'profile_id')
   final String profileId;
+
+  @HiveField(8)
+  @JsonKey(name: 'updated_at', toJson: _dateToJson, fromJson: _dateFromJson)
+  final DateTime updatedAt;
 
   Transaction({
     required this.amount,
@@ -53,9 +56,11 @@ class Transaction {
     this.notes,
     String? uuid,
     DateTime? date,
+    DateTime? updatedAt,
     this.isSynced = false,
   }) : uuid = uuid ?? const Uuid().v4(),
-       date = date ?? DateTime.now();
+       date = date ?? DateTime.now(),
+       updatedAt = updatedAt ?? DateTime.now();
   // Constructor for creating a transaction from JSON
   // JSON Serialization
   factory Transaction.fromJson(Map<String, dynamic> json) =>
@@ -82,11 +87,10 @@ class Transaction {
   // Date Converters (UTC for backend, local for app)
   static String _dateToJson(DateTime date) => date.toUtc().toIso8601String();
   static DateTime _dateFromJson(String json) => DateTime.parse(json).toLocal();
-
   @override
   String toString() {
     return 'Transaction(uuid: $uuid, amount: $amount, type: $type, '
-        'category: $category, date: $date, profileId: $profileId)';
+        'category: $category, date: $date, updatedAt: $updatedAt, profileId: $profileId)';
   }
 }
 
