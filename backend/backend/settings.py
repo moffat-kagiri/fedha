@@ -127,3 +127,55 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 CORS_ALLOW_ALL_ORIGINS = True  # For development only
+
+# =============================================================================
+# EMAIL CONFIGURATION FOR CREDENTIAL DELIVERY
+# =============================================================================
+
+# Email backend configuration
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'  # For development
+# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'  # For production
+
+# SMTP Configuration (uncomment for production)
+# EMAIL_HOST = 'smtp.gmail.com'  # or your email provider
+# EMAIL_PORT = 587
+# EMAIL_USE_TLS = True
+# EMAIL_HOST_USER = 'your-email@example.com'
+# EMAIL_HOST_PASSWORD = 'your-app-password'
+
+# Default email settings
+DEFAULT_FROM_EMAIL = 'noreply@fedha.app'
+SERVER_EMAIL = 'admin@fedha.app'
+
+# =============================================================================
+# REST FRAMEWORK CONFIGURATION
+# =============================================================================
+
+REST_FRAMEWORK = {
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.AllowAny',  # For development
+    ],
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.SessionAuthentication',
+    ],
+    'DEFAULT_RENDERER_CLASSES': [
+        'rest_framework.renderers.JSONRenderer',
+    ],
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 20
+}
+
+# =============================================================================
+# FEDHA SPECIFIC SETTINGS
+# =============================================================================
+
+# PIN Security Settings
+FEDHA_PIN_SALT = 'fedha-secure-salt-2025'  # Change in production
+FEDHA_PIN_HASH_ITERATIONS = 100000
+
+# UUID Generation Settings
+FEDHA_BUSINESS_PREFIX = 'B'
+FEDHA_PERSONAL_PREFIX = 'P'
+
+# Temporary PIN Settings
+FEDHA_TEMP_PIN_EXPIRY_HOURS = 24

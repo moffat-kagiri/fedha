@@ -1,30 +1,54 @@
+# api/urls.py
 """
-URL configuration for backend project.
+Fedha Budget Tracker - API URL Configuration
 
-The `urlpatterns` list routes URLs to views. For more information please see:
-    https://docs.djangoproject.com/en/4.2/topics/http/urls/
-Examples:
-Function views
-    1. Add an import:  from my_app import views
-    2. Add a URL to urlpatterns:  path('', views.home, name='home')
-Class-based views
-    1. Add an import:  from other_app.views import Home
-    2. Add a URL to urlpatterns:  path('', Home.as_view(), name='home')
-Including another URLconf
-    1. Import the include() function: from django.urls import include, path
-    2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
+This module defines URL patterns for the Fedha Budget Tracker API,
+including complete authentication flow endpoints.
+
+Authentication Flow:
+1. GET /auth/account-types/ - Get available account types
+2. POST /auth/account-types/ - Select account type and create profile
+3. POST /auth/login/ - Login with profile ID and PIN
+4. POST /auth/change-pin/ - Change PIN (first-time or regular)
+5. GET /auth/dashboard/ - Get dashboard data
+6. POST /auth/email-credentials/ - Request credentials via email
+7. GET /auth/status/ - Check authentication status
+
+Author: Fedha Development Team  
+Last Updated: May 26, 2025
 """
-from django.contrib import admin
+
 from django.urls import path
 from . import views
 
-urlpatterns = [
-    path('admin/', admin.site.urls),
-    # Profile/Data Endpoints
-    path('profiles/', views.ProfileListCreate.as_view()),  # Create UUID profile
-    path('sync/<str:profile_id>/', views.SyncData.as_view()),  # Sync transactions
-    
-    # Calculators
-    path('calculate-repayment/', views.RepaymentCalculator.as_view()),
-    path('reverse-interest-rate/', views.InterestRateSolver.as_view()),
+# Authentication endpoints
+auth_patterns = [
+    path('account-types/', views.AccountTypeSelectionView.as_view(), name='account-types'),
+    path('register/', views.ProfileRegistrationView.as_view(), name='register'),
+    path('login/', views.ProfileLoginView.as_view(), name='login'),
+    path('change-pin/', views.PINChangeView.as_view(), name='change-pin'),
+    path('email-credentials/', views.EmailCredentialsView.as_view(), name='email-credentials'),
+    path('dashboard/', views.DashboardView.as_view(), name='dashboard'),
+    path('status/', views.auth_status, name='auth-status'),
 ]
+
+# Profile management endpoints
+profile_patterns = [
+    path('profiles/', views.ProfileListCreateView.as_view(), name='profile-list'),
+    path('profiles/<str:pk>/', views.ProfileDetailView.as_view(), name='profile-detail'),
+]
+
+urlpatterns = [
+    # Authentication routes
+    *[path(f'auth/{pattern.pattern}', pattern.callback, kwargs=pattern.kwargs, name=f'auth-{pattern.name}') 
+      for pattern in auth_patterns],
+    
+    # Profile management routes  
+    *profile_patterns,
+    
+    # Health check endpoint
+    path('health/', lambda request: JsonResponse({'status': 'healthy'}), name='health-check'),
+]
+
+# Import JsonResponse for health check
+from django.http import JsonResponse
