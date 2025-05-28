@@ -11,6 +11,7 @@ import 'models/client.dart';
 import 'models/invoice.dart';
 import 'models/goal.dart';
 import 'models/budget.dart';
+import 'models/sync_queue_item.dart';
 
 // Enum Adapters
 import 'adapters/enum_adapters.dart' as enum_adapters;
@@ -18,7 +19,6 @@ import 'adapters/enum_adapters.dart' as enum_adapters;
 // Services
 import 'services/auth_service.dart';
 import 'services/api_client.dart';
-import 'services/local_db.dart';
 import 'services/offline_data_service.dart';
 import 'services/enhanced_sync_service.dart';
 
@@ -27,14 +27,36 @@ import 'screens/dashboard_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/profile_type_screen.dart';
 
+Future<void> initializeHive() async {
+  await Hive.initFlutter();
+  // Register all adapters
+  Hive.registerAdapter(ProfileAdapter());
+  Hive.registerAdapter(TransactionAdapter());
+  Hive.registerAdapter(enum_adapters.TransactionTypeAdapter());
+  Hive.registerAdapter(enum_adapters.TransactionCategoryAdapter());
+  Hive.registerAdapter(CategoryAdapter());
+  Hive.registerAdapter(ClientAdapter());
+  Hive.registerAdapter(InvoiceAdapter());
+  Hive.registerAdapter(GoalAdapter());
+  Hive.registerAdapter(BudgetAdapter());
+  Hive.registerAdapter(SyncQueueItemAdapter());
+
+  // Open boxes
+  await Hive.openBox<Profile>('profiles');
+  await Hive.openBox<Transaction>('transactions');
+  await Hive.openBox<Category>('categories');
+  await Hive.openBox<Client>('clients');
+  await Hive.openBox<Invoice>('invoices');
+  await Hive.openBox<Goal>('goals');
+  await Hive.openBox<Budget>('budgets');
+  await Hive.openBox<SyncQueueItem>('sync_queue');
+  await Hive.openBox('settings');
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Register all type adapters
-  await _registerTypeAdapters();
-
-  // Initialize local database service
-  await LocalDatabaseService.initialize();
+  await initializeHive();
 
   // Initialize services
   final apiClient = ApiClient();
@@ -53,55 +75,9 @@ void main() async {
         Provider<EnhancedSyncService>.value(value: syncService),
         ChangeNotifierProvider(create: (_) => authService),
       ],
-      child: MyApp(),
+      child: const MyApp(),
     ),
   );
-}
-
-Future<void> _registerTypeAdapters() async {
-  // Register model adapters
-  if (!Hive.isAdapterRegistered(0)) Hive.registerAdapter(ProfileAdapter());
-  if (!Hive.isAdapterRegistered(1)) Hive.registerAdapter(TransactionAdapter());
-  if (!Hive.isAdapterRegistered(2)) Hive.registerAdapter(CategoryAdapter());
-  if (!Hive.isAdapterRegistered(3)) Hive.registerAdapter(ClientAdapter());
-  if (!Hive.isAdapterRegistered(4)) Hive.registerAdapter(InvoiceAdapter());
-  if (!Hive.isAdapterRegistered(5)) {
-    Hive.registerAdapter(InvoiceLineItemAdapter());
-  }
-  if (!Hive.isAdapterRegistered(6)) Hive.registerAdapter(GoalAdapter());
-  if (!Hive.isAdapterRegistered(7)) Hive.registerAdapter(BudgetAdapter());
-  if (!Hive.isAdapterRegistered(8)) {
-    Hive.registerAdapter(BudgetLineItemAdapter());
-  }
-
-  // Register enum adapters
-  if (!Hive.isAdapterRegistered(10)) {
-    Hive.registerAdapter(enum_adapters.ProfileTypeAdapter());
-  }
-  if (!Hive.isAdapterRegistered(11)) {
-    Hive.registerAdapter(enum_adapters.TransactionTypeAdapter());
-  }
-  if (!Hive.isAdapterRegistered(12)) {
-    Hive.registerAdapter(enum_adapters.TransactionCategoryAdapter());
-  }
-  if (!Hive.isAdapterRegistered(13)) {
-    Hive.registerAdapter(enum_adapters.CategoryTypeAdapter());
-  }
-  if (!Hive.isAdapterRegistered(14)) {
-    Hive.registerAdapter(enum_adapters.InvoiceStatusAdapter());
-  }
-  if (!Hive.isAdapterRegistered(15)) {
-    Hive.registerAdapter(enum_adapters.GoalTypeAdapter());
-  }
-  if (!Hive.isAdapterRegistered(16)) {
-    Hive.registerAdapter(enum_adapters.GoalStatusAdapter());
-  }
-  if (!Hive.isAdapterRegistered(17)) {
-    Hive.registerAdapter(enum_adapters.BudgetPeriodAdapter());
-  }
-  if (!Hive.isAdapterRegistered(18)) {
-    Hive.registerAdapter(enum_adapters.BudgetStatusAdapter());
-  }
 }
 
 class MyApp extends StatelessWidget {

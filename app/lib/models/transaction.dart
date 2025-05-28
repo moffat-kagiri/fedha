@@ -5,61 +5,47 @@ import 'package:uuid/uuid.dart';
 
 part 'transaction.g.dart';
 
-@HiveType(typeId: 1)
+@HiveType(typeId: 0)
 @JsonSerializable(explicitToJson: true)
-class Transaction {
+class Transaction extends HiveObject {
   @HiveField(0)
-  final String uuid;
+  String uuid;
+
   @HiveField(1)
-  final double amount;
+  double amount;
 
   @HiveField(2)
-  @JsonKey(
-    name: 'type',
-    toJson: _transactionTypeToJson,
-    fromJson: _transactionTypeFromJson,
-  )
-  final TransactionType type;
+  TransactionType type;
 
   @HiveField(3)
-  @JsonKey(
-    name: 'category',
-    toJson: _categoryToJson,
-    fromJson: _categoryFromJson,
-  )
-  final TransactionCategory category;
+  TransactionCategory category;
 
   @HiveField(4)
-  @JsonKey(name: 'date', toJson: _dateToJson, fromJson: _dateFromJson)
-  final DateTime date;
+  DateTime date;
 
   @HiveField(5)
-  @JsonKey(name: 'notes')
-  final String? notes;
+  String? notes;
 
   @HiveField(6)
-  @JsonKey(name: 'is_synced', defaultValue: false)
   bool isSynced;
+
   @HiveField(7)
-  @JsonKey(name: 'profile_id')
-  final String profileId;
+  String profileId;
 
   @HiveField(8)
-  @JsonKey(name: 'updated_at', toJson: _dateToJson, fromJson: _dateFromJson)
-  final DateTime updatedAt;
+  DateTime updatedAt;
 
   Transaction({
+    String? uuid,
     required this.amount,
     required this.type,
     required this.category,
-    required this.profileId,
+    required this.date,
     this.notes,
-    String? uuid,
-    DateTime? date,
-    DateTime? updatedAt,
     this.isSynced = false,
+    required this.profileId,
+    DateTime? updatedAt,
   }) : uuid = uuid ?? const Uuid().v4(),
-       date = date ?? DateTime.now(),
        updatedAt = updatedAt ?? DateTime.now();
   // Constructor for creating a transaction from JSON
   // JSON Serialization
@@ -94,9 +80,6 @@ class Transaction {
   }
 }
 
-// ... other parameters ...
-
-// Enums with matching values to Django choices
 // Enums with matching values to Django choices
 enum TransactionType {
   income, // Maps to Django's 'IN'
