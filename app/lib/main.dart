@@ -23,9 +23,9 @@ import 'services/offline_data_service.dart';
 import 'services/enhanced_sync_service.dart';
 
 // Screens
-import 'screens/dashboard_screen.dart';
+import 'screens/signin_screen.dart';
+import 'screens/main_navigation.dart';
 import 'screens/profile_screen.dart';
-import 'screens/profile_type_screen.dart';
 
 Future<void> initializeHive() async {
   await Hive.initFlutter();
@@ -82,25 +82,25 @@ void main() async {
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
-
   @override
   Widget build(BuildContext context) {
     final authService = Provider.of<AuthService>(context);
 
     return MaterialApp(
-      title: 'Fedha',
-      theme: ThemeData(primaryColor: const Color.fromARGB(255, 0, 122, 57)),
+      title: 'Fedha Budget Tracker',
+      theme: ThemeData(
+        primaryColor: const Color(0xFF007A39),
+        fontFamily: 'SF Pro Display',
+      ),
       initialRoute: '/',
       routes: {
         '/':
             (context) =>
                 authService.isLoggedIn
-                    ? const DashboardScreen()
-                    : const ProfileTypeScreen(),
-        '/login':
-            (context) =>
-                const ProfileTypeScreen(), // Redirect to ProfileTypeScreen to select a profile type first
-        '/dashboard': (context) => const DashboardScreen(),
+                    ? const MainNavigation()
+                    : const SignInScreen(),
+        '/signin': (context) => const SignInScreen(),
+        '/dashboard': (context) => const MainNavigation(),
         '/profile': (context) => const ProfileScreen(),
       },
     );

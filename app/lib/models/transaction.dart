@@ -22,19 +22,20 @@ class Transaction extends HiveObject {
 
   @HiveField(4)
   DateTime date;
-
   @HiveField(5)
   String? notes;
 
   @HiveField(6)
-  bool isSynced;
+  String? description;
 
   @HiveField(7)
-  String profileId;
+  bool isSynced;
 
   @HiveField(8)
-  DateTime updatedAt;
+  String profileId;
 
+  @HiveField(9)
+  DateTime updatedAt;
   Transaction({
     String? uuid,
     required this.amount,
@@ -42,6 +43,7 @@ class Transaction extends HiveObject {
     required this.category,
     required this.date,
     this.notes,
+    this.description,
     this.isSynced = false,
     required this.profileId,
     DateTime? updatedAt,

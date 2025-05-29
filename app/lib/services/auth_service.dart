@@ -52,6 +52,67 @@ class AuthService extends ChangeNotifier {
 
   bool get isLoggedIn => _currentProfile != null;
 
+  // Verify PIN with user ID and account type
+  Future<bool> verifyPin(
+    String userId,
+    String pin,
+    ProfileType accountType,
+  ) async {
+    try {
+      // For now, simulate PIN verification based on user ID format and PIN
+      // In a real app, you would validate against stored user data
+
+      // Check if userId format matches account type
+      final isValidFormat =
+          (accountType == ProfileType.business &&
+              userId.toLowerCase().startsWith('biz-')) ||
+          (accountType == ProfileType.personal &&
+              userId.toLowerCase().startsWith('per-'));
+
+      if (!isValidFormat) {
+        return false;
+      }
+
+      // For demo purposes, accept any 4-digit PIN for now
+      // In production, you'd validate against stored PIN hash
+      if (pin.length == 4 && RegExp(r'^[0-9]+$').hasMatch(pin)) {
+        // Create a temporary profile for the session
+        final profileBox = await Hive.openBox('profiles');
+
+        // Check if profile exists, if not create a temporary one
+        String profileId = userId;
+        var existingProfile = profileBox.get(profileId);
+
+        if (existingProfile == null) {
+          // Create a new profile entry
+          existingProfile = {
+            'id': profileId,
+            'type': accountType,
+            'pinHash': hashPin(pin),
+          };
+          await profileBox.put(profileId, existingProfile);
+        }
+
+        // Set current profile
+        _currentProfile = Profile(
+          id: profileId,
+          type: accountType,
+          pinHash: hashPin(pin),
+        );
+
+        notifyListeners();
+        return true;
+      }
+
+      return false;
+    } catch (e) {
+      if (kDebugMode) {
+        print('PIN verification error: $e');
+      }
+      return false;
+    }
+  }
+
   // Generate new profile ID (e.g., "biz_abc123" or "personal_xyz789")
   String generateProfileId({required bool isBusiness}) {
     final prefix = isBusiness ? 'biz' : 'personal';

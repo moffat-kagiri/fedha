@@ -33,15 +33,7 @@ flutter:
     - assets/icons/
     - assets/images/
     - assets/logos/
-  fonts:    - family: CustomFont
+  fonts:
+    - family: CustomFont
       fonts:
         - asset: assets/fonts/CustomFont-Regular.ttf
-  #      - asset: assets/fonts/Montserrat-Medium.ttf
-  #        weight: 500
-  #      - asset: assets/fonts/Montserrat-Bold.ttf
-  #        weight: 700
-  #      - asset: assets/fonts/Montserrat-Italic.ttf
-  #        style: italic
-  #      - asset: assets/fonts/Montserrat-BoldItalic.ttf
-  #        weight: 700
-  #       style: italic
