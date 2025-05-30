@@ -1,3 +1,4 @@
 {
-    "cmake.sourceDirectory": "C:/Users/MOFFAT KAGIRI/Documents/GitHub/fedha/app/windows"
+    "cmake.sourceDirectory": "C:/Users/MOFFAT KAGIRI/Documents/GitHub/fedha/app/windows",
+    "git.ignoreLimitWarning": true
 }

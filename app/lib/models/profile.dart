@@ -4,7 +4,7 @@ import 'package:uuid/uuid.dart';
 
 part 'profile.g.dart';
 
-@HiveType(typeId: 0)
+@HiveType(typeId: 1)
 class Profile {
   @HiveField(0)
   final String id;

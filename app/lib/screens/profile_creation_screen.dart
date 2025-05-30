@@ -124,9 +124,9 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
     try {
       final apiClient = Provider.of<ApiClient>(context, listen: false);
       final newProfile = await apiClient.createProfile(
-        name: _nameController.text,
-        profileType: _selectedType,
-        pin: _pinController.text,
+        profileId: DateTime.now().millisecondsSinceEpoch.toString(),
+        isBusiness: _selectedType == ProfileType.business,
+        pinHash: _pinController.text, // You may want to hash this properly
       );
 
       if (!mounted) return;

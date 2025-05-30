@@ -120,7 +120,7 @@ class Profile(models.Model):
     
     id = models.CharField(
         primary_key=True,
-        max_length=9,  # Changed to accommodate B-XXXXXXX or P-XXXXXXX format
+        max_length=9,  # B-XXXXXXX or P-XXXXXXX format
         editable=False,
         verbose_name="Profile ID",
         help_text="Unique identifier with B/P prefix for business/personal accounts (9 chars: X-XXXXXXX)"
@@ -144,12 +144,12 @@ class Profile(models.Model):
     # Base currency and localization
     base_currency = models.CharField(
         max_length=3,
-        default='USD',
+        default='KES',
         help_text="ISO 4217 currency code for primary calculations"
     )
     timezone = models.CharField(
         max_length=50,
-        default='UTC',
+        default='GMT+3',
         help_text="Timezone for date/time display"
     )
     
@@ -160,21 +160,36 @@ class Profile(models.Model):
     is_active = models.BooleanField(
         default=True,
         help_text="Soft delete flag - inactive profiles cannot authenticate"
-    )
-
+    )    
     class Meta:
+        app_label = 'fedha'
         indexes = [
             models.Index(fields=['profile_type']),
             models.Index(fields=['created_at']),
-            models.Index(fields=['is_active']),        ]
+            models.Index(fields=['is_active']),
+            ]
         ordering = ['-created_at']
         verbose_name = "User Profile"
         verbose_name_plural = "User Profiles"
 
+    def get_profile_type_display(self):
+        """
+        Return human-readable display name for profile type.
+        
+        Returns:
+            String representation of the profile type
+        """
+        # Django automatically provides this method via TextChoices,
+        # but we can customize it if needed
+        type_mapping = {
+            'BIZ': 'Business',
+            'PERS': 'Personal'
+        }
+        return type_mapping.get(self.profile_type, self.profile_type)
+
     def __str__(self):
         display_name = self.name or "Unnamed Profile"
-        profile_type_display = self.get_profile_type_display()
-        return f"{display_name} ({profile_type_display})"
+        return f"{display_name} ({self.get_profile_type_display()})"
     
     def save(self, *args, **kwargs):
         """
@@ -312,9 +327,9 @@ class Category(models.Model):
         blank=True,
         help_text="Detailed description of category usage"
     )
-    created_at = models.DateTimeField(auto_now_add=True)
-
+    created_at = models.DateTimeField(auto_now_add=True)    
     class Meta:
+        app_label = 'fedha'
         indexes = [
             models.Index(fields=['profile', 'type']),
             models.Index(fields=['parent']),
@@ -444,9 +459,9 @@ class Client(models.Model):
     notes = models.TextField(
         blank=True,
         help_text="Internal notes about this client"
-    )
-
+    )    
     class Meta:
+        app_label = 'fedha'
         indexes = [
             models.Index(fields=['profile', 'is_active']),
             models.Index(fields=['name']),
@@ -659,9 +674,9 @@ class EnhancedTransaction(models.Model):
     
     # Audit trail
     created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
+    updated_at = models.DateTimeField(auto_now=True)    
     class Meta:
+        app_label = 'fedha'
         indexes = [
             models.Index(fields=['profile', 'date']),
             models.Index(fields=['type', 'date']),
@@ -675,7 +690,14 @@ class EnhancedTransaction(models.Model):
         verbose_name_plural = "Transactions"
 
     def __str__(self):
-        type_display = self.get_type_display()
+        # Get human-readable type display
+        type_mapping = {
+            'IN': 'Income',
+            'EX': 'Expense', 
+            'TR': 'Transfer',
+            'ADJ': 'Adjustment'
+        }
+        type_display = type_mapping.get(self.type, self.type)
         return f"{type_display}: {self.currency} {self.amount} - {self.description}"
 
     @property
@@ -868,9 +890,9 @@ class Invoice(models.Model):
     
     # Metadata
     created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
+    updated_at = models.DateTimeField(auto_now=True)    
     class Meta:
+        app_label = 'fedha'
         indexes = [
             models.Index(fields=['profile', 'status']),
             models.Index(fields=['client', 'status']),
@@ -901,7 +923,7 @@ class Invoice(models.Model):
     @property
     def days_overdue(self):
         """Calculate days past due date."""
-        if self.is_overdue:
+        if self.is_overdue:        
             return (timezone.now().date() - self.due_date).days
         return 0
 
@@ -911,9 +933,13 @@ class Invoice(models.Model):
         return (timezone.now().date() - self.issue_date).days
 
     def calculate_totals(self):
-        # Calculate totals from line items
-        line_items = self.line_items.all()
-        line_items_total = sum(item.total for item in line_items)
+        # Calculate totals from line items using explicit query to avoid forward reference issues
+        from django.apps import apps
+        InvoiceLineItem = apps.get_model('api', 'InvoiceLineItem')
+        line_items = InvoiceLineItem.objects.filter(invoice=self)
+        line_items_total = line_items.aggregate(
+            total=models.Sum('total')
+        )['total'] or Decimal('0')
         self.subtotal = line_items_total
         self.discount_amount = (self.subtotal * self.discount_percentage) / 100
         discounted_subtotal = self.subtotal - self.discount_amount
@@ -1006,9 +1032,9 @@ class InvoiceLineItem(models.Model):
         help_text="Display order on invoice"
     )
     
-    created_at = models.DateTimeField(auto_now_add=True)
-
+    created_at = models.DateTimeField(auto_now_add=True)    
     class Meta:
+        app_label = 'fedha'
         ordering = ['sort_order', 'id']
         verbose_name = "Invoice Line Item"
         verbose_name_plural = "Invoice Line Items"
@@ -1097,9 +1123,9 @@ class Loan(models.Model):
     )
     notes = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
+    updated_at = models.DateTimeField(auto_now=True)    
     class Meta:
+        app_label = 'fedha'
         indexes = [
             models.Index(fields=['profile', 'status']),
             models.Index(fields=['maturity_date']),
@@ -1170,9 +1196,9 @@ class LoanPayment(models.Model):
     is_paid = models.BooleanField(default=False)
     is_late = models.BooleanField(default=False)
     notes = models.TextField(blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-
+    created_at = models.DateTimeField(auto_now_add=True)    
     class Meta:
+        app_label = 'fedha'
         indexes = [
             models.Index(fields=['loan', 'payment_number']),
             models.Index(fields=['scheduled_date']),
@@ -1229,9 +1255,9 @@ class Goal(models.Model):
     last_reminder_sent = models.DateTimeField(null=True, blank=True)
     notes = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
+    updated_at = models.DateTimeField(auto_now=True)    
+    class Meta:        
+        app_label = 'fedha'
         indexes = [
             models.Index(fields=['profile', 'status']),
             models.Index(fields=['target_date']),
@@ -1240,7 +1266,19 @@ class Goal(models.Model):
         ordering = ['target_date', '-created_at']
 
     def __str__(self):
-        return f"{self.name} - {self.get_goal_type_display()}"
+        # Get human-readable goal type display
+        goal_type_mapping = {
+            'SAVINGS': 'Savings Goal',
+            'DEBT': 'Debt Reduction',
+            'INVESTMENT': 'Investment Target',
+            'EXPENSE': 'Expense Reduction',
+            'INCOME': 'Income Increase',
+            'EMERGENCY': 'Emergency Fund',
+            'RETIREMENT': 'Retirement Planning',
+            'OTHER': 'Other'
+        }
+        goal_type_display = goal_type_mapping.get(self.goal_type, self.goal_type)
+        return f"{self.name} - {goal_type_display}"
 
     @property
     def progress_percentage(self):
@@ -1274,10 +1312,13 @@ class TaxJurisdiction(models.Model):
     tax_year_start = models.CharField(max_length=5)
     standard_tax_rate = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal('0'))
     vat_rate = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal('0'))
-    is_active = models.BooleanField(default=True)
+    is_active = models.BooleanField(default=True)    
     created_at = models.DateTimeField(auto_now_add=True)
+    
     class Meta:
+        app_label = 'fedha'
         unique_together = ['name', 'country_code']
+    
     def __str__(self):
         return f"{self.name} ({self.country_code})"
 
@@ -1296,12 +1337,23 @@ class TaxCategory(models.Model):
     deduction_limit_annual = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
     deduction_percentage = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     is_active = models.BooleanField(default=True)
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True)    
     class Meta:
+        app_label = 'fedha'
         unique_together = ['jurisdiction', 'name']
         verbose_name_plural = "Tax Categories"
+
     def __str__(self):
-        return f"{self.name} ({self.get_treatment_display()})"
+        # Get human-readable treatment display
+        treatment_mapping = {
+            'DEDUCTIBLE': 'Tax Deductible',
+            'TAXABLE': 'Taxable Income',
+            'TAX_FREE': 'Tax Free',
+            'CAPITAL': 'Capital Gain',
+            'DEPRECIATION': 'Depreciation'
+        }
+        treatment_display = treatment_mapping.get(self.treatment, self.treatment)
+        return f"{self.name} ({treatment_display})"
 
 class TaxRecord(models.Model):
     class RecordType(models.TextChoices):
@@ -1325,21 +1377,30 @@ class TaxRecord(models.Model):
     documentation_complete = models.BooleanField(default=False)
     is_verified = models.BooleanField(default=False)
     verified_by = models.CharField(max_length=100, blank=True)
-    verification_date = models.DateTimeField(null=True, blank=True)
+    verification_date = models.DateTimeField(null=True, blank=True)    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
     class Meta:
+        app_label = 'fedha'
         indexes = [
             models.Index(fields=['profile', 'tax_year']),
             models.Index(fields=['jurisdiction', 'tax_year']),
             models.Index(fields=['record_type', 'tax_year']),
         ]
         ordering = ['-tax_year', '-created_at']
+
     def __str__(self):
-        # Use get_record_type_display only if record_type has choices
-        if hasattr(self, 'get_record_type_display'):
-            return f"{self.get_record_type_display()} - {self.tax_year}"
-        return f"{self.tax_year}"
+        # Get human-readable record type display
+        record_type_mapping = {
+            'INCOME': 'Income Record',
+            'DEDUCTION': 'Deduction Record',
+            'CREDIT': 'Tax Credit',
+            'PAYMENT': 'Tax Payment',
+            'REFUND': 'Tax Refund'
+        }
+        record_type_display = record_type_mapping.get(self.record_type, self.record_type)
+        return f"{record_type_display} - {self.tax_year}"
 
 # =============================================================================
 # ASSET MANAGEMENT AND DEPRECIATION
@@ -1381,8 +1442,9 @@ class Asset(models.Model):
     purchase_transaction = models.ForeignKey('EnhancedTransaction', on_delete=models.SET_NULL, null=True, blank=True, related_name='purchased_assets')
     notes = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    updated_at = models.DateTimeField(auto_now=True)    
     class Meta:
+        app_label = 'fedha'
         indexes = [
             models.Index(fields=['profile', 'asset_type']),
             models.Index(fields=['purchase_date']),
@@ -1425,22 +1487,32 @@ class RecurringTransactionTemplate(models.Model):
     auto_generate = models.BooleanField(default=False)
     reminder_days_before = models.PositiveIntegerField(default=3)
     is_active = models.BooleanField(default=True)
-    total_generated = models.PositiveIntegerField(default=0)
+    total_generated = models.PositiveIntegerField(default=0)    
     last_generated_date = models.DateField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    updated_at = models.DateTimeField(auto_now=True)    
     class Meta:
+        app_label = 'fedha'
         indexes = [
             models.Index(fields=['profile', 'is_active']),
             models.Index(fields=['next_due_date']),
             models.Index(fields=['auto_generate']),
         ]
         ordering = ['next_due_date']
+
     def __str__(self):
-        # Use get_frequency_display only if frequency has choices
-        if hasattr(self, 'get_frequency_display'):
-            return f"{self.name} ({self.get_frequency_display()})"
-        return self.name
+        # Get human-readable frequency display
+        frequency_mapping = {
+            'DAILY': 'Daily',
+            'WEEKLY': 'Weekly',
+            'BIWEEKLY': 'Bi-weekly',
+            'MONTHLY': 'Monthly',
+            'QUARTERLY': 'Quarterly',
+            'SEMI_ANNUALLY': 'Semi-annually',
+            'ANNUALLY': 'Annually'
+        }
+        frequency_display = frequency_mapping.get(self.frequency, self.frequency)
+        return f"{self.name} ({frequency_display})"
 
 # =============================================================================
 # BUDGET PLANNING AND VARIANCE ANALYSIS
@@ -1553,18 +1625,27 @@ class AuditLog(models.Model):
     session_id = models.CharField(max_length=100, blank=True)
     timestamp = models.DateTimeField(auto_now_add=True)
     notes = models.TextField(blank=True)
-    class Meta:
+    class Meta:        
         indexes = [
             models.Index(fields=['profile', 'timestamp']),
             models.Index(fields=['action_type', 'timestamp']),
             models.Index(fields=['table_name', 'record_id']),
         ]
         ordering = ['-timestamp']
+
     def __str__(self):
-        # Use get_action_type_display only if action_type has choices
-        if hasattr(self, 'get_action_type_display'):
-            return f"{self.get_action_type_display()} on {self.table_name} at {self.timestamp}"
-        return f"{self.table_name} at {self.timestamp}"
+        # Get human-readable action type display
+        action_type_mapping = {
+            'CREATE': 'Create',
+            'UPDATE': 'Update',
+            'DELETE': 'Delete',
+            'VIEW': 'View',
+            'EXPORT': 'Export',
+            'IMPORT': 'Import',
+            'SYNC': 'Synchronization'
+        }
+        action_type_display = action_type_mapping.get(self.action_type, self.action_type)
+        return f"{action_type_display} on {self.table_name} at {self.timestamp}"
 
 # =============================================================================
 # SYSTEM CONFIGURATION AND SETTINGS
