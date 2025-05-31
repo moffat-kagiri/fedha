@@ -36,4 +36,4 @@ flutter:
   fonts:
     - family: CustomFont
       fonts:
-        - asset: assets/fonts/CustomFont-Regular.ttf
+        - asset: assets/fonts/calibri.ttf
