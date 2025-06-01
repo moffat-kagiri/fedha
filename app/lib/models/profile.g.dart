@@ -20,13 +20,13 @@ class ProfileAdapter extends TypeAdapter<Profile> {
       type: fields[1] as ProfileType,
       pinHash: fields[2] as String,
       id: fields[0] as String?,
-    );
+    ).._lastLogin = fields[4] as DateTime?;
   }
 
   @override
   void write(BinaryWriter writer, Profile obj) {
     writer
-      ..writeByte(4)
+      ..writeByte(5)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -34,7 +34,9 @@ class ProfileAdapter extends TypeAdapter<Profile> {
       ..writeByte(2)
       ..write(obj.pinHash)
       ..writeByte(3)
-      ..write(obj.createdAt);
+      ..write(obj.createdAt)
+      ..writeByte(4)
+      ..write(obj._lastLogin);
   }
 
   @override

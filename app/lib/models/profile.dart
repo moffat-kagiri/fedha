@@ -18,9 +18,19 @@ class Profile {
   @HiveField(3)
   final DateTime createdAt;
 
-  Profile({required this.type, required this.pinHash, String? id})
-    : id = id ?? const Uuid().v4(),
-      createdAt = DateTime.now();
+  @HiveField(4)
+  DateTime? _lastLogin;
+
+  Profile({
+    required this.type,
+    required this.pinHash,
+    String? id,
+    required name,
+    required email,
+    required baseCurrency,
+    required timezone,
+  }) : id = id ?? const Uuid().v4(),
+       createdAt = DateTime.now();
 
   factory Profile.fromJson(Map<String, dynamic> json) => Profile(
     id: json['id'],
@@ -28,8 +38,18 @@ class Profile {
       (e) => e.name == json['type'],
       orElse: () => ProfileType.personal,
     ),
-    pinHash: json['pinHash'],
+    pinHash: json['pinHash'] ?? '',
+    name: json['name'],
+    email: json['email'],
+    baseCurrency: json['baseCurrency'],
+    timezone: json['timezone'],
   );
+
+  DateTime? get lastLogin => _lastLogin;
+
+  set lastLogin(DateTime? lastLogin) {
+    _lastLogin = lastLogin;
+  }
 
   Map<String, dynamic> toJson() => {
     'id': id,
