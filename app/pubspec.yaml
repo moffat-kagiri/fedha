@@ -1,5 +1,5 @@
 name: fedha
-description: A Flutter frontend for Fedha project
+description: Fedha Budget Tracker - Your Personal Finance Companion
 publish_to: 'none'  # Prevents accidental publication
 
 version: 1.0.0+1
@@ -19,7 +19,7 @@ dependencies:
   syncfusion_flutter_charts: ^29.2.4
   json_annotation: ^4.8.1
   google_sign_in: ^6.2.1
-  googleapis: ^13.2.0
+  googleapis: ^14.0.0
   image_picker: ^1.0.7
   path_provider: ^2.1.2
   crypto: ^3.0.3
@@ -28,10 +28,11 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^5.0.0
+  flutter_lints: ^6.0.0
   build_runner: ^2.4.4
   hive_generator: ^2.0.1
   json_serializable: ^6.7.1
+  flutter_launcher_icons: ^0.14.3
 
 flutter:
   uses-material-design: true
@@ -43,3 +44,18 @@ flutter:
     - family: CustomFont
       fonts:
         - asset: assets/fonts/calibri.ttf
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/icons/app_icon.png"
+  min_sdk_android: 21
+  web:
+    generate: true
+    image_path: "assets/icons/app_icon.png"
+    background_color: "#4CAF50"
+    theme_color: "#4CAF50"
+  windows:
+    generate: true
+    image_path: "assets/icons/app_icon.png"
+    icon_size: 48

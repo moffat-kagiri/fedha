@@ -31,21 +31,34 @@ import 'screens/signin_screen.dart';
 import 'screens/main_navigation.dart';
 import 'screens/profile_screen.dart';
 
+// Utils
+import 'utils/theme.dart';
+
 Future<void> initializeHive() async {
   await Hive.initFlutter();
   // Register all adapters
+  // Generated adapters from .g.dart files
   Hive.registerAdapter(TransactionAdapter());
-  Hive.registerAdapter(enum_adapters.TransactionTypeAdapter());
-  Hive.registerAdapter(enum_adapters.TransactionCategoryAdapter());
   Hive.registerAdapter(CategoryAdapter());
   Hive.registerAdapter(ProfileAdapter());
-  Hive.registerAdapter(ProfileTypeAdapter()); // Add this line
+  Hive.registerAdapter(ProfileTypeAdapter()); // From enhanced_profile.g.dart
   Hive.registerAdapter(EnhancedProfileAdapter());
   Hive.registerAdapter(SyncQueueItemAdapter());
   Hive.registerAdapter(ClientAdapter());
   Hive.registerAdapter(InvoiceAdapter());
+  Hive.registerAdapter(InvoiceLineItemAdapter());
+  Hive.registerAdapter(InvoiceStatusAdapter());
   Hive.registerAdapter(GoalAdapter());
+  Hive.registerAdapter(GoalTypeAdapter());
+  Hive.registerAdapter(GoalStatusAdapter());
   Hive.registerAdapter(BudgetAdapter());
+  Hive.registerAdapter(BudgetLineItemAdapter());
+
+  // Manual enum adapters
+  Hive.registerAdapter(enum_adapters.TransactionTypeAdapter());
+  Hive.registerAdapter(enum_adapters.TransactionCategoryAdapter());
+  Hive.registerAdapter(enum_adapters.BudgetPeriodAdapter());
+  Hive.registerAdapter(enum_adapters.BudgetStatusAdapter());
 
   // Open boxes
   await Hive.openBox<Profile>('profiles');
@@ -58,11 +71,10 @@ Future<void> initializeHive() async {
   await Hive.openBox<Budget>('budgets');
   await Hive.openBox<SyncQueueItem>('sync_queue');
   await Hive.openBox('settings');
+  await Hive.openBox('settings');
 }
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-
   await initializeHive();
   // Initialize services
   final apiClient = ApiClient();
@@ -96,13 +108,11 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final enhancedAuthService = Provider.of<EnhancedAuthService>(context);
-
     return MaterialApp(
-      title: 'Fedha Budget Tracker',
-      theme: ThemeData(
-        primaryColor: const Color(0xFF007A39),
-        fontFamily: 'SF Pro Display',
-      ),
+      title: 'Fedha',
+      theme: FedhaTheme.lightTheme,
+      darkTheme: FedhaTheme.darkTheme,
+      themeMode: ThemeMode.system,
       home: FutureBuilder<bool>(
         future: _checkFirstTime(),
         builder: (context, snapshot) {
