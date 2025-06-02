@@ -20,7 +20,7 @@ import 'adapters/enum_adapters.dart' as enum_adapters;
 // Services
 import 'services/auth_service.dart';
 import 'services/enhanced_auth_service.dart';
-import 'services/google_drive_service.dart';
+// import 'services/google_drive_service.dart';
 import 'services/api_client.dart';
 import 'services/offline_data_service.dart';
 import 'services/enhanced_sync_service.dart';
@@ -34,17 +34,18 @@ import 'screens/profile_screen.dart';
 Future<void> initializeHive() async {
   await Hive.initFlutter();
   // Register all adapters
-  Hive.registerAdapter(ProfileAdapter());
-  Hive.registerAdapter(EnhancedProfileAdapter());
   Hive.registerAdapter(TransactionAdapter());
   Hive.registerAdapter(enum_adapters.TransactionTypeAdapter());
   Hive.registerAdapter(enum_adapters.TransactionCategoryAdapter());
   Hive.registerAdapter(CategoryAdapter());
+  Hive.registerAdapter(ProfileAdapter());
+  Hive.registerAdapter(ProfileTypeAdapter()); // Add this line
+  Hive.registerAdapter(EnhancedProfileAdapter());
+  Hive.registerAdapter(SyncQueueItemAdapter());
   Hive.registerAdapter(ClientAdapter());
   Hive.registerAdapter(InvoiceAdapter());
   Hive.registerAdapter(GoalAdapter());
   Hive.registerAdapter(BudgetAdapter());
-  Hive.registerAdapter(SyncQueueItemAdapter());
 
   // Open boxes
   await Hive.openBox<Profile>('profiles');
@@ -72,7 +73,8 @@ void main() async {
   );
   final authService = AuthService();
   final enhancedAuthService = EnhancedAuthService();
-  final googleDriveService = GoogleDriveService();
+  // Temporarily disable Google Drive to focus on core functionality
+  // final googleDriveService = GoogleDriveService();
 
   runApp(
     MultiProvider(
@@ -82,7 +84,7 @@ void main() async {
         Provider<EnhancedSyncService>.value(value: syncService),
         ChangeNotifierProvider(create: (_) => authService),
         ChangeNotifierProvider(create: (_) => enhancedAuthService),
-        Provider<GoogleDriveService>.value(value: googleDriveService),
+        // Provider<GoogleDriveService>.value(value: googleDriveService),
       ],
       child: const MyApp(),
     ),

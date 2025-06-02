@@ -2,34 +2,11 @@
 
 import 'package:fedha/models/enhanced_profile.dart' as enhanced;
 import 'package:fedha/services/api_client.dart';
-import 'package:fedha/services/auth_service.dart';
 import 'package:uuid/uuid.dart';
 import 'package:flutter/foundation.dart';
 import 'package:hive/hive.dart';
 
 import '../models/profile.dart';
-
-// Add this extension if you can't modify the Profile class directly
-extension ProfileExtension on Profile {
-  bool verifyPin(String pin) {
-    return hashPin(pin) == pinHash;
-  }
-
-  String hashPin(String pin) {
-    // Simple hash function (for demonstration purposes)
-    return pin.split('').reversed.join();
-  }
-
-  DateTime? get lastLogin => null; // Add lastLogin getter
-  set lastLogin(DateTime? value) {} // Add lastLogin setter
-
-  DateTime get createdAt => DateTime.now(); // Add createdAt getter
-
-  String? get name => null; // Add name getter
-  String? get email => null; // Add email getter
-  String? get baseCurrency => null; // Add baseCurrency getter
-  String? get timezone => null; // Add timezone getter
-}
 
 class AuthService extends ChangeNotifier {
   final Uuid _uuid = const Uuid();
@@ -39,7 +16,6 @@ class AuthService extends ChangeNotifier {
   Profile? _currentProfile;
 
   Profile? get currentProfile => _currentProfile;
-
   Profile? get profile => _currentProfile;
 
   Future<bool> login(ProfileType profileType, String pin) async {
@@ -71,9 +47,6 @@ class AuthService extends ChangeNotifier {
     ProfileType accountType,
   ) async {
     try {
-      // For now, simulate PIN verification based on user ID format and PIN
-      // In a real app, you would validate against stored user data
-
       // Check if userId format matches account type
       final isValidFormat =
           (accountType == ProfileType.business &&
@@ -86,17 +59,12 @@ class AuthService extends ChangeNotifier {
       }
 
       // For demo purposes, accept any 4-digit PIN for now
-      // In production, you'd validate against stored PIN hash
       if (pin.length == 4 && RegExp(r'^[0-9]+$').hasMatch(pin)) {
-        // Create a temporary profile for the session
         final profileBox = await Hive.openBox('profiles');
-
-        // Check if profile exists, if not create a temporary one
         String profileId = userId;
         var existingProfile = profileBox.get(profileId);
 
         if (existingProfile == null) {
-          // Create a new profile entry
           existingProfile = {
             'id': profileId,
             'type': accountType,
@@ -155,9 +123,8 @@ class AuthService extends ChangeNotifier {
     required bool isBusiness,
     required String pin,
   }) async {
-    final authService = AuthService();
-    final profileId = authService.generateProfileId(isBusiness: isBusiness);
-    final pinHash = authService.hashPin(pin);
+    final profileId = generateProfileId(isBusiness: isBusiness);
+    final pinHash = hashPin(pin);
 
     // Save to Hive
     final profileBox = await Hive.openBox('profiles');
@@ -277,18 +244,29 @@ class AuthService extends ChangeNotifier {
           _currentProfile = profile;
           notifyListeners();
 
-          // Update last login time
-          profile.lastLogin = DateTime.now();
-          await profileBox.put(profile.id, profile);
+          // Create updated profile with new lastLogin
+          final updatedProfile = Profile(
+            id: profile.id,
+            name: profile.name,
+            type: profile.type,
+            pinHash: profile.pinHash,
+            createdAt: profile.createdAt,
+            updatedAt: DateTime.now(),
+            email: profile.email,
+            baseCurrency: profile.baseCurrency,
+            timezone: profile.timezone,
+            lastLogin: DateTime.now(),
+          );
 
-          // Sync with server
+          await profileBox.put(profile.id, updatedProfile);
+          _currentProfile = updatedProfile;
+
           try {
             await _apiClient.verifyProfile(
               profileId: profile.id,
               pinHash: hashPin(pin),
             );
           } catch (e) {
-            // Continue even if server sync fails
             if (kDebugMode) {
               print('Server sync failed: $e');
             }
@@ -387,12 +365,10 @@ class AuthService extends ChangeNotifier {
     if (_currentProfile == null) return false;
 
     try {
-      // Verify current PIN
       if (!_currentProfile!.verifyPin(currentPin)) {
         return false;
       }
 
-      // Update PIN by creating a new profile instance
       final newPinHash = hashPin(newPin);
       _currentProfile = Profile(
         id: _currentProfile!.id,
@@ -402,20 +378,13 @@ class AuthService extends ChangeNotifier {
         email: _currentProfile!.email,
         baseCurrency: _currentProfile!.baseCurrency,
         timezone: _currentProfile!.timezone,
+        createdAt: _currentProfile!.createdAt,
+        updatedAt: DateTime.now(),
+        lastLogin: _currentProfile!.lastLogin,
       );
 
-      // Save to Hive
       final profileBox = await Hive.openBox<Profile>('profiles');
       await profileBox.put(_currentProfile!.id, _currentProfile!);
-
-      // Sync with server
-      try {
-        // TODO: Implement PIN change API endpoint
-      } catch (e) {
-        if (kDebugMode) {
-          print('Server PIN change sync failed: $e');
-        }
-      }
 
       return true;
     } catch (e) {
@@ -425,6 +394,4 @@ class AuthService extends ChangeNotifier {
       return false;
     }
   }
-
-  // ...existing code...
 }

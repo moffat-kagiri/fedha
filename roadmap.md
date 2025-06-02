@@ -23,9 +23,9 @@ Comprehensive development roadmap for the Fedha Budget Tracker, incorporating in
 
 ### **1.2 Authentication & Profile System**
 
-- [ ] **Enhanced UUID generation** with business/personal prefixes
-- [ ] **Secure PIN authentication** with salt + hash implementation
-- [ ] **Profile switching** functionality
+- [X] **Enhanced UUID generation** with business/personal prefixes
+- [X] **Secure PIN authentication** with salt + hash implementation
+- [X] **Profile switching** functionality
 - [ ] **PIN reset/recovery** mechanism
 - [ ] **Session management** for web platform
 
@@ -33,7 +33,7 @@ Comprehensive development roadmap for the Fedha Budget Tracker, incorporating in
 
 - [ ] **Hive box configuration** for all new models
 - [ ] **Type adapters** for complex data structures
-- [ ] **Offline data encryption** implementation
+- [X] **Offline data encryption** implementation
 - [ ] **Data migration utilities** for schema updates
 
 ---
