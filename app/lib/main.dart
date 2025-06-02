@@ -18,7 +18,6 @@ import 'models/sync_queue_item.dart';
 import 'adapters/enum_adapters.dart' as enum_adapters;
 
 // Services
-import 'services/auth_service.dart';
 import 'services/enhanced_auth_service.dart';
 // import 'services/google_drive_service.dart';
 import 'services/api_client.dart';
@@ -66,11 +65,9 @@ Future<void> initializeHive() async {
   await Hive.openBox<Transaction>('transactions');
   await Hive.openBox<Category>('categories');
   await Hive.openBox<Client>('clients');
-  await Hive.openBox<Invoice>('invoices');
-  await Hive.openBox<Goal>('goals');
+  await Hive.openBox<Invoice>('invoices');  await Hive.openBox<Goal>('goals');
   await Hive.openBox<Budget>('budgets');
   await Hive.openBox<SyncQueueItem>('sync_queue');
-  await Hive.openBox('settings');
   await Hive.openBox('settings');
 }
 
@@ -82,9 +79,7 @@ void main() async {
   final syncService = EnhancedSyncService(
     apiClient: apiClient,
     offlineDataService: offlineDataService,
-  );
-  final authService = AuthService();
-  final enhancedAuthService = EnhancedAuthService();
+  );  final enhancedAuthService = EnhancedAuthService();
   // Temporarily disable Google Drive to focus on core functionality
   // final googleDriveService = GoogleDriveService();
 
@@ -94,7 +89,6 @@ void main() async {
         Provider<ApiClient>.value(value: apiClient),
         Provider<OfflineDataService>.value(value: offlineDataService),
         Provider<EnhancedSyncService>.value(value: syncService),
-        ChangeNotifierProvider(create: (_) => authService),
         ChangeNotifierProvider(create: (_) => enhancedAuthService),
         // Provider<GoogleDriveService>.value(value: googleDriveService),
       ],
@@ -105,16 +99,16 @@ void main() async {
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
+  
   @override
   Widget build(BuildContext context) {
-    final enhancedAuthService = Provider.of<EnhancedAuthService>(context);
     return MaterialApp(
       title: 'Fedha',
       theme: FedhaTheme.lightTheme,
       darkTheme: FedhaTheme.darkTheme,
       themeMode: ThemeMode.system,
-      home: FutureBuilder<bool>(
-        future: _checkFirstTime(),
+      home: FutureBuilder<void>(
+        future: _initializeServices(context),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Scaffold(
@@ -122,15 +116,30 @@ class MyApp extends StatelessWidget {
             );
           }
 
-          final isFirstTime = snapshot.data ?? true;
+          return Consumer<EnhancedAuthService>(
+            builder: (context, enhancedAuthService, child) {
+              return FutureBuilder<bool>(
+                future: _checkFirstTime(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Scaffold(
+                      body: Center(child: CircularProgressIndicator()),
+                    );
+                  }
 
-          if (isFirstTime) {
-            return const OnboardingScreen();
-          } else if (enhancedAuthService.isLoggedIn) {
-            return const MainNavigation();
-          } else {
-            return const SignInScreen();
-          }
+                  final isFirstTime = snapshot.data ?? true;
+
+                  if (isFirstTime) {
+                    return const OnboardingScreen();
+                  } else if (enhancedAuthService.isLoggedIn) {
+                    return const MainNavigation();
+                  } else {
+                    return const SignInScreen();
+                  }
+                },
+              );
+            },
+          );
         },
       ),
       routes: {
@@ -140,6 +149,12 @@ class MyApp extends StatelessWidget {
         '/profile': (context) => const ProfileScreen(),
       },
     );
+  }
+
+  Future<void> _initializeServices(BuildContext context) async {
+    final enhancedAuthService = Provider.of<EnhancedAuthService>(context, listen: false);
+    await enhancedAuthService.initialize();
+    await enhancedAuthService.autoLogin();
   }
 
   Future<bool> _checkFirstTime() async {

@@ -125,11 +125,29 @@ class Profile(models.Model):
         verbose_name="Profile ID",
         help_text="Unique identifier with B/P prefix for business/personal accounts (9 chars: X-XXXXXXX)"
     )
+    
+    # Enhanced: Add user_id field for 8-digit user IDs (for cross-device compatibility)
+    user_id = models.CharField(
+        max_length=8,
+        unique=True,
+        null=True,
+        blank=True,
+        help_text="8-digit user ID for cross-device login (e.g., 12345678)"
+    )
+    
     name = models.CharField(
         max_length=100,
         blank=True,
         help_text="Optional profile display name"
     )
+    
+    # Enhanced: Add email field for user communication
+    email = models.EmailField(
+        blank=True,
+        null=True,
+        help_text="Email address for notifications and account recovery"
+    )
+    
     profile_type = models.CharField(
         max_length=4,
         choices=ProfileType.choices,
@@ -152,22 +170,35 @@ class Profile(models.Model):
         default='GMT+3',
         help_text="Timezone for date/time display"
     )
-    
-    # Status tracking
+      # Status tracking
     created_at = models.DateTimeField(auto_now_add=True)
     last_modified = models.DateTimeField(auto_now=True)
     last_login = models.DateTimeField(null=True, blank=True)
     is_active = models.BooleanField(
         default=True,
         help_text="Soft delete flag - inactive profiles cannot authenticate"
-    )    
+    )
+    
+    # Enhanced: Add alias for date_created for compatibility
+    @property
+    def date_created(self):
+        """Alias for created_at for backwards compatibility"""
+        return self.created_at
+    
+    # Enhanced: Add is_business property for compatibility
+    @property
+    def is_business(self):
+        """Check if this is a business profile"""
+        return self.profile_type == self.ProfileType.BUSINESS
     class Meta:
         app_label = 'fedha'
         indexes = [
             models.Index(fields=['profile_type']),
             models.Index(fields=['created_at']),
             models.Index(fields=['is_active']),
-            ]
+            models.Index(fields=['user_id']),  # Enhanced: Index for user_id lookups
+            models.Index(fields=['email']),     # Enhanced: Index for email lookups
+        ]
         ordering = ['-created_at']
         verbose_name = "User Profile"
         verbose_name_plural = "User Profiles"
@@ -197,8 +228,8 @@ class Profile(models.Model):
         """
         if not self.id:
             self.id = generate_profile_uuid(self.profile_type)
-        super().save(*args, **kwargs)
-
+        super().save(*args, **kwargs)    
+    
     @staticmethod
     def hash_pin(raw_pin: str) -> str:
         """
@@ -218,6 +249,22 @@ class Profile(models.Model):
         
         salted = f"{raw_pin}{settings.SECRET_KEY}"
         return hashlib.sha256(salted.encode()).hexdigest()
+    
+    @staticmethod
+    def generate_user_id():
+        """
+        Generate a unique 8-digit user ID for cross-device login.
+        
+        Returns:
+            String: 8-digit numeric user ID (e.g., "12345678")
+        """
+        import random
+        while True:
+            # Generate 8-digit number
+            user_id = f"{random.randint(10000000, 99999999)}"
+            # Check if it's unique
+            if not Profile.objects.filter(user_id=user_id).exists():
+                return user_id
     
     def verify_pin(self, raw_pin: str) -> bool:
         """

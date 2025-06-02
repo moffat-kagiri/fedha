@@ -90,12 +90,13 @@ class AccountTypeSelectionView(APIView):
         
         if serializer.is_valid():
             # Create profile with selected account type
+            validated_data = serializer.validated_data or {}
             profile_data = {
-                'name': serializer.validated_data.get('user_name', ''),
-                'profile_type': serializer.validated_data['account_type'],
-                'base_currency': serializer.validated_data.get('base_currency', 'USD'),
-                'timezone': serializer.validated_data.get('timezone', 'UTC'),
-                'email': serializer.validated_data.get('email', '')
+                'name': validated_data.get('user_name', ''),
+                'profile_type': validated_data.get('account_type', ''),
+                'base_currency': validated_data.get('base_currency', 'USD'),
+                'timezone': validated_data.get('timezone', 'UTC'),
+                'email': validated_data.get('email', '')
             }
             
             profile_serializer = ProfileRegistrationSerializer(data=profile_data)
@@ -111,8 +112,7 @@ class AccountTypeSelectionView(APIView):
                 }
                 
                 # Include temporary PIN if email wasn't provided
-                if not profile_data.get('email') and hasattr(profile, 'temp_pin'):
-                    response_data['temporary_pin'] = profile.temp_pin
+                if not profile_data.get('email'):
                     response_data['message'] = 'Account created successfully. Please save your credentials.'
                 else:
                     response_data['message'] = 'Account created successfully. Credentials sent to your email.'
@@ -136,7 +136,7 @@ class ProfileRegistrationView(generics.CreateAPIView):
     def create(self, request, *args, **kwargs):
         response = super().create(request, *args, **kwargs)
         
-        if response.status_code == status.HTTP_201_CREATED:
+        if response.status_code == status.HTTP_201_CREATED and response.data:
             profile = Profile.objects.get(id=response.data['id'])
             
             # Add additional response data
@@ -148,9 +148,9 @@ class ProfileRegistrationView(generics.CreateAPIView):
             })
             
             # Include temporary PIN if available
-            if hasattr(profile, 'temp_pin'):
-                response.data['temporary_pin'] = profile.temp_pin
-        
+            # Include temporary PIN if available (removed as temp_pin is not a Profile attribute)
+            # if hasattr(profile, 'temp_pin'):
+            #     response.data['temporary_pin'] = profile.temp_pin
         return response
 
 
@@ -165,7 +165,14 @@ class ProfileLoginView(APIView):
         serializer = ProfileLoginSerializer(data=request.data)
         
         if serializer.is_valid():
-            profile = serializer.validated_data['profile']
+            validated_data = serializer.validated_data or {}
+            profile = validated_data.get('profile')
+            
+            if not profile:
+                return Response(
+                    {'error': 'Authentication failed'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
             
             # Update last login
             profile.last_login = timezone.now()
@@ -214,7 +221,14 @@ class PINChangeView(APIView):
             
             try:
                 profile = Profile.objects.get(id=profile_id, is_active=True)
-                current_pin = serializer.validated_data['current_pin']
+                validated_data = serializer.validated_data or {}
+                current_pin = validated_data.get('current_pin')
+                
+                if not current_pin:
+                    return Response(
+                        {'error': 'Current PIN is required.'}, 
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
                 
                 # Verify current PIN
                 if not profile.verify_pin(current_pin):
@@ -224,7 +238,12 @@ class PINChangeView(APIView):
                     )
                 
                 # Set new PIN
-                new_pin = serializer.validated_data['new_pin']
+                new_pin = validated_data.get('new_pin')
+                if not new_pin:
+                    return Response(
+                        {'error': 'New PIN is required.'}, 
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
                 profile.set_pin(new_pin)
                 
                 return Response({
@@ -260,7 +279,14 @@ class EmailCredentialsView(APIView):
         serializer = EmailCredentialsSerializer(data=request.data)
         
         if serializer.is_valid():
-            email = serializer.validated_data['email']
+            validated_data = serializer.validated_data
+            email = validated_data.get('email') if validated_data else None
+            
+            if not email:
+                return Response(
+                    {'error': 'Email is required'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
             
             # In a real implementation, you'd search for profiles associated with this email
             # For now, we'll send a generic response to prevent email enumeration
@@ -358,6 +384,255 @@ class DashboardView(APIView):
             ]
 
 
+# =============================================================================
+# ENHANCED PROFILE MANAGEMENT - NEW ENDPOINTS FOR 8-DIGIT USER IDS
+# =============================================================================
+
+class EnhancedProfileRegistrationView(APIView):
+    """
+    Enhanced API endpoint for profile registration with 8-digit user IDs.
+    Supports cross-device profile storage and retrieval.
+    """
+    permission_classes = [AllowAny]
+    
+    def post(self, request):
+        try:
+            # Get registration data
+            name = request.data.get('name')
+            profile_type = request.data.get('profile_type')  # 'business' or 'personal'
+            pin = request.data.get('pin')
+            email = request.data.get('email')
+            base_currency = request.data.get('base_currency', 'KES')
+            timezone = request.data.get('timezone', 'GMT+3')
+            
+            # Validate required fields
+            if not all([name, profile_type, pin]):
+                return Response(
+                    {'error': 'Name, profile type, and PIN are required'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Validate profile type
+            if profile_type not in ['business', 'personal']:
+                return Response(
+                    {'error': 'Profile type must be "business" or "personal"'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Generate 8-digit user ID
+            user_id = Profile.generate_user_id()
+            
+            # Create profile
+            profile = Profile.objects.create(
+                user_id=user_id,
+                name=name,
+                email=email,
+                is_business=(profile_type == 'business'),
+                pin_hash=Profile.hash_pin(pin),
+                base_currency=base_currency,
+                timezone=timezone,
+                is_active=True
+            )
+            
+            return Response({
+                'success': True,
+                'message': 'Profile created successfully',
+                'user_id': user_id,
+                'profile_id': str(profile.id),
+                'name': name,
+                'profile_type': profile_type,
+                'email': email,
+                'base_currency': base_currency,
+                'timezone': timezone
+            }, status=status.HTTP_201_CREATED)
+            
+        except Exception as e:
+            return Response(
+                {'error': f'Registration failed: {str(e)}'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class EnhancedProfileLoginView(APIView):
+    """
+    Enhanced API endpoint for profile login using 8-digit user ID and PIN.
+    Supports cross-device authentication.
+    """
+    permission_classes = [AllowAny]
+    
+    def post(self, request):
+        try:
+            user_id = request.data.get('user_id')
+            pin = request.data.get('pin')
+            
+            # Validate required fields
+            if not all([user_id, pin]):
+                return Response(
+                    {'error': 'User ID and PIN are required'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Find profile by user_id
+            try:
+                profile = Profile.objects.get(user_id=user_id, is_active=True)
+            except Profile.DoesNotExist:
+                return Response(
+                    {'error': 'Profile not found'}, 
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            
+            # Verify PIN
+            if not profile.verify_pin(pin):
+                return Response(
+                    {'error': 'Invalid PIN'}, 
+                    status=status.HTTP_401_UNAUTHORIZED
+                )
+            
+            # Update last login
+            profile.last_login = timezone.now()
+            profile.save()
+            
+            return Response({
+                'success': True,
+                'message': 'Login successful',
+                'user_id': profile.user_id,
+                'profile_id': str(profile.id),
+                'name': profile.name,
+                'email': profile.email,
+                'profile_type': 'business' if profile.is_business else 'personal',
+                'base_currency': profile.base_currency,
+                'timezone': profile.timezone,
+                'last_login': profile.last_login.isoformat() if profile.last_login else None
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            return Response(
+                {'error': f'Login failed: {str(e)}'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class LegacyProfileSyncView(APIView):
+    """
+    Legacy API endpoint for profile data synchronization across devices.
+    Supports both upload and download of profile data.
+    """
+    permission_classes = [AllowAny]
+    
+    def get(self, request):
+        """Download profile data for synchronization"""
+        try:
+            user_id = request.query_params.get('user_id')
+            
+            if not user_id:
+                return Response(
+                    {'error': 'User ID is required'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Find profile by user_id
+            try:
+                profile = Profile.objects.get(user_id=user_id, is_active=True)
+            except Profile.DoesNotExist:
+                return Response(
+                    {'error': 'Profile not found'}, 
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            
+            return Response({
+                'success': True,
+                'user_id': profile.user_id,
+                'profile_id': str(profile.id),
+                'name': profile.name,
+                'email': profile.email,
+                'profile_type': 'business' if profile.is_business else 'personal',
+                'base_currency': profile.base_currency,
+                'timezone': profile.timezone,
+                'last_login': profile.last_login.isoformat() if profile.last_login else None,
+                'date_created': profile.date_created.isoformat(),
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            return Response(
+                {'error': f'Sync download failed: {str(e)}'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    def post(self, request):
+        """Upload profile data for synchronization"""
+        try:
+            user_id = request.data.get('user_id')
+            profile_data = request.data.get('profile_data', {})
+            
+            if not user_id:
+                return Response(
+                    {'error': 'User ID is required'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Find profile by user_id
+            try:
+                profile = Profile.objects.get(user_id=user_id, is_active=True)
+            except Profile.DoesNotExist:
+                return Response(
+                    {'error': 'Profile not found'}, 
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            
+            # Update profile with sync data
+            if 'name' in profile_data:
+                profile.name = profile_data['name']
+            if 'email' in profile_data:
+                profile.email = profile_data['email']
+            if 'base_currency' in profile_data:
+                profile.base_currency = profile_data['base_currency']
+            if 'timezone' in profile_data:
+                profile.timezone = profile_data['timezone']
+            
+            profile.save()
+            
+            return Response({
+                'success': True,
+                'message': 'Profile synchronized successfully',
+                'user_id': profile.user_id,
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            return Response(
+                {'error': f'Sync failed: {str(e)}'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+# Legacy profile validation endpoint (without authentication)
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def legacy_profile_validate(request):
+    """Validate if a profile exists by user ID (for cross-device login)"""
+    try:
+        user_id = request.data.get('user_id')
+        
+        if not user_id:
+            return Response(
+                {'error': 'User ID is required'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Check if profile exists
+        exists = Profile.objects.filter(user_id=user_id, is_active=True).exists()
+        
+        return Response({
+            'exists': exists,
+            'user_id': user_id
+        }, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        return Response(
+            {'error': f'Validation failed: {str(e)}'}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
 # Legacy views for backward compatibility
 class ProfileListCreateView(generics.ListCreateAPIView):
     queryset = Profile.objects.filter(is_active=True)
@@ -366,7 +641,7 @@ class ProfileListCreateView(generics.ListCreateAPIView):
 
     def perform_create(self, serializer):
         # Hash PIN before saving
-        pin = self.request.data.get('pin')
+        pin = serializer.validated_data.get('pin')
         if pin:
             serializer.save(pin_hash=Profile.hash_pin(pin))
 
@@ -397,5 +672,4 @@ def auth_status(request):
             })
         except Profile.DoesNotExist:
             pass
-    
     return Response({'authenticated': False})
