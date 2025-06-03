@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/enhanced_auth_service.dart';
 import '../models/enhanced_profile.dart';
-import 'signin_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -14,9 +13,7 @@ class ProfileScreen extends StatelessWidget {
 
     if (currentProfile == null) {
       return const Scaffold(
-        body: Center(
-          child: Text('No profile found. Please sign in.'),
-        ),
+        body: Center(child: Text('No profile found. Please sign in.')),
       );
     }
 
@@ -36,18 +33,22 @@ class ProfileScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // User Name
-                    if (currentProfile.name != null && currentProfile.name!.isNotEmpty)
+                    if (currentProfile.name != null &&
+                        currentProfile.name!.isNotEmpty)
                       Text(
                         currentProfile.name!,
-                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        style: Theme.of(
+                          context,
+                        ).textTheme.headlineSmall?.copyWith(
                           fontWeight: FontWeight.bold,
                           color: Theme.of(context).primaryColor,
                         ),
                       ),
                     const SizedBox(height: 8),
-                    
+
                     // User Email
-                    if (currentProfile.email != null && currentProfile.email!.isNotEmpty)
+                    if (currentProfile.email != null &&
+                        currentProfile.email!.isNotEmpty)
                       Row(
                         children: [
                           const Icon(Icons.email, size: 16, color: Colors.grey),
@@ -59,15 +60,20 @@ class ProfileScreen extends StatelessWidget {
                         ],
                       ),
                     const SizedBox(height: 12),
-                    
+
                     // User ID (Emphasized)
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
                       decoration: BoxDecoration(
                         color: Theme.of(context).primaryColor.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
-                          color: Theme.of(context).primaryColor.withOpacity(0.3),
+                          color: Theme.of(
+                            context,
+                          ).primaryColor.withOpacity(0.3),
                         ),
                       ),
                       child: Row(
@@ -100,18 +106,23 @@ class ProfileScreen extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    
+
                     // Profile Type
                     Row(
                       children: [
-                        const Icon(Icons.account_circle, size: 16, color: Colors.grey),
+                        const Icon(
+                          Icons.account_circle,
+                          size: 16,
+                          color: Colors.grey,
+                        ),
                         const SizedBox(width: 8),
                         Text(
                           'Type: ${currentProfile.type.toString().split('.').last.toUpperCase()}',
                           style: TextStyle(
-                            color: currentProfile.type == ProfileType.business
-                                ? Colors.blue
-                                : Colors.green,
+                            color:
+                                currentProfile.type == ProfileType.business
+                                    ? Colors.blue
+                                    : Colors.green,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -202,15 +213,18 @@ class ProfileScreen extends StatelessWidget {
           ),
     );
   }
+
   void _logout(BuildContext context) async {
-    final authService = Provider.of<EnhancedAuthService>(context, listen: false);
+    final authService = Provider.of<EnhancedAuthService>(
+      context,
+      listen: false,
+    );
     await authService.logout();
-    
+
     if (context.mounted) {
-      Navigator.of(context).pushNamedAndRemoveUntil(
-        '/signin',
-        (route) => false,
-      );
+      Navigator.of(
+        context,
+      ).pushNamedAndRemoveUntil('/signin', (route) => false);
     }
   }
 }

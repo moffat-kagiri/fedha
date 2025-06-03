@@ -14,8 +14,6 @@ Key Features:
 Author: Fedha Development Team
 Last Updated: June 2, 2025
 """
-
-from django.utils import timezone
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny

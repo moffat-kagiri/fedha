@@ -113,52 +113,6 @@ ERROR_MESSAGES = {
     'profile_id_required': 'Profile ID required'
 }
 
-# =============================================================================
-# UTILITY FUNCTIONS
-# =============================================================================
-
-def get_validated_data(serializer):
-    """Safely extract validated data from serializer"""
-    return getattr(serializer, 'validated_data', {}) or {}
-
-def get_profile_type_info(profile_type):
-    """Get profile type information using dictionary lookup"""
-    return PROFILE_TYPE_MAPPINGS.get(profile_type, PROFILE_TYPE_MAPPINGS['personal'])
-
-def get_dashboard_url(profile_type_code):
-    """Get dashboard URL based on profile type code"""
-    display_type = DB_CODE_TO_TYPE.get(profile_type_code, 'personal')
-    return PROFILE_TYPE_MAPPINGS[display_type]['dashboard_url']
-
-def get_profile_features(profile_type_code):
-    """Get available features based on profile type"""
-    display_type = DB_CODE_TO_TYPE.get(profile_type_code, 'personal')
-    return PROFILE_TYPE_MAPPINGS[display_type]['features']
-
-def format_profile_response(profile):
-    """Format profile data for API responses"""
-    display_type = DB_CODE_TO_TYPE.get(profile.profile_type, 'personal')
-    return {
-        'user_id': getattr(profile, 'user_id', None),
-        'profile_id': str(profile.id),
-        'name': profile.name,
-        'email': profile.email,
-        'profile_type': display_type,
-        'base_currency': profile.base_currency,
-        'timezone': profile.timezone,
-        'last_login': profile.last_login.isoformat() if profile.last_login else None
-    }
-
-def validate_required_fields(data, required_fields):
-    """Validate that all required fields are present"""
-    missing_fields = [field for field in required_fields if not data.get(field)]
-    if missing_fields:
-        return False, f"Missing required fields: {', '.join(missing_fields)}"
-    return True, None
-
-# =============================================================================
-# API VIEWS
-# =============================================================================
 
 class AccountTypeSelectionView(APIView):
     """
@@ -169,41 +123,53 @@ class AccountTypeSelectionView(APIView):
     
     def get(self, request):
         """Get available account types"""
-        # Use dictionary mapping instead of hardcoded arrays
         account_types = [
             {
-                'value': info['code'],
-                'label': info['label'],
-                'description': info['description'],
-                'features': info['features']
+                'value': 'BIZ',
+                'label': 'Business',
+                'description': 'For business owners, freelancers, and SMEs. Includes invoicing, client management, and tax preparation.',
+                'features': [
+                    'Invoice generation and management',
+                    'Client relationship management', 
+                    'Tax preparation and compliance',
+                    'Cash flow analysis',
+                    'Business expense tracking',
+                    'Loan and asset management'
+                ]
+            },
+            {
+                'value': 'PERS',
+                'label': 'Personal',
+                'description': 'For personal finance management and budgeting. Focus on savings, goals, and expense tracking.',
+                'features': [
+                    'Personal budget tracking',
+                    'Goal setting and monitoring',
+                    'Expense categorization',
+                    'Savings tracking',
+                    'Personal loan management',
+                    'Investment tracking'
+                ]
             }
-            for profile_type, info in PROFILE_TYPE_MAPPINGS.items()
         ]
         
         return Response({
             'account_types': account_types,
-            'default_currency': DEFAULT_SETTINGS['currency'],
-            'available_currencies': DEFAULT_SETTINGS['currencies'],
-            'default_timezone': DEFAULT_SETTINGS['timezone']
+            'default_currency': 'USD',
+            'available_currencies': ['USD', 'KES', 'EUR', 'GBP', 'JPY'],
+            'default_timezone': 'UTC'
         })
-    
     def post(self, request):
         """Process account type selection and create profile"""
-        serializer = AccountTypeSelectionSerializer(data=request.data)
-        
+        serializer = AccountTypeSelectionSerializer(data=request.data)        
         if serializer.is_valid():
-            validated_data = get_validated_data(serializer)
-            
-            # Build profile data using dictionary comprehension
+            # Create profile with selected account type
+            validated_data = getattr(serializer, 'validated_data', {}) or {}
             profile_data = {
-                key: validated_data.get(field, default)
-                for key, field, default in [
-                    ('name', 'user_name', ''),
-                    ('profile_type', 'account_type', ''),
-                    ('base_currency', 'base_currency', DEFAULT_SETTINGS['currency']),
-                    ('timezone', 'timezone', DEFAULT_SETTINGS['timezone']),
-                    ('email', 'email', '')
-                ]
+                'name': validated_data.get('user_name', ''),
+                'profile_type': validated_data.get('account_type', ''),
+                'base_currency': validated_data.get('base_currency', 'USD'),
+                'timezone': validated_data.get('timezone', 'UTC'),
+                'email': validated_data.get('email', '')
             }
             
             profile_serializer = ProfileRegistrationSerializer(data=profile_data)
@@ -211,15 +177,18 @@ class AccountTypeSelectionView(APIView):
             if profile_serializer.is_valid():
                 profile = profile_serializer.save()
                 
-                # Use dictionary lookup for response message
-                message_key = 'registration_with_email' if profile_data.get('email') else 'registration_without_email'
-                
                 response_data = {
                     'profile_id': profile.id,
                     'profile_type': profile.profile_type,
                     'name': profile.name,
-                    'message': RESPONSE_MESSAGES[message_key]
+                    'message': 'Account created successfully'
                 }
+                
+                # Include temporary PIN if email wasn't provided
+                if not profile_data.get('email'):
+                    response_data['message'] = 'Account created successfully. Please save your credentials.'
+                else:
+                    response_data['message'] = 'Account created successfully. Credentials sent to your email.'
                 
                 return Response(response_data, status=status.HTTP_201_CREATED)
             else:
@@ -228,23 +197,51 @@ class AccountTypeSelectionView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+class ProfileRegistrationView(generics.CreateAPIView):
+    """
+    API endpoint for user registration.
+    Creates new profile with auto-generated UUID and temporary PIN.
+    """
+    queryset = Profile.objects.all()
+    serializer_class = ProfileRegistrationSerializer
+    permission_classes = [AllowAny]
+    
+    def create(self, request, *args, **kwargs):
+        response = super().create(request, *args, **kwargs)
+        
+        if response.status_code == status.HTTP_201_CREATED and response.data:
+            profile = Profile.objects.get(id=response.data['id'])
+            
+            # Add additional response data
+            response.data.update({
+                'profile_id': profile.id,
+                'profile_type': profile.profile_type,
+                'requires_pin_change': True,
+                'message': 'Registration successful. Please log in and change your PIN.'
+            })
+            
+            # Include temporary PIN if available
+            # Include temporary PIN if available (removed as temp_pin is not a Profile attribute)
+            # if hasattr(profile, 'temp_pin'):
+            #     response.data['temporary_pin'] = profile.temp_pin
+        return response
+
+
 class ProfileLoginView(APIView):
     """
     API endpoint for PIN-based authentication.
     Validates profile ID and PIN combination.
     """
     permission_classes = [AllowAny]
-    
     def post(self, request):
-        serializer = ProfileLoginSerializer(data=request.data)
-        
+        serializer = ProfileLoginSerializer(data=request.data)        
         if serializer.is_valid():
-            validated_data = get_validated_data(serializer)
+            validated_data = getattr(serializer, 'validated_data', {}) or {}
             profile = validated_data.get('profile')
             
             if not profile:
                 return Response(
-                    {'error': ERROR_MESSAGES['auth_failed']}, 
+                    {'error': 'Authentication failed'}, 
                     status=status.HTTP_400_BAD_REQUEST
                 )
             
@@ -252,21 +249,32 @@ class ProfileLoginView(APIView):
             profile.last_login = timezone.now()
             profile.save(update_fields=['last_login'])
             
+            # Create session or token here (implement as needed)
+            # For now, return profile information
+            
             profile_serializer = ProfileSerializer(profile)
             
             return Response({
-                'message': RESPONSE_MESSAGES['login_success'],
+                'message': 'Login successful',
                 'profile': profile_serializer.data,
                 'requires_pin_change': self.requires_pin_change(profile),
-                'dashboard_url': get_dashboard_url(profile.profile_type)
+                'dashboard_url': self.get_dashboard_url(profile)
             })
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
     def requires_pin_change(self, profile):
         """Check if profile requires PIN change (first login)"""
+        # If last_login was just set and created_at is recent, likely first login
         time_diff = timezone.now() - profile.created_at
         return time_diff.total_seconds() < 300  # 5 minutes threshold
+    
+    def get_dashboard_url(self, profile):
+        """Get appropriate dashboard URL based on profile type"""
+        if profile.profile_type == 'BIZ':
+            return '/dashboard/business'
+        else:
+            return '/dashboard/personal'
 
 
 class PINChangeView(APIView):
@@ -274,57 +282,59 @@ class PINChangeView(APIView):
     API endpoint for PIN change functionality.
     Handles both first-time setup and regular PIN updates.
     """
-    permission_classes = [AllowAny]
+    permission_classes = [AllowAny]  # Change to IsAuthenticated when session management is implemented
     
     def post(self, request):
         serializer = PINChangeSerializer(data=request.data)
-        
         if serializer.is_valid():
             profile_id = request.data.get('profile_id')
-            
             try:
                 profile = Profile.objects.get(id=profile_id, is_active=True)
-                validated_data = get_validated_data(serializer)
-                  # Validate required fields
+                validated_data = serializer.validated_data if serializer.validated_data else {}
                 current_pin = validated_data.get('current_pin')
-                new_pin = validated_data.get('new_pin')
                 
-                # Check for missing fields
                 if not current_pin:
                     return Response(
-                        {'error': ERROR_MESSAGES['current_pin_required']}, 
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
-                
-                if not new_pin:
-                    return Response(
-                        {'error': ERROR_MESSAGES['new_pin_required']}, 
+                        {'error': 'Current PIN is required.'}, 
                         status=status.HTTP_400_BAD_REQUEST
                     )
                 
                 # Verify current PIN
                 if not profile.verify_pin(current_pin):
                     return Response(
-                        {'error': ERROR_MESSAGES['incorrect_current_pin']}, 
+                        {'error': 'Current PIN is incorrect.'}, 
                         status=status.HTTP_400_BAD_REQUEST
                     )
                 
                 # Set new PIN
+                new_pin = validated_data.get('new_pin')
+                if not new_pin:
+                    return Response(
+                        {'error': 'New PIN is required.'}, 
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
                 profile.set_pin(new_pin)
                 
                 return Response({
-                    'message': RESPONSE_MESSAGES['pin_change_success'],
+                    'message': 'PIN changed successfully',
                     'redirect_to_dashboard': True,
-                    'dashboard_url': get_dashboard_url(profile.profile_type)
+                    'dashboard_url': self.get_dashboard_url(profile)
                 })
                 
             except Profile.DoesNotExist:
                 return Response(
-                    {'error': ERROR_MESSAGES['profile_not_found']}, 
+                    {'error': 'Profile not found.'}, 
                     status=status.HTTP_404_NOT_FOUND
                 )
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    def get_dashboard_url(self, profile):
+        """Get appropriate dashboard URL based on profile type"""
+        if profile.profile_type == 'BIZ':
+            return '/dashboard/business'
+        else:
+            return '/dashboard/personal'
 
 
 class EmailCredentialsView(APIView):
@@ -333,19 +343,20 @@ class EmailCredentialsView(APIView):
     Used when user forgets their profile ID or PIN.
     """
     permission_classes = [AllowAny]
-    
     def post(self, request):
         serializer = EmailCredentialsSerializer(data=request.data)
         
         if serializer.is_valid():
-            validated_data = get_validated_data(serializer)
+            validated_data = serializer.validated_data if serializer.validated_data else {}
             email = validated_data.get('email')
-            
             if not email:
                 return Response(
-                    {'error': ERROR_MESSAGES['email_required']}, 
+                    {'error': 'Email is required'}, 
                     status=status.HTTP_400_BAD_REQUEST
                 )
+            
+            # In a real implementation, you'd search for profiles associated with this email
+            # For now, we'll send a generic response to prevent email enumeration
             
             try:
                 send_mail(
@@ -364,12 +375,12 @@ class EmailCredentialsView(APIView):
                 )
                 
                 return Response({
-                    'message': RESPONSE_MESSAGES['email_sent']
+                    'message': 'If an account exists with this email, credentials have been sent.'
                 })
                 
             except Exception as e:
                 return Response(
-                    {'error': RESPONSE_MESSAGES['email_failed']}, 
+                    {'error': 'Failed to send email. Please try again later.'}, 
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR
                 )
         
@@ -381,39 +392,39 @@ class DashboardView(APIView):
     API endpoint for dashboard data.
     Returns profile-specific dashboard information.
     """
-    permission_classes = [AllowAny]
+    permission_classes = [AllowAny]  # Change to IsAuthenticated when session management is implemented
     
     def get(self, request):
         profile_id = request.query_params.get('profile_id')
         
         if not profile_id:
             return Response(
-                {'error': ERROR_MESSAGES['profile_id_required']}, 
+                {'error': 'Profile ID required'}, 
                 status=status.HTTP_400_BAD_REQUEST
             )
         
         try:
             profile = Profile.objects.get(id=profile_id, is_active=True)
-            display_type = DB_CODE_TO_TYPE.get(profile.profile_type, 'personal')
             
             dashboard_data = {
                 'profile': ProfileSerializer(profile).data,
-                'dashboard_type': display_type,
+                'dashboard_type': 'business' if profile.profile_type == 'BIZ' else 'personal',
                 'quick_stats': self.get_quick_stats(profile),
                 'recent_activity': self.get_recent_activity(profile),
-                'available_features': get_profile_features(profile.profile_type)
+                'available_features': self.get_available_features(profile)
             }
             
             return Response(dashboard_data)
             
         except Profile.DoesNotExist:
             return Response(
-                {'error': ERROR_MESSAGES['profile_not_found']}, 
+                {'error': 'Profile not found'}, 
                 status=status.HTTP_404_NOT_FOUND
             )
     
     def get_quick_stats(self, profile):
         """Get quick statistics for dashboard"""
+        # Placeholder - implement based on your transaction models
         return {
             'total_balance': 0,
             'monthly_income': 0,
@@ -423,7 +434,21 @@ class DashboardView(APIView):
     
     def get_recent_activity(self, profile):
         """Get recent activity for dashboard"""
+        # Placeholder - implement based on your transaction models
         return []
+    
+    def get_available_features(self, profile):
+        """Get available features based on profile type"""
+        if profile.profile_type == 'BIZ':
+            return [
+                'invoicing', 'client_management', 'tax_preparation',
+                'cash_flow_analysis', 'business_expenses', 'asset_management'
+            ]
+        else:
+            return [
+                'budget_tracking', 'goal_setting', 'expense_categorization',
+                'savings_tracking', 'personal_loans', 'investment_tracking'
+            ]
 
 
 # =============================================================================
@@ -439,59 +464,53 @@ class EnhancedProfileRegistrationView(APIView):
     
     def post(self, request):
         try:
-            # Extract registration data using dictionary comprehension
-            registration_data = {
-                key: request.data.get(key, default)
-                for key, default in [
-                    ('name', None),
-                    ('profile_type', None),
-                    ('pin', None),
-                    ('email', None),
-                    ('base_currency', 'KES'),
-                    ('timezone', 'GMT+3')
-                ]
-            }
+            # Get registration data
+            name = request.data.get('name')
+            profile_type = request.data.get('profile_type')  # 'business' or 'personal'
+            pin = request.data.get('pin')
+            email = request.data.get('email')
+            base_currency = request.data.get('base_currency', 'KES')
+            timezone = request.data.get('timezone', 'GMT+3')
             
             # Validate required fields
-            required_fields = ['name', 'profile_type', 'pin']
-            valid, error_msg = validate_required_fields(registration_data, required_fields)
-            if not valid:
+            if not all([name, profile_type, pin]):
                 return Response(
-                    {'error': error_msg}, 
+                    {'error': 'Name, profile type, and PIN are required'}, 
                     status=status.HTTP_400_BAD_REQUEST
                 )
             
-            # Validate profile type using dictionary lookup
-            if registration_data['profile_type'] not in PROFILE_TYPE_MAPPINGS:
+            # Validate profile type
+            if profile_type not in ['business', 'personal']:
                 return Response(
-                    {'error': ERROR_MESSAGES['invalid_profile_type']}, 
+                    {'error': 'Profile type must be "business" or "personal"'}, 
                     status=status.HTTP_400_BAD_REQUEST
                 )
-            
-            # Get profile type code using mapping
-            profile_type_info = get_profile_type_info(registration_data['profile_type'])
-            
-            # Generate user ID and create profile
+              # Generate 8-digit user ID
             user_id = Profile.generate_user_id()
+            
+            # Create profile
             profile = Profile.objects.create(
                 user_id=user_id,
-                name=registration_data['name'],
-                email=registration_data['email'],
-                profile_type=profile_type_info['code'],
-                pin_hash=Profile.hash_pin(registration_data['pin']),
-                base_currency=registration_data['base_currency'],
-                timezone=registration_data['timezone'],
+                name=name,
+                email=email,
+                profile_type='BIZ' if profile_type == 'business' else 'PERS',
+                pin_hash=Profile.hash_pin(pin),
+                base_currency=base_currency,
+                timezone=timezone,
                 is_active=True
             )
             
-            # Build response using helper function
-            response_data = format_profile_response(profile)
-            response_data.update({
+            return Response({
                 'success': True,
-                'message': RESPONSE_MESSAGES['registration_success']
-            })
-            
-            return Response(response_data, status=status.HTTP_201_CREATED)
+                'message': 'Profile created successfully',
+                'user_id': user_id,
+                'profile_id': str(profile.id),
+                'name': name,
+                'profile_type': profile_type,
+                'email': email,
+                'base_currency': base_currency,
+                'timezone': timezone
+            }, status=status.HTTP_201_CREATED)
             
         except Exception as e:
             return Response(
@@ -509,34 +528,29 @@ class EnhancedProfileLoginView(APIView):
     
     def post(self, request):
         try:
-            # Extract login data
-            login_data = {
-                key: request.data.get(key)
-                for key in ['user_id', 'pin']
-            }
+            user_id = request.data.get('user_id')
+            pin = request.data.get('pin')
             
             # Validate required fields
-            required_fields = ['user_id', 'pin']
-            valid, error_msg = validate_required_fields(login_data, required_fields)
-            if not valid:
+            if not all([user_id, pin]):
                 return Response(
-                    {'error': error_msg}, 
+                    {'error': 'User ID and PIN are required'}, 
                     status=status.HTTP_400_BAD_REQUEST
                 )
             
-            # Find and authenticate profile
+            # Find profile by user_id
             try:
-                profile = Profile.objects.get(user_id=login_data['user_id'], is_active=True)
+                profile = Profile.objects.get(user_id=user_id, is_active=True)
             except Profile.DoesNotExist:
                 return Response(
-                    {'error': ERROR_MESSAGES['profile_not_found']}, 
+                    {'error': 'Profile not found'}, 
                     status=status.HTTP_404_NOT_FOUND
                 )
             
             # Verify PIN
-            if not profile.verify_pin(login_data['pin']):
+            if not profile.verify_pin(pin):
                 return Response(
-                    {'error': ERROR_MESSAGES['invalid_pin']}, 
+                    {'error': 'Invalid PIN'}, 
                     status=status.HTTP_401_UNAUTHORIZED
                 )
             
@@ -544,14 +558,18 @@ class EnhancedProfileLoginView(APIView):
             profile.last_login = timezone.now()
             profile.save()
             
-            # Build response using helper function
-            response_data = format_profile_response(profile)
-            response_data.update({
+            return Response({
                 'success': True,
-                'message': RESPONSE_MESSAGES['login_success']
-            })
-            
-            return Response(response_data, status=status.HTTP_200_OK)
+                'message': 'Login successful',
+                'user_id': profile.user_id,
+                'profile_id': str(profile.id),
+                'name': profile.name,
+                'email': profile.email,
+                'profile_type': 'business' if profile.profile_type == 'BIZ' else 'personal',
+                'base_currency': profile.base_currency,
+                'timezone': profile.timezone,
+                'last_login': profile.last_login.isoformat() if profile.last_login else None
+            }, status=status.HTTP_200_OK)
             
         except Exception as e:
             return Response(
@@ -574,26 +592,30 @@ class LegacyProfileSyncView(APIView):
             
             if not user_id:
                 return Response(
-                    {'error': ERROR_MESSAGES['user_id_required']}, 
+                    {'error': 'User ID is required'}, 
                     status=status.HTTP_400_BAD_REQUEST
                 )
             
+            # Find profile by user_id
             try:
                 profile = Profile.objects.get(user_id=user_id, is_active=True)
             except Profile.DoesNotExist:
                 return Response(
-                    {'error': ERROR_MESSAGES['profile_not_found']}, 
+                    {'error': 'Profile not found'}, 
                     status=status.HTTP_404_NOT_FOUND
                 )
-            
-            # Build response using helper function
-            response_data = format_profile_response(profile)
-            response_data.update({
+            return Response({
                 'success': True,
-                'date_created': profile.date_created.isoformat() if hasattr(profile, 'date_created') and profile.date_created else None
-            })
-            
-            return Response(response_data, status=status.HTTP_200_OK)
+                'user_id': profile.user_id,
+                'profile_id': str(profile.id),
+                'name': profile.name,
+                'email': profile.email,
+                'profile_type': 'business' if profile.profile_type == 'BIZ' else 'personal',
+                'base_currency': profile.base_currency,
+                'timezone': profile.timezone,
+                'last_login': profile.last_login.isoformat() if profile.last_login else None,
+                'date_created': profile.date_created.isoformat() if hasattr(profile, 'date_created') and profile.date_created else None,
+            }, status=status.HTTP_200_OK)
             
         except Exception as e:
             return Response(
@@ -609,33 +631,34 @@ class LegacyProfileSyncView(APIView):
             
             if not user_id:
                 return Response(
-                    {'error': ERROR_MESSAGES['user_id_required']}, 
+                    {'error': 'User ID is required'}, 
                     status=status.HTTP_400_BAD_REQUEST
                 )
             
+            # Find profile by user_id
             try:
                 profile = Profile.objects.get(user_id=user_id, is_active=True)
             except Profile.DoesNotExist:
                 return Response(
-                    {'error': ERROR_MESSAGES['profile_not_found']}, 
+                    {'error': 'Profile not found'}, 
                     status=status.HTTP_404_NOT_FOUND
                 )
             
-            # Update profile fields using dictionary iteration
-            updatable_fields = ['name', 'email', 'base_currency', 'timezone']
-            updated = False
+            # Update profile with sync data
+            if 'name' in profile_data:
+                profile.name = profile_data['name']
+            if 'email' in profile_data:
+                profile.email = profile_data['email']
+            if 'base_currency' in profile_data:
+                profile.base_currency = profile_data['base_currency']
+            if 'timezone' in profile_data:
+                profile.timezone = profile_data['timezone']
             
-            for field in updatable_fields:
-                if field in profile_data:
-                    setattr(profile, field, profile_data[field])
-                    updated = True
-            
-            if updated:
-                profile.save()
+            profile.save()
             
             return Response({
                 'success': True,
-                'message': RESPONSE_MESSAGES['sync_success'],
+                'message': 'Profile synchronized successfully',
                 'user_id': profile.user_id,
             }, status=status.HTTP_200_OK)
             
@@ -646,10 +669,7 @@ class LegacyProfileSyncView(APIView):
             )
 
 
-# =============================================================================
-# LEGACY VIEWS AND ENDPOINTS
-# =============================================================================
-
+# Legacy profile validation endpoint (without authentication)
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def legacy_profile_validate(request):
@@ -659,10 +679,11 @@ def legacy_profile_validate(request):
         
         if not user_id:
             return Response(
-                {'error': ERROR_MESSAGES['user_id_required']}, 
+                {'error': 'User ID is required'}, 
                 status=status.HTTP_400_BAD_REQUEST
             )
         
+        # Check if profile exists
         exists = Profile.objects.filter(user_id=user_id, is_active=True).exists()
         
         return Response({
@@ -677,34 +698,14 @@ def legacy_profile_validate(request):
         )
 
 
-class ProfileRegistrationView(generics.CreateAPIView):
-    """API endpoint for user registration with auto-generated UUID and temporary PIN."""
-    queryset = Profile.objects.all()
-    serializer_class = ProfileRegistrationSerializer
-    permission_classes = [AllowAny]
-    
-    def create(self, request, *args, **kwargs):
-        response = super().create(request, *args, **kwargs)
-        
-        if response.status_code == status.HTTP_201_CREATED and response.data:
-            profile = Profile.objects.get(id=response.data['id'])
-            
-            response.data.update({
-                'profile_id': profile.id,
-                'profile_type': profile.profile_type,
-                'requires_pin_change': True,
-                'message': 'Registration successful. Please log in and change your PIN.'
-            })
-        
-        return response
-
-
+# Legacy views for backward compatibility
 class ProfileListCreateView(generics.ListCreateAPIView):
     queryset = Profile.objects.filter(is_active=True)
     serializer_class = ProfileSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [AllowAny]  # Change to IsAuthenticated when session management is implemented
 
     def perform_create(self, serializer):
+        # Hash PIN before saving
         pin = serializer.validated_data.get('pin')
         if pin:
             serializer.save(pin_hash=Profile.hash_pin(pin))
@@ -713,13 +714,14 @@ class ProfileListCreateView(generics.ListCreateAPIView):
 class ProfileDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Profile.objects.all()
     serializer_class = ProfileSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [AllowAny]  # Change to IsAuthenticated when session management is implemented
 
     def perform_destroy(self, instance):
         instance.is_active = False
         instance.save()
 
 
+# API endpoint for checking authentication status
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def auth_status(request):
@@ -735,5 +737,4 @@ def auth_status(request):
             })
         except Profile.DoesNotExist:
             pass
-    
     return Response({'authenticated': False})

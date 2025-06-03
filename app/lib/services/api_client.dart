@@ -279,10 +279,7 @@ class ApiClient {
       final response = await http.post(
         Uri.parse('$_baseUrl/enhanced/login/'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'user_id': userId,
-          'pin': pin,
-        }),
+        body: jsonEncode({'user_id': userId, 'pin': pin}),
       );
 
       if (response.statusCode == 200) {
@@ -308,7 +305,9 @@ class ApiClient {
         return jsonDecode(response.body);
       } else {
         final errorData = jsonDecode(response.body);
-        throw Exception(errorData['error'] ?? 'Failed to download profile data');
+        throw Exception(
+          errorData['error'] ?? 'Failed to download profile data',
+        );
       }
     } catch (e) {
       throw Exception('Network error downloading profile: $e');
@@ -324,10 +323,7 @@ class ApiClient {
       final response = await http.post(
         Uri.parse('$_baseUrl/enhanced/sync/'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'user_id': userId,
-          'profile_data': profileData,
-        }),
+        body: jsonEncode({'user_id': userId, 'profile_data': profileData}),
       );
 
       if (response.statusCode == 200) {
@@ -347,9 +343,7 @@ class ApiClient {
       final response = await http.post(
         Uri.parse('$_baseUrl/enhanced/validate/'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'user_id': userId,
-        }),
+        body: jsonEncode({'user_id': userId}),
       );
 
       if (response.statusCode == 200) {
@@ -360,6 +354,36 @@ class ApiClient {
       }
     } catch (e) {
       throw Exception('Network error validating profile: $e');
+    }
+  }
+
+  // Change PIN on server with enhanced security
+  Future<Map<String, dynamic>> changePinOnServer({
+    required String userId,
+    required String currentPin,
+    required String newPin,
+    required String profileId,
+    required String confirmPin,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/enhanced/change-pin/'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'user_id': userId,
+          'current_pin': currentPin,
+          'new_pin': newPin,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        final errorData = jsonDecode(response.body);
+        throw Exception(errorData['error'] ?? 'Failed to change PIN');
+      }
+    } catch (e) {
+      throw Exception('Network error changing PIN: $e');
     }
   }
 }

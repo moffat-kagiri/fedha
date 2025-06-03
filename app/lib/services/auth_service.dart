@@ -2,6 +2,7 @@
 
 import 'package:fedha/models/enhanced_profile.dart' as enhanced;
 import 'package:fedha/services/api_client.dart';
+import 'package:fedha/services/enhanced_auth_service.dart';
 import 'package:uuid/uuid.dart';
 import 'package:flutter/foundation.dart';
 import 'package:hive/hive.dart';
@@ -11,8 +12,9 @@ import '../models/profile.dart';
 class AuthService extends ChangeNotifier {
   final Uuid _uuid = const Uuid();
   final ApiClient _apiClient = ApiClient();
+  final EnhancedAuthService _enhancedAuthService = EnhancedAuthService();
 
-  get currentProfileId => null;
+  Null get currentProfileId => null;
   Profile? _currentProfile;
 
   Profile? get currentProfile => _currentProfile;
@@ -360,16 +362,37 @@ class AuthService extends ChangeNotifier {
     return daysSinceCreation < 1 && _currentProfile!.lastLogin == null;
   }
 
-  // Change PIN
+  // Enhanced PIN change with server sync
   Future<bool> changePin(String currentPin, String newPin) async {
     if (_currentProfile == null) return false;
 
     try {
+      // Verify current PIN
       if (!_currentProfile!.verifyPin(currentPin)) {
         return false;
       }
 
+      // Create new PIN hash
       final newPinHash = hashPin(newPin);
+
+      // Try to sync with server first
+      bool serverSyncSuccess = false;
+      try {
+        // Attempt server PIN change
+        await _enhancedAuthService.changePinOnServer(
+          profileId: _currentProfile!.id,
+          currentPin: currentPin,
+          newPin: newPin,
+        );
+        serverSyncSuccess = true;
+      } catch (e) {
+        if (kDebugMode) {
+          print('Server PIN change failed, proceeding with local change: $e');
+        }
+        // Continue with local change even if server fails
+      }
+
+      // Update local profile
       _currentProfile = Profile(
         id: _currentProfile!.id,
         type: _currentProfile!.type,
@@ -383,8 +406,17 @@ class AuthService extends ChangeNotifier {
         lastLogin: _currentProfile!.lastLogin,
       );
 
+      // Save to local storage
       final profileBox = await Hive.openBox<Profile>('profiles');
       await profileBox.put(_currentProfile!.id, _currentProfile!);
+
+      notifyListeners();
+
+      if (kDebugMode) {
+        print(
+          'PIN changed successfully. Server sync: ${serverSyncSuccess ? "Success" : "Failed (local only)"}',
+        );
+      }
 
       return true;
     } catch (e) {
