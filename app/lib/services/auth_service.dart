@@ -12,7 +12,18 @@ import '../models/profile.dart';
 class AuthService extends ChangeNotifier {
   final Uuid _uuid = const Uuid();
   final ApiClient _apiClient = ApiClient();
-  final EnhancedAuthService _enhancedAuthService = EnhancedAuthService();
+  EnhancedAuthService? _enhancedAuthService;
+
+  // Default constructor with enhanced auth service
+  AuthService() {
+    _enhancedAuthService = EnhancedAuthService();
+  }
+
+  // Constructor without enhanced auth service to break circular dependency
+  AuthService.withoutEnhancedAuth();
+
+  // Lazy getter for enhanced auth service
+  EnhancedAuthService? get enhancedAuthService => _enhancedAuthService;
 
   Null get currentProfileId => null;
   Profile? _currentProfile;
@@ -379,12 +390,14 @@ class AuthService extends ChangeNotifier {
       bool serverSyncSuccess = false;
       try {
         // Attempt server PIN change
-        await _enhancedAuthService.changePinOnServer(
-          profileId: _currentProfile!.id,
-          currentPin: currentPin,
-          newPin: newPin,
-        );
-        serverSyncSuccess = true;
+        if (_enhancedAuthService != null) {
+          await _enhancedAuthService!.changePinOnServer(
+            profileId: _currentProfile!.id,
+            currentPin: currentPin,
+            newPin: newPin,
+          );
+          serverSyncSuccess = true;
+        }
       } catch (e) {
         if (kDebugMode) {
           print('Server PIN change failed, proceeding with local change: $e');
