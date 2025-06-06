@@ -1,6 +1,7 @@
 // Backend communication
 
 import 'dart:convert';
+import 'package:flutter/foundation.dart' hide Category;
 import 'package:http/http.dart' as http;
 import '../models/transaction.dart';
 import '../models/category.dart';
@@ -10,8 +11,16 @@ import '../models/goal.dart';
 import '../models/budget.dart';
 
 class ApiClient {
-  static const String _baseUrl =
-      "http://10.0.2.2:8000/api"; // Android emulator localhost
+  // Platform-specific base URL configuration for cross-platform sync
+  static String get _baseUrl {
+    if (kIsWeb) {
+      // Web platform uses localhost directly
+      return "http://localhost:8000/api";
+    } else {
+      // Mobile platforms use emulator-specific localhost
+      return "http://10.0.2.2:8000/api";
+    }
+  }
 
   // Create Profile
   Future<Map<String, dynamic>> createProfile({
@@ -237,24 +246,24 @@ class ApiClient {
   // ENHANCED PROFILE MANAGEMENT - 8-DIGIT USER IDS AND CROSS-DEVICE SUPPORT
   // =============================================================================
 
-  // Enhanced profile registration with 8-digit user ID
+  // Enhanced profile registration with email
   Future<Map<String, dynamic>> createEnhancedProfile({
-    required String name,
-    required String profileType, // 'business' or 'personal'
+    required String email, // Changed from name, profileType
     required String pin,
-    String? email,
+    // String? name, // name and profileType will be part of profileData in EnhancedAuthService
+    // String? profileType, 
     String baseCurrency = 'KES',
     String timezone = 'GMT+3',
   }) async {
     try {
       final response = await http.post(
-        Uri.parse('$_baseUrl/enhanced/register/'),
+        Uri.parse('$_baseUrl/enhanced/register/'), // Endpoint might need adjustment based on backend
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          'name': name,
-          'profile_type': profileType,
+          // 'name': name,
+          // 'profile_type': profileType,
+          'email': email, // Now using email
           'pin': pin,
-          'email': email,
           'base_currency': baseCurrency,
           'timezone': timezone,
         }),
@@ -270,16 +279,16 @@ class ApiClient {
     }
   }
 
-  // Enhanced profile login with 8-digit user ID
+  // Enhanced profile login with email
   Future<Map<String, dynamic>> loginEnhancedProfile({
-    required String userId,
+    required String email, // Changed from userId
     required String pin,
   }) async {
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/enhanced/login/'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'user_id': userId, 'pin': pin}),
+        body: jsonEncode({'email': email, 'pin': pin}), // Changed from user_id
       );
 
       if (response.statusCode == 200) {
@@ -293,11 +302,11 @@ class ApiClient {
     }
   }
 
-  // Download profile data for synchronization
-  Future<Map<String, dynamic>> downloadProfileData(String userId) async {
+  // Download profile data for synchronization using email
+  Future<Map<String, dynamic>> downloadProfileData(String email) async { // Changed from userId
     try {
       final response = await http.get(
-        Uri.parse('$_baseUrl/enhanced/sync/?user_id=$userId'),
+        Uri.parse('$_baseUrl/enhanced/sync/?email=$email'), // Changed from user_id
         headers: {'Content-Type': 'application/json'},
       );
 
@@ -314,16 +323,16 @@ class ApiClient {
     }
   }
 
-  // Upload profile data for synchronization
+  // Upload profile data for synchronization using email
   Future<Map<String, dynamic>> uploadProfileData({
-    required String userId,
+    required String email, // Changed from userId
     required Map<String, dynamic> profileData,
   }) async {
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/enhanced/sync/'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'user_id': userId, 'profile_data': profileData}),
+        body: jsonEncode({'email': email, 'profile_data': profileData}), // Changed from user_id
       );
 
       if (response.statusCode == 200) {
@@ -337,13 +346,13 @@ class ApiClient {
     }
   }
 
-  // Validate if a profile exists (without authentication)
-  Future<Map<String, dynamic>> validateProfile(String userId) async {
+  // Validate if a profile exists (without authentication) using email
+  Future<Map<String, dynamic>> validateProfile(String email) async { // Changed from userId
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/enhanced/validate/'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'user_id': userId}),
+        body: jsonEncode({'email': email}), // Changed from user_id
       );
 
       if (response.statusCode == 200) {
@@ -357,22 +366,23 @@ class ApiClient {
     }
   }
 
-  // Change PIN on server with enhanced security
+  // Change PIN on server with enhanced security using email
   Future<Map<String, dynamic>> changePinOnServer({
-    required String userId,
+    required String email, // Changed from userId
     required String currentPin,
     required String newPin,
-    required String profileId,
-    required String confirmPin,
+    // required String profileId, // Removed, email is the identifier
+    required String confirmPin, // confirmPin is usually handled client-side or by a specific backend logic if needed
   }) async {
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/enhanced/change-pin/'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          'user_id': userId,
+          'email': email, // Changed from user_id
           'current_pin': currentPin,
           'new_pin': newPin,
+          // 'confirm_pin': confirmPin, // Backend might not need this if new_pin is already confirmed
         }),
       );
 

@@ -27,7 +27,7 @@ Comprehensive development roadmap for the Fedha Budget Tracker, incorporating in
 - [X] **Secure PIN authentication** with salt + hash implementation
 - [X] **Profile switching** functionality
 - [ ] **PIN reset/recovery** mechanism
-- [ ] **Session management** for web platform
+- [X] **Session management** for web platform
 
 ### **1.3 Local Storage Setup (Flutter)**
 
@@ -42,7 +42,7 @@ Comprehensive development roadmap for the Fedha Budget Tracker, incorporating in
 
 ### **2.1 Transaction Management**
 
-- [ ] **Enhanced transaction categories** with hierarchical structure
+- [X] **Enhanced transaction categories** with hierarchical structure
 - [ ] **Bulk transaction import** (CSV/Excel)
 - [ ] **Transaction search and filtering**
 - [ ] **Recurring transaction templates**

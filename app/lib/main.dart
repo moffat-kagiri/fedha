@@ -1,5 +1,6 @@
 // lib/main.dart
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
 
@@ -97,8 +98,53 @@ void main() async {
   );
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    
+    // Trigger sync when app goes to background or is paused
+    if (state == AppLifecycleState.paused || 
+        state == AppLifecycleState.detached ||
+        state == AppLifecycleState.inactive) {
+      _syncProfileOnAppBackground();
+    }
+  }
+
+  Future<void> _syncProfileOnAppBackground() async {
+    try {
+      final enhancedAuthService = Provider.of<EnhancedAuthService>(context, listen: false);
+      if (enhancedAuthService.isLoggedIn) {
+        if (kDebugMode) {
+          print('App going to background, syncing profile...');
+        }
+        await enhancedAuthService.syncProfileWithServer();
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Background sync failed: $e');
+      }
+    }
+  }
   
   @override
   Widget build(BuildContext context) {
