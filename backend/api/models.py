@@ -125,11 +125,29 @@ class Profile(models.Model):
         verbose_name="Profile ID",
         help_text="Unique identifier with B/P prefix for business/personal accounts (9 chars: X-XXXXXXX)"
     )
+    
+    # Enhanced: Add user_id field for 8-digit user IDs (for cross-device compatibility)
+    user_id = models.CharField(
+        max_length=8,
+        unique=True,
+        null=True,
+        blank=True,
+        help_text="8-digit user ID for cross-device login (e.g., 12345678)"
+    )
+    
     name = models.CharField(
         max_length=100,
         blank=True,
         help_text="Optional profile display name"
     )
+    
+    # Enhanced: Add email field for user communication
+    email = models.EmailField(
+        blank=True,
+        null=True,
+        help_text="Email address for notifications and account recovery"
+    )
+    
     profile_type = models.CharField(
         max_length=4,
         choices=ProfileType.choices,
@@ -152,22 +170,36 @@ class Profile(models.Model):
         default='GMT+3',
         help_text="Timezone for date/time display"
     )
-    
-    # Status tracking
+      # Status tracking
     created_at = models.DateTimeField(auto_now_add=True)
     last_modified = models.DateTimeField(auto_now=True)
     last_login = models.DateTimeField(null=True, blank=True)
     is_active = models.BooleanField(
         default=True,
         help_text="Soft delete flag - inactive profiles cannot authenticate"
-    )    
+    )
+    
+    # Enhanced: Add alias for date_created for compatibility
+    @property
+    def date_created(self):
+        """Alias for created_at for backwards compatibility"""
+        return self.created_at
+    
+    # Enhanced: Add is_business property for compatibility
+    @property
+    def is_business(self):
+        """Check if this is a business profile"""
+        return self.profile_type == self.ProfileType.BUSINESS
+        
     class Meta:
-        app_label = 'fedha'
+        app_label = 'api'
         indexes = [
             models.Index(fields=['profile_type']),
             models.Index(fields=['created_at']),
             models.Index(fields=['is_active']),
-            ]
+            models.Index(fields=['user_id']),  # Enhanced: Index for user_id lookups
+            models.Index(fields=['email']),     # Enhanced: Index for email lookups
+        ]
         ordering = ['-created_at']
         verbose_name = "User Profile"
         verbose_name_plural = "User Profiles"
@@ -197,18 +229,21 @@ class Profile(models.Model):
         """
         if not self.id:
             self.id = generate_profile_uuid(self.profile_type)
-        super().save(*args, **kwargs)
-
+        super().save(*args, **kwargs)    
     @staticmethod
     def hash_pin(raw_pin: str) -> str:
         """
-        Securely hash a PIN with application salt.
+        Securely hash a PIN using PBKDF2 with SHA256.
+        
+        This method uses Django's built-in password hashing system which implements
+        PBKDF2 with SHA256, providing strong protection against rainbow table
+        and brute force attacks.
         
         Args:
             raw_pin: PIN string (minimum 3 characters, alphanumeric allowed)
             
         Returns:
-            SHA-256 hash of PIN + application secret
+            PBKDF2 hash string in Django format (algorithm$iterations$salt$hash)
             
         Raises:
             ValueError: If PIN is less than 3 characters
@@ -216,12 +251,27 @@ class Profile(models.Model):
         if len(raw_pin) < 3:
             raise ValueError("PIN must be at least 3 characters")
         
-        salted = f"{raw_pin}{settings.SECRET_KEY}"
-        return hashlib.sha256(salted.encode()).hexdigest()
+        from django.contrib.auth.hashers import make_password
+        return make_password(raw_pin)
     
+    @staticmethod
+    def generate_user_id():
+        """
+        Generate a unique 8-digit user ID for cross-device login.
+        
+        Returns:
+            String: 8-digit numeric user ID (e.g., "12345678")
+        """
+        import random
+        while True:
+            # Generate 8-digit number
+            user_id = f"{random.randint(10000000, 99999999)}"
+            # Check if it's unique
+            if not Profile.objects.filter(user_id=user_id).exists():
+                return user_id
     def verify_pin(self, raw_pin: str) -> bool:
         """
-        Verify a raw PIN against the stored hash.
+        Verify a raw PIN against the stored hash using Django's secure password checking.
         
         Args:
             raw_pin: PIN string to verify
@@ -230,7 +280,8 @@ class Profile(models.Model):
             True if PIN matches, False otherwise
         """
         try:
-            return self.pin_hash == self.hash_pin(raw_pin)
+            from django.contrib.auth.hashers import check_password
+            return check_password(raw_pin, self.pin_hash)
         except ValueError:
             return False
 
@@ -325,11 +376,12 @@ class Category(models.Model):
     # Metadata
     description = models.TextField(
         blank=True,
-        help_text="Detailed description of category usage"
+    help_text="Detailed description of category usage"
     )
-    created_at = models.DateTimeField(auto_now_add=True)    
+    created_at = models.DateTimeField(auto_now_add=True)
+    
     class Meta:
-        app_label = 'fedha'
+        app_label = 'api'
         indexes = [
             models.Index(fields=['profile', 'type']),
             models.Index(fields=['parent']),
@@ -455,13 +507,14 @@ class Client(models.Model):
     # Status tracking
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
-    last_transaction_date = models.DateTimeField(null=True, blank=True)
+    last_transaction_date = models.DateTimeField(null=True, blank=True)    
     notes = models.TextField(
         blank=True,
         help_text="Internal notes about this client"
-    )    
+    )
+    
     class Meta:
-        app_label = 'fedha'
+        app_label = 'api'
         indexes = [
             models.Index(fields=['profile', 'is_active']),
             models.Index(fields=['name']),
@@ -671,12 +724,12 @@ class EnhancedTransaction(models.Model):
         blank=True,
         help_text="URL to uploaded receipt or document"
     )
-    
-    # Audit trail
+      # Audit trail
     created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)    
+    updated_at = models.DateTimeField(auto_now=True)
+    
     class Meta:
-        app_label = 'fedha'
+        app_label = 'api'
         indexes = [
             models.Index(fields=['profile', 'date']),
             models.Index(fields=['type', 'date']),
@@ -889,10 +942,10 @@ class Invoice(models.Model):
     )
     
     # Metadata
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True)    
     updated_at = models.DateTimeField(auto_now=True)    
     class Meta:
-        app_label = 'fedha'
+        app_label = 'api'
         indexes = [
             models.Index(fields=['profile', 'status']),
             models.Index(fields=['client', 'status']),
@@ -1029,12 +1082,12 @@ class InvoiceLineItem(models.Model):
     # Sorting and organization
     sort_order = models.PositiveIntegerField(
         default=0,
-        help_text="Display order on invoice"
-    )
+        help_text="Display order on invoice"    )
     
-    created_at = models.DateTimeField(auto_now_add=True)    
+    created_at = models.DateTimeField(auto_now_add=True)
+    
     class Meta:
-        app_label = 'fedha'
+        app_label = 'api'
         ordering = ['sort_order', 'id']
         verbose_name = "Invoice Line Item"
         verbose_name_plural = "Invoice Line Items"
@@ -1121,11 +1174,11 @@ class Loan(models.Model):
         default=Decimal('0'),
         help_text="Current value of collateral securing this loan"
     )
-    notes = models.TextField(blank=True)
+    notes = models.TextField(blank=True)    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)    
     class Meta:
-        app_label = 'fedha'
+        app_label = 'api'
         indexes = [
             models.Index(fields=['profile', 'status']),
             models.Index(fields=['maturity_date']),
@@ -1194,11 +1247,11 @@ class LoanPayment(models.Model):
     late_fee = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0'))
     balance_after_payment = models.DecimalField(max_digits=15, decimal_places=2)
     is_paid = models.BooleanField(default=False)
-    is_late = models.BooleanField(default=False)
+    is_late = models.BooleanField(default=False)    
     notes = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)    
     class Meta:
-        app_label = 'fedha'
+        app_label = 'api'
         indexes = [
             models.Index(fields=['loan', 'payment_number']),
             models.Index(fields=['scheduled_date']),
@@ -1254,10 +1307,10 @@ class Goal(models.Model):
     reminder_frequency_days = models.PositiveIntegerField(default=7)
     last_reminder_sent = models.DateTimeField(null=True, blank=True)
     notes = models.TextField(blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True)    
     updated_at = models.DateTimeField(auto_now=True)    
     class Meta:        
-        app_label = 'fedha'
+        app_label = 'api'
         indexes = [
             models.Index(fields=['profile', 'status']),
             models.Index(fields=['target_date']),
@@ -1314,9 +1367,8 @@ class TaxJurisdiction(models.Model):
     vat_rate = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal('0'))
     is_active = models.BooleanField(default=True)    
     created_at = models.DateTimeField(auto_now_add=True)
-    
     class Meta:
-        app_label = 'fedha'
+        app_label = 'api'
         unique_together = ['name', 'country_code']
     
     def __str__(self):
@@ -1335,11 +1387,11 @@ class TaxCategory(models.Model):
     treatment = models.CharField(max_length=12, choices=TaxTreatment.choices)
     description = models.TextField(blank=True)
     deduction_limit_annual = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
-    deduction_percentage = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    deduction_percentage = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)    
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)    
     class Meta:
-        app_label = 'fedha'
+        app_label = 'api'
         unique_together = ['jurisdiction', 'name']
         verbose_name_plural = "Tax Categories"
 
@@ -1375,14 +1427,14 @@ class TaxRecord(models.Model):
     notes = models.TextField(blank=True)
     documentation_required = models.BooleanField(default=False)
     documentation_complete = models.BooleanField(default=False)
-    is_verified = models.BooleanField(default=False)
+    is_verified = models.BooleanField(default=False)    
     verified_by = models.CharField(max_length=100, blank=True)
     verification_date = models.DateTimeField(null=True, blank=True)    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-
+    
     class Meta:
-        app_label = 'fedha'
+        app_label = 'api'
         indexes = [
             models.Index(fields=['profile', 'tax_year']),
             models.Index(fields=['jurisdiction', 'tax_year']),
@@ -1440,11 +1492,11 @@ class Asset(models.Model):
     location = models.CharField(max_length=200, blank=True)
     condition = models.CharField(max_length=100, blank=True)
     purchase_transaction = models.ForeignKey('EnhancedTransaction', on_delete=models.SET_NULL, null=True, blank=True, related_name='purchased_assets')
-    notes = models.TextField(blank=True)
+    notes = models.TextField(blank=True)    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)    
     class Meta:
-        app_label = 'fedha'
+        app_label = 'api'
         indexes = [
             models.Index(fields=['profile', 'asset_type']),
             models.Index(fields=['purchase_date']),
@@ -1489,10 +1541,10 @@ class RecurringTransactionTemplate(models.Model):
     is_active = models.BooleanField(default=True)
     total_generated = models.PositiveIntegerField(default=0)    
     last_generated_date = models.DateField(null=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True)    
     updated_at = models.DateTimeField(auto_now=True)    
     class Meta:
-        app_label = 'fedha'
+        app_label = 'api'
         indexes = [
             models.Index(fields=['profile', 'is_active']),
             models.Index(fields=['next_due_date']),
@@ -1535,13 +1587,15 @@ class Budget(models.Model):
     period_type = models.CharField(max_length=10, choices=BudgetPeriod.choices)
     start_date = models.DateField()
     end_date = models.DateField()
-    total_income_budget = models.DecimalField(max_digits=15, decimal_places=2, default=Decimal('0'))
+    total_income_budget = models.DecimalField(max_digits=15, decimal_places=2, default=Decimal('0'))    
     total_expense_budget = models.DecimalField(max_digits=15, decimal_places=2, default=Decimal('0'))
     status = models.CharField(max_length=10, choices=BudgetStatus.choices, default=BudgetStatus.DRAFT)
     notes = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    
     class Meta:
+        app_label = 'api'
         indexes = [
             models.Index(fields=['profile', 'status']),
             models.Index(fields=['start_date', 'end_date']),
@@ -1553,11 +1607,12 @@ class Budget(models.Model):
 class BudgetLineItem(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     budget = models.ForeignKey(Budget, on_delete=models.CASCADE, related_name='line_items')
-    category = models.ForeignKey('Category', on_delete=models.CASCADE, related_name='budget_line_items')
+    category = models.ForeignKey(Category, on_delete=models.CASCADE, related_name='budget_line_items')
     budgeted_amount = models.DecimalField(max_digits=15, decimal_places=2, validators=[MinValueValidator(0)])
     notes = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     class Meta:
+        app_label = 'api'
         unique_together = ['budget', 'category']
         ordering = ['category__name']
     def __str__(self):
@@ -1583,12 +1638,14 @@ class FinancialRatio(models.Model):
     period_start = models.DateField()
     period_end = models.DateField()
     industry_average = models.DecimalField(max_digits=10, decimal_places=4, null=True, blank=True)
-    target_value = models.DecimalField(max_digits=10, decimal_places=4, null=True, blank=True)
+    target_value = models.DecimalField(max_digits=10, decimal_places=4, null=True, blank=True)    
     numerator = models.DecimalField(max_digits=15, decimal_places=2)
     denominator = models.DecimalField(max_digits=15, decimal_places=2)
     calculation_notes = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    
     class Meta:
+        app_label = 'api'
         indexes = [
             models.Index(fields=['profile', 'ratio_type']),
             models.Index(fields=['calculation_date']),
@@ -1619,13 +1676,15 @@ class AuditLog(models.Model):
     content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
     object_id = models.CharField(max_length=100)
     content_object = GenericForeignKey('content_type', 'object_id')
-    field_changes = models.JSONField(null=True, blank=True)
+    field_changes = models.JSONField(null=True, blank=True)    
     user_agent = models.TextField(blank=True)
     ip_address = models.GenericIPAddressField(null=True, blank=True)
     session_id = models.CharField(max_length=100, blank=True)
     timestamp = models.DateTimeField(auto_now_add=True)
     notes = models.TextField(blank=True)
-    class Meta:        
+    
+    class Meta:
+        app_label = 'api'
         indexes = [
             models.Index(fields=['profile', 'timestamp']),
             models.Index(fields=['action_type', 'timestamp']),
@@ -1661,14 +1720,16 @@ class SystemSetting(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     profile = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name='settings', null=True, blank=True)
     setting_type = models.CharField(max_length=12, choices=SettingType.choices)
-    key = models.CharField(max_length=100)
+    key = models.CharField(max_length=100)    
     value = models.TextField()
     data_type = models.CharField(max_length=20, choices=[('string', 'String'),('integer', 'Integer'),('decimal', 'Decimal'),('boolean', 'Boolean'),('json', 'JSON'),('date', 'Date')], default='string')
     description = models.TextField(blank=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    
     class Meta:
+        app_label = 'api'
         indexes = [
             models.Index(fields=['profile', 'setting_type']),
             models.Index(fields=['key']),

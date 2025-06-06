@@ -19,6 +19,7 @@ Last Updated: May 26, 2025
 """
 
 from django.urls import path
+from django.http import JsonResponse
 from . import views
 
 # Authentication endpoints
@@ -29,7 +30,6 @@ auth_patterns = [
     path('change-pin/', views.PINChangeView.as_view(), name='change-pin'),
     path('email-credentials/', views.EmailCredentialsView.as_view(), name='email-credentials'),
     path('dashboard/', views.DashboardView.as_view(), name='dashboard'),
-    path('status/', views.auth_status, name='auth-status'),
 ]
 
 # Profile management endpoints
@@ -38,17 +38,31 @@ profile_patterns = [
     path('profiles/<str:pk>/', views.ProfileDetailView.as_view(), name='profile-detail'),
 ]
 
+# Enhanced profile endpoints for 8-digit user IDs and cross-device sync
+enhanced_profile_patterns = [
+    path('enhanced/register/', views.EnhancedProfileRegistrationView.as_view(), name='enhanced-register'),
+    path('enhanced/login/', views.EnhancedProfileLoginView.as_view(), name='enhanced-login'),
+    # path('enhanced/sync/', views.EnhancedProfileSyncView.as_view(), name='enhanced-sync'),  # Commented out until view is implemented
+    # path('enhanced/validate/', views.enhanced_profile_validate, name='enhanced-validate'),  # Commented out until view is implemented
+]
+
 urlpatterns = [
     # Authentication routes
-    *[path(f'auth/{pattern.pattern}', pattern.callback, kwargs=pattern.kwargs, name=f'auth-{pattern.name}') 
-      for pattern in auth_patterns],
+    path('auth/account-types/', views.AccountTypeSelectionView.as_view(), name='auth-account-types'),
+    path('auth/register/', views.ProfileRegistrationView.as_view(), name='auth-register'),
+    path('auth/login/', views.ProfileLoginView.as_view(), name='auth-login'),
+    path('auth/change-pin/', views.PINChangeView.as_view(), name='auth-change-pin'),
+    path('auth/email-credentials/', views.EmailCredentialsView.as_view(), name='auth-email-credentials'),
+    path('auth/dashboard/', views.DashboardView.as_view(), name='auth-dashboard'),
     
     # Profile management routes  
     *profile_patterns,
     
+    # Enhanced profile routes for cross-device support
+    *enhanced_profile_patterns,
+    
     # Health check endpoint
     path('health/', lambda request: JsonResponse({'status': 'healthy'}), name='health-check'),
 ]
-
 # Import JsonResponse for health check
 from django.http import JsonResponse

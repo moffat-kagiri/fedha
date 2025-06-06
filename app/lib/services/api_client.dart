@@ -232,4 +232,158 @@ class ApiClient {
     }
     return [];
   }
+
+  // =============================================================================
+  // ENHANCED PROFILE MANAGEMENT - 8-DIGIT USER IDS AND CROSS-DEVICE SUPPORT
+  // =============================================================================
+
+  // Enhanced profile registration with 8-digit user ID
+  Future<Map<String, dynamic>> createEnhancedProfile({
+    required String name,
+    required String profileType, // 'business' or 'personal'
+    required String pin,
+    String? email,
+    String baseCurrency = 'KES',
+    String timezone = 'GMT+3',
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/enhanced/register/'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'name': name,
+          'profile_type': profileType,
+          'pin': pin,
+          'email': email,
+          'base_currency': baseCurrency,
+          'timezone': timezone,
+        }),
+      );
+
+      if (response.statusCode == 201) {
+        return jsonDecode(response.body);
+      } else {
+        throw Exception('Failed to create profile: ${response.body}');
+      }
+    } catch (e) {
+      throw Exception('Network error creating profile: $e');
+    }
+  }
+
+  // Enhanced profile login with 8-digit user ID
+  Future<Map<String, dynamic>> loginEnhancedProfile({
+    required String userId,
+    required String pin,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/enhanced/login/'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'user_id': userId, 'pin': pin}),
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        final errorData = jsonDecode(response.body);
+        throw Exception(errorData['error'] ?? 'Login failed');
+      }
+    } catch (e) {
+      throw Exception('Network error during login: $e');
+    }
+  }
+
+  // Download profile data for synchronization
+  Future<Map<String, dynamic>> downloadProfileData(String userId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/enhanced/sync/?user_id=$userId'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        final errorData = jsonDecode(response.body);
+        throw Exception(
+          errorData['error'] ?? 'Failed to download profile data',
+        );
+      }
+    } catch (e) {
+      throw Exception('Network error downloading profile: $e');
+    }
+  }
+
+  // Upload profile data for synchronization
+  Future<Map<String, dynamic>> uploadProfileData({
+    required String userId,
+    required Map<String, dynamic> profileData,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/enhanced/sync/'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'user_id': userId, 'profile_data': profileData}),
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        final errorData = jsonDecode(response.body);
+        throw Exception(errorData['error'] ?? 'Failed to upload profile data');
+      }
+    } catch (e) {
+      throw Exception('Network error uploading profile: $e');
+    }
+  }
+
+  // Validate if a profile exists (without authentication)
+  Future<Map<String, dynamic>> validateProfile(String userId) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/enhanced/validate/'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'user_id': userId}),
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        final errorData = jsonDecode(response.body);
+        throw Exception(errorData['error'] ?? 'Failed to validate profile');
+      }
+    } catch (e) {
+      throw Exception('Network error validating profile: $e');
+    }
+  }
+
+  // Change PIN on server with enhanced security
+  Future<Map<String, dynamic>> changePinOnServer({
+    required String userId,
+    required String currentPin,
+    required String newPin,
+    required String profileId,
+    required String confirmPin,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/enhanced/change-pin/'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'user_id': userId,
+          'current_pin': currentPin,
+          'new_pin': newPin,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        final errorData = jsonDecode(response.body);
+        throw Exception(errorData['error'] ?? 'Failed to change PIN');
+      }
+    } catch (e) {
+      throw Exception('Network error changing PIN: $e');
+    }
+  }
 }
