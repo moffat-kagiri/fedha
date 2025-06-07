@@ -1,4 +1,4 @@
-// test/integration/enhanced_onboarding_test.dart
+// test/integration/onboarding_test.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive_flutter/hive_flutter.dart';

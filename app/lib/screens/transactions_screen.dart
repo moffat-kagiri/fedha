@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/transaction.dart';
-import '../services/enhanced_auth_service.dart';
+import '../services/auth_service.dart';
 import '../services/offline_data_service.dart';
 import '../utils/profile_transaction_utils.dart';
 import 'add_transaction_screen.dart';
@@ -19,15 +19,18 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
   final List<String> _filterOptions = ['All', 'Income', 'Expense'];
 
   Future<List<Transaction>> _loadTransactions(
-      OfflineDataService dataService, String profileId) async {
+    OfflineDataService dataService,
+    String profileId,
+  ) async {
     return await dataService.getTransactions(profileId);
   }
 
   List<Transaction> _filterTransactions(List<Transaction> transactions) {
     if (_selectedFilter == 'All') return transactions;
-    final type = _selectedFilter == 'Income' 
-        ? TransactionType.income 
-        : TransactionType.expense;
+    final type =
+        _selectedFilter == 'Income'
+            ? TransactionType.income
+            : TransactionType.expense;
     return transactions.where((t) => t.type == type).toList();
   }
 
@@ -158,7 +161,8 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
             ),
           ),
         ],
-      ),    );
+      ),
+    );
   }
 
   @override
@@ -190,7 +194,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
           ),
         ],
       ),
-      body: Consumer<EnhancedAuthService>(
+      body: Consumer<AuthService>(
         builder: (context, authService, child) {
           final profile = authService.currentProfile;
           if (profile == null) {
@@ -207,7 +211,9 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                   }
 
                   final transactions = snapshot.data ?? [];
-                  final filteredTransactions = _filterTransactions(transactions);
+                  final filteredTransactions = _filterTransactions(
+                    transactions,
+                  );
 
                   return Column(
                     children: [
@@ -251,23 +257,26 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(
-                children: _filterOptions.map((option) {
-                  final isSelected = _selectedFilter == option;
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: FilterChip(
-                      label: Text(option),
-                      selected: isSelected,
-                      onSelected: (selected) {
-                        setState(() {
-                          _selectedFilter = option;
-                        });
-                      },
-                      selectedColor: const Color(0xFF007A39).withOpacity(0.2),
-                      checkmarkColor: const Color(0xFF007A39),
-                    ),
-                  );
-                }).toList(),
+                children:
+                    _filterOptions.map((option) {
+                      final isSelected = _selectedFilter == option;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: FilterChip(
+                          label: Text(option),
+                          selected: isSelected,
+                          onSelected: (selected) {
+                            setState(() {
+                              _selectedFilter = option;
+                            });
+                          },
+                          selectedColor: const Color(
+                            0xFF007A39,
+                          ).withOpacity(0.2),
+                          checkmarkColor: const Color(0xFF007A39),
+                        ),
+                      );
+                    }).toList(),
               ),
             ),
           ),
@@ -321,7 +330,12 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     );
   }
 
-  Widget _buildSummaryCard(String title, String amount, Color color, IconData icon) {
+  Widget _buildSummaryCard(
+    String title,
+    String amount,
+    Color color,
+    IconData icon,
+  ) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -361,11 +375,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.receipt_long,
-              size: 64,
-              color: Colors.grey,
-            ),
+            Icon(Icons.receipt_long, size: 64, color: Colors.grey),
             SizedBox(height: 16),
             Text(
               'No transactions found',
@@ -412,10 +422,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
         ),
         title: Text(
           transaction.description ?? 'No description',
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
         ),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -423,18 +430,12 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
             const SizedBox(height: 4),
             Text(
               _categoryToString(transaction.category),
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey.shade600,
-              ),
+              style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
             ),
             const SizedBox(height: 2),
             Text(
               _formatDate(transaction.date),
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey.shade500,
-              ),
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
             ),
           ],
         ),
@@ -448,59 +449,6 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
         ),
         onTap: () => _showTransactionDetails(transaction),
       ),
-    );
-  }
-
-  Widget _buildTransactionDialog(Transaction transaction) {
-    final isIncome = transaction.type == TransactionType.income;
-    final color = isIncome ? Colors.green : Colors.red;
-
-    return AlertDialog(
-      title: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Icon(
-              isIncome ? Icons.trending_up : Icons.trending_down,
-              color: color,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              'Transaction Details',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.black87,
-              ),
-            ),
-          ),
-        ],
-      ),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _buildDetailRow('Amount', '${isIncome ? '+' : '-'}\$${transaction.amount.toStringAsFixed(2)}'),
-          _buildDetailRow('Type', isIncome ? 'Income' : 'Expense'),
-          _buildDetailRow('Category', _categoryToString(transaction.category)),
-          _buildDetailRow('Description', transaction.description ?? 'No description'),
-          _buildDetailRow('Date', _formatDate(transaction.date)),
-          if (transaction.notes != null && transaction.notes!.isNotEmpty)
-            _buildDetailRow('Notes', transaction.notes!),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Close'),
-          ),      
-        ],
     );
   }
 }

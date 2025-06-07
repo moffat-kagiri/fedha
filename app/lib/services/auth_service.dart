@@ -24,7 +24,9 @@ class LoginResult {
   final String message;
   final EnhancedProfile? profile;
 
-  LoginResult.success({this.profile}) : success = true, message = 'Login successful';
+  LoginResult.success({this.profile})
+    : success = true,
+      message = 'Login successful';
   LoginResult.error(this.message) : success = false, profile = null;
 
   static LoginResult empty() => LoginResult.error('No profile found');
@@ -86,7 +88,7 @@ class AuthService extends ChangeNotifier {
       } else {
         _profileBox = Hive.box<EnhancedProfile>('enhanced_profiles');
       }
-      
+
       // Open other necessary boxes
       if (!Hive.isBoxOpen('settings')) {
         await Hive.openBox('settings');
@@ -112,6 +114,7 @@ class AuthService extends ChangeNotifier {
       }
     }
   }
+
   // Auto login - check for stored session
   Future<void> tryAutoLogin() async {
     try {
@@ -121,13 +124,13 @@ class AuthService extends ChangeNotifier {
 
       final settingsBox = Hive.box('settings');
       final currentProfileId = settingsBox.get('current_profile_id');
-      
+
       if (currentProfileId != null) {
         final profile = _profileBox!.get(currentProfileId);
         if (profile != null) {
           _currentProfile = profile;
           notifyListeners();
-          
+
           if (kDebugMode) {
             print('Auto login successful for profile: ${profile.email}');
           }
@@ -143,9 +146,7 @@ class AuthService extends ChangeNotifier {
   // Create test profiles for development/testing if none exist
   Future<void> _createTestProfilesIfNeeded() async {
     try {
-      if (_profileBox == null) {
-        _profileBox = await Hive.openBox<EnhancedProfile>('enhanced_profiles');
-      }
+      _profileBox ??= await Hive.openBox<EnhancedProfile>('enhanced_profiles');
 
       if (_profileBox!.isEmpty) {
         if (kDebugMode) {
@@ -173,15 +174,21 @@ class AuthService extends ChangeNotifier {
 
         if (kDebugMode) {
           print('Test profiles created:');
-          print('  Business: Email: ${businessProfile.email}, Password: password123');
-          print('  Personal: Email: ${personalProfile.email}, Password: password456');
+          print(
+            '  Business: Email: ${businessProfile.email}, Password: password123',
+          );
+          print(
+            '  Personal: Email: ${personalProfile.email}, Password: password456',
+          );
         }
       } else {
         if (kDebugMode) {
           print('Existing profiles found: ${_profileBox!.length}');
           for (var key in _profileBox!.keys) {
             var profile = _profileBox!.get(key);
-            print('  ${profile?.type}: Email: ${profile?.email}, Name: ${profile?.name}');
+            print(
+              '  ${profile?.type}: Email: ${profile?.email}, Name: ${profile?.name}',
+            );
           }
         }
       }
@@ -205,7 +212,10 @@ class AuthService extends ChangeNotifier {
       final String? name = profileData['name'];
       final ProfileType? profileTypeEnum = profileData['profile_type'];
 
-      if (email == null || email.isEmpty || password == null || password.isEmpty) {
+      if (email == null ||
+          email.isEmpty ||
+          password == null ||
+          password.isEmpty) {
         if (kDebugMode) {
           print('Email or password is missing. Cannot create server profile.');
         }
@@ -226,7 +236,8 @@ class AuthService extends ChangeNotifier {
         throw Exception('Profile type is required to create a profile.');
       }
 
-      final String profileTypeString = profileTypeEnum.toString().split('.').last;
+      final String profileTypeString =
+          profileTypeEnum.toString().split('.').last;
 
       // First try to create profile on server
       try {
@@ -255,20 +266,25 @@ class AuthService extends ChangeNotifier {
           timezone: profileData['timezone'] ?? 'GMT+3',
         );
 
-        if (_profileBox == null) {
-          _profileBox = await Hive.openBox<EnhancedProfile>('enhanced_profiles');
-        }
+        _profileBox ??= await Hive.openBox<EnhancedProfile>(
+          'enhanced_profiles',
+        );
         await _profileBox!.put(hiveKey, profile);
 
         final settingsBox = Hive.box('settings');
-        await settingsBox.put('google_drive_enabled', profileData['enable_google_drive'] ?? false);
+        await settingsBox.put(
+          'google_drive_enabled',
+          profileData['enable_google_drive'] ?? false,
+        );
         await settingsBox.put('current_profile_id', hiveKey);
 
         _currentProfile = profile;
         notifyListeners();
 
         if (kDebugMode) {
-          print('Enhanced profile created successfully with email: ${profile.email}, Hive ID: $hiveKey');
+          print(
+            'Enhanced profile created successfully with email: ${profile.email}, Hive ID: $hiveKey',
+          );
         }
 
         return true;
@@ -291,11 +307,11 @@ class AuthService extends ChangeNotifier {
     if (kDebugMode) {
       print('Attempting enhanced login for email: $email');
     }
-    
+
     try {
       final serverProfileData = await _apiClient.loginEnhancedProfile(
-        email: email, 
-        password: password
+        email: email,
+        password: password,
       );
 
       if (kDebugMode) {
@@ -307,7 +323,8 @@ class AuthService extends ChangeNotifier {
       final profileToSave = EnhancedProfile(
         id: serverId,
         type: ProfileType.values.firstWhere(
-          (e) => e.toString().split('.').last == serverProfileData['profile_type'],
+          (e) =>
+              e.toString().split('.').last == serverProfileData['profile_type'],
           orElse: () => ProfileType.personal,
         ),
         passwordHash: EnhancedProfile.hashPassword(password),
@@ -316,15 +333,13 @@ class AuthService extends ChangeNotifier {
         baseCurrency: serverProfileData['base_currency'] ?? 'KES',
         timezone: serverProfileData['timezone'] ?? 'GMT+3',
       );
-      
-      if (_profileBox == null) {
-        _profileBox = await Hive.openBox<EnhancedProfile>('enhanced_profiles');
-      }
+
+      _profileBox ??= await Hive.openBox<EnhancedProfile>('enhanced_profiles');
       await _profileBox!.put(serverId, profileToSave);
-      
+
       final settingsBox = Hive.box('settings');
       await settingsBox.put('current_profile_id', serverId);
-      
+
       _currentProfile = profileToSave;
       notifyListeners();
 
@@ -354,18 +369,19 @@ class AuthService extends ChangeNotifier {
         await initialize();
       }
 
-      final profiles = _profileBox!.values.where((p) => p.type == profileType).toList();
+      final profiles =
+          _profileBox!.values.where((p) => p.type == profileType).toList();
 
       for (final profile in profiles) {
         if (profile.verifyPassword(password)) {
           _currentProfile = profile.copyWith(lastLogin: DateTime.now());
-          
+
           // Update last login
           await _profileBox!.put(profile.id, _currentProfile!);
-          
+
           final settingsBox = Hive.box('settings');
           await settingsBox.put('current_profile_id', profile.id);
-          
+
           notifyListeners();
 
           if (kDebugMode) {
@@ -393,28 +409,28 @@ class AuthService extends ChangeNotifier {
     if (_currentProfile == null) {
       if (kDebugMode) {
         print('No current profile to set password for');
-        }
+      }
       return false;
     }
 
     try {
       // Update password hash
       final newPasswordHash = EnhancedProfile.hashPassword(newPassword);
-      
+
       _currentProfile = _currentProfile!.copyWith(
         passwordHash: newPasswordHash,
       );
 
       // Save locally
-      if (_profileBox == null) {
-        _profileBox = await Hive.openBox<EnhancedProfile>('enhanced_profiles');
-      }
+      _profileBox ??= await Hive.openBox<EnhancedProfile>('enhanced_profiles');
       await _profileBox!.put(_currentProfile!.id, _currentProfile!);
-      
+
       notifyListeners();
 
       if (kDebugMode) {
-        print('Initial password set successfully for profile: ${_currentProfile!.email}');
+        print(
+          'Initial password set successfully for profile: ${_currentProfile!.email}',
+        );
       }
 
       return true;
@@ -427,7 +443,10 @@ class AuthService extends ChangeNotifier {
   }
 
   // Change password for existing profiles
-  Future<bool> changePassword(String currentPassword, String newPassword) async {
+  Future<bool> changePassword(
+    String currentPassword,
+    String newPassword,
+  ) async {
     if (_currentProfile == null) {
       if (kDebugMode) {
         print('No current profile to change password for');
@@ -442,46 +461,45 @@ class AuthService extends ChangeNotifier {
           print('Current password verification failed');
         }
         return false;
-      }
-
-      // Try to update password on server first
+      } // Try to update password on server first
       try {
         await _apiClient.updateEnhancedProfile(
           email: _currentProfile!.email!,
-          password: newPassword,
+          passwordHash: EnhancedProfile.hashPassword(newPassword),
           name: _currentProfile!.name!,
-          profileType: _currentProfile!.type.toString().split('.').last,
           baseCurrency: _currentProfile!.baseCurrency,
           timezone: _currentProfile!.timezone,
         );
-        
+
         if (kDebugMode) {
           print('Server password update successful');
         }
       } catch (serverError) {
         if (kDebugMode) {
-          print('Server password update failed, continuing with local update: $serverError');
+          print(
+            'Server password update failed, continuing with local update: $serverError',
+          );
         }
         // Continue with local update even if server fails
       }
 
       // Update password hash locally
       final newPasswordHash = EnhancedProfile.hashPassword(newPassword);
-      
+
       _currentProfile = _currentProfile!.copyWith(
         passwordHash: newPasswordHash,
       );
 
       // Save locally
-      if (_profileBox == null) {
-        _profileBox = await Hive.openBox<EnhancedProfile>('enhanced_profiles');
-      }
+      _profileBox ??= await Hive.openBox<EnhancedProfile>('enhanced_profiles');
       await _profileBox!.put(_currentProfile!.id, _currentProfile!);
-      
+
       notifyListeners();
 
       if (kDebugMode) {
-        print('Password changed successfully for profile: ${_currentProfile!.email}');
+        print(
+          'Password changed successfully for profile: ${_currentProfile!.email}',
+        );
       }
 
       return true;
@@ -496,9 +514,7 @@ class AuthService extends ChangeNotifier {
   // Check if a profile exists with the given email
   Future<ProfileExistenceResult> checkProfileExists(String email) async {
     try {
-      if (_profileBox == null) {
-        _profileBox = await Hive.openBox<EnhancedProfile>('enhanced_profiles');
-      }
+      _profileBox ??= await Hive.openBox<EnhancedProfile>('enhanced_profiles');
 
       // Check local storage
       bool isLocal = false;
@@ -507,13 +523,11 @@ class AuthService extends ChangeNotifier {
           isLocal = true;
           break;
         }
-      }
-
-      // Check server
+      } // Check server
       bool isOnServer = false;
       try {
-        final serverData = await _apiClient.getEnhancedProfile(email: email);
-        isOnServer = serverData != null;
+        await _apiClient.getEnhancedProfile(email: email);
+        isOnServer = true; // If no exception is thrown, profile exists
       } catch (e) {
         if (kDebugMode) {
           print('Server check failed: $e');
@@ -549,9 +563,10 @@ class AuthService extends ChangeNotifier {
       final budgetBox = Hive.box('budgets');
       final goalBox = Hive.box('goals');
 
-      final profileTransactions = transactionBox.values
-          .where((t) => t['profileId'] == _currentProfile!.id)
-          .toList();
+      final profileTransactions =
+          transactionBox.values
+              .where((t) => t['profileId'] == _currentProfile!.id)
+              .toList();
 
       final totalIncome = profileTransactions
           .where((t) => t['type'] == 'income')
@@ -561,13 +576,23 @@ class AuthService extends ChangeNotifier {
           .where((t) => t['type'] == 'expense')
           .fold(0.0, (sum, t) => sum + (t['amount'] ?? 0.0));
 
-      final activeBudgets = budgetBox.values
-          .where((b) => b['profileId'] == _currentProfile!.id && b['isActive'] == true)
-          .length;
+      final activeBudgets =
+          budgetBox.values
+              .where(
+                (b) =>
+                    b['profileId'] == _currentProfile!.id &&
+                    b['isActive'] == true,
+              )
+              .length;
 
-      final activeGoals = goalBox.values
-          .where((g) => g['profileId'] == _currentProfile!.id && g['isCompleted'] == false)
-          .length;
+      final activeGoals =
+          goalBox.values
+              .where(
+                (g) =>
+                    g['profileId'] == _currentProfile!.id &&
+                    g['isCompleted'] == false,
+              )
+              .length;
 
       return ProfileStats(
         totalIncome: totalIncome,
@@ -577,7 +602,8 @@ class AuthService extends ChangeNotifier {
         activeBudgets: activeBudgets,
         activeGoals: activeGoals,
         lastLogin: _currentProfile!.lastLogin,
-        accountAge: DateTime.now().difference(_currentProfile!.createdAt).inDays,
+        accountAge:
+            DateTime.now().difference(_currentProfile!.createdAt).inDays,
       );
     } catch (e) {
       if (kDebugMode) {
@@ -591,12 +617,12 @@ class AuthService extends ChangeNotifier {
   Future<void> logout() async {
     try {
       _currentProfile = null;
-      
+
       final settingsBox = Hive.box('settings');
       await settingsBox.delete('current_profile_id');
-      
+
       notifyListeners();
-      
+
       if (kDebugMode) {
         print('Logout successful');
       }
@@ -623,9 +649,7 @@ class AuthService extends ChangeNotifier {
   // Delete profile
   Future<bool> deleteProfile(String profileId) async {
     try {
-      if (_profileBox == null) {
-        _profileBox = await Hive.openBox<EnhancedProfile>('enhanced_profiles');
-      }
+      _profileBox ??= await Hive.openBox<EnhancedProfile>('enhanced_profiles');
 
       final profile = _profileBox!.get(profileId);
       if (profile == null) {
@@ -643,7 +667,9 @@ class AuthService extends ChangeNotifier {
         }
       } catch (serverError) {
         if (kDebugMode) {
-          print('Server profile deletion failed, continuing with local deletion: $serverError');
+          print(
+            'Server profile deletion failed, continuing with local deletion: $serverError',
+          );
         }
       }
 
@@ -671,14 +697,11 @@ class AuthService extends ChangeNotifier {
   // Sync profile with server
   Future<void> syncProfileWithServer() async {
     if (_currentProfile == null) return;
-
     try {
       // Attempt to sync with server
       await _apiClient.updateEnhancedProfile(
         email: _currentProfile!.email!,
-        password: '', // Don't update password during sync
         name: _currentProfile!.name!,
-        profileType: _currentProfile!.type.toString().split('.').last,
         baseCurrency: _currentProfile!.baseCurrency,
         timezone: _currentProfile!.timezone,
       );
@@ -692,6 +715,7 @@ class AuthService extends ChangeNotifier {
       }
     }
   }
+
   // Check if profile needs password change (first-time login)
   bool requiresPasswordChange() {
     if (_currentProfile == null) return false;
@@ -699,7 +723,8 @@ class AuthService extends ChangeNotifier {
     // If never logged in before or account is very new
     if (_currentProfile!.lastLogin == null) return true;
 
-    final daysSinceCreation = DateTime.now().difference(_currentProfile!.createdAt).inDays;
+    final daysSinceCreation =
+        DateTime.now().difference(_currentProfile!.createdAt).inDays;
     return daysSinceCreation < 1 && _currentProfile!.lastLogin == null;
   }
 

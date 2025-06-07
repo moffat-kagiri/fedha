@@ -1,7 +1,6 @@
 // lib/screens/profile_type_screen.dart
 import 'package:flutter/material.dart';
-import 'enhanced_profile_creation_screen.dart';
-import '../models/enhanced_profile.dart';
+import 'profile_creation_screen.dart';
 
 class ProfileTypeScreen extends StatelessWidget {
   const ProfileTypeScreen({super.key});
@@ -62,16 +61,11 @@ class ProfileTypeScreen extends StatelessWidget {
       ),
     );
   }
-
   void _navigateToLogin(BuildContext context, {required bool isBusiness}) {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder:
-            (_) => EnhancedProfileCreationScreen(
-              profileType:
-                  isBusiness ? ProfileType.business : ProfileType.personal,
-            ),
+        builder: (_) => const ProfileCreationScreen(),
       ),
     );
   }

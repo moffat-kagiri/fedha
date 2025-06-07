@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../services/auth_service.dart';
 
 class ProfileSelectorScreen extends StatelessWidget {
   const ProfileSelectorScreen({super.key});
@@ -26,11 +24,10 @@ class ProfileSelectorScreen extends StatelessWidget {
       ),
     );
   }
-
-  // Update the _createProfile method
+  // Navigate to profile creation screen
   void _createProfile(BuildContext context, {required bool isBusiness}) {
-    final authService = Provider.of<AuthService>(context, listen: false);
-    authService.generateProfileId(isBusiness: isBusiness);
-    // Navigate to dashboard
+    Navigator.pushNamed(context, '/profile-creation', arguments: {
+      'profileType': isBusiness ? 'business' : 'personal',
+    });
   }
 }

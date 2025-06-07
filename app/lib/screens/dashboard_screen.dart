@@ -5,7 +5,7 @@ import '../models/transaction.dart';
 import '../models/goal.dart';
 import '../models/budget.dart';
 import '../models/enhanced_profile.dart';
-import '../services/enhanced_auth_service.dart';
+import '../services/auth_service.dart';
 import '../services/offline_data_service.dart';
 import 'main_navigation.dart';
 import 'add_goal_screen.dart';
@@ -23,7 +23,8 @@ class DashboardContent extends StatelessWidget {
   const DashboardContent({super.key});
 
   @override
-  Widget build(BuildContext context) {    return Consumer<EnhancedAuthService>(
+  Widget build(BuildContext context) {
+    return Consumer<AuthService>(
       builder: (context, authService, child) {
         final profile = authService.currentProfile;
         if (profile == null) {

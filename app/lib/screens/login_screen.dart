@@ -1,7 +1,7 @@
 // lib/screens/login_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../models/profile.dart';
+import '../models/enhanced_profile.dart';
 import '../services/auth_service.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -104,7 +104,8 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
-    });    try {
+    });
+    try {
       final authService = Provider.of<AuthService>(context, listen: false);
       final success = await authService.loginByType(
         widget.profileType,

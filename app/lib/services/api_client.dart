@@ -364,4 +364,87 @@ class ApiClient {
       throw Exception('Network error changing password: $e');
     }
   }
+
+  // =============================================================================
+  // ENHANCED PROFILE CRUD OPERATIONS - EMAIL/PASSWORD BASED
+  // =============================================================================
+
+  // Get enhanced profile by email
+  Future<Map<String, dynamic>> getEnhancedProfile({
+    required String email,
+  }) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/enhanced/profile/?email=$email'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        final errorData = jsonDecode(response.body);
+        throw Exception(errorData['error'] ?? 'Failed to get profile');
+      }
+    } catch (e) {
+      throw Exception('Network error getting profile: $e');
+    }
+  }
+
+  // Update enhanced profile
+  Future<Map<String, dynamic>> updateEnhancedProfile({
+    required String email,
+    String? name,
+    String? newEmail,
+    String? passwordHash,
+    String? baseCurrency,
+    String? timezone,
+  }) async {
+    try {
+      final updateData = <String, dynamic>{'email': email};
+
+      if (name != null) updateData['name'] = name;
+      if (newEmail != null) updateData['new_email'] = newEmail;
+      if (passwordHash != null) updateData['password_hash'] = passwordHash;
+      if (baseCurrency != null) updateData['base_currency'] = baseCurrency;
+      if (timezone != null) updateData['timezone'] = timezone;
+
+      final response = await http.put(
+        Uri.parse('$_baseUrl/enhanced/profile/'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(updateData),
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        final errorData = jsonDecode(response.body);
+        throw Exception(errorData['error'] ?? 'Failed to update profile');
+      }
+    } catch (e) {
+      throw Exception('Network error updating profile: $e');
+    }
+  }
+
+  // Delete enhanced profile
+  Future<Map<String, dynamic>> deleteEnhancedProfile({
+    required String email,
+  }) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('$_baseUrl/enhanced/profile/?email=$email'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        final errorData = jsonDecode(response.body);
+        throw Exception(errorData['error'] ?? 'Failed to delete profile');
+      }
+    } catch (e) {
+      throw Exception('Network error deleting profile: $e');
+    }
+  }
+
+  // =============================================================================
 }
