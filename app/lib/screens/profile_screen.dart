@@ -1,14 +1,13 @@
 // lib/screens/profile_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../services/enhanced_auth_service.dart';
+import '../services/auth_service.dart';
 import '../models/enhanced_profile.dart';
 
 class ProfileScreen extends StatelessWidget {
-  const ProfileScreen({super.key});
-  @override
+  const ProfileScreen({super.key});  @override
   Widget build(BuildContext context) {
-    final authService = Provider.of<EnhancedAuthService>(context);
+    final authService = Provider.of<AuthService>(context);
     final currentProfile = authService.currentProfile;
 
     if (currentProfile == null) {
@@ -46,22 +45,7 @@ class ProfileScreen extends StatelessWidget {
                       ),
                     const SizedBox(height: 8),
 
-                    // User Email
-                    if (currentProfile.email != null &&
-                        currentProfile.email!.isNotEmpty)
-                      Row(
-                        children: [
-                          const Icon(Icons.email, size: 16, color: Colors.grey),
-                          const SizedBox(width: 8),
-                          Text(
-                            currentProfile.email!,
-                            style: Theme.of(context).textTheme.bodyMedium,
-                          ),
-                        ],
-                      ),
-                    const SizedBox(height: 12),
-
-                    // User ID (Emphasized)
+                    // Email (Emphasized)
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 12,
@@ -80,20 +64,20 @@ class ProfileScreen extends StatelessWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
-                            Icons.fingerprint,
+                            Icons.email,
                             color: Theme.of(context).primaryColor,
                             size: 20,
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            'User ID: ',
+                            'Email: ',
                             style: TextStyle(
                               color: Theme.of(context).primaryColor,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
                           Text(
-                            currentProfile.userId,
+                            currentProfile.email ?? '',
                             style: TextStyle(
                               fontFamily: 'monospace',
                               fontSize: 16,
@@ -141,8 +125,8 @@ class ProfileScreen extends StatelessWidget {
             ),
             ListTile(
               leading: const Icon(Icons.lock),
-              title: const Text('Change PIN'),
-              onTap: () => _showChangePinDialog(context),
+              title: const Text('Change Password'),
+              onTap: () => _showChangePasswordDialog(context),
             ),
             const Divider(),
 
@@ -176,12 +160,12 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  void _showChangePinDialog(BuildContext context) {
+  void _showChangePasswordDialog(BuildContext context) {
     showDialog(
       context: context,
       builder:
           (_) => AlertDialog(
-            title: const Text('Change PIN'),
+            title: const Text('Change Password'),
             content: const Text(
               'This feature will be available in the next update.',
             ),
@@ -215,7 +199,7 @@ class ProfileScreen extends StatelessWidget {
   }
 
   void _logout(BuildContext context) async {
-    final authService = Provider.of<EnhancedAuthService>(
+    final authService = Provider.of<AuthService>(
       context,
       listen: false,
     );

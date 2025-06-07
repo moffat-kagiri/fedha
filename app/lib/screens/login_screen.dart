@@ -104,11 +104,9 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
-    });
-
-    try {
+    });    try {
       final authService = Provider.of<AuthService>(context, listen: false);
-      final success = await authService.login(
+      final success = await authService.loginByType(
         widget.profileType,
         _pinController.text,
       );

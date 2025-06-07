@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:fedha/main.dart';
-import 'package:fedha/services/enhanced_auth_service.dart';
+import 'package:fedha/services/auth_service.dart';
 import 'package:fedha/models/enhanced_profile.dart';
 
 void main() {
@@ -57,20 +57,20 @@ void main() {
       );
 
       // Submit the form
-      await tester.tap(find.text('Continue to PIN Setup'));
+      await tester.tap(find.text('Continue to Password Setup'));
       await tester.pumpAndSettle();
 
-      // Should now be on PIN setup screen
-      expect(find.text('Set Your Secure PIN'), findsOneWidget);
-      expect(find.text('Create PIN'), findsOneWidget);
-      expect(find.text('Confirm PIN'), findsOneWidget);
+      // Should now be on password setup screen
+      expect(find.text('Set Your Secure Password'), findsOneWidget);
+      expect(find.text('Create Password'), findsOneWidget);
+      expect(find.text('Confirm Password'), findsOneWidget);
 
-      // Enter PIN
-      await tester.enterText(find.byType(TextFormField).at(0), '5678');
-      await tester.enterText(find.byType(TextFormField).at(1), '5678');
+      // Enter password
+      await tester.enterText(find.byType(TextFormField).at(0), 'TestPass123!');
+      await tester.enterText(find.byType(TextFormField).at(1), 'TestPass123!');
 
-      // Set PIN and continue
-      await tester.tap(find.text('Set PIN & Continue'));
+      // Set password and continue
+      await tester.tap(find.text('Set Password & Continue'));
       await tester.pumpAndSettle();
 
       // Should now be on main navigation
@@ -84,17 +84,18 @@ void main() {
       // This test would require mocking Google Drive service
     });
 
-    testWidgets('PIN validation works correctly', (WidgetTester tester) async {
-      // Test PIN validation scenarios
-      // This test would check weak PIN detection and validation
+    testWidgets('Password validation works correctly', (
+      WidgetTester tester,
+    ) async {
+      // Test password validation scenarios
+      // This test would check weak password detection and validation
     });
   });
-
   group('Enhanced Auth Service Tests', () {
-    late EnhancedAuthService authService;
+    late AuthService authService;
 
     setUp(() {
-      authService = EnhancedAuthService();
+      authService = AuthService();
     });
 
     test('createEnhancedProfile creates profile correctly', () async {
@@ -104,7 +105,7 @@ void main() {
         'email': 'test@example.com',
         'base_currency': 'USD',
         'timezone': 'GMT+0',
-        'pin': '1234',
+        'password': 'TestPass123!',
         'enable_google_drive': false,
       };
 
@@ -114,23 +115,28 @@ void main() {
       expect(authService.currentProfile!.name, equals('Test User'));
     });
 
-    test('setInitialPin works for new profiles', () async {
+    test('setInitialPassword works for new profiles', () async {
       // Create a profile first
       final profileData = {
         'profile_type': ProfileType.business,
         'name': 'Business User',
         'email': 'business@example.com',
-        'pin': '0000', // Temporary PIN
+        'password': 'TempPass0000', // Temporary password
       };
 
       await authService.createEnhancedProfile(profileData);
 
-      // Set initial PIN
-      final result = await authService.setInitialPin('9876');
+      // Set initial password (simulate password change)
+      final result = await authService.setInitialPassword(
+        'NewBusinessPass9876',
+      );
       expect(result, isTrue);
 
-      // Verify PIN was set correctly
-      expect(authService.currentProfile!.verifyPin('9876'), isTrue);
+      // Verify password was set correctly
+      expect(
+        authService.currentProfile!.verifyPassword('NewBusinessPass9876'),
+        isTrue,
+      );
     });
   });
 }

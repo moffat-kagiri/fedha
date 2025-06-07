@@ -19,7 +19,7 @@ import 'models/sync_queue_item.dart';
 import 'adapters/enum_adapters.dart' as enum_adapters;
 
 // Services
-import 'services/enhanced_auth_service.dart';
+import 'services/auth_service.dart';
 // import 'services/google_drive_service.dart';
 import 'services/api_client.dart';
 import 'services/offline_data_service.dart';
@@ -78,9 +78,10 @@ void main() async {
   final apiClient = ApiClient();
   final offlineDataService = OfflineDataService();
   final syncService = EnhancedSyncService(
-    apiClient: apiClient,
+  apiClient: apiClient,
     offlineDataService: offlineDataService,
-  );  final enhancedAuthService = EnhancedAuthService();
+  );
+  final authService = AuthService();
   // Temporarily disable Google Drive to focus on core functionality
   // final googleDriveService = GoogleDriveService();
 
@@ -90,7 +91,7 @@ void main() async {
         Provider<ApiClient>.value(value: apiClient),
         Provider<OfflineDataService>.value(value: offlineDataService),
         Provider<EnhancedSyncService>.value(value: syncService),
-        ChangeNotifierProvider(create: (_) => enhancedAuthService),
+        ChangeNotifierProvider(create: (_) => authService),
         // Provider<GoogleDriveService>.value(value: googleDriveService),
       ],
       child: const MyApp(),
@@ -129,15 +130,14 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       _syncProfileOnAppBackground();
     }
   }
-
   Future<void> _syncProfileOnAppBackground() async {
     try {
-      final enhancedAuthService = Provider.of<EnhancedAuthService>(context, listen: false);
-      if (enhancedAuthService.isLoggedIn) {
+      final authService = Provider.of<AuthService>(context, listen: false);
+      if (authService.isLoggedIn) {
         if (kDebugMode) {
           print('App going to background, syncing profile...');
         }
-        await enhancedAuthService.syncProfileWithServer();
+        await authService.syncProfileWithServer();
       }
     } catch (e) {
       if (kDebugMode) {
@@ -160,10 +160,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             return const Scaffold(
               body: Center(child: CircularProgressIndicator()),
             );
-          }
-
-          return Consumer<EnhancedAuthService>(
-            builder: (context, enhancedAuthService, child) {
+          }          return Consumer<AuthService>(
+            builder: (context, authService, child) {
               return FutureBuilder<bool>(
                 future: _checkFirstTime(),
                 builder: (context, snapshot) {
@@ -177,7 +175,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
                   if (isFirstTime) {
                     return const OnboardingScreen();
-                  } else if (enhancedAuthService.isLoggedIn) {
+                  } else if (authService.isLoggedIn) {
                     return const MainNavigation();
                   } else {
                     return const SignInScreen();
@@ -196,11 +194,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       },
     );
   }
-
   Future<void> _initializeServices(BuildContext context) async {
-    final enhancedAuthService = Provider.of<EnhancedAuthService>(context, listen: false);
-    await enhancedAuthService.initialize();
-    await enhancedAuthService.autoLogin();
+    final authService = Provider.of<AuthService>(context, listen: false);
+    await authService.initialize();
+    await authService.tryAutoLogin(); // Using the correct method name
   }
 
   Future<bool> _checkFirstTime() async {

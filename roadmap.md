@@ -288,29 +288,32 @@ Comprehensive development roadmap for the Fedha Budget Tracker, incorporating in
 
 ## **Phase 11: Biometric Authentication & Advanced Security (Future Enhancement)**
 
-### **11.1 Biometric Login Implementation**
+### **11.1 Biometric & OTP Login Implementation**
 
 - [ ] **Fingerprint authentication** for supported devices
 - [ ] **Face recognition** login capability
 - [ ] **Voice recognition** as secondary authentication
 - [ ] **Biometric template encryption** and secure storage
-- [ ] **Fallback to PIN** for non-biometric devices
+- [ ] **Fallback to password** for non-biometric devices
+- [ ] **SMS OTP authentication** for identity verification and login
+- [ ] **Alphanumeric password authentication** (replacing PINs for all users)
 
 ### **11.2 Enhanced Security Features**
 
-- [ ] **Multi-factor authentication (MFA)** options
+- [ ] **Multi-factor authentication (MFA)** options (including SMS OTP)
 - [ ] **Device registration** and trusted device management
 - [ ] **Session timeout** based on security policies
 - [ ] **Biometric data privacy** compliance (GDPR, CCPA)
-- [ ] **Security audit logging** for biometric access
+- [ ] **Security audit logging** for biometric and OTP access
 
-### **11.3 Cross-Platform Biometric Support**
+### **11.3 Cross-Platform Biometric & OTP Support**
 
 - [ ] **Android biometric API** integration
 - [ ] **iOS biometric support** (Touch ID, Face ID)
 - [ ] **Web biometric authentication** (WebAuthn)
 - [ ] **Windows Hello** integration for desktop
 - [ ] **Consistent UX** across all platforms
+- [ ] **SMS OTP integration** for all platforms
 
 ### **11.4 Advanced Authentication Features**
 
@@ -323,10 +326,10 @@ Comprehensive development roadmap for the Fedha Budget Tracker, incorporating in
 ### **11.5 Privacy & Compliance**
 
 - [ ] **Biometric data encryption** at rest and in transit
-- [ ] **User consent** management for biometric data
-- [ ] **Data retention** policies for biometric templates
+- [ ] **User consent** management for biometric and OTP data
+- [ ] **Data retention** policies for biometric templates and OTP logs
 - [ ] **Third-party security** audit certification
-- [ ] **Privacy policy** updates for biometric features
+- [ ] **Privacy policy** updates for biometric and OTP features
 
 ---
 

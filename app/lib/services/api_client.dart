@@ -22,24 +22,6 @@ class ApiClient {
     }
   }
 
-  // Create Profile
-  Future<Map<String, dynamic>> createProfile({
-    required String profileId,
-    required bool isBusiness,
-    required String pinHash,
-  }) async {
-    final response = await http.post(
-      Uri.parse('$_baseUrl/profiles/'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'id': profileId,
-        'is_business': isBusiness,
-        'pin_hash': pinHash,
-      }),
-    );
-    return jsonDecode(response.body);
-  }
-
   // Sync Transactions
   Future<Map<String, dynamic>> syncTransactions(
     String profileId,
@@ -60,24 +42,6 @@ class ApiClient {
       body: jsonEncode(data),
     );
     return jsonDecode(response.body)['total_repayment'];
-  }
-
-  // Verify Profile
-  Future<Map<String, dynamic>> verifyProfile({
-    required String profileId,
-    required String pinHash,
-  }) async {
-    final response = await http.post(
-      Uri.parse('$_baseUrl/profiles/verify/'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'id': profileId, 'pin_hash': pinHash}),
-    );
-
-    if (response.statusCode != 200) {
-      throw Exception('Failed to verify profile');
-    }
-
-    return jsonDecode(response.body);
   }
 
   // Health check for connectivity
@@ -243,27 +207,27 @@ class ApiClient {
   }
 
   // =============================================================================
-  // ENHANCED PROFILE MANAGEMENT - 8-DIGIT USER IDS AND CROSS-DEVICE SUPPORT
+  // ENHANCED PROFILE MANAGEMENT - EMAIL/PASSWORD AUTHENTICATION
   // =============================================================================
 
-  // Enhanced profile registration with email
+  // Enhanced profile registration with email and password
   Future<Map<String, dynamic>> createEnhancedProfile({
-    required String email, // Changed from name, profileType
-    required String pin,
-    // String? name, // name and profileType will be part of profileData in EnhancedAuthService
-    // String? profileType, 
+    required String email,
+    required String password,
+    required String name,
+    required String profileType,
     String baseCurrency = 'KES',
     String timezone = 'GMT+3',
   }) async {
     try {
       final response = await http.post(
-        Uri.parse('$_baseUrl/enhanced/register/'), // Endpoint might need adjustment based on backend
+        Uri.parse('$_baseUrl/enhanced/register/'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          // 'name': name,
-          // 'profile_type': profileType,
-          'email': email, // Now using email
-          'pin': pin,
+          'name': name,
+          'profile_type': profileType,
+          'email': email,
+          'password': password,
           'base_currency': baseCurrency,
           'timezone': timezone,
         }),
@@ -272,23 +236,23 @@ class ApiClient {
       if (response.statusCode == 201) {
         return jsonDecode(response.body);
       } else {
-        throw Exception('Failed to create profile: ${response.body}');
+        throw Exception('Failed to create profile: \\${response.body}');
       }
     } catch (e) {
       throw Exception('Network error creating profile: $e');
     }
   }
 
-  // Enhanced profile login with email
+  // Enhanced profile login with email and password
   Future<Map<String, dynamic>> loginEnhancedProfile({
-    required String email, // Changed from userId
-    required String pin,
+    required String email,
+    required String password,
   }) async {
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/enhanced/login/'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'email': email, 'pin': pin}), // Changed from user_id
+        body: jsonEncode({'email': email, 'password': password}),
       );
 
       if (response.statusCode == 200) {
@@ -303,10 +267,13 @@ class ApiClient {
   }
 
   // Download profile data for synchronization using email
-  Future<Map<String, dynamic>> downloadProfileData(String email) async { // Changed from userId
+  Future<Map<String, dynamic>> downloadProfileData(String email) async {
+    // Changed from userId
     try {
       final response = await http.get(
-        Uri.parse('$_baseUrl/enhanced/sync/?email=$email'), // Changed from user_id
+        Uri.parse(
+          '$_baseUrl/enhanced/sync/?email=$email',
+        ), // Changed from user_id
         headers: {'Content-Type': 'application/json'},
       );
 
@@ -325,14 +292,17 @@ class ApiClient {
 
   // Upload profile data for synchronization using email
   Future<Map<String, dynamic>> uploadProfileData({
-    required String email, // Changed from userId
+    required String email,
     required Map<String, dynamic> profileData,
   }) async {
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/enhanced/sync/'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'email': email, 'profile_data': profileData}), // Changed from user_id
+        body: jsonEncode({
+          'email': email,
+          'profile_data': profileData,
+        }), // Changed from user_id
       );
 
       if (response.statusCode == 200) {
@@ -347,7 +317,8 @@ class ApiClient {
   }
 
   // Validate if a profile exists (without authentication) using email
-  Future<Map<String, dynamic>> validateProfile(String email) async { // Changed from userId
+  Future<Map<String, dynamic>> validateProfile(String email) async {
+    // Changed from userId
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/enhanced/validate/'),
@@ -366,23 +337,20 @@ class ApiClient {
     }
   }
 
-  // Change PIN on server with enhanced security using email
-  Future<Map<String, dynamic>> changePinOnServer({
-    required String email, // Changed from userId
-    required String currentPin,
-    required String newPin,
-    // required String profileId, // Removed, email is the identifier
-    required String confirmPin, // confirmPin is usually handled client-side or by a specific backend logic if needed
+  // Change password on server using email
+  Future<Map<String, dynamic>> changePasswordOnServer({
+    required String email,
+    required String currentPassword,
+    required String newPassword,
   }) async {
     try {
       final response = await http.post(
-        Uri.parse('$_baseUrl/enhanced/change-pin/'),
+        Uri.parse('$_baseUrl/enhanced/change-password/'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          'email': email, // Changed from user_id
-          'current_pin': currentPin,
-          'new_pin': newPin,
-          // 'confirm_pin': confirmPin, // Backend might not need this if new_pin is already confirmed
+          'email': email,
+          'current_password': currentPassword,
+          'new_password': newPassword,
         }),
       );
 
@@ -390,10 +358,10 @@ class ApiClient {
         return jsonDecode(response.body);
       } else {
         final errorData = jsonDecode(response.body);
-        throw Exception(errorData['error'] ?? 'Failed to change PIN');
+        throw Exception(errorData['error'] ?? 'Failed to change password');
       }
     } catch (e) {
-      throw Exception('Network error changing PIN: $e');
+      throw Exception('Network error changing password: $e');
     }
   }
 }
