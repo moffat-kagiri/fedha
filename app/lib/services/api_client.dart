@@ -209,13 +209,12 @@ class ApiClient {
   // =============================================================================
   // ENHANCED PROFILE MANAGEMENT - EMAIL/PASSWORD AUTHENTICATION
   // =============================================================================
-
-  // Enhanced profile registration with email and password
+  // Enhanced profile registration with pin-based authentication
   Future<Map<String, dynamic>> createEnhancedProfile({
-    required String email,
-    required String password,
     required String name,
     required String profileType,
+    required String pin,
+    String? email,
     String baseCurrency = 'KES',
     String timezone = 'GMT+3',
   }) async {
@@ -226,8 +225,8 @@ class ApiClient {
         body: jsonEncode({
           'name': name,
           'profile_type': profileType,
+          'pin': pin,
           'email': email,
-          'password': password,
           'base_currency': baseCurrency,
           'timezone': timezone,
         }),
@@ -243,16 +242,16 @@ class ApiClient {
     }
   }
 
-  // Enhanced profile login with email and password
+  // Enhanced profile login with 8-digit user ID
   Future<Map<String, dynamic>> loginEnhancedProfile({
-    required String email,
-    required String password,
+    required String userId,
+    required String pin,
   }) async {
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/enhanced/login/'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'email': email, 'password': password}),
+        body: jsonEncode({'user_id': userId, 'pin': pin}),
       );
 
       if (response.statusCode == 200) {

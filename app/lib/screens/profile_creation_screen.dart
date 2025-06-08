@@ -332,11 +332,10 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen>
 
     try {
       final authService = Provider.of<AuthService>(context, listen: false);
-
       final profileData = {
         'name': _nameController.text.trim(),
         'email': _emailController.text.trim(),
-        'password': _passwordController.text,
+        'pin': _passwordController.text,
         'profile_type': _selectedType,
         'base_currency': 'KES',
         'timezone': 'GMT+3',

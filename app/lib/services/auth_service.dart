@@ -204,22 +204,17 @@ class AuthService extends ChangeNotifier {
     try {
       if (kDebugMode) {
         print('Creating enhanced profile with data: $profileData');
-      }
-
-      // Extract email and password, which are now primary for server interaction
+      } // Extract email and pin, which are now primary for server interaction
       final String? email = profileData['email'];
-      final String? password = profileData['password'];
+      final String? pin = profileData['pin'];
       final String? name = profileData['name'];
       final ProfileType? profileTypeEnum = profileData['profile_type'];
 
-      if (email == null ||
-          email.isEmpty ||
-          password == null ||
-          password.isEmpty) {
+      if (email == null || email.isEmpty || pin == null || pin.isEmpty) {
         if (kDebugMode) {
-          print('Email or password is missing. Cannot create server profile.');
+          print('Email or PIN is missing. Cannot create server profile.');
         }
-        throw Exception('Email and password are required to create a profile.');
+        throw Exception('Email and PIN are required to create a profile.');
       }
 
       if (name == null || name.isEmpty) {
@@ -237,53 +232,54 @@ class AuthService extends ChangeNotifier {
       }
 
       final String profileTypeString =
-          profileTypeEnum.toString().split('.').last;
-
-      // First try to create profile on server
+          profileTypeEnum
+              .toString()
+              .split('.')
+              .last; // First try to create profile on server
       try {
         final serverResponse = await _apiClient.createEnhancedProfile(
-          email: email,
-          password: password,
           name: name,
           profileType: profileTypeString,
+          pin: pin,
+          email: email,
           baseCurrency: profileData['base_currency'] ?? 'KES',
           timezone: profileData['timezone'] ?? 'GMT+3',
         );
-
         if (kDebugMode) {
           print('Server profile created successfully: $serverResponse');
         }
 
-        String hiveKey = serverResponse['profile_id'] ?? _uuid.v4();
-
+        String userId =
+            serverResponse['user_id'] ??
+            serverResponse['profile_id'] ??
+            _uuid.v4();
         final profile = EnhancedProfile(
-          id: hiveKey,
+          id: userId, // Use server-provided user_id
           type: profileData['profile_type'],
-          passwordHash: EnhancedProfile.hashPassword(password),
+          passwordHash: EnhancedProfile.hashPassword(pin),
           name: profileData['name'],
           email: email,
           baseCurrency: profileData['base_currency'] ?? 'KES',
           timezone: profileData['timezone'] ?? 'GMT+3',
         );
-
         _profileBox ??= await Hive.openBox<EnhancedProfile>(
           'enhanced_profiles',
         );
-        await _profileBox!.put(hiveKey, profile);
+        await _profileBox!.put(userId, profile);
 
         final settingsBox = Hive.box('settings');
         await settingsBox.put(
           'google_drive_enabled',
           profileData['enable_google_drive'] ?? false,
         );
-        await settingsBox.put('current_profile_id', hiveKey);
+        await settingsBox.put('current_profile_id', userId);
 
         _currentProfile = profile;
         notifyListeners();
 
         if (kDebugMode) {
           print(
-            'Enhanced profile created successfully with email: ${profile.email}, Hive ID: $hiveKey',
+            'Enhanced profile created successfully with email: ${profile.email}, User ID: $userId',
           );
         }
 
@@ -303,15 +299,34 @@ class AuthService extends ChangeNotifier {
   }
 
   // Enhanced login with better error handling
-  Future<LoginResult> enhancedLogin(String email, String password) async {
+  Future<LoginResult> enhancedLogin(String email, String pin) async {
     if (kDebugMode) {
       print('Attempting enhanced login for email: $email');
     }
 
     try {
+      // TODO: Fix login to use userId instead of email
+      // For now, try to find local profile by email
+      _profileBox ??= await Hive.openBox<EnhancedProfile>('enhanced_profiles');
+
+      for (final profile in _profileBox!.values) {
+        if (profile.email == email && profile.verifyPassword(pin)) {
+          _currentProfile = profile;
+          notifyListeners();
+
+          if (kDebugMode) {
+            print('Local login successful for email: $email');
+          }
+
+          return LoginResult.success(profile: profile);
+        }
+      }
+      return LoginResult.error('Invalid email or PIN');
+
+      /* TODO: Restore server login with userId
       final serverProfileData = await _apiClient.loginEnhancedProfile(
-        email: email,
-        password: password,
+        userId: userId,  // Need to get userId from email somehow
+        pin: pin,
       );
 
       if (kDebugMode) {
@@ -327,7 +342,7 @@ class AuthService extends ChangeNotifier {
               e.toString().split('.').last == serverProfileData['profile_type'],
           orElse: () => ProfileType.personal,
         ),
-        passwordHash: EnhancedProfile.hashPassword(password),
+        passwordHash: EnhancedProfile.hashPassword(pin),
         name: serverProfileData['name'] ?? 'Default Name',
         email: email,
         baseCurrency: serverProfileData['base_currency'] ?? 'KES',
@@ -348,6 +363,7 @@ class AuthService extends ChangeNotifier {
       }
 
       return LoginResult.success(profile: profileToSave);
+      */
     } catch (e) {
       if (kDebugMode) {
         print('Enhanced login failed: $e');
@@ -356,9 +372,9 @@ class AuthService extends ChangeNotifier {
     }
   }
 
-  // Login with email and password
-  Future<bool> login(String email, String password) async {
-    final result = await enhancedLogin(email, password);
+  // Login with email and pin
+  Future<bool> login(String email, String pin) async {
+    final result = await enhancedLogin(email, pin);
     return result.success;
   }
 

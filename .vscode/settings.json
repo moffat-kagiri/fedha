@@ -1,4 +1,7 @@
 {
     "cmake.sourceDirectory": "C:/GitHub/fedha/app/windows",
-    "git.ignoreLimitWarning": true
+    "git.ignoreLimitWarning": true,
+    "python.analysis.extraPaths": [
+        "./calculators-microservice"
+    ]
 }

@@ -7,8 +7,11 @@ import '../models/budget.dart';
 import '../models/enhanced_profile.dart';
 import '../services/auth_service.dart';
 import '../services/offline_data_service.dart';
+import '../widgets/quick_transaction_entry.dart';
 import 'main_navigation.dart';
 import 'add_goal_screen.dart';
+import 'transactions_screen.dart';
+import 'loan_calculator_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -136,8 +139,8 @@ class DashboardContent extends StatelessWidget {
   }
 
   Widget _buildFinancialPositionCard(BuildContext context, DashboardData data) {
-    final balance = data.totalIncome - data.totalExpenses;
-    final isPositive = balance >= 0;
+    final availableToSpend = data.availableToSpend;
+    final isPositive = availableToSpend >= 0;
     final budgetExceeded =
         data.currentBudget != null &&
         data.totalExpenses > data.currentBudget!.totalBudget;
@@ -169,7 +172,7 @@ class DashboardContent extends StatelessWidget {
           Row(
             children: [
               const Text(
-                'Account Balance',
+                'Available to Spend',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 16,
@@ -188,7 +191,7 @@ class DashboardContent extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            '\$${balance.abs().toStringAsFixed(2)}',
+            '\$${availableToSpend.abs().toStringAsFixed(2)}',
             style: const TextStyle(
               color: Colors.white,
               fontSize: 32,
@@ -200,7 +203,7 @@ class DashboardContent extends StatelessWidget {
             budgetExceeded
                 ? 'Budget exceeded by \$${(data.totalExpenses - data.currentBudget!.totalBudget).toStringAsFixed(2)}'
                 : isPositive
-                ? 'Available to spend'
+                ? 'After expenses and savings'
                 : 'Over budget',
             style: const TextStyle(color: Colors.white70, fontSize: 14),
           ),
@@ -221,6 +224,15 @@ class DashboardContent extends StatelessWidget {
                   'Expenses',
                   data.totalExpenses,
                   Icons.arrow_downward,
+                  Colors.white70,
+                ),
+              ),
+              Container(width: 1, height: 30, color: Colors.white30),
+              Expanded(
+                child: _buildBalanceItem(
+                  'Savings',
+                  data.totalSavings,
+                  Icons.savings,
                   Colors.white70,
                 ),
               ),
@@ -439,7 +451,9 @@ class DashboardContent extends StatelessWidget {
     final actions =
         profileType == ProfileType.business
             ? [
-              QuickAction('Add Transaction', Icons.add, Colors.green, () {}),
+              QuickAction('Add Transaction', Icons.add, Colors.green, () {
+                _showQuickTransactionEntry(context);
+              }),
               QuickAction('Create Invoice', Icons.receipt, Colors.blue, () {}),
               QuickAction(
                 'View Reports',
@@ -450,14 +464,29 @@ class DashboardContent extends StatelessWidget {
               QuickAction('Manage Clients', Icons.people, Colors.purple, () {}),
             ]
             : [
-              QuickAction('Add Transaction', Icons.add, Colors.green, () {}),
+              QuickAction('Add Transaction', Icons.add, Colors.green, () {
+                _showQuickTransactionEntry(context);
+              }),
               QuickAction('View Budget', Icons.pie_chart, Colors.blue, () {}),
-              QuickAction('Set Goal', Icons.flag, Colors.orange, () {}),
-              QuickAction(
+              QuickAction('Set Goal', Icons.flag, Colors.orange, () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const AddGoalScreen(),
+                  ),
+                );
+              }),              QuickAction(
                 'Loan Calculator',
                 Icons.calculate,
                 Colors.purple,
-                () {},
+                () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const LoanCalculatorScreen(),
+                    ),
+                  );
+                },
               ),
             ];
 
@@ -556,7 +585,12 @@ class DashboardContent extends StatelessWidget {
             const Spacer(),
             TextButton(
               onPressed: () {
-                // Navigate to transactions screen
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const TransactionsScreen(),
+                  ),
+                );
               },
               child: const Text('View All'),
             ),
@@ -602,21 +636,37 @@ class DashboardContent extends StatelessWidget {
   }
 
   Widget _buildTransactionItem(BuildContext context, Transaction transaction) {
-    final isIncome = transaction.type == TransactionType.income;
+    Color color;
+    IconData icon;
+    String prefix;
+
+    switch (transaction.type) {
+      case TransactionType.income:
+        color = Colors.green.shade600;
+        icon = Icons.arrow_upward;
+        prefix = '+';
+        break;
+      case TransactionType.expense:
+        color = Colors.red.shade600;
+        icon = Icons.arrow_downward;
+        prefix = '-';
+        break;
+      case TransactionType.savings:
+        color = Colors.blue.shade600;
+        icon = Icons.savings;
+        prefix = '-';
+        break;
+    }
 
     return ListTile(
       contentPadding: EdgeInsets.zero,
       leading: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: isIncome ? Colors.green.shade50 : Colors.red.shade50,
+          color: color.withOpacity(0.1),
           borderRadius: BorderRadius.circular(8),
         ),
-        child: Icon(
-          isIncome ? Icons.arrow_upward : Icons.arrow_downward,
-          color: isIncome ? Colors.green.shade600 : Colors.red.shade600,
-          size: 20,
-        ),
+        child: Icon(icon, color: color, size: 20),
       ),
       title: Text(
         transaction.category.toString().split('.').last.toUpperCase(),
@@ -631,11 +681,11 @@ class DashboardContent extends StatelessWidget {
         style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
       ),
       trailing: Text(
-        '${isIncome ? '+' : '-'}\$${transaction.amount.toStringAsFixed(2)}',
+        '$prefix\$${transaction.amount.toStringAsFixed(2)}',
         style: TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.w600,
-          color: isIncome ? Colors.green.shade600 : Colors.red.shade600,
+          color: color,
         ),
       ),
     );
@@ -681,9 +731,14 @@ class DashboardContent extends StatelessWidget {
           .where((t) => t.type == TransactionType.expense)
           .fold(0.0, (sum, t) => sum + t.amount);
 
+      final totalSavings = transactions
+          .where((t) => t.type == TransactionType.savings)
+          .fold(0.0, (sum, t) => sum + t.amount);
+
       return DashboardData(
         totalIncome: totalIncome,
         totalExpenses: totalExpenses,
+        totalSavings: totalSavings,
         goals: goals,
         recentTransactions: transactions.take(5).toList(),
         currentBudget: currentBudget,
@@ -692,11 +747,27 @@ class DashboardContent extends StatelessWidget {
       return DashboardData.empty();
     }
   }
+
+  void _showQuickTransactionEntry(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder:
+          (context) => Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).viewInsets.bottom,
+            ),
+            child: const QuickTransactionEntry(),
+          ),
+    );
+  }
 }
 
 class DashboardData {
   final double totalIncome;
   final double totalExpenses;
+  final double totalSavings;
   final List<Goal> goals;
   final List<Transaction> recentTransactions;
   final Budget? currentBudget;
@@ -704,14 +775,19 @@ class DashboardData {
   DashboardData({
     required this.totalIncome,
     required this.totalExpenses,
+    required this.totalSavings,
     required this.goals,
     required this.recentTransactions,
     this.currentBudget,
   });
+
+  double get availableToSpend => totalIncome - totalExpenses - totalSavings;
+
   factory DashboardData.empty() {
     return DashboardData(
       totalIncome: 0.0,
       totalExpenses: 0.0,
+      totalSavings: 0.0,
       goals: [],
       recentTransactions: [],
       currentBudget: null,

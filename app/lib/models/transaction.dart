@@ -86,28 +86,25 @@ class Transaction extends HiveObject {
 enum TransactionType {
   income, // Maps to Django's 'IN'
   expense, // Maps to Django's 'EX'
+  savings, // Maps to Django's 'SAV' - money transferred to savings
 }
 
 enum TransactionCategory {
   // Business Income Categories
   sales, // Maps to Django's 'SALE'
   services, // Maps to Django's 'SERV'
-  
   // Personal Income Categories
   salary, // Maps to Django's 'SALY'
   freelance, // Maps to Django's 'FREE'
   gifts, // Maps to Django's 'GIFT'
-  
   // Common Income Categories
   investments, // Maps to Django's 'INVT'
-  
   // Business Expense Categories
   marketing, // Maps to Django's 'MRKT'
   equipment, // Maps to Django's 'EQUP'
   supplies, // Maps to Django's 'SUPL'
   professional_services, // Maps to Django's 'PROF'
   travel, // Maps to Django's 'TRVL'
-  
   // Personal Expense Categories
   groceries, // Maps to Django's 'GROC'
   transportation, // Maps to Django's 'TRNS'
@@ -116,7 +113,6 @@ enum TransactionCategory {
   education, // Maps to Django's 'EDUC'
   clothing, // Maps to Django's 'CLTH'
   dining, // Maps to Django's 'DINE'
-  
   // Common Expense Categories
   rent, // Maps to Django's 'RENT'
   utilities, // Maps to Django's 'UTIL'

@@ -46,6 +46,18 @@ enhanced_profile_patterns = [
     # path('enhanced/validate/', views.enhanced_profile_validate, name='enhanced-validate'),  # Commented out until view is implemented
 ]
 
+# Financial calculator endpoints
+calculator_patterns = [
+    path('calculators/loan/', views.LoanCalculatorView.as_view(), name='loan-calculator'),
+    path('calculators/interest-rate-solver/', views.InterestRateSolverView.as_view(), name='interest-rate-solver'),
+    path('calculators/amortization-schedule/', views.AmortizationScheduleView.as_view(), name='amortization-schedule'),
+    path('calculators/early-payment/', views.EarlyPaymentCalculatorView.as_view(), name='early-payment-calculator'),
+    path('calculators/roi/', views.ROICalculatorView.as_view(), name='roi-calculator'),
+    path('calculators/compound-interest/', views.CompoundInterestCalculatorView.as_view(), name='compound-interest-calculator'),
+    path('calculators/portfolio-metrics/', views.PortfolioMetricsView.as_view(), name='portfolio-metrics'),
+    path('calculators/risk-assessment/', views.RiskAssessmentView.as_view(), name='risk-assessment'),
+]
+
 urlpatterns = [
     # Authentication routes
     path('auth/account-types/', views.AccountTypeSelectionView.as_view(), name='auth-account-types'),
@@ -60,6 +72,9 @@ urlpatterns = [
     
     # Enhanced profile routes for cross-device support
     *enhanced_profile_patterns,
+    
+    # Financial calculator routes
+    *calculator_patterns,
     
     # Health check endpoint
     path('health/', lambda request: JsonResponse({'status': 'healthy'}), name='health-check'),

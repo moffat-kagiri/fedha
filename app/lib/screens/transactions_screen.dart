@@ -16,7 +16,17 @@ class TransactionsScreen extends StatefulWidget {
 
 class _TransactionsScreenState extends State<TransactionsScreen> {
   String _selectedFilter = 'All';
-  final List<String> _filterOptions = ['All', 'Income', 'Expense'];
+  final List<String> _filterOptions = ['All', 'Income', 'Expense', 'Savings'];
+  
+  // Search and enhanced filtering
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+  TransactionCategory? _selectedCategory;
+  DateTimeRange? _selectedDateRange;
+  double? _minAmount;
+  double? _maxAmount;
+  String _sortBy = 'Date (Newest)'; // Date (Newest), Date (Oldest), Amount (High), Amount (Low)
+  bool _showAdvancedFilters = false;
 
   Future<List<Transaction>> _loadTransactions(
     OfflineDataService dataService,
@@ -24,14 +34,89 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
   ) async {
     return await dataService.getTransactions(profileId);
   }
-
   List<Transaction> _filterTransactions(List<Transaction> transactions) {
-    if (_selectedFilter == 'All') return transactions;
-    final type =
-        _selectedFilter == 'Income'
-            ? TransactionType.income
-            : TransactionType.expense;
-    return transactions.where((t) => t.type == type).toList();
+    List<Transaction> filtered = transactions;
+
+    // Filter by type
+    if (_selectedFilter != 'All') {
+      TransactionType type;
+      switch (_selectedFilter) {
+        case 'Income':
+          type = TransactionType.income;
+          break;
+        case 'Expense':
+          type = TransactionType.expense;
+          break;
+        case 'Savings':
+          type = TransactionType.savings;
+          break;
+        default:
+          type = TransactionType.expense;
+      }
+      filtered = filtered.where((t) => t.type == type).toList();
+    }
+
+    // Filter by search query
+    if (_searchQuery.isNotEmpty) {
+      filtered = filtered.where((t) {
+        final description = t.description?.toLowerCase() ?? '';
+        final category = _categoryToString(t.category).toLowerCase();
+        final notes = t.notes?.toLowerCase() ?? '';
+        final amount = t.amount.toString();
+        
+        return description.contains(_searchQuery.toLowerCase()) ||
+               category.contains(_searchQuery.toLowerCase()) ||
+               notes.contains(_searchQuery.toLowerCase()) ||
+               amount.contains(_searchQuery);
+      }).toList();
+    }
+
+    // Filter by category
+    if (_selectedCategory != null) {
+      filtered = filtered.where((t) => t.category == _selectedCategory).toList();
+    }
+
+    // Filter by date range
+    if (_selectedDateRange != null) {
+      filtered = filtered.where((t) {
+        final transactionDate = DateTime(t.date.year, t.date.month, t.date.day);
+        final startDate = DateTime(_selectedDateRange!.start.year, 
+                                 _selectedDateRange!.start.month, 
+                                 _selectedDateRange!.start.day);
+        final endDate = DateTime(_selectedDateRange!.end.year, 
+                               _selectedDateRange!.end.month, 
+                               _selectedDateRange!.end.day);
+        return transactionDate.isAtSameMomentAs(startDate) ||
+               transactionDate.isAtSameMomentAs(endDate) ||
+               (transactionDate.isAfter(startDate) && transactionDate.isBefore(endDate));
+      }).toList();
+    }
+
+    // Filter by amount range
+    if (_minAmount != null) {
+      filtered = filtered.where((t) => t.amount >= _minAmount!).toList();
+    }
+    if (_maxAmount != null) {
+      filtered = filtered.where((t) => t.amount <= _maxAmount!).toList();
+    }
+
+    // Sort transactions
+    switch (_sortBy) {
+      case 'Date (Newest)':
+        filtered.sort((a, b) => b.date.compareTo(a.date));
+        break;
+      case 'Date (Oldest)':
+        filtered.sort((a, b) => a.date.compareTo(b.date));
+        break;
+      case 'Amount (High)':
+        filtered.sort((a, b) => b.amount.compareTo(a.amount));
+        break;
+      case 'Amount (Low)':
+        filtered.sort((a, b) => a.amount.compareTo(b.amount));
+        break;
+    }
+
+    return filtered;
   }
 
   String _categoryToString(TransactionCategory category) {
@@ -165,6 +250,25 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     );
   }
 
+  void _clearAllFilters() {
+    setState(() {
+      _selectedFilter = 'All';
+      _searchController.clear();
+      _searchQuery = '';
+      _selectedCategory = null;
+      _selectedDateRange = null;
+      _minAmount = null;
+      _maxAmount = null;
+      _sortBy = 'Date (Newest)';
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -210,15 +314,13 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                     return const Center(child: CircularProgressIndicator());
                   }
 
-                  final transactions = snapshot.data ?? [];
-                  final filteredTransactions = _filterTransactions(
+                  final transactions = snapshot.data ?? [];                  final filteredTransactions = _filterTransactions(
                     transactions,
                   );
 
                   return Column(
-                    children: [
-                      // Filter Section
-                      _buildFilterSection(),
+                    children: [                      // Search and Filter Section
+                      _buildSearchAndFilterSection(),
 
                       // Summary Cards
                       _buildSummaryCards(transactions),
@@ -237,51 +339,331 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
       ),
     );
   }
-
-  Widget _buildFilterSection() {
+  Widget _buildSearchAndFilterSection() {
     return Container(
       color: Colors.white,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
+      child: Column(
         children: [
-          const Text(
-            'Filter: ',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: Colors.black87,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children:
-                    _filterOptions.map((option) {
-                      final isSelected = _selectedFilter == option;
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: FilterChip(
-                          label: Text(option),
-                          selected: isSelected,
-                          onSelected: (selected) {
-                            setState(() {
-                              _selectedFilter = option;
-                            });
-                          },
-                          selectedColor: const Color(
-                            0xFF007A39,
-                          ).withOpacity(0.2),
-                          checkmarkColor: const Color(0xFF007A39),
-                        ),
-                      );
-                    }).toList(),
+          // Search Bar
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: 'Search transactions...',
+                prefixIcon: const Icon(Icons.search, color: Color(0xFF007A39)),
+                suffixIcon: _searchQuery.isNotEmpty 
+                  ? IconButton(
+                      icon: const Icon(Icons.clear),
+                      onPressed: () {
+                        setState(() {
+                          _searchController.clear();
+                          _searchQuery = '';
+                        });
+                      },
+                    )
+                  : null,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.grey.shade300),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Color(0xFF007A39)),
+                ),
+                filled: true,
+                fillColor: Colors.grey.shade50,
               ),
+              onChanged: (value) {
+                setState(() {
+                  _searchQuery = value;
+                });
+              },
             ),
           ),
+          
+          // Filter and Sort Row
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: [
+                // Type Filter Chips
+                Expanded(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: _filterOptions.map((option) {
+                        final isSelected = _selectedFilter == option;
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: FilterChip(
+                            label: Text(option),
+                            selected: isSelected,
+                            onSelected: (selected) {
+                              setState(() {
+                                _selectedFilter = option;
+                              });
+                            },
+                            selectedColor: const Color(0xFF007A39).withOpacity(0.2),
+                            checkmarkColor: const Color(0xFF007A39),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ),
+                
+                const SizedBox(width: 8),
+                
+                // Advanced Filters Button
+                IconButton(
+                  icon: Icon(
+                    _showAdvancedFilters ? Icons.filter_list : Icons.filter_list_outlined,
+                    color: _hasActiveFilters() ? const Color(0xFF007A39) : Colors.grey.shade600,
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      _showAdvancedFilters = !_showAdvancedFilters;
+                    });
+                  },
+                  tooltip: 'Advanced Filters',
+                ),
+                
+                // Sort Button
+                PopupMenuButton<String>(
+                  icon: Icon(Icons.sort, color: Colors.grey.shade600),
+                  tooltip: 'Sort',
+                  onSelected: (value) {
+                    setState(() {
+                      _sortBy = value;
+                    });
+                  },
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(value: 'Date (Newest)', child: Text('Date (Newest)')),
+                    const PopupMenuItem(value: 'Date (Oldest)', child: Text('Date (Oldest)')),
+                    const PopupMenuItem(value: 'Amount (High)', child: Text('Amount (High)')),
+                    const PopupMenuItem(value: 'Amount (Low)', child: Text('Amount (Low)')),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          
+          // Advanced Filters Panel
+          if (_showAdvancedFilters) _buildAdvancedFiltersPanel(),
+          
+          const SizedBox(height: 8),
         ],
       ),
+    );
+  }
+
+  bool _hasActiveFilters() {
+    return _selectedCategory != null ||
+           _selectedDateRange != null ||
+           _minAmount != null ||
+           _maxAmount != null ||
+           _searchQuery.isNotEmpty ||
+           _selectedFilter != 'All';
+  }
+
+  Widget _buildAdvancedFiltersPanel() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Text(
+                'Advanced Filters',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
+                ),
+              ),
+              const Spacer(),
+              if (_hasActiveFilters())
+                TextButton(
+                  onPressed: _clearAllFilters,
+                  child: const Text('Clear All'),
+                ),
+            ],
+          ),
+          
+          const SizedBox(height: 16),
+          
+          // Category Filter
+          _buildCategoryFilter(),
+          
+          const SizedBox(height: 16),
+          
+          // Date Range Filter
+          _buildDateRangeFilter(),
+          
+          const SizedBox(height: 16),
+          
+          // Amount Range Filter
+          _buildAmountRangeFilter(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCategoryFilter() {
+    final availableCategories = TransactionCategory.values;
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Category',
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+        ),
+        const SizedBox(height: 8),
+        DropdownButtonFormField<TransactionCategory>(
+          value: _selectedCategory,
+          decoration: InputDecoration(
+            hintText: 'Select category',
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          ),
+          items: availableCategories.map((category) {
+            return DropdownMenuItem(
+              value: category,
+              child: Text(_categoryToString(category)),
+            );
+          }).toList(),
+          onChanged: (value) {
+            setState(() {
+              _selectedCategory = value;
+            });
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDateRangeFilter() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Date Range',
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+        ),
+        const SizedBox(height: 8),
+        InkWell(
+          onTap: () async {
+            final picked = await showDateRangePicker(
+              context: context,
+              firstDate: DateTime(2020),
+              lastDate: DateTime.now(),
+              initialDateRange: _selectedDateRange,
+            );
+            if (picked != null) {
+              setState(() {
+                _selectedDateRange = picked;
+              });
+            }
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey.shade400),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.date_range, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _selectedDateRange == null
+                        ? 'Select date range'
+                        : '${_formatDate(_selectedDateRange!.start)} - ${_formatDate(_selectedDateRange!.end)}',
+                    style: TextStyle(
+                      color: _selectedDateRange == null ? Colors.grey.shade600 : Colors.black87,
+                    ),
+                  ),
+                ),
+                if (_selectedDateRange != null)
+                  IconButton(
+                    icon: const Icon(Icons.clear, size: 20),
+                    onPressed: () {
+                      setState(() {
+                        _selectedDateRange = null;
+                      });
+                    },
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAmountRangeFilter() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Amount Range',
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: TextFormField(
+                decoration: InputDecoration(
+                  hintText: 'Min amount',
+                  prefixText: '\$ ',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                ),
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                onChanged: (value) {
+                  setState(() {
+                    _minAmount = double.tryParse(value);
+                  });
+                },
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: TextFormField(
+                decoration: InputDecoration(
+                  hintText: 'Max amount',
+                  prefixText: '\$ ',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                ),
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                onChanged: (value) {
+                  setState(() {
+                    _maxAmount = double.tryParse(value);
+                  });
+                },
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 
@@ -292,7 +674,9 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     final expenses = transactions
         .where((t) => t.type == TransactionType.expense)
         .fold(0.0, (sum, t) => sum + t.amount);
-    final balance = income - expenses;
+    final savings = transactions
+        .where((t) => t.type == TransactionType.savings)
+        .fold(0.0, (sum, t) => sum + t.amount);
 
     return Container(
       color: Colors.white,
@@ -319,10 +703,10 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
           const SizedBox(width: 8),
           Expanded(
             child: _buildSummaryCard(
-              'Balance',
-              '\$${balance.toStringAsFixed(2)}',
-              balance >= 0 ? Colors.green : Colors.red,
-              balance >= 0 ? Icons.account_balance_wallet : Icons.warning,
+              'Savings',
+              '\$${savings.toStringAsFixed(2)}',
+              Colors.blue,
+              Icons.savings,
             ),
           ),
         ],
@@ -401,9 +785,27 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
   }
 
   Widget _buildTransactionCard(Transaction transaction) {
-    final isIncome = transaction.type == TransactionType.income;
-    final color = isIncome ? Colors.green : Colors.red;
-    final icon = isIncome ? Icons.trending_up : Icons.trending_down;
+    Color color;
+    IconData icon;
+    String prefix;
+
+    switch (transaction.type) {
+      case TransactionType.income:
+        color = Colors.green;
+        icon = Icons.trending_up;
+        prefix = '+';
+        break;
+      case TransactionType.expense:
+        color = Colors.red;
+        icon = Icons.trending_down;
+        prefix = '-';
+        break;
+      case TransactionType.savings:
+        color = Colors.blue;
+        icon = Icons.savings;
+        prefix = '-';
+        break;
+    }
 
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
@@ -440,7 +842,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
           ],
         ),
         trailing: Text(
-          '${isIncome ? '+' : '-'}\$${transaction.amount.toStringAsFixed(2)}',
+          '$prefix\$${transaction.amount.toStringAsFixed(2)}',
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.bold,
