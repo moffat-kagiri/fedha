@@ -33,9 +33,12 @@ class Transaction extends HiveObject {
 
   @HiveField(8)
   String profileId;
-
   @HiveField(9)
   DateTime updatedAt;
+
+  @HiveField(10)
+  String? goalId; // For linking savings to goals
+
   Transaction({
     String? uuid,
     required this.amount,
@@ -47,34 +50,15 @@ class Transaction extends HiveObject {
     this.isSynced = false,
     required this.profileId,
     DateTime? updatedAt,
+    this.goalId,
   }) : uuid = uuid ?? const Uuid().v4(),
        updatedAt = updatedAt ?? DateTime.now();
   // Constructor for creating a transaction from JSON
   // JSON Serialization
   factory Transaction.fromJson(Map<String, dynamic> json) =>
       _$TransactionFromJson(json);
-
   Map<String, dynamic> toJson() => _$TransactionToJson(this);
 
-  // Type Converters
-  static String _transactionTypeToJson(TransactionType type) => type.name;
-  static TransactionType _transactionTypeFromJson(String json) =>
-      TransactionType.values.firstWhere(
-        (e) => e.name.toLowerCase() == json.toLowerCase(),
-        orElse: () => throw FormatException('Invalid TransactionType: $json'),
-      );
-
-  static String _categoryToJson(TransactionCategory category) => category.name;
-  static TransactionCategory _categoryFromJson(String json) =>
-      TransactionCategory.values.firstWhere(
-        (e) => e.name.toLowerCase() == json.toLowerCase(),
-        orElse:
-            () => throw FormatException('Invalid TransactionCategory: $json'),
-      );
-
-  // Date Converters (UTC for backend, local for app)
-  static String _dateToJson(DateTime date) => date.toUtc().toIso8601String();
-  static DateTime _dateFromJson(String json) => DateTime.parse(json).toLocal();
   @override
   String toString() {
     return 'Transaction(uuid: $uuid, amount: $amount, type: $type, '

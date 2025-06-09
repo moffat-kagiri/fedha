@@ -10,6 +10,7 @@ import '../services/offline_data_service.dart';
 import '../widgets/quick_transaction_entry.dart';
 import 'main_navigation.dart';
 import 'add_goal_screen.dart';
+import 'goals_screen.dart';
 import 'transactions_screen.dart';
 import 'loan_calculator_screen.dart';
 import 'create_budget_screen.dart';
@@ -518,7 +519,10 @@ class DashboardContent extends StatelessWidget {
             const Spacer(),
             TextButton(
               onPressed: () {
-                // Navigate to goals screen
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const GoalsScreen()),
+                );
               },
               child: const Text('View All'),
             ),
