@@ -46,21 +46,21 @@ Comprehensive development roadmap for the Fedha Budget Tracker, incorporating in
 - [ ] **Bulk transaction import** (CSV/Excel) (To be implemented later)
 - [ ] **Transaction search and filtering**
 - [ ] **Recurring transaction templates**
-- [ ] **Transaction attachments** (receipts, documents) 
+- [ ] **Transaction attachments** (receipts, documents)
 - [ ] **Split transactions** for shared expenses
 - [X] Add a 3rd category for savings besides income and expenses.
 
 ### **2.2 Financial Calculators**
 
-- [ ] **Loan calculator engine**:
-  - [ ] Simple interest calculations (Do we really need this?)
-  - [ ] Reducing balance amortization
-  - [ ] Interest rate reverse calculation (Newton-Raphson)
-  - [ ] Early payment scenarios
-- [ ] **Investment calculators**:
-  - [ ] ROI and compound interest
-  - [ ] Portfolio performance tracking
-  - [ ] Risk assessment tools
+- [X] **Loan calculator engine**:
+  - [X] Simple interest calculations (Do we really need this?)
+  - [X] Reducing balance amortization
+  - [X] Interest rate reverse calculation (Newton-Raphson)
+  - [X] Early payment scenarios
+- [X] **Investment calculators**:
+  - [X] ROI and compound interest
+  - [X] Portfolio performance tracking
+  - [X] Risk assessment tools
 
 ### **2.3 Goal Setting & Tracking**
 

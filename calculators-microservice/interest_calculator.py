@@ -91,7 +91,6 @@ class FinancialCalculator:
         total_payments = params.term_years * params.payment_frequency.value
         payment_amount = total_amount / total_payments
         monthly_payment = total_amount / (params.term_years * 12)
-        
         return PaymentCalculationResult(
             payment_amount=payment_amount,
             total_interest=total_interest,
@@ -99,27 +98,37 @@ class FinancialCalculator:
             monthly_payment=monthly_payment,
             total_payments=total_payments
         )
-    
+
     @staticmethod
     def _calculate_compound_interest_payment(params: LoanParameters) -> PaymentCalculationResult:
-        """Calculate payment for compound interest loan."""
+        """Calculate payment for compound interest loan.
+        For loans, compound interest typically means the same as reducing balance - 
+        interest compounds on the remaining balance.
+        """
+        # For loan payments, compound interest works the same as reducing balance
+        # This is the standard amortization formula with compounding
         n = params.payment_frequency.value
-        r = params.annual_rate / 100
-        t = params.term_years
+        r = params.annual_rate / 100 / n  # Period interest rate
+        num_payments = params.term_years * n
         
-        # Compound amount: A = P(1 + r/n)^(nt)
-        compound_amount = params.principal * ((1 + r/n) ** (n * t))
-        total_interest = compound_amount - params.principal
-        total_payments = params.term_years * params.payment_frequency.value
-        payment_amount = compound_amount / total_payments
-        monthly_payment = compound_amount / (params.term_years * 12)
+        if r == 0:
+            # Handle zero interest case
+            payment_amount = params.principal / num_payments
+            total_interest = 0
+        else:
+            # Standard amortization formula: PMT = P * [r(1+r)^n] / [(1+r)^n - 1]
+            payment_amount = params.principal * (r * (1 + r)**num_payments) / ((1 + r)**num_payments - 1)
+            total_interest = (payment_amount * num_payments) - params.principal
+        
+        total_amount = params.principal + total_interest
+        monthly_payment = payment_amount if params.payment_frequency == PaymentFrequency.MONTHLY else (total_amount / (params.term_years * 12))
         
         return PaymentCalculationResult(
             payment_amount=payment_amount,
             total_interest=total_interest,
-            total_amount=compound_amount,
+            total_amount=total_amount,
             monthly_payment=monthly_payment,
-            total_payments=total_payments
+            total_payments=num_payments
         )
     
     @staticmethod
@@ -147,8 +156,7 @@ class FinancialCalculator:
             total_amount=total_amount,
             monthly_payment=monthly_payment,
             total_payments=num_payments
-                )
-
+                )    
     @staticmethod
     def _calculate_flat_rate_payment(params: LoanParameters) -> PaymentCalculationResult:
         """Calculate payment for flat rate loan."""
@@ -158,7 +166,6 @@ class FinancialCalculator:
         total_payments = params.term_years * params.payment_frequency.value
         payment_amount = total_amount / total_payments
         monthly_payment = total_amount / (params.term_years * 12)
-        
         return PaymentCalculationResult(
             payment_amount=payment_amount,
             total_interest=total_interest,
@@ -168,9 +175,9 @@ class FinancialCalculator:
         )
 
     @staticmethod
-    def solve_interest_rate(principal: float, payment: float, term_years: int, 
+    def solve_interest_rate(principal: float, payment: float, term_years: int,
                           payment_frequency: PaymentFrequency = PaymentFrequency.MONTHLY,
-                          tolerance: float = 1e-6, max_iterations: int = 100) -> Dict[str, float]:
+                          tolerance: float = 1e-8, max_iterations: int = 100) -> Dict[str, float]:
         """Solve for interest rate using Newton-Raphson method."""
         
         periods = term_years * payment_frequency.value
@@ -185,35 +192,40 @@ class FinancialCalculator:
                 'converged': False
             }
         
-        # Initial guess - use a better estimate based on simple interest approximation
+        # Better initial guess using simple interest approximation
         estimated_total_interest = (payment * periods) - principal
-        initial_guess = (estimated_total_interest / principal) / term_years
-        rate = max(initial_guess / payment_frequency.value, 0.001 / payment_frequency.value)
+        estimated_annual_rate = (estimated_total_interest / principal) / term_years
+        rate = estimated_annual_rate / payment_frequency.value
         
         # Initialize variables
-        f = float('inf')
         converged = False
         i = 0
         
         for i in range(max_iterations):
-            if abs(rate) < 1e-10:
+            if abs(rate) < tolerance:
                 # Handle near-zero rate case
                 f = payment * periods - principal
                 f_prime = periods
             else:
-                # Calculate function value and derivative using standard loan formula
+                # Standard loan payment formula: PMT = P * [r(1+r)^n] / [(1+r)^n - 1]
+                # Rearranged as: P - PMT * [(1+r)^n - 1] / [r(1+r)^n] = 0
                 temp = (1 + rate) ** periods
-                if temp == 1:
-                    f = payment * periods - principal
-                    f_prime = periods
-                else:
-                    # Present value of annuity formula: PV = PMT * [(1 - (1+r)^-n) / r]
-                    f = payment * ((1 - (1 / temp)) / rate) - principal
-                    # Derivative calculation
-                    temp_inv = 1 / temp
-                    f_prime = payment * (
-                        (temp_inv * periods / rate + temp_inv / (1 + rate) - 1 / rate) / rate
-                    )
+                
+                # Function: f(r) = P - PMT * [(1+r)^n - 1] / [r(1+r)^n]
+                numerator = temp - 1
+                denominator = rate * temp
+                f = principal - payment * (numerator / denominator)
+                
+                # Derivative calculation using quotient rule
+                # d/dr[(1+r)^n - 1] = n(1+r)^(n-1)
+                # d/dr[r(1+r)^n] = (1+r)^n + nr(1+r)^(n-1) = (1+r)^(n-1)[(1+r) + nr] = (1+r)^(n-1)[1+(n+1)r]
+                temp_n_minus_1 = (1 + rate) ** (periods - 1)
+                
+                num_derivative = periods * temp_n_minus_1
+                denom_derivative = temp_n_minus_1 * (1 + (periods + 1) * rate)
+                
+                # f'(r) = -PMT * [num_derivative * denominator - numerator * denom_derivative] / denominator^2
+                f_prime = -payment * (num_derivative * denominator - numerator * denom_derivative) / (denominator ** 2)
             
             # Check convergence on function value
             if abs(f) < tolerance:
@@ -221,7 +233,8 @@ class FinancialCalculator:
                 break
             
             # Avoid division by zero
-            if abs(f_prime) < 1e-12:
+            if abs(f_prime) < tolerance:
+                print(f"Warning: Small derivative at iteration {i}, f_prime = {f_prime}")
                 break
             
             # Newton-Raphson update
@@ -229,8 +242,8 @@ class FinancialCalculator:
             new_rate = rate - rate_change
             
             # Prevent negative or excessively high rates
-            new_rate = max(new_rate, -0.5 / payment_frequency.value)
-            new_rate = min(new_rate, 2.0 / payment_frequency.value)  # Cap at 200% annual
+            new_rate = max(new_rate, 0.0001 / payment_frequency.value)  # Minimum 0.01% annual
+            new_rate = min(new_rate, 1.0 / payment_frequency.value)     # Maximum 100% annual
             
             # Check convergence on rate change
             if abs(rate_change) < tolerance:
