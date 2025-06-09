@@ -1,6 +1,8 @@
 # Fedha Budget Tracker
 
-A privacy-focused cross-platform business and personal finance management system designed for SMEs and individuals. Features advanced financial calculators, invoice management, tax preparation, cash flow analysis, and comprehensive budget tracking. Built with **Flutter (Android)**, **React.js (Web)**, **Django (Backend)**, and **Python (Financial Microservice)**.
+A privacy-focused cross-platform business and personal finance management system designed for SMEs and individuals. 
+Features advanced financial calculators, invoice management, tax preparation, cash flow analysis, and comprehensive budget tracking. 
+Built with **Flutter (Android)**, **React.js (Web)**, **Django (Backend)**, and **Python (Financial Microservice)**.
 
 ---
 

@@ -1,5 +1,6 @@
 // lib/main.dart
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
 
@@ -18,7 +19,7 @@ import 'models/sync_queue_item.dart';
 import 'adapters/enum_adapters.dart' as enum_adapters;
 
 // Services
-import 'services/enhanced_auth_service.dart';
+import 'services/auth_service.dart';
 // import 'services/google_drive_service.dart';
 import 'services/api_client.dart';
 import 'services/offline_data_service.dart';
@@ -77,9 +78,10 @@ void main() async {
   final apiClient = ApiClient();
   final offlineDataService = OfflineDataService();
   final syncService = EnhancedSyncService(
-    apiClient: apiClient,
+  apiClient: apiClient,
     offlineDataService: offlineDataService,
-  );  final enhancedAuthService = EnhancedAuthService();
+  );
+  final authService = AuthService();
   // Temporarily disable Google Drive to focus on core functionality
   // final googleDriveService = GoogleDriveService();
 
@@ -89,7 +91,7 @@ void main() async {
         Provider<ApiClient>.value(value: apiClient),
         Provider<OfflineDataService>.value(value: offlineDataService),
         Provider<EnhancedSyncService>.value(value: syncService),
-        ChangeNotifierProvider(create: (_) => enhancedAuthService),
+        ChangeNotifierProvider(create: (_) => authService),
         // Provider<GoogleDriveService>.value(value: googleDriveService),
       ],
       child: const MyApp(),
@@ -97,8 +99,52 @@ void main() async {
   );
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    
+    // Trigger sync when app goes to background or is paused
+    if (state == AppLifecycleState.paused || 
+        state == AppLifecycleState.detached ||
+        state == AppLifecycleState.inactive) {
+      _syncProfileOnAppBackground();
+    }
+  }
+  Future<void> _syncProfileOnAppBackground() async {
+    try {
+      final authService = Provider.of<AuthService>(context, listen: false);
+      if (authService.isLoggedIn) {
+        if (kDebugMode) {
+          print('App going to background, syncing profile...');
+        }
+        await authService.syncProfileWithServer();
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Background sync failed: $e');
+      }
+    }
+  }
   
   @override
   Widget build(BuildContext context) {
@@ -114,10 +160,8 @@ class MyApp extends StatelessWidget {
             return const Scaffold(
               body: Center(child: CircularProgressIndicator()),
             );
-          }
-
-          return Consumer<EnhancedAuthService>(
-            builder: (context, enhancedAuthService, child) {
+          }          return Consumer<AuthService>(
+            builder: (context, authService, child) {
               return FutureBuilder<bool>(
                 future: _checkFirstTime(),
                 builder: (context, snapshot) {
@@ -131,7 +175,7 @@ class MyApp extends StatelessWidget {
 
                   if (isFirstTime) {
                     return const OnboardingScreen();
-                  } else if (enhancedAuthService.isLoggedIn) {
+                  } else if (authService.isLoggedIn) {
                     return const MainNavigation();
                   } else {
                     return const SignInScreen();
@@ -150,11 +194,10 @@ class MyApp extends StatelessWidget {
       },
     );
   }
-
   Future<void> _initializeServices(BuildContext context) async {
-    final enhancedAuthService = Provider.of<EnhancedAuthService>(context, listen: false);
-    await enhancedAuthService.initialize();
-    await enhancedAuthService.autoLogin();
+    final authService = Provider.of<AuthService>(context, listen: false);
+    await authService.initialize();
+    await authService.tryAutoLogin(); // Using the correct method name
   }
 
   Future<bool> _checkFirstTime() async {

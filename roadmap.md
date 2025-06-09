@@ -27,12 +27,12 @@ Comprehensive development roadmap for the Fedha Budget Tracker, incorporating in
 - [X] **Secure PIN authentication** with salt + hash implementation
 - [X] **Profile switching** functionality
 - [ ] **PIN reset/recovery** mechanism
-- [ ] **Session management** for web platform
+- [X] **Session management** for web platform
 
 ### **1.3 Local Storage Setup (Flutter)**
 
-- [ ] **Hive box configuration** for all new models
-- [ ] **Type adapters** for complex data structures
+- [X] **Hive box configuration** for all new models
+- [X] **Type adapters** for complex data structures
 - [X] **Offline data encryption** implementation
 - [ ] **Data migration utilities** for schema updates
 
@@ -42,31 +42,44 @@ Comprehensive development roadmap for the Fedha Budget Tracker, incorporating in
 
 ### **2.1 Transaction Management**
 
-- [ ] **Enhanced transaction categories** with hierarchical structure
-- [ ] **Bulk transaction import** (CSV/Excel)
-- [ ] **Transaction search and filtering**
+- [X] **Enhanced transaction categories** with hierarchical structure
+- [ ] **Bulk transaction import** (CSV/Excel) (To be implemented later)
+- [X] **Transaction search and filtering**
 - [ ] **Recurring transaction templates**
 - [ ] **Transaction attachments** (receipts, documents)
 - [ ] **Split transactions** for shared expenses
+- [X] Add a 3rd category for savings besides income and expenses.
 
 ### **2.2 Financial Calculators**
 
-- [ ] **Loan calculator engine**:
-  - [ ] Simple interest calculations
-  - [ ] Reducing balance amortization
-  - [ ] Interest rate reverse calculation (Newton-Raphson)
-  - [ ] Early payment scenarios
-- [ ] **Investment calculators**:
-  - [ ] ROI and compound interest
-  - [ ] Portfolio performance tracking
-  - [ ] Risk assessment tools
+- [X] **Loan calculator engine**:
+  - [X] Simple interest calculations (Do we really need this?)
+  - [X] Reducing balance amortization
+  - [X] Interest rate reverse calculation (Newton-Raphson)
+  - [X] Early payment scenarios
+- [X] **Investment calculators**:
+  - [X] ROI and compound interest
+  - [X] Portfolio performance tracking
+  - [X] Risk assessment tools
 
 ### **2.3 Goal Setting & Tracking**
 
-- [ ] **SMART goals framework** implementation
-- [ ] **Progress visualization** with charts
+- [X] **SMART goals framework** implementation
+- [X] **Progress visualization** with charts
 - [ ] **Goal achievement notifications**
-- [ ] **Multiple goal types** (savings, debt reduction, investment)
+- [X] **Multiple goal types** (savings, debt reduction, investment)
+
+### **2.4 Budget Management & Tracking**
+
+- [X] **Budget creation interface** with comprehensive form validation
+- [X] **Budget tracking dashboard** with real-time spending calculations
+- [X] **Visual progress indicators** with color-coded over-budget warnings
+- [X] **Smart budget recommendations** and daily spending allowances
+- [X] **Budget editing functionality** with seamless data updates
+- [X] **Budget deletion** with confirmation dialogs
+- [X] **Expense filtering by budget period** for accurate tracking
+- [X] **Dashboard integration** with create/view budget quick actions
+- [X] **Budget vs actual spending analysis** with detailed breakdowns
 
 ---
 
@@ -134,10 +147,10 @@ Comprehensive development roadmap for the Fedha Budget Tracker, incorporating in
 
 ### **5.1 Cash Flow Analysis**
 
-- [ ] **Operating cash flow statements**
+- [X] **Operating cash flow statements**
 - [ ] **Investing activity tracking**
 - [ ] **Financing activity monitoring**
-- [ ] **Cash flow projections**
+- [X] **Cash flow projections**
 - [ ] **Seasonal trend analysis**
 
 ### **5.2 Financial Ratios & KPIs**
@@ -146,15 +159,15 @@ Comprehensive development roadmap for the Fedha Budget Tracker, incorporating in
 - [ ] **Profitability ratios** (gross margin, net margin, ROE)
 - [ ] **Efficiency ratios** (asset turnover, inventory turnover)
 - [ ] **Leverage ratios** (debt-to-equity, interest coverage)
-- [ ] **Custom KPI dashboard**
+- [X] **Custom KPI dashboard**
 
 ### **5.3 Advanced Reporting**
 
-- [ ] **Interactive dashboards** with drill-down capability
+- [X] **Interactive dashboards** with drill-down capability
 - [ ] **Comparative analysis** (period-over-period)
-- [ ] **Budget vs actual reporting**
-- [ ] **Variance analysis** with explanations
-- [ ] **Automated insights** and recommendations
+- [X] **Budget vs actual reporting**
+- [X] **Variance analysis** with explanations
+- [X] **Automated insights** and recommendations
 
 ---
 
@@ -198,7 +211,7 @@ Comprehensive development roadmap for the Fedha Budget Tracker, incorporating in
 ### **7.2 Web-Specific Features**
 
 - [ ] **Bulk data operations**
-- [ ] **Advanced filtering and search**
+- [X] **Advanced filtering and search**
 - [ ] **Export/import functionality**
 - [ ] **Print-optimized layouts**
 - [ ] **Keyboard shortcuts** for power users
@@ -288,29 +301,32 @@ Comprehensive development roadmap for the Fedha Budget Tracker, incorporating in
 
 ## **Phase 11: Biometric Authentication & Advanced Security (Future Enhancement)**
 
-### **11.1 Biometric Login Implementation**
+### **11.1 Biometric & OTP Login Implementation**
 
 - [ ] **Fingerprint authentication** for supported devices
 - [ ] **Face recognition** login capability
 - [ ] **Voice recognition** as secondary authentication
 - [ ] **Biometric template encryption** and secure storage
-- [ ] **Fallback to PIN** for non-biometric devices
+- [ ] **Fallback to password** for non-biometric devices
+- [ ] **SMS OTP authentication** for identity verification and login
+- [ ] **Alphanumeric password authentication** (replacing PINs for all users)
 
 ### **11.2 Enhanced Security Features**
 
-- [ ] **Multi-factor authentication (MFA)** options
+- [ ] **Multi-factor authentication (MFA)** options (including SMS OTP)
 - [ ] **Device registration** and trusted device management
 - [ ] **Session timeout** based on security policies
 - [ ] **Biometric data privacy** compliance (GDPR, CCPA)
-- [ ] **Security audit logging** for biometric access
+- [ ] **Security audit logging** for biometric and OTP access
 
-### **11.3 Cross-Platform Biometric Support**
+### **11.3 Cross-Platform Biometric & OTP Support**
 
 - [ ] **Android biometric API** integration
 - [ ] **iOS biometric support** (Touch ID, Face ID)
 - [ ] **Web biometric authentication** (WebAuthn)
 - [ ] **Windows Hello** integration for desktop
 - [ ] **Consistent UX** across all platforms
+- [ ] **SMS OTP integration** for all platforms
 
 ### **11.4 Advanced Authentication Features**
 
@@ -323,10 +339,10 @@ Comprehensive development roadmap for the Fedha Budget Tracker, incorporating in
 ### **11.5 Privacy & Compliance**
 
 - [ ] **Biometric data encryption** at rest and in transit
-- [ ] **User consent** management for biometric data
-- [ ] **Data retention** policies for biometric templates
+- [ ] **User consent** management for biometric and OTP data
+- [ ] **Data retention** policies for biometric templates and OTP logs
 - [ ] **Third-party security** audit certification
-- [ ] **Privacy policy** updates for biometric features
+- [ ] **Privacy policy** updates for biometric and OTP features
 
 ---
 

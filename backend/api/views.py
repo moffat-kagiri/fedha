@@ -13,7 +13,7 @@ Key Improvements:
 - Better error handling patterns
 
 Author: Fedha Development Team
-Last Updated: June 3, 2025
+Last Updated: June 8, 2025
 """
 
 from django.shortcuts import render
@@ -26,6 +26,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.core.mail import send_mail
 from django.conf import settings
+from typing import Dict, Any, Optional
 
 from .models import Profile
 from .serializers import (
@@ -114,28 +115,33 @@ ERROR_MESSAGES = {
 }
 
 # =============================================================================
-# UTILITY FUNCTIONS
+# HELPER FUNCTIONS
 # =============================================================================
 
-def get_validated_data(serializer):
-    """Safely extract validated data from serializer"""
-    return getattr(serializer, 'validated_data', {}) or {}
+def get_validated_data(serializer) -> Dict[str, Any]:
+    """
+    Safely extract validated data from serializer.
+    Returns empty dict if serializer is invalid.
+    """
+    if hasattr(serializer, 'validated_data') and serializer.validated_data:
+        return serializer.validated_data
+    return {}
 
-def get_profile_type_info(profile_type):
+def get_profile_type_info(profile_type: str) -> Dict[str, Any]:
     """Get profile type information using dictionary lookup"""
     return PROFILE_TYPE_MAPPINGS.get(profile_type, PROFILE_TYPE_MAPPINGS['personal'])
 
-def get_dashboard_url(profile_type_code):
+def get_dashboard_url(profile_type_code: str) -> str:
     """Get dashboard URL based on profile type code"""
     display_type = DB_CODE_TO_TYPE.get(profile_type_code, 'personal')
     return PROFILE_TYPE_MAPPINGS[display_type]['dashboard_url']
 
-def get_profile_features(profile_type_code):
+def get_profile_features(profile_type_code: str) -> list:
     """Get available features based on profile type"""
     display_type = DB_CODE_TO_TYPE.get(profile_type_code, 'personal')
     return PROFILE_TYPE_MAPPINGS[display_type]['features']
 
-def format_profile_response(profile):
+def format_profile_response(profile: Profile) -> Dict[str, Any]:
     """Format profile data for API responses"""
     display_type = DB_CODE_TO_TYPE.get(profile.profile_type, 'personal')
     return {
@@ -149,7 +155,7 @@ def format_profile_response(profile):
         'last_login': profile.last_login.isoformat() if profile.last_login else None
     }
 
-def validate_required_fields(data, required_fields):
+def validate_required_fields(data: Dict[str, Any], required_fields: list) -> tuple:
     """Validate that all required fields are present"""
     missing_fields = [field for field in required_fields if not data.get(field)]
     if missing_fields:
@@ -253,7 +259,6 @@ class ProfileLoginView(APIView):
             profile.save(update_fields=['last_login'])
             
             profile_serializer = ProfileSerializer(profile)
-            
             return Response({
                 'message': RESPONSE_MESSAGES['login_success'],
                 'profile': profile_serializer.data,
@@ -263,7 +268,7 @@ class ProfileLoginView(APIView):
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
-    def requires_pin_change(self, profile):
+    def requires_pin_change(self, profile: Profile) -> bool:
         """Check if profile requires PIN change (first login)"""
         time_diff = timezone.now() - profile.created_at
         return time_diff.total_seconds() < 300  # 5 minutes threshold
@@ -737,3 +742,491 @@ def auth_status(request):
             pass
     
     return Response({'authenticated': False})
+
+
+# =============================================================================
+# FINANCIAL CALCULATOR API VIEWS
+# =============================================================================
+
+class LoanCalculatorView(APIView):
+    """
+    API endpoint for loan payment calculations.
+    """
+    permission_classes = [AllowAny]
+    def post(self, request):
+        """Calculate loan payment"""
+        from .serializers import LoanCalculationRequestSerializer
+        
+        serializer = LoanCalculationRequestSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(
+                {'errors': serializer.errors}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            import sys
+            import os
+            sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', 'calculators-microservice'))
+            from interest_calculator import FinancialCalculator, LoanParameters, InterestType, PaymentFrequency
+            
+            # Get validated data safely
+            data: Dict[str, Any] = get_validated_data(serializer)
+            
+            # Check if required fields exist
+            if not all(key in data for key in ['principal', 'annual_rate', 'term_years', 'interest_type', 'payment_frequency']):
+                return Response(
+                    {'error': 'Missing required parameters for calculation'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+              # Map Django enum values to calculator engine enum values
+            calculator_interest_type = map_django_to_calculator_interest_type(data['interest_type'])
+            calculator_payment_freq = map_django_to_calculator_payment_frequency(data['payment_frequency'])
+              # Create loan parameters
+            loan_params = LoanParameters(
+                principal=float(data['principal']),  # type: ignore
+                annual_rate=float(data['annual_rate']),  # type: ignore
+                term_years=data['term_years'],  # type: ignore
+                interest_type=InterestType(calculator_interest_type),  # type: ignore
+                payment_frequency=get_calculator_payment_frequency_enum(data['payment_frequency'])  # type: ignore
+            )
+            
+            result = FinancialCalculator.calculate_payment(loan_params)
+            
+            # Convert Decimal results to strings for JSON serialization
+            return Response({
+                'monthly_payment': str(result.monthly_payment),
+                'total_amount': str(result.total_amount),
+                'total_interest': str(result.total_interest),
+                'payment_amount': str(result.payment_amount),
+                'total_payments': result.total_payments
+            })
+            
+        except Exception as e:
+            return Response(
+                {'error': f'Calculation error: {str(e)}'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+
+class InterestRateSolverView(APIView):
+    """
+    API endpoint for solving interest rates using Newton-Raphson method.
+    """
+    permission_classes = [AllowAny]
+    def post(self, request):
+        """Solve for interest rate given payment amount"""
+        from .serializers import InterestRateSolverRequestSerializer
+        
+        serializer = InterestRateSolverRequestSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(
+                {'errors': serializer.errors}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        try:
+            import sys
+            import os
+            sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', 'calculators-microservice'))
+            from interest_calculator import FinancialCalculator, PaymentFrequency
+            
+            # Get validated data safely
+            data: Dict[str, Any] = get_validated_data(serializer)
+            
+            # Check if required fields exist
+            if not all(key in data for key in ['principal', 'payment', 'term_years', 'payment_frequency']):
+                return Response(
+                    {'error': 'Missing required parameters for calculation'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            result = FinancialCalculator.solve_interest_rate(
+                principal=float(data['principal']),
+                payment=float(data['payment']),
+                term_years=data['term_years'],
+                payment_frequency=get_calculator_payment_frequency_enum(data['payment_frequency']),
+                tolerance=float(data.get('tolerance', 0.00001)),
+                max_iterations=data.get('max_iterations', 100)
+            )
+            
+            return Response({
+                'annual_rate': str(result['annual_rate']),
+                'converged': result['converged'],
+                'iterations': result['iterations']
+            })
+            
+        except Exception as e:
+            return Response(
+                {'error': f'Calculation error: {str(e)}'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+
+class AmortizationScheduleView(APIView):
+    """
+    API endpoint for generating amortization schedules.
+    """
+    permission_classes = [AllowAny]
+    def post(self, request):
+        """Generate complete amortization schedule"""
+        from .serializers import AmortizationScheduleRequestSerializer
+        
+        serializer = AmortizationScheduleRequestSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(
+                {'errors': serializer.errors}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        try:
+            import sys
+            import os
+            sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', 'calculators-microservice'))
+            from interest_calculator import FinancialCalculator, PaymentFrequency
+            
+            data = get_validated_data(serializer)
+            schedule = FinancialCalculator.generate_amortization_schedule(
+                principal=float(data['principal']),
+                annual_rate=float(data['annual_rate']),
+                term_years=data['term_years'],
+                payment_frequency=get_calculator_payment_frequency_enum(data['payment_frequency'])
+            )
+            
+            # Convert to serializable format
+            schedule_data = []
+            for entry in schedule:
+                schedule_data.append({
+                    'payment_number': entry.payment_number,
+                    'payment_amount': str(entry.payment_amount),
+                    'principal_payment': str(entry.principal_payment),
+                    'interest_payment': str(entry.interest_payment),
+                    'remaining_balance': str(entry.remaining_balance)
+                })
+            
+            return Response({'schedule': schedule_data})
+            
+        except Exception as e:
+            return Response(
+                {'error': f'Calculation error: {str(e)}'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+
+class EarlyPaymentCalculatorView(APIView):
+    """
+    API endpoint for calculating early payment savings.
+    """
+    permission_classes = [AllowAny]
+    def post(self, request):
+        """Calculate savings from extra payments"""
+        from .serializers import EarlyPaymentRequestSerializer
+        
+        serializer = EarlyPaymentRequestSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(
+                {'errors': serializer.errors}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        try:
+            import sys
+            import os
+            sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', 'calculators-microservice'))
+            from interest_calculator import FinancialCalculator, PaymentFrequency
+            
+            data = get_validated_data(serializer)
+            result = FinancialCalculator.calculate_early_payment_savings(
+                principal=float(data['principal']),
+                annual_rate=float(data['annual_rate']),
+                term_years=data['term_years'],
+                extra_payment=float(data['extra_payment']),
+                payment_frequency=get_calculator_payment_frequency_enum(data['payment_frequency']),
+                extra_payment_type=map_django_to_calculator_payment_frequency(data['extra_payment_type'])
+            )
+            
+            return Response({
+                'original_total_interest': str(result.original_total_interest),
+                'original_total_payments': str(result.original_total_payments),
+                'original_term_months': result.original_term_months,
+                'new_total_interest': str(result.new_total_interest),
+                'new_total_payments': str(result.new_total_payments),
+                'new_term_months': result.new_term_months,
+                'interest_savings': str(result.interest_savings),
+                'time_savings_months': result.time_savings_months
+            })
+            
+        except Exception as e:
+            return Response(
+                {'error': f'Calculation error: {str(e)}'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+
+class ROICalculatorView(APIView):
+    """
+    API endpoint for ROI calculations.
+    """
+    permission_classes = [AllowAny]
+    def post(self, request):
+        """Calculate return on investment"""
+        from .serializers import ROICalculationRequestSerializer
+        
+        serializer = ROICalculationRequestSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(
+                {'errors': serializer.errors}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            import sys
+            import os
+            sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', 'calculators-microservice'))
+            from interest_calculator import FinancialCalculator
+            
+            data = get_validated_data(serializer)
+            time_years = data.get('time_years')
+            time_years_float = float(time_years) if time_years else None
+            
+            result = FinancialCalculator.calculate_roi(
+                initial_investment=float(data['initial_investment']),
+                final_value=float(data['final_value']),
+                time_years=time_years_float
+            )
+            
+            response_data = {
+                'roi_percentage': str(result.roi_percentage),
+                'total_return': str(result.total_return)
+            }
+            
+            if result.annualized_return is not None:
+                response_data['annualized_return'] = str(result.annualized_return)
+            
+            return Response(response_data)
+            
+        except Exception as e:
+            return Response(
+                {'error': f'Calculation error: {str(e)}'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+
+class CompoundInterestCalculatorView(APIView):
+    """
+    API endpoint for compound interest calculations.
+    """
+    permission_classes = [AllowAny]
+    def post(self, request):
+        """Calculate compound interest with optional contributions"""
+        from .serializers import CompoundInterestRequestSerializer
+        
+        serializer = CompoundInterestRequestSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(
+                {'errors': serializer.errors}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        try:
+            import sys
+            import os
+            sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', 'calculators-microservice'))
+            from interest_calculator import FinancialCalculator, PaymentFrequency
+            data = get_validated_data(serializer)
+            additional_frequency = data.get('additional_frequency')
+            additional_frequency_enum = get_calculator_payment_frequency_enum(additional_frequency) if additional_frequency else get_calculator_payment_frequency_enum('MONTHLY')
+            
+            result = FinancialCalculator.calculate_compound_interest(
+                principal=float(data['principal']),
+                annual_rate=float(data['annual_rate']),
+                time_years=float(data['time_years']),
+                compounding_frequency=get_calculator_payment_frequency_enum(data['compounding_frequency']),
+                additional_payment=float(data.get('additional_payment', 0)),
+                additional_frequency=additional_frequency_enum
+            )
+            
+            return Response({
+                'future_value': str(result.future_value),
+                'total_interest': str(result.total_interest),
+                'total_contributions': str(result.total_contributions)
+            })
+                
+        except Exception as e:
+            return Response(
+                {'error': f'Calculation error: {str(e)}'}, 
+                status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class PortfolioMetricsView(APIView):
+    """
+    API endpoint for portfolio performance calculations.
+    """
+    permission_classes = [AllowAny]
+    
+    def post(self, request):
+        """Calculate portfolio metrics"""
+        from .serializers import PortfolioMetricsRequestSerializer
+        
+        serializer = PortfolioMetricsRequestSerializer(data=request.data)
+        if serializer.is_valid():
+            try:
+                import sys
+                import os
+                sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', 'calculators-microservice'))
+                from interest_calculator import FinancialCalculator
+                
+                data = get_validated_data(serializer)
+                
+                # Check if investments data exists
+                if not data or 'investments' not in data:
+                    return Response(
+                        {'error': 'Missing required parameter: investments'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                
+                # Convert decimal fields to float for calculation
+                investments = []
+                for investment in data['investments']:
+                    inv_data = {}
+                    for key, value in investment.items():
+                        inv_data[key] = float(value)
+                    investments.append(inv_data)
+                
+                result = FinancialCalculator.calculate_portfolio_metrics(investments)
+                
+                # Convert results to strings for JSON serialization
+                return Response({
+                    'total_investment': str(result['total_investment']),
+                    'total_current_value': str(result['total_current_value']),
+                    'total_gain_loss': str(result['total_gain_loss']),
+                    'total_return_percentage': str(result['total_return_percentage'])
+                })
+                
+            except Exception as e:
+                return Response(
+                    {'error': f'Calculation error: {str(e)}'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class RiskAssessmentView(APIView):
+    """
+    API endpoint for investment risk profile assessment.
+    """
+    permission_classes = [AllowAny]
+    
+    def post(self, request):
+        """Assess investment risk profile"""
+        from .serializers import RiskAssessmentRequestSerializer
+        
+        serializer = RiskAssessmentRequestSerializer(data=request.data)
+        if serializer.is_valid():
+            try:
+                import sys
+                import os
+                sys.path.append(os.path.join(os.path.dirname(__file__), 
+                                             '..', '..', 'calculators-microservice'))
+                from interest_calculator import FinancialCalculator
+                
+                data = get_validated_data(serializer)
+                
+                # Check if answers data exists
+                if not data or 'answers' not in data:
+                    return Response(
+                        {'error': 'Missing required parameter: answers'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                
+                result = FinancialCalculator.assess_risk_profile(
+                    answers=data['answers']
+                )
+                
+                return Response(result)
+                
+            except Exception as e:
+                return Response(
+                    {'error': f'Assessment error: {str(e)}'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+# =============================================================================
+# ENUM MAPPING FUNCTIONS FOR FINANCIAL CALCULATOR
+# =============================================================================
+
+def map_django_to_calculator_interest_type(django_value: str) -> str:
+    """
+    Map Django model InterestType enum values to calculator engine values.
+    """
+    mapping = {
+        'SIMPLE': 'simple',
+        'COMPOUND': 'compound', 
+        'REDUCING': 'reducing_balance',
+        'FLAT': 'flat_rate'
+    }
+    return mapping.get(django_value, 'compound')  # Default to compound
+
+
+def map_django_to_calculator_payment_frequency(django_value: str) -> str:
+    """
+    Map Django model PaymentFrequency enum values to calculator engine values.
+    """
+    mapping = {
+        'DAILY': 'daily',
+        'WEEKLY': 'weekly',
+        'BIWEEKLY': 'biweekly',
+        'MONTHLY': 'monthly',
+        'QUARTERLY': 'quarterly',
+        'SEMI_ANNUALLY': 'semi_annually',
+        'ANNUALLY': 'annually'
+    }
+    return mapping.get(django_value, 'monthly')  # Default to monthly
+
+
+def get_calculator_payment_frequency_enum(django_value: str):
+    """
+    Get the PaymentFrequency enum value for calculator engine.
+    """
+    # Import here to avoid circular imports
+    import sys
+    import os
+    sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', 'calculators-microservice'))
+    from interest_calculator import PaymentFrequency
+    
+    mapping = {
+        'DAILY': PaymentFrequency.DAILY,
+        'WEEKLY': PaymentFrequency.WEEKLY,
+        'BIWEEKLY': PaymentFrequency.WEEKLY,  # Use weekly for biweekly as approximation
+        'MONTHLY': PaymentFrequency.MONTHLY,
+        'QUARTERLY': PaymentFrequency.QUARTERLY,
+        'SEMI_ANNUALLY': PaymentFrequency.SEMI_ANNUALLY,
+        'ANNUALLY': PaymentFrequency.ANNUALLY
+    }
+    return mapping.get(django_value, PaymentFrequency.MONTHLY)  # Default to monthly
+
+
+# =============================================================================
+# EXISTING CONSTANTS AND HELPER FUNCTIONS
+# =============================================================================
+
+# Error message templates
+ERROR_MESSAGES = {
+    'auth_failed': 'Authentication failed',
+    'profile_not_found': 'Profile not found',
+    'invalid_pin': 'Invalid PIN',
+    'invalid_profile_type': 'Profile type must be "business" or "personal"',
+    'required_fields': 'Name, profile type, and PIN are required',
+    'user_id_required': 'User ID is required',
+    'email_required': 'Email is required',
+    'current_pin_required': 'Current PIN is required',
+    'new_pin_required': 'New PIN is required',
+    'incorrect_current_pin': 'Current PIN is incorrect',
+    'profile_id_required': 'Profile ID required'
+}

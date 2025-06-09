@@ -1,239 +1,295 @@
-// UUID/PIN management
-
-import 'package:fedha/models/enhanced_profile.dart' as enhanced;
-import 'package:fedha/services/api_client.dart';
-import 'package:fedha/services/enhanced_auth_service.dart';
-import 'package:uuid/uuid.dart';
+// lib/services/auth_service.dart
 import 'package:flutter/foundation.dart';
 import 'package:hive/hive.dart';
+import 'package:uuid/uuid.dart';
+import '../models/enhanced_profile.dart';
+import '../services/api_client.dart';
 
-import '../models/profile.dart';
+// Result class for profile existence checks
+class ProfileExistenceResult {
+  final bool exists;
+  final bool isLocal;
+  final bool isOnServer;
+
+  ProfileExistenceResult({
+    required this.exists,
+    required this.isLocal,
+    required this.isOnServer,
+  });
+}
+
+// Login result class
+class LoginResult {
+  final bool success;
+  final String message;
+  final EnhancedProfile? profile;
+
+  LoginResult.success({this.profile})
+    : success = true,
+      message = 'Login successful';
+  LoginResult.error(this.message) : success = false, profile = null;
+
+  static LoginResult empty() => LoginResult.error('No profile found');
+}
+
+// Profile stats class
+class ProfileStats {
+  final double totalIncome;
+  final double totalExpense;
+  final double netBalance;
+  final int transactionCount;
+  final int activeBudgets;
+  final int activeGoals;
+  final DateTime? lastLogin;
+  final int accountAge;
+
+  ProfileStats({
+    required this.totalIncome,
+    required this.totalExpense,
+    required this.netBalance,
+    required this.transactionCount,
+    required this.activeBudgets,
+    required this.activeGoals,
+    this.lastLogin,
+    required this.accountAge,
+  });
+
+  static ProfileStats empty() => ProfileStats(
+    totalIncome: 0.0,
+    totalExpense: 0.0,
+    netBalance: 0.0,
+    transactionCount: 0,
+    activeBudgets: 0,
+    activeGoals: 0,
+    accountAge: 0,
+  );
+}
 
 class AuthService extends ChangeNotifier {
   final Uuid _uuid = const Uuid();
   final ApiClient _apiClient = ApiClient();
-  EnhancedAuthService? _enhancedAuthService;
 
-  // Default constructor with enhanced auth service
-  AuthService() {
-    _enhancedAuthService = EnhancedAuthService();
-  }
+  EnhancedProfile? _currentProfile;
+  bool _isInitialized = false;
+  Box<EnhancedProfile>? _profileBox;
 
-  // Constructor without enhanced auth service to break circular dependency
-  AuthService.withoutEnhancedAuth();
+  EnhancedProfile? get currentProfile => _currentProfile;
+  bool get isLoggedIn => _currentProfile != null;
+  bool get isInitialized => _isInitialized;
 
-  // Lazy getter for enhanced auth service
-  EnhancedAuthService? get enhancedAuthService => _enhancedAuthService;
+  // Initialize the service
+  Future<void> initialize() async {
+    if (_isInitialized) return;
 
-  Null get currentProfileId => null;
-  Profile? _currentProfile;
+    try {
+      // Check if boxes are already open, if not open them
+      if (!Hive.isBoxOpen('enhanced_profiles')) {
+        _profileBox = await Hive.openBox<EnhancedProfile>('enhanced_profiles');
+      } else {
+        _profileBox = Hive.box<EnhancedProfile>('enhanced_profiles');
+      }
 
-  Profile? get currentProfile => _currentProfile;
-  Profile? get profile => _currentProfile;
+      // Open other necessary boxes
+      if (!Hive.isBoxOpen('settings')) {
+        await Hive.openBox('settings');
+      }
+      if (!Hive.isBoxOpen('transactions')) {
+        await Hive.openBox('transactions');
+      }
+      if (!Hive.isBoxOpen('budgets')) {
+        await Hive.openBox('budgets');
+      }
+      if (!Hive.isBoxOpen('goals')) {
+        await Hive.openBox('goals');
+      }
 
-  Future<bool> login(ProfileType profileType, String pin) async {
-    final profileBox = Hive.box<Profile>('profiles');
-    final profiles =
-        profileBox.values.where((p) => p.type == profileType).toList();
+      // Create test profiles if none exist (for development/testing)
+      await _createTestProfilesIfNeeded();
 
-    for (final profile in profiles) {
-      if (profile.verifyPin(pin)) {
-        _currentProfile = profile;
-        notifyListeners();
-        return true;
+      _isInitialized = true;
+      notifyListeners();
+    } catch (e) {
+      if (kDebugMode) {
+        print('Failed to initialize AuthService: $e');
       }
     }
-    return false;
   }
 
-  void logout() {
-    _currentProfile = null;
-    notifyListeners();
-  }
-
-  bool get isLoggedIn => _currentProfile != null;
-
-  // Verify PIN with user ID and account type
-  Future<bool> verifyPin(
-    String userId,
-    String pin,
-    ProfileType accountType,
-  ) async {
+  // Auto login - check for stored session
+  Future<void> tryAutoLogin() async {
     try {
-      // Check if userId format matches account type
-      final isValidFormat =
-          (accountType == ProfileType.business &&
-              userId.toLowerCase().startsWith('biz-')) ||
-          (accountType == ProfileType.personal &&
-              userId.toLowerCase().startsWith('per-'));
-
-      if (!isValidFormat) {
-        return false;
+      if (_profileBox == null) {
+        await initialize();
       }
 
-      // For demo purposes, accept any 4-digit PIN for now
-      if (pin.length == 4 && RegExp(r'^[0-9]+$').hasMatch(pin)) {
-        final profileBox = await Hive.openBox('profiles');
-        String profileId = userId;
-        var existingProfile = profileBox.get(profileId);
+      final settingsBox = Hive.box('settings');
+      final currentProfileId = settingsBox.get('current_profile_id');
 
-        if (existingProfile == null) {
-          existingProfile = {
-            'id': profileId,
-            'type': accountType,
-            'pinHash': hashPin(pin),
-          };
-          await profileBox.put(profileId, existingProfile);
+      if (currentProfileId != null) {
+        final profile = _profileBox!.get(currentProfileId);
+        if (profile != null) {
+          _currentProfile = profile;
+          notifyListeners();
+
+          if (kDebugMode) {
+            print('Auto login successful for profile: ${profile.email}');
+          }
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Auto login failed: $e');
+      }
+    }
+  }
+
+  // Create test profiles for development/testing if none exist
+  Future<void> _createTestProfilesIfNeeded() async {
+    try {
+      _profileBox ??= await Hive.openBox<EnhancedProfile>('enhanced_profiles');
+
+      if (_profileBox!.isEmpty) {
+        if (kDebugMode) {
+          print('No profiles found. Creating test profiles...');
         }
 
-        // Set current profile
-        _currentProfile = Profile(
-          id: profileId,
-          type: accountType,
-          pinHash: hashPin(pin),
-          name: null,
-          email: null,
-          baseCurrency: null,
-          timezone: null,
+        // Create test business profile
+        final businessProfile = EnhancedProfile(
+          type: ProfileType.business,
+          passwordHash: EnhancedProfile.hashPassword('password123'),
+          name: 'Test Business',
+          email: 'business@test.com',
         );
 
-        notifyListeners();
-        return true;
-      }
+        // Create test personal profile
+        final personalProfile = EnhancedProfile(
+          type: ProfileType.personal,
+          passwordHash: EnhancedProfile.hashPassword('password456'),
+          name: 'Test Personal',
+          email: 'personal@test.com',
+        );
 
-      return false;
+        await _profileBox!.put(businessProfile.id, businessProfile);
+        await _profileBox!.put(personalProfile.id, personalProfile);
+
+        if (kDebugMode) {
+          print('Test profiles created:');
+          print(
+            '  Business: Email: ${businessProfile.email}, Password: password123',
+          );
+          print(
+            '  Personal: Email: ${personalProfile.email}, Password: password456',
+          );
+        }
+      } else {
+        if (kDebugMode) {
+          print('Existing profiles found: ${_profileBox!.length}');
+          for (var key in _profileBox!.keys) {
+            var profile = _profileBox!.get(key);
+            print(
+              '  ${profile?.type}: Email: ${profile?.email}, Name: ${profile?.name}',
+            );
+          }
+        }
+      }
     } catch (e) {
       if (kDebugMode) {
-        print('PIN verification error: $e');
-      }
-      return false;
-    }
-  }
-
-  // Generate new profile ID (e.g., "biz_abc123" or "personal_xyz789")
-  String generateProfileId({required bool isBusiness}) {
-    final prefix = isBusiness ? 'biz' : 'personal';
-    return '${prefix}_${_uuid.v4().substring(0, 6)}';
-  }
-
-  // Generate new PIN (e.g., "123456")
-  String generatePin() {
-    return _uuid.v4().substring(0, 6);
-  }
-
-  // Hash the PIN for secure storage
-  String hashPin(String pin) {
-    // Simple hash function (for demonstration purposes)
-    return pin.split('').reversed.join();
-  }
-
-  // Validate the PIN against the stored hash
-  bool validatePin(String pin, String hashedPin) {
-    return hashPin(pin) == hashedPin;
-  }
-
-  Future<void> createProfile({
-    required bool isBusiness,
-    required String pin,
-  }) async {
-    final profileId = generateProfileId(isBusiness: isBusiness);
-    final pinHash = hashPin(pin);
-
-    // Save to Hive
-    final profileBox = await Hive.openBox('profiles');
-    await profileBox.put(profileId, {
-      'id': profileId,
-      'isBusiness': isBusiness,
-      'pinHash': pinHash,
-    });
-
-    // Sync with Django (optional)
-    await _apiClient.createProfile(
-      profileId: profileId,
-      isBusiness: isBusiness,
-      pinHash: pinHash,
-    );
-  }
-
-  Future<bool> loginWithProfileId(String profileId, String pin) async {
-    // Get profile from Hive
-    final profileBox = await Hive.openBox('profiles');
-    final profile = profileBox.get(profileId);
-
-    if (profile == null) {
-      return false; // Profile not found
-    }
-
-    // Validate PIN
-    final storedPinHash = profile['pinHash'];
-    if (!validatePin(pin, storedPinHash)) {
-      return false; // Invalid PIN
-    }
-
-    // Try to sync with server
-    try {
-      await _apiClient.verifyProfile(
-        profileId: profileId,
-        pinHash: hashPin(pin),
-      );
-    } catch (e) {
-      // Continue even if server sync fails
-      if (kDebugMode) {
-        print('Server sync failed: $e');
+        print('Error creating test profiles: $e');
       }
     }
-    return true; // Return true if login successful, false otherwise
   }
 
   // Create enhanced profile with additional metadata
   Future<bool> createEnhancedProfile(Map<String, dynamic> profileData) async {
     try {
-      final profileId = generateProfileId(
-        isBusiness: profileData['profile_type'] == ProfileType.business,
-      );
-      final pinHash = hashPin(profileData['pin']);
+      if (kDebugMode) {
+        print('Creating enhanced profile with data: $profileData');
+      } // Extract email and pin, which are now primary for server interaction
+      final String? email = profileData['email'];
+      final String? pin = profileData['pin'];
+      final String? name = profileData['name'];
+      final ProfileType? profileTypeEnum = profileData['profile_type'];
 
-      // Create profile object
-      final profile = Profile(
-        id: profileId,
-        type: profileData['profile_type'],
-        pinHash: pinHash,
-        name: profileData['name'],
-        email: profileData['email'],
-        baseCurrency: profileData['base_currency'] ?? 'KES',
-        timezone: profileData['timezone'] ?? 'GMT+3',
-      );
-
-      // Save to Hive
-      final profileBox = await Hive.openBox<Profile>('profiles');
-      await profileBox.put(profileId, profile);
-
-      // Save additional settings
-      final settingsBox = await Hive.openBox('settings');
-      await settingsBox.put(
-        'google_drive_enabled',
-        profileData['enable_google_drive'] ?? false,
-      );
-
-      // Sync with backend
-      try {
-        await _apiClient.createProfile(
-          profileId: profileId,
-          isBusiness: profileData['profile_type'] == ProfileType.business,
-          pinHash: pinHash,
-        );
-      } catch (e) {
-        // Continue even if server sync fails
+      if (email == null || email.isEmpty || pin == null || pin.isEmpty) {
         if (kDebugMode) {
-          print('Server sync failed: $e');
+          print('Email or PIN is missing. Cannot create server profile.');
         }
+        throw Exception('Email and PIN are required to create a profile.');
       }
 
-      // Set as current profile
-      _currentProfile = profile;
-      notifyListeners();
+      if (name == null || name.isEmpty) {
+        if (kDebugMode) {
+          print('Name is missing. Cannot create server profile.');
+        }
+        throw Exception('Name is required to create a profile.');
+      }
 
-      return true;
+      if (profileTypeEnum == null) {
+        if (kDebugMode) {
+          print('Profile type is missing. Cannot create server profile.');
+        }
+        throw Exception('Profile type is required to create a profile.');
+      }
+
+      final String profileTypeString =
+          profileTypeEnum
+              .toString()
+              .split('.')
+              .last; // First try to create profile on server
+      try {
+        final serverResponse = await _apiClient.createEnhancedProfile(
+          name: name,
+          profileType: profileTypeString,
+          pin: pin,
+          email: email,
+          baseCurrency: profileData['base_currency'] ?? 'KES',
+          timezone: profileData['timezone'] ?? 'GMT+3',
+        );
+        if (kDebugMode) {
+          print('Server profile created successfully: $serverResponse');
+        }
+
+        String userId =
+            serverResponse['user_id'] ??
+            serverResponse['profile_id'] ??
+            _uuid.v4();
+        final profile = EnhancedProfile(
+          id: userId, // Use server-provided user_id
+          type: profileData['profile_type'],
+          passwordHash: EnhancedProfile.hashPassword(pin),
+          name: profileData['name'],
+          email: email,
+          baseCurrency: profileData['base_currency'] ?? 'KES',
+          timezone: profileData['timezone'] ?? 'GMT+3',
+        );
+        _profileBox ??= await Hive.openBox<EnhancedProfile>(
+          'enhanced_profiles',
+        );
+        await _profileBox!.put(userId, profile);
+
+        final settingsBox = Hive.box('settings');
+        await settingsBox.put(
+          'google_drive_enabled',
+          profileData['enable_google_drive'] ?? false,
+        );
+        await settingsBox.put('current_profile_id', userId);
+
+        _currentProfile = profile;
+        notifyListeners();
+
+        if (kDebugMode) {
+          print(
+            'Enhanced profile created successfully with email: ${profile.email}, User ID: $userId',
+          );
+        }
+
+        return true;
+      } catch (serverError) {
+        if (kDebugMode) {
+          print('Server profile creation failed: $serverError');
+        }
+        return false;
+      }
     } catch (e) {
       if (kDebugMode) {
         print('Enhanced profile creation failed: $e');
@@ -243,73 +299,285 @@ class AuthService extends ChangeNotifier {
   }
 
   // Enhanced login with better error handling
-  Future<enhanced.LoginResult> enhancedLogin(
-    ProfileType profileType,
-    String pin,
-  ) async {
-    try {
-      final profileBox = Hive.box<Profile>('profiles');
-      final profiles =
-          profileBox.values.where((p) => p.type == profileType).toList();
+  Future<LoginResult> enhancedLogin(String email, String pin) async {
+    if (kDebugMode) {
+      print('Attempting enhanced login for email: $email');
+    }
 
-      for (final profile in profiles) {
-        if (profile.verifyPin(pin)) {
+    try {
+      // TODO: Fix login to use userId instead of email
+      // For now, try to find local profile by email
+      _profileBox ??= await Hive.openBox<EnhancedProfile>('enhanced_profiles');
+
+      for (final profile in _profileBox!.values) {
+        if (profile.email == email && profile.verifyPassword(pin)) {
           _currentProfile = profile;
           notifyListeners();
 
-          // Create updated profile with new lastLogin
-          final updatedProfile = Profile(
-            id: profile.id,
-            name: profile.name,
-            type: profile.type,
-            pinHash: profile.pinHash,
-            createdAt: profile.createdAt,
-            updatedAt: DateTime.now(),
-            email: profile.email,
-            baseCurrency: profile.baseCurrency,
-            timezone: profile.timezone,
-            lastLogin: DateTime.now(),
-          );
-
-          await profileBox.put(profile.id, updatedProfile);
-          _currentProfile = updatedProfile;
-
-          try {
-            await _apiClient.verifyProfile(
-              profileId: profile.id,
-              pinHash: hashPin(pin),
-            );
-          } catch (e) {
-            if (kDebugMode) {
-              print('Server sync failed: $e');
-            }
+          if (kDebugMode) {
+            print('Local login successful for email: $email');
           }
 
-          return enhanced.LoginResult.success();
+          return LoginResult.success(profile: profile);
+        }
+      }
+      return LoginResult.error('Invalid email or PIN');
+
+      /* TODO: Restore server login with userId
+      final serverProfileData = await _apiClient.loginEnhancedProfile(
+        userId: userId,  // Need to get userId from email somehow
+        pin: pin,
+      );
+
+      if (kDebugMode) {
+        print('Server login successful: $serverProfileData');
+      }
+
+      // Create profile from server data
+      final String serverId = serverProfileData['id']?.toString() ?? email;
+      final profileToSave = EnhancedProfile(
+        id: serverId,
+        type: ProfileType.values.firstWhere(
+          (e) =>
+              e.toString().split('.').last == serverProfileData['profile_type'],
+          orElse: () => ProfileType.personal,
+        ),
+        passwordHash: EnhancedProfile.hashPassword(pin),
+        name: serverProfileData['name'] ?? 'Default Name',
+        email: email,
+        baseCurrency: serverProfileData['base_currency'] ?? 'KES',
+        timezone: serverProfileData['timezone'] ?? 'GMT+3',
+      );
+
+      _profileBox ??= await Hive.openBox<EnhancedProfile>('enhanced_profiles');
+      await _profileBox!.put(serverId, profileToSave);
+
+      final settingsBox = Hive.box('settings');
+      await settingsBox.put('current_profile_id', serverId);
+
+      _currentProfile = profileToSave;
+      notifyListeners();
+
+      if (kDebugMode) {
+        print('Enhanced login successful for email: $email');
+      }
+
+      return LoginResult.success(profile: profileToSave);
+      */
+    } catch (e) {
+      if (kDebugMode) {
+        print('Enhanced login failed: $e');
+      }
+      return LoginResult.error('Login failed: $e');
+    }
+  }
+
+  // Login with email and pin
+  Future<bool> login(String email, String pin) async {
+    final result = await enhancedLogin(email, pin);
+    return result.success;
+  }
+
+  // Login by profile type (for backward compatibility)
+  Future<bool> loginByType(ProfileType profileType, String password) async {
+    try {
+      if (_profileBox == null) {
+        await initialize();
+      }
+
+      final profiles =
+          _profileBox!.values.where((p) => p.type == profileType).toList();
+
+      for (final profile in profiles) {
+        if (profile.verifyPassword(password)) {
+          _currentProfile = profile.copyWith(lastLogin: DateTime.now());
+
+          // Update last login
+          await _profileBox!.put(profile.id, _currentProfile!);
+
+          final settingsBox = Hive.box('settings');
+          await settingsBox.put('current_profile_id', profile.id);
+
+          notifyListeners();
+
+          if (kDebugMode) {
+            print('Login successful for profile type: $profileType');
+          }
+
+          return true;
         }
       }
 
-      return enhanced.LoginResult.error(
-        'Invalid PIN for selected profile type',
-      );
+      if (kDebugMode) {
+        print('Login failed for profile type: $profileType');
+      }
+      return false;
     } catch (e) {
       if (kDebugMode) {
         print('Login error: $e');
       }
-      return enhanced.LoginResult.error('Login failed. Please try again.');
+      return false;
+    }
+  }
+
+  // Set initial password for new profiles
+  Future<bool> setInitialPassword(String newPassword) async {
+    if (_currentProfile == null) {
+      if (kDebugMode) {
+        print('No current profile to set password for');
+      }
+      return false;
+    }
+
+    try {
+      // Update password hash
+      final newPasswordHash = EnhancedProfile.hashPassword(newPassword);
+
+      _currentProfile = _currentProfile!.copyWith(
+        passwordHash: newPasswordHash,
+      );
+
+      // Save locally
+      _profileBox ??= await Hive.openBox<EnhancedProfile>('enhanced_profiles');
+      await _profileBox!.put(_currentProfile!.id, _currentProfile!);
+
+      notifyListeners();
+
+      if (kDebugMode) {
+        print(
+          'Initial password set successfully for profile: ${_currentProfile!.email}',
+        );
+      }
+
+      return true;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Failed to set initial password: $e');
+      }
+      return false;
+    }
+  }
+
+  // Change password for existing profiles
+  Future<bool> changePassword(
+    String currentPassword,
+    String newPassword,
+  ) async {
+    if (_currentProfile == null) {
+      if (kDebugMode) {
+        print('No current profile to change password for');
+      }
+      return false;
+    }
+
+    try {
+      // Verify current password
+      if (!_currentProfile!.verifyPassword(currentPassword)) {
+        if (kDebugMode) {
+          print('Current password verification failed');
+        }
+        return false;
+      } // Try to update password on server first
+      try {
+        await _apiClient.updateEnhancedProfile(
+          email: _currentProfile!.email!,
+          passwordHash: EnhancedProfile.hashPassword(newPassword),
+          name: _currentProfile!.name!,
+          baseCurrency: _currentProfile!.baseCurrency,
+          timezone: _currentProfile!.timezone,
+        );
+
+        if (kDebugMode) {
+          print('Server password update successful');
+        }
+      } catch (serverError) {
+        if (kDebugMode) {
+          print(
+            'Server password update failed, continuing with local update: $serverError',
+          );
+        }
+        // Continue with local update even if server fails
+      }
+
+      // Update password hash locally
+      final newPasswordHash = EnhancedProfile.hashPassword(newPassword);
+
+      _currentProfile = _currentProfile!.copyWith(
+        passwordHash: newPasswordHash,
+      );
+
+      // Save locally
+      _profileBox ??= await Hive.openBox<EnhancedProfile>('enhanced_profiles');
+      await _profileBox!.put(_currentProfile!.id, _currentProfile!);
+
+      notifyListeners();
+
+      if (kDebugMode) {
+        print(
+          'Password changed successfully for profile: ${_currentProfile!.email}',
+        );
+      }
+
+      return true;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Failed to change password: $e');
+      }
+      return false;
+    }
+  }
+
+  // Check if a profile exists with the given email
+  Future<ProfileExistenceResult> checkProfileExists(String email) async {
+    try {
+      _profileBox ??= await Hive.openBox<EnhancedProfile>('enhanced_profiles');
+
+      // Check local storage
+      bool isLocal = false;
+      for (var profile in _profileBox!.values) {
+        if (profile.email == email) {
+          isLocal = true;
+          break;
+        }
+      } // Check server
+      bool isOnServer = false;
+      try {
+        await _apiClient.getEnhancedProfile(email: email);
+        isOnServer = true; // If no exception is thrown, profile exists
+      } catch (e) {
+        if (kDebugMode) {
+          print('Server check failed: $e');
+        }
+        isOnServer = false;
+      }
+
+      return ProfileExistenceResult(
+        exists: isLocal || isOnServer,
+        isLocal: isLocal,
+        isOnServer: isOnServer,
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        print('Profile existence check failed: $e');
+      }
+      return ProfileExistenceResult(
+        exists: false,
+        isLocal: false,
+        isOnServer: false,
+      );
     }
   }
 
   // Get profile statistics
-  Future<enhanced.ProfileStats> getProfileStats() async {
+  Future<ProfileStats> getProfileStats() async {
     if (_currentProfile == null) {
-      return enhanced.ProfileStats.empty();
+      return ProfileStats.empty();
     }
 
     try {
-      final transactionBox = await Hive.openBox('transactions');
-      final budgetBox = await Hive.openBox('budgets');
-      final goalBox = await Hive.openBox('goals');
+      final transactionBox = Hive.box('transactions');
+      final budgetBox = Hive.box('budgets');
+      final goalBox = Hive.box('goals');
 
       final profileTransactions =
           transactionBox.values
@@ -342,7 +610,7 @@ class AuthService extends ChangeNotifier {
               )
               .length;
 
-      return enhanced.ProfileStats(
+      return ProfileStats(
         totalIncome: totalIncome,
         totalExpense: totalExpense,
         netBalance: totalIncome - totalExpense,
@@ -357,12 +625,115 @@ class AuthService extends ChangeNotifier {
       if (kDebugMode) {
         print('Failed to get profile stats: $e');
       }
-      return enhanced.ProfileStats.empty();
+      return ProfileStats.empty();
     }
   }
 
-  // Check if profile needs PIN change (first-time login)
-  bool requiresPinChange() {
+  // Logout
+  Future<void> logout() async {
+    try {
+      _currentProfile = null;
+
+      final settingsBox = Hive.box('settings');
+      await settingsBox.delete('current_profile_id');
+
+      notifyListeners();
+
+      if (kDebugMode) {
+        print('Logout successful');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Logout failed: $e');
+      }
+    }
+  }
+
+  // Get all profiles (for profile selection)
+  List<EnhancedProfile> getAllProfiles() {
+    try {
+      if (_profileBox == null) return [];
+      return _profileBox!.values.toList();
+    } catch (e) {
+      if (kDebugMode) {
+        print('Failed to get all profiles: $e');
+      }
+      return [];
+    }
+  }
+
+  // Delete profile
+  Future<bool> deleteProfile(String profileId) async {
+    try {
+      _profileBox ??= await Hive.openBox<EnhancedProfile>('enhanced_profiles');
+
+      final profile = _profileBox!.get(profileId);
+      if (profile == null) {
+        if (kDebugMode) {
+          print('Profile not found for deletion: $profileId');
+        }
+        return false;
+      }
+
+      // Try to delete from server first
+      try {
+        await _apiClient.deleteEnhancedProfile(email: profile.email!);
+        if (kDebugMode) {
+          print('Server profile deletion successful');
+        }
+      } catch (serverError) {
+        if (kDebugMode) {
+          print(
+            'Server profile deletion failed, continuing with local deletion: $serverError',
+          );
+        }
+      }
+
+      // Delete locally
+      await _profileBox!.delete(profileId);
+
+      // If this was the current profile, logout
+      if (_currentProfile?.id == profileId) {
+        await logout();
+      }
+
+      if (kDebugMode) {
+        print('Profile deleted successfully: $profileId');
+      }
+
+      return true;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Failed to delete profile: $e');
+      }
+      return false;
+    }
+  }
+
+  // Sync profile with server
+  Future<void> syncProfileWithServer() async {
+    if (_currentProfile == null) return;
+    try {
+      // Attempt to sync with server
+      await _apiClient.updateEnhancedProfile(
+        email: _currentProfile!.email!,
+        name: _currentProfile!.name!,
+        baseCurrency: _currentProfile!.baseCurrency,
+        timezone: _currentProfile!.timezone,
+      );
+
+      if (kDebugMode) {
+        print('Profile sync with server successful');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Profile sync with server failed: $e');
+      }
+    }
+  }
+
+  // Check if profile needs password change (first-time login)
+  bool requiresPasswordChange() {
     if (_currentProfile == null) return false;
 
     // If never logged in before or account is very new
@@ -373,70 +744,18 @@ class AuthService extends ChangeNotifier {
     return daysSinceCreation < 1 && _currentProfile!.lastLogin == null;
   }
 
-  // Enhanced PIN change with server sync
-  Future<bool> changePin(String currentPin, String newPin) async {
-    if (_currentProfile == null) return false;
-
-    try {
-      // Verify current PIN
-      if (!_currentProfile!.verifyPin(currentPin)) {
-        return false;
-      }
-
-      // Create new PIN hash
-      final newPinHash = hashPin(newPin);
-
-      // Try to sync with server first
-      bool serverSyncSuccess = false;
-      try {
-        // Attempt server PIN change
-        if (_enhancedAuthService != null) {
-          await _enhancedAuthService!.changePinOnServer(
-            profileId: _currentProfile!.id,
-            currentPin: currentPin,
-            newPin: newPin,
-          );
-          serverSyncSuccess = true;
-        }
-      } catch (e) {
-        if (kDebugMode) {
-          print('Server PIN change failed, proceeding with local change: $e');
-        }
-        // Continue with local change even if server fails
-      }
-
-      // Update local profile
-      _currentProfile = Profile(
-        id: _currentProfile!.id,
-        type: _currentProfile!.type,
-        pinHash: newPinHash,
-        name: _currentProfile!.name,
-        email: _currentProfile!.email,
-        baseCurrency: _currentProfile!.baseCurrency,
-        timezone: _currentProfile!.timezone,
-        createdAt: _currentProfile!.createdAt,
-        updatedAt: DateTime.now(),
-        lastLogin: _currentProfile!.lastLogin,
-      );
-
-      // Save to local storage
-      final profileBox = await Hive.openBox<Profile>('profiles');
-      await profileBox.put(_currentProfile!.id, _currentProfile!);
-
-      notifyListeners();
-
-      if (kDebugMode) {
-        print(
-          'PIN changed successfully. Server sync: ${serverSyncSuccess ? "Success" : "Failed (local only)"}',
-        );
-      }
-
-      return true;
-    } catch (e) {
-      if (kDebugMode) {
-        print('PIN change failed: $e');
-      }
-      return false;
-    }
+  // Backward compatibility aliases for old method names
+  Future<void> autoLogin() async => await tryAutoLogin();
+  Future<bool> setInitialPin(String pin) async => await setInitialPassword(pin);
+  Future<Map<String, dynamic>> changePinOnServer({
+    required String email,
+    required String currentPin,
+    required String newPin,
+  }) async {
+    final success = await changePassword(currentPin, newPin);
+    return {'success': success};
   }
 }
+
+// Alias for backward compatibility with EnhancedAuthService
+typedef EnhancedAuthService = AuthService;

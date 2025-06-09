@@ -5,10 +5,16 @@ import '../models/transaction.dart';
 import '../models/goal.dart';
 import '../models/budget.dart';
 import '../models/enhanced_profile.dart';
-import '../services/enhanced_auth_service.dart';
+import '../services/auth_service.dart';
 import '../services/offline_data_service.dart';
+import '../widgets/quick_transaction_entry.dart';
 import 'main_navigation.dart';
 import 'add_goal_screen.dart';
+import 'goals_screen.dart';
+import 'transactions_screen.dart';
+import 'loan_calculator_screen.dart';
+import 'create_budget_screen.dart';
+import 'budget_management_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -23,7 +29,8 @@ class DashboardContent extends StatelessWidget {
   const DashboardContent({super.key});
 
   @override
-  Widget build(BuildContext context) {    return Consumer<EnhancedAuthService>(
+  Widget build(BuildContext context) {
+    return Consumer<AuthService>(
       builder: (context, authService, child) {
         final profile = authService.currentProfile;
         if (profile == null) {
@@ -60,15 +67,20 @@ class DashboardContent extends StatelessWidget {
                         // Financial Position Card
                         _buildFinancialPositionCard(context, data),
 
+                        const SizedBox(height: 24), // Budget Section
+                        _buildBudgetSection(context, data.currentBudget),
+
                         const SizedBox(height: 24),
 
                         // Goals Section
                         _buildGoalsSection(context, data.goals),
 
-                        const SizedBox(height: 24),
-
-                        // Quick Actions
-                        _buildQuickActions(context, profile.type),
+                        const SizedBox(height: 24), // Quick Actions
+                        _buildQuickActions(
+                          context,
+                          profile.type,
+                          data.currentBudget,
+                        ),
 
                         const SizedBox(height: 24),
 
@@ -135,8 +147,8 @@ class DashboardContent extends StatelessWidget {
   }
 
   Widget _buildFinancialPositionCard(BuildContext context, DashboardData data) {
-    final balance = data.totalIncome - data.totalExpenses;
-    final isPositive = balance >= 0;
+    final availableToSpend = data.availableToSpend;
+    final isPositive = availableToSpend >= 0;
     final budgetExceeded =
         data.currentBudget != null &&
         data.totalExpenses > data.currentBudget!.totalBudget;
@@ -168,7 +180,7 @@ class DashboardContent extends StatelessWidget {
           Row(
             children: [
               const Text(
-                'Account Balance',
+                'Available to Spend',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 16,
@@ -187,7 +199,7 @@ class DashboardContent extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            '\$${balance.abs().toStringAsFixed(2)}',
+            '\$${availableToSpend.abs().toStringAsFixed(2)}',
             style: const TextStyle(
               color: Colors.white,
               fontSize: 32,
@@ -199,7 +211,7 @@ class DashboardContent extends StatelessWidget {
             budgetExceeded
                 ? 'Budget exceeded by \$${(data.totalExpenses - data.currentBudget!.totalBudget).toStringAsFixed(2)}'
                 : isPositive
-                ? 'Available to spend'
+                ? 'After expenses and savings'
                 : 'Over budget',
             style: const TextStyle(color: Colors.white70, fontSize: 14),
           ),
@@ -220,6 +232,15 @@ class DashboardContent extends StatelessWidget {
                   'Expenses',
                   data.totalExpenses,
                   Icons.arrow_downward,
+                  Colors.white70,
+                ),
+              ),
+              Container(width: 1, height: 30, color: Colors.white30),
+              Expanded(
+                child: _buildBalanceItem(
+                  'Savings',
+                  data.totalSavings,
+                  Icons.savings,
                   Colors.white70,
                 ),
               ),
@@ -259,6 +280,228 @@ class DashboardContent extends StatelessWidget {
     );
   }
 
+  Widget _buildBudgetSection(BuildContext context, Budget? currentBudget) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Text(
+              'Budget',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
+            ),
+            const Spacer(),
+            if (currentBudget != null)
+              TextButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder:
+                          (context) =>
+                              BudgetManagementScreen(budget: currentBudget),
+                    ),
+                  );
+                },
+                child: const Text('View Details'),
+              ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        if (currentBudget == null)
+          _buildCreateBudgetCard(context)
+        else
+          _buildBudgetOverviewCard(context, currentBudget),
+      ],
+    );
+  }
+
+  Widget _buildCreateBudgetCard(BuildContext context) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const CreateBudgetScreen()),
+        );
+      },
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade50,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: Colors.grey.shade300,
+            style: BorderStyle.solid,
+          ),
+        ),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF007A39).withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.add, color: Color(0xFF007A39), size: 32),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Create Budget',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF007A39),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Set spending limits and track your expenses',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBudgetOverviewCard(BuildContext context, Budget budget) {
+    final progress = budget.spentPercentage / 100;
+    final isOverBudget = budget.isOverBudget;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  budget.name,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color:
+                      isOverBudget ? Colors.red.shade50 : Colors.green.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  isOverBudget ? 'Over Budget' : 'On Track',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color:
+                        isOverBudget
+                            ? Colors.red.shade700
+                            : Colors.green.shade700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Spent',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                    Text(
+                      '\$${budget.totalSpent.toStringAsFixed(2)}',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color:
+                            isOverBudget ? Colors.red.shade600 : Colors.black87,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      'Budget',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                    Text(
+                      '\$${budget.totalBudget.toStringAsFixed(2)}',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          LinearProgressIndicator(
+            value: progress.clamp(0.0, 1.0),
+            backgroundColor: Colors.grey.shade200,
+            valueColor: AlwaysStoppedAnimation<Color>(
+              isOverBudget ? Colors.red.shade600 : Colors.blue.shade600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Text(
+                '${budget.spentPercentage.toStringAsFixed(1)}% used',
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+              ),
+              const Spacer(),
+              Text(
+                '${budget.daysRemaining} days left',
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildGoalsSection(BuildContext context, List<Goal> goals) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -276,7 +519,10 @@ class DashboardContent extends StatelessWidget {
             const Spacer(),
             TextButton(
               onPressed: () {
-                // Navigate to goals screen
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const GoalsScreen()),
+                );
               },
               child: const Text('View All'),
             ),
@@ -434,11 +680,17 @@ class DashboardContent extends StatelessWidget {
     );
   }
 
-  Widget _buildQuickActions(BuildContext context, ProfileType profileType) {
+  Widget _buildQuickActions(
+    BuildContext context,
+    ProfileType profileType,
+    Budget? currentBudget,
+  ) {
     final actions =
         profileType == ProfileType.business
             ? [
-              QuickAction('Add Transaction', Icons.add, Colors.green, () {}),
+              QuickAction('Add Transaction', Icons.add, Colors.green, () {
+                _showQuickTransactionEntry(context);
+              }),
               QuickAction('Create Invoice', Icons.receipt, Colors.blue, () {}),
               QuickAction(
                 'View Reports',
@@ -449,14 +701,53 @@ class DashboardContent extends StatelessWidget {
               QuickAction('Manage Clients', Icons.people, Colors.purple, () {}),
             ]
             : [
-              QuickAction('Add Transaction', Icons.add, Colors.green, () {}),
-              QuickAction('View Budget', Icons.pie_chart, Colors.blue, () {}),
-              QuickAction('Set Goal', Icons.flag, Colors.orange, () {}),
+              QuickAction('Add Transaction', Icons.add, Colors.green, () {
+                _showQuickTransactionEntry(context);
+              }),
+              QuickAction(
+                currentBudget != null ? 'View Budget' : 'Create Budget',
+                Icons.pie_chart,
+                Colors.blue,
+                () {
+                  if (currentBudget != null) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder:
+                            (context) =>
+                                BudgetManagementScreen(budget: currentBudget),
+                      ),
+                    );
+                  } else {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const CreateBudgetScreen(),
+                      ),
+                    );
+                  }
+                },
+              ),
+              QuickAction('Set Goal', Icons.flag, Colors.orange, () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const AddGoalScreen(),
+                  ),
+                );
+              }),
               QuickAction(
                 'Loan Calculator',
                 Icons.calculate,
                 Colors.purple,
-                () {},
+                () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const LoanCalculatorScreen(),
+                    ),
+                  );
+                },
               ),
             ];
 
@@ -555,7 +846,12 @@ class DashboardContent extends StatelessWidget {
             const Spacer(),
             TextButton(
               onPressed: () {
-                // Navigate to transactions screen
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const TransactionsScreen(),
+                  ),
+                );
               },
               child: const Text('View All'),
             ),
@@ -601,21 +897,37 @@ class DashboardContent extends StatelessWidget {
   }
 
   Widget _buildTransactionItem(BuildContext context, Transaction transaction) {
-    final isIncome = transaction.type == TransactionType.income;
+    Color color;
+    IconData icon;
+    String prefix;
+
+    switch (transaction.type) {
+      case TransactionType.income:
+        color = Colors.green.shade600;
+        icon = Icons.arrow_upward;
+        prefix = '+';
+        break;
+      case TransactionType.expense:
+        color = Colors.red.shade600;
+        icon = Icons.arrow_downward;
+        prefix = '-';
+        break;
+      case TransactionType.savings:
+        color = Colors.blue.shade600;
+        icon = Icons.savings;
+        prefix = '-';
+        break;
+    }
 
     return ListTile(
       contentPadding: EdgeInsets.zero,
       leading: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: isIncome ? Colors.green.shade50 : Colors.red.shade50,
+          color: color.withOpacity(0.1),
           borderRadius: BorderRadius.circular(8),
         ),
-        child: Icon(
-          isIncome ? Icons.arrow_upward : Icons.arrow_downward,
-          color: isIncome ? Colors.green.shade600 : Colors.red.shade600,
-          size: 20,
-        ),
+        child: Icon(icon, color: color, size: 20),
       ),
       title: Text(
         transaction.category.toString().split('.').last.toUpperCase(),
@@ -630,11 +942,11 @@ class DashboardContent extends StatelessWidget {
         style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
       ),
       trailing: Text(
-        '${isIncome ? '+' : '-'}\$${transaction.amount.toStringAsFixed(2)}',
+        '$prefix\$${transaction.amount.toStringAsFixed(2)}',
         style: TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.w600,
-          color: isIncome ? Colors.green.shade600 : Colors.red.shade600,
+          color: color,
         ),
       ),
     );
@@ -680,9 +992,14 @@ class DashboardContent extends StatelessWidget {
           .where((t) => t.type == TransactionType.expense)
           .fold(0.0, (sum, t) => sum + t.amount);
 
+      final totalSavings = transactions
+          .where((t) => t.type == TransactionType.savings)
+          .fold(0.0, (sum, t) => sum + t.amount);
+
       return DashboardData(
         totalIncome: totalIncome,
         totalExpenses: totalExpenses,
+        totalSavings: totalSavings,
         goals: goals,
         recentTransactions: transactions.take(5).toList(),
         currentBudget: currentBudget,
@@ -691,11 +1008,27 @@ class DashboardContent extends StatelessWidget {
       return DashboardData.empty();
     }
   }
+
+  void _showQuickTransactionEntry(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder:
+          (context) => Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).viewInsets.bottom,
+            ),
+            child: const QuickTransactionEntry(),
+          ),
+    );
+  }
 }
 
 class DashboardData {
   final double totalIncome;
   final double totalExpenses;
+  final double totalSavings;
   final List<Goal> goals;
   final List<Transaction> recentTransactions;
   final Budget? currentBudget;
@@ -703,14 +1036,19 @@ class DashboardData {
   DashboardData({
     required this.totalIncome,
     required this.totalExpenses,
+    required this.totalSavings,
     required this.goals,
     required this.recentTransactions,
     this.currentBudget,
   });
+
+  double get availableToSpend => totalIncome - totalExpenses - totalSavings;
+
   factory DashboardData.empty() {
     return DashboardData(
       totalIncome: 0.0,
       totalExpenses: 0.0,
+      totalSavings: 0.0,
       goals: [],
       recentTransactions: [],
       currentBudget: null,

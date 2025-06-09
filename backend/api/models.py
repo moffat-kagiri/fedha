@@ -587,10 +587,10 @@ class EnhancedTransaction(models.Model):
     - Client relationship tracking
     - Invoice payment linkage
     """
-    
     class TransactionType(models.TextChoices):
         INCOME = 'IN', 'Income'
         EXPENSE = 'EX', 'Expense'
+        SAVINGS = 'SAV', 'Savings'
         TRANSFER = 'TR', 'Transfer'
         ADJUSTMENT = 'ADJ', 'Adjustment'
     

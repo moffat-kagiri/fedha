@@ -22,7 +22,7 @@ from django.core.mail import send_mail
 from django.conf import settings
 import secrets
 import string
-from .models import Profile, generate_profile_uuid, EnhancedTransaction
+from .models import Profile, generate_profile_uuid, EnhancedTransaction, Loan, LoanPayment
 
 
 class ProfileRegistrationSerializer(serializers.ModelSerializer):
@@ -58,17 +58,13 @@ class ProfileRegistrationSerializer(serializers.ModelSerializer):
         
         # Save will automatically generate UUID with appropriate prefix
         profile.save()
-        
-        # Send credentials via email if email is provided
+          # Send credentials via email if email is provided
         if email:
             self.send_credentials_email(profile, temp_pin, email)
             
-        # Store temp_pin for response
-        profile.temp_pin = temp_pin
         return profile
-    
     def generate_temporary_pin(self):
-        """Generate a secure 6-digit temporary PIN"""
+        """Generate a secure temporary PIN"""
         return ''.join(secrets.choice(string.digits) for _ in range(6))
     
     def send_credentials_email(self, profile, temp_pin, email):
@@ -218,3 +214,137 @@ class AccountTypeSelectionSerializer(serializers.Serializer):
     email = serializers.EmailField(required=False)
     base_currency = serializers.CharField(max_length=3, default='USD')
     timezone = serializers.CharField(max_length=50, default='UTC')
+
+
+# =============================================================================
+# LOAN AND CALCULATOR SERIALIZERS
+# =============================================================================
+
+class LoanSerializer(serializers.ModelSerializer):
+    """
+    Serializer for loan data with calculation support.
+    """
+    remaining_payments = serializers.ReadOnlyField()
+    monthly_interest_rate = serializers.ReadOnlyField()
+    total_interest_paid = serializers.ReadOnlyField()
+    loan_to_value_ratio = serializers.ReadOnlyField()
+    
+    class Meta:
+        model = Loan
+        fields = [
+            'id', 'profile', 'name', 'lender', 'loan_type', 'account_number',
+            'principal_amount', 'annual_interest_rate', 'interest_type',
+            'payment_frequency', 'number_of_payments', 'payment_amount',
+            'origination_date', 'first_payment_date', 'maturity_date',
+            'current_balance', 'total_paid', 'payments_made', 'status',
+            'late_fee_amount', 'grace_period_days', 'collateral_value',
+            'notes', 'created_at', 'updated_at', 'remaining_payments',
+            'monthly_interest_rate', 'total_interest_paid', 'loan_to_value_ratio'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+
+class LoanPaymentSerializer(serializers.ModelSerializer):
+    """
+    Serializer for loan payment data.
+    """
+    
+    class Meta:
+        model = LoanPayment
+        fields = [
+            'id', 'loan', 'payment_number', 'scheduled_date', 'actual_date',
+            'scheduled_amount', 'actual_amount', 'principal_amount',
+            'interest_amount', 'late_fee', 'balance_after_payment',
+            'is_paid', 'is_late', 'notes', 'created_at'
+        ]
+        read_only_fields = ['id', 'created_at']
+
+
+class LoanCalculationRequestSerializer(serializers.Serializer):
+    """
+    Serializer for loan calculation requests.
+    """
+    principal = serializers.DecimalField(max_digits=15, decimal_places=2, min_value=0.01)
+    annual_rate = serializers.DecimalField(max_digits=8, decimal_places=5, min_value=0, max_value=100)
+    term_years = serializers.IntegerField(min_value=1, max_value=50)
+    interest_type = serializers.ChoiceField(choices=Loan.InterestType.choices)
+    payment_frequency = serializers.ChoiceField(choices=Loan.PaymentFrequency.choices)
+
+
+class InterestRateSolverRequestSerializer(serializers.Serializer):
+    """
+    Serializer for interest rate solver requests using Newton-Raphson method.
+    """
+    principal = serializers.DecimalField(max_digits=15, decimal_places=2, min_value=0.01)
+    payment = serializers.DecimalField(max_digits=15, decimal_places=2, min_value=0.01)
+    term_years = serializers.IntegerField(min_value=1, max_value=50)
+    payment_frequency = serializers.ChoiceField(choices=Loan.PaymentFrequency.choices)
+    initial_guess = serializers.DecimalField(max_digits=8, decimal_places=5, default=5.0, required=False)
+    tolerance = serializers.DecimalField(max_digits=10, decimal_places=8, default=0.00001, required=False)
+    max_iterations = serializers.IntegerField(default=100, required=False)
+
+
+class AmortizationScheduleRequestSerializer(serializers.Serializer):
+    """
+    Serializer for amortization schedule generation requests.
+    """
+    principal = serializers.DecimalField(max_digits=15, decimal_places=2, min_value=0.01)
+    annual_rate = serializers.DecimalField(max_digits=8, decimal_places=5, min_value=0, max_value=100)
+    term_years = serializers.IntegerField(min_value=1, max_value=50)
+    payment_frequency = serializers.ChoiceField(choices=Loan.PaymentFrequency.choices)
+
+
+class EarlyPaymentRequestSerializer(serializers.Serializer):
+    """
+    Serializer for early payment calculation requests.
+    """
+    principal = serializers.DecimalField(max_digits=15, decimal_places=2, min_value=0.01)
+    annual_rate = serializers.DecimalField(max_digits=8, decimal_places=5, min_value=0, max_value=100)
+    term_years = serializers.IntegerField(min_value=1, max_value=50)
+    extra_payment = serializers.DecimalField(max_digits=15, decimal_places=2, min_value=0)
+    payment_frequency = serializers.ChoiceField(choices=Loan.PaymentFrequency.choices)
+    extra_payment_type = serializers.ChoiceField(choices=Loan.PaymentFrequency.choices)
+
+
+class ROICalculationRequestSerializer(serializers.Serializer):
+    """
+    Serializer for ROI calculation requests.
+    """
+    initial_investment = serializers.DecimalField(max_digits=15, decimal_places=2, min_value=0.01)
+    final_value = serializers.DecimalField(max_digits=15, decimal_places=2, min_value=0.01)
+    time_years = serializers.DecimalField(max_digits=5, decimal_places=2, required=False, min_value=0.01)
+
+
+class CompoundInterestRequestSerializer(serializers.Serializer):
+    """
+    Serializer for compound interest calculation requests.
+    """
+    principal = serializers.DecimalField(max_digits=15, decimal_places=2, min_value=0.01)
+    annual_rate = serializers.DecimalField(max_digits=8, decimal_places=5, min_value=0, max_value=100)
+    time_years = serializers.DecimalField(max_digits=5, decimal_places=2, min_value=0.01)
+    compounding_frequency = serializers.ChoiceField(choices=Loan.PaymentFrequency.choices)
+    additional_payment = serializers.DecimalField(max_digits=15, decimal_places=2, default=0, required=False)
+    additional_frequency = serializers.ChoiceField(choices=Loan.PaymentFrequency.choices, required=False)
+
+
+class PortfolioMetricsRequestSerializer(serializers.Serializer):
+    """
+    Serializer for portfolio metrics calculation requests.
+    """
+    investments = serializers.ListField(
+        child=serializers.DictField(
+            child=serializers.DecimalField(max_digits=15, decimal_places=8)
+        ),
+        min_length=1
+    )
+
+
+class RiskAssessmentRequestSerializer(serializers.Serializer):
+    """
+    Serializer for risk assessment questionnaire requests.
+    """
+    answers = serializers.ListField(
+        child=serializers.IntegerField(min_value=1, max_value=5),
+        min_length=1,
+        max_length=20
+    )
