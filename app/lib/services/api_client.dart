@@ -15,9 +15,10 @@ class ApiClient {
   static String get _baseUrl {
     if (kIsWeb) {
       // Web platform uses localhost directly
-      return "http://localhost:8000/api";
+      return "http://127.0.0.1:8000/api";
     } else {
       // Mobile platforms use emulator-specific localhost
+      // 10.0.2.2 is the Android emulator's way to access host machine's 127.0.0.1
       return "http://10.0.2.2:8000/api";
     }
   }
@@ -442,6 +443,252 @@ class ApiClient {
       }
     } catch (e) {
       throw Exception('Network error deleting profile: $e');
+    }
+  }
+
+  // =============================================================================
+  // LOAN CALCULATOR METHODS
+  // =============================================================================
+
+  /// Calculate loan payment using the comprehensive calculator
+  Future<Map<String, dynamic>> calculateLoanPayment({
+    required double principal,
+    required double annualRate,
+    required int termYears,
+    required String interestType, // 'SIMPLE', 'COMPOUND', 'REDUCING', 'FLAT'
+    required String
+    paymentFrequency, // 'MONTHLY', 'QUARTERLY', 'SEMI_ANNUALLY', 'ANNUALLY'
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/calculators/loan/'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'principal': principal,
+          'annual_rate': annualRate,
+          'term_years': termYears,
+          'interest_type': interestType,
+          'payment_frequency': paymentFrequency,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        throw Exception('Failed to calculate loan payment: ${response.body}');
+      }
+    } catch (e) {
+      throw Exception('Network error calculating loan payment: $e');
+    }
+  }
+
+  /// Solve for interest rate given payment amount
+  Future<Map<String, dynamic>> solveInterestRate({
+    required double principal,
+    required double payment,
+    required int termYears,
+    required String paymentFrequency, // 'MONTHLY', 'QUARTERLY', etc.
+    double tolerance = 0.00001,
+    int maxIterations = 100,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/calculators/interest-rate-solver/'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'principal': principal,
+          'payment': payment,
+          'term_years': termYears,
+          'payment_frequency': paymentFrequency,
+          'tolerance': tolerance,
+          'max_iterations': maxIterations,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        throw Exception('Failed to solve interest rate: ${response.body}');
+      }
+    } catch (e) {
+      throw Exception('Network error solving interest rate: $e');
+    }
+  }
+
+  /// Generate complete amortization schedule
+  Future<Map<String, dynamic>> generateAmortizationSchedule({
+    required double principal,
+    required double annualRate,
+    required int termYears,
+    required String paymentFrequency, // 'MONTHLY', 'QUARTERLY', etc.
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/calculators/amortization-schedule/'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'principal': principal,
+          'annual_rate': annualRate,
+          'term_years': termYears,
+          'payment_frequency': paymentFrequency,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        throw Exception(
+          'Failed to generate amortization schedule: ${response.body}',
+        );
+      }
+    } catch (e) {
+      throw Exception('Network error generating amortization schedule: $e');
+    }
+  }
+
+  /// Calculate early payment savings
+  Future<Map<String, dynamic>> calculateEarlyPaymentSavings({
+    required double principal,
+    required double annualRate,
+    required int termYears,
+    required double extraPayment,
+    required String paymentFrequency, // 'MONTHLY', 'QUARTERLY', etc.
+    required String extraPaymentType, // 'MONTHLY', 'ONE_TIME'
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/calculators/early-payment/'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'principal': principal,
+          'annual_rate': annualRate,
+          'term_years': termYears,
+          'extra_payment': extraPayment,
+          'payment_frequency': paymentFrequency,
+          'extra_payment_type': extraPaymentType,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        throw Exception(
+          'Failed to calculate early payment savings: ${response.body}',
+        );
+      }
+    } catch (e) {
+      throw Exception('Network error calculating early payment savings: $e');
+    }
+  }
+
+  /// Calculate Return on Investment (ROI)
+  Future<Map<String, dynamic>> calculateROI({
+    required double initialInvestment,
+    required double finalValue,
+    double? timeYears,
+  }) async {
+    try {
+      final body = {
+        'initial_investment': initialInvestment,
+        'final_value': finalValue,
+      };
+
+      if (timeYears != null) {
+        body['time_years'] = timeYears;
+      }
+
+      final response = await http.post(
+        Uri.parse('$_baseUrl/calculators/roi/'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(body),
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        throw Exception('Failed to calculate ROI: ${response.body}');
+      }
+    } catch (e) {
+      throw Exception('Network error calculating ROI: $e');
+    }
+  }
+
+  /// Calculate compound interest
+  Future<Map<String, dynamic>> calculateCompoundInterest({
+    required double principal,
+    required double annualRate,
+    required double timeYears,
+    required String compoundingFrequency, // 'MONTHLY', 'QUARTERLY', etc.
+    double additionalPayment = 0,
+    String additionalFrequency = 'MONTHLY',
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/calculators/compound-interest/'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'principal': principal,
+          'annual_rate': annualRate,
+          'time_years': timeYears,
+          'compounding_frequency': compoundingFrequency,
+          'additional_payment': additionalPayment,
+          'additional_frequency': additionalFrequency,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        throw Exception(
+          'Failed to calculate compound interest: ${response.body}',
+        );
+      }
+    } catch (e) {
+      throw Exception('Network error calculating compound interest: $e');
+    }
+  }
+
+  /// Calculate portfolio metrics
+  Future<Map<String, dynamic>> calculatePortfolioMetrics({
+    required List<Map<String, double>> investments,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/calculators/portfolio-metrics/'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'investments': investments}),
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        throw Exception(
+          'Failed to calculate portfolio metrics: ${response.body}',
+        );
+      }
+    } catch (e) {
+      throw Exception('Network error calculating portfolio metrics: $e');
+    }
+  }
+
+  /// Assess investment risk profile
+  Future<Map<String, dynamic>> assessRiskProfile({
+    required List<int> answers,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/calculators/risk-assessment/'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'answers': answers}),
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        throw Exception('Failed to assess risk profile: ${response.body}');
+      }
+    } catch (e) {
+      throw Exception('Network error assessing risk profile: $e');
     }
   }
 
