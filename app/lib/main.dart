@@ -24,6 +24,7 @@ import 'services/auth_service.dart';
 import 'services/api_client.dart';
 import 'services/offline_data_service.dart';
 import 'services/enhanced_sync_service.dart';
+import 'services/goal_transaction_service.dart';
 
 // Screens
 import 'screens/onboarding_screen.dart';
@@ -66,7 +67,8 @@ Future<void> initializeHive() async {
   await Hive.openBox<Transaction>('transactions');
   await Hive.openBox<Category>('categories');
   await Hive.openBox<Client>('clients');
-  await Hive.openBox<Invoice>('invoices');  await Hive.openBox<Goal>('goals');
+  await Hive.openBox<Invoice>('invoices');
+  await Hive.openBox<Goal>('goals');
   await Hive.openBox<Budget>('budgets');
   await Hive.openBox<SyncQueueItem>('sync_queue');
   await Hive.openBox('settings');
@@ -77,8 +79,9 @@ void main() async {
   // Initialize services
   final apiClient = ApiClient();
   final offlineDataService = OfflineDataService();
+  final goalTransactionService = GoalTransactionService(offlineDataService);
   final syncService = EnhancedSyncService(
-  apiClient: apiClient,
+    apiClient: apiClient,
     offlineDataService: offlineDataService,
   );
   final authService = AuthService();
@@ -90,6 +93,7 @@ void main() async {
       providers: [
         Provider<ApiClient>.value(value: apiClient),
         Provider<OfflineDataService>.value(value: offlineDataService),
+        Provider<GoalTransactionService>.value(value: goalTransactionService),
         Provider<EnhancedSyncService>.value(value: syncService),
         ChangeNotifierProvider(create: (_) => authService),
         // Provider<GoogleDriveService>.value(value: googleDriveService),
@@ -122,14 +126,15 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
-    
+
     // Trigger sync when app goes to background or is paused
-    if (state == AppLifecycleState.paused || 
+    if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.detached ||
         state == AppLifecycleState.inactive) {
       _syncProfileOnAppBackground();
     }
   }
+
   Future<void> _syncProfileOnAppBackground() async {
     try {
       final authService = Provider.of<AuthService>(context, listen: false);
@@ -145,7 +150,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       }
     }
   }
-  
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -160,7 +165,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             return const Scaffold(
               body: Center(child: CircularProgressIndicator()),
             );
-          }          return Consumer<AuthService>(
+          }
+          return Consumer<AuthService>(
             builder: (context, authService, child) {
               return FutureBuilder<bool>(
                 future: _checkFirstTime(),
@@ -194,6 +200,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       },
     );
   }
+
   Future<void> _initializeServices(BuildContext context) async {
     final authService = Provider.of<AuthService>(context, listen: false);
     await authService.initialize();

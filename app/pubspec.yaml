@@ -24,6 +24,7 @@ dependencies:
   path_provider: ^2.1.2
   crypto: ^3.0.3
   googleapis_auth: ^2.0.0
+  flutter_svg: ^2.0.7
 
 dev_dependencies:
   flutter_test:
@@ -40,6 +41,10 @@ flutter:
     - assets/icons/
     - assets/images/
     - assets/logos/
+    # Fedha SVG Logos
+    - assets/icons/fedha_logo.svg
+    - assets/icons/fedha_logo_simple.svg
+    - assets/icons/fedha_logo_mono.svg
   fonts:
     - family: CustomFont
       fonts:
