@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="200" height="200" viewBox="0 0 200 200" version="1.1" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="greenGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4CAF50;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#2E7D32;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <!-- Background circle -->
+  <circle cx="100" cy="100" r="90" fill="url(#greenGradient)" />
+  <!-- Money symbol -->
+  <text x="100" y="130" font-family="Arial" font-size="120" font-weight="bold" fill="white" text-anchor="middle">$</text>
+  <!-- Circular border -->
+  <circle cx="100" cy="100" r="90" fill="none" stroke="white" stroke-width="5" />
+  <!-- App name -->
+  <text x="100" y="180" font-family="Arial" font-size="20" font-weight="bold" fill="white" text-anchor="middle">FEDHA</text>
+</svg>
