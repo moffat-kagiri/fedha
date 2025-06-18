@@ -1,3 +1,4 @@
+// ignore_for_file: avoid_print
 // Test loan calculator API connectivity
 import 'dart:convert';
 import 'package:http/http.dart' as http;

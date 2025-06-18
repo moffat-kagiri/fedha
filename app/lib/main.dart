@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import 'models/profile.dart';
 import 'models/enhanced_profile.dart';
 import 'models/transaction.dart';
+import 'models/transaction_candidate.dart';
 import 'models/category.dart';
 import 'models/client.dart';
 import 'models/invoice.dart';
@@ -25,21 +26,27 @@ import 'services/api_client.dart';
 import 'services/offline_data_service.dart';
 import 'services/enhanced_sync_service.dart';
 import 'services/goal_transaction_service.dart';
+import 'services/text_recognition_service.dart';
+import 'services/csv_upload_service.dart';
 
 // Screens
 import 'screens/onboarding_screen.dart';
 import 'screens/signin_screen.dart';
 import 'screens/main_navigation.dart';
 import 'screens/profile_screen.dart';
+import 'screens/text_recognition_setup_screen.dart';
+import 'screens/transaction_candidates_screen.dart';
+import 'screens/csv_upload_screen.dart';
+import 'screens/test_transaction_ingestion_screen.dart';
 
 // Utils
 import 'utils/theme.dart';
 
 Future<void> initializeHive() async {
   await Hive.initFlutter();
-  // Register all adapters
-  // Generated adapters from .g.dart files
+  // Register all adapters  // Generated adapters from .g.dart files
   Hive.registerAdapter(TransactionAdapter());
+  Hive.registerAdapter(TransactionCandidateAdapter());
   Hive.registerAdapter(CategoryAdapter());
   Hive.registerAdapter(ProfileAdapter());
   Hive.registerAdapter(ProfileTypeAdapter()); // From enhanced_profile.g.dart
@@ -60,11 +67,11 @@ Future<void> initializeHive() async {
   Hive.registerAdapter(enum_adapters.TransactionCategoryAdapter());
   Hive.registerAdapter(enum_adapters.BudgetPeriodAdapter());
   Hive.registerAdapter(enum_adapters.BudgetStatusAdapter());
-
   // Open boxes
   await Hive.openBox<Profile>('profiles');
   await Hive.openBox<EnhancedProfile>('enhanced_profiles');
   await Hive.openBox<Transaction>('transactions');
+  await Hive.openBox<TransactionCandidate>('transaction_candidates');
   await Hive.openBox<Category>('categories');
   await Hive.openBox<Client>('clients');
   await Hive.openBox<Invoice>('invoices');
@@ -75,11 +82,12 @@ Future<void> initializeHive() async {
 }
 
 void main() async {
-  await initializeHive();
-  // Initialize services
+  await initializeHive(); // Initialize services
   final apiClient = ApiClient();
   final offlineDataService = OfflineDataService();
   final goalTransactionService = GoalTransactionService(offlineDataService);
+  final textRecognitionService = TextRecognitionService(offlineDataService);
+  final csvUploadService = CSVUploadService(offlineDataService);
   final syncService = EnhancedSyncService(
     apiClient: apiClient,
     offlineDataService: offlineDataService,
@@ -94,6 +102,8 @@ void main() async {
         Provider<ApiClient>.value(value: apiClient),
         Provider<OfflineDataService>.value(value: offlineDataService),
         Provider<GoalTransactionService>.value(value: goalTransactionService),
+        Provider<TextRecognitionService>.value(value: textRecognitionService),
+        Provider<CSVUploadService>.value(value: csvUploadService),
         Provider<EnhancedSyncService>.value(value: syncService),
         ChangeNotifierProvider(create: (_) => authService),
         // Provider<GoogleDriveService>.value(value: googleDriveService),
@@ -197,6 +207,12 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         '/signin': (context) => const SignInScreen(),
         '/dashboard': (context) => const MainNavigation(),
         '/profile': (context) => const ProfileScreen(),
+        '/text_recognition_setup':
+            (context) => const TextRecognitionSetupScreen(),
+        '/transaction_candidates':
+            (context) => const TransactionCandidatesScreen(),
+        '/csv_upload': (context) => const CSVUploadScreen(),
+        '/test_ingestion': (context) => const TestTransactionIngestionScreen(),
       },
     );
   }
