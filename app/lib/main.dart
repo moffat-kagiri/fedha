@@ -8,7 +8,7 @@ import 'package:provider/provider.dart';
 import 'models/profile.dart';
 import 'models/enhanced_profile.dart';
 import 'models/transaction.dart';
-import 'models/transaction_candidate.dart';
+import 'models/transaction_candidate.dart'; // Re-enabled with fixed typeId
 import 'models/category.dart';
 import 'models/client.dart';
 import 'models/invoice.dart';
@@ -28,50 +28,57 @@ import 'services/enhanced_sync_service.dart';
 import 'services/goal_transaction_service.dart';
 import 'services/text_recognition_service.dart';
 import 'services/csv_upload_service.dart';
+import 'services/background_transaction_monitor.dart'; // Background service
+import 'services/proactive_permission_service.dart';
+import 'services/sms_transaction_extractor.dart';
 
 // Screens
 import 'screens/onboarding_screen.dart';
 import 'screens/signin_screen.dart';
 import 'screens/main_navigation.dart';
+import 'screens/app_wrapper.dart';
 import 'screens/profile_screen.dart';
+import 'screens/permission_setup_screen.dart';
 import 'screens/text_recognition_setup_screen.dart';
 import 'screens/transaction_candidates_screen.dart';
 import 'screens/csv_upload_screen.dart';
 import 'screens/test_transaction_ingestion_screen.dart';
-
 // Utils
 import 'utils/theme.dart';
 
 Future<void> initializeHive() async {
-  await Hive.initFlutter();
-  // Register all adapters  // Generated adapters from .g.dart files
+  await Hive.initFlutter(); // Register adapters (using their built-in typeIds from @HiveType annotations)
+  // Generated adapters from .g.dart files
   Hive.registerAdapter(TransactionAdapter());
-  Hive.registerAdapter(TransactionCandidateAdapter());
+  Hive.registerAdapter(
+    TransactionCandidateAdapter(),
+  ); // Re-enabled with typeId 8
   Hive.registerAdapter(CategoryAdapter());
   Hive.registerAdapter(ProfileAdapter());
-  Hive.registerAdapter(ProfileTypeAdapter()); // From enhanced_profile.g.dart
   Hive.registerAdapter(EnhancedProfileAdapter());
-  Hive.registerAdapter(SyncQueueItemAdapter());
+  Hive.registerAdapter(GoalAdapter());
+  Hive.registerAdapter(BudgetAdapter());
   Hive.registerAdapter(ClientAdapter());
   Hive.registerAdapter(InvoiceAdapter());
+  Hive.registerAdapter(SyncQueueItemAdapter());
+  Hive.registerAdapter(ProfileTypeAdapter());
   Hive.registerAdapter(InvoiceLineItemAdapter());
   Hive.registerAdapter(InvoiceStatusAdapter());
-  Hive.registerAdapter(GoalAdapter());
   Hive.registerAdapter(GoalTypeAdapter());
   Hive.registerAdapter(GoalStatusAdapter());
-  Hive.registerAdapter(BudgetAdapter());
-  Hive.registerAdapter(BudgetLineItemAdapter());
-
-  // Manual enum adapters
+  Hive.registerAdapter(BudgetLineItemAdapter()); // Manual enum adapters
   Hive.registerAdapter(enum_adapters.TransactionTypeAdapter());
   Hive.registerAdapter(enum_adapters.TransactionCategoryAdapter());
   Hive.registerAdapter(enum_adapters.BudgetPeriodAdapter());
   Hive.registerAdapter(enum_adapters.BudgetStatusAdapter());
+
   // Open boxes
   await Hive.openBox<Profile>('profiles');
   await Hive.openBox<EnhancedProfile>('enhanced_profiles');
   await Hive.openBox<Transaction>('transactions');
-  await Hive.openBox<TransactionCandidate>('transaction_candidates');
+  await Hive.openBox<TransactionCandidate>(
+    'transaction_candidates',
+  ); // Re-enabled with fixed typeId
   await Hive.openBox<Category>('categories');
   await Hive.openBox<Client>('clients');
   await Hive.openBox<Invoice>('invoices');
@@ -82,17 +89,25 @@ Future<void> initializeHive() async {
 }
 
 void main() async {
-  await initializeHive(); // Initialize services
+  await initializeHive();
+  // Initialize services
   final apiClient = ApiClient();
   final offlineDataService = OfflineDataService();
   final goalTransactionService = GoalTransactionService(offlineDataService);
   final textRecognitionService = TextRecognitionService(offlineDataService);
   final csvUploadService = CSVUploadService(offlineDataService);
+  final smsTransactionExtractor = SmsTransactionExtractor(offlineDataService);
   final syncService = EnhancedSyncService(
     apiClient: apiClient,
     offlineDataService: offlineDataService,
   );
   final authService = AuthService();
+  // Initialize background transaction monitor (will be started after app loads)
+  final backgroundTransactionMonitor = BackgroundTransactionMonitor(
+    offlineDataService,
+    smsTransactionExtractor,
+  );
+
   // Temporarily disable Google Drive to focus on core functionality
   // final googleDriveService = GoogleDriveService();
 
@@ -104,7 +119,11 @@ void main() async {
         Provider<GoalTransactionService>.value(value: goalTransactionService),
         Provider<TextRecognitionService>.value(value: textRecognitionService),
         Provider<CSVUploadService>.value(value: csvUploadService),
+        Provider<SmsTransactionExtractor>.value(value: smsTransactionExtractor),
         Provider<EnhancedSyncService>.value(value: syncService),
+        Provider<BackgroundTransactionMonitor>.value(
+          value: backgroundTransactionMonitor,
+        ),
         ChangeNotifierProvider(create: (_) => authService),
         // Provider<GoogleDriveService>.value(value: googleDriveService),
       ],
@@ -188,11 +207,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                   }
 
                   final isFirstTime = snapshot.data ?? true;
-
                   if (isFirstTime) {
                     return const OnboardingScreen();
                   } else if (authService.isLoggedIn) {
-                    return const MainNavigation();
+                    return const AppWrapper(); // Use wrapper for permission handling
                   } else {
                     return const SignInScreen();
                   }
@@ -207,6 +225,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         '/signin': (context) => const SignInScreen(),
         '/dashboard': (context) => const MainNavigation(),
         '/profile': (context) => const ProfileScreen(),
+        '/permission_setup': (context) => const PermissionSetupScreen(),
         '/text_recognition_setup':
             (context) => const TextRecognitionSetupScreen(),
         '/transaction_candidates':
@@ -221,6 +240,22 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     final authService = Provider.of<AuthService>(context, listen: false);
     await authService.initialize();
     await authService.tryAutoLogin(); // Using the correct method name
+
+    // Initialize background transaction monitor AFTER core services are ready
+    // Use a longer delay to ensure app is fully rendered
+    Future.delayed(const Duration(seconds: 5), () async {
+      try {
+        final backgroundMonitor = Provider.of<BackgroundTransactionMonitor>(
+          context,
+          listen: false,
+        );
+        await backgroundMonitor.initialize();
+      } catch (e) {
+        if (kDebugMode) {
+          print('Background monitor initialization deferred: $e');
+        }
+      }
+    });
   }
 
   Future<bool> _checkFirstTime() async {
