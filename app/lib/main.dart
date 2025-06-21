@@ -29,8 +29,9 @@ import 'services/goal_transaction_service.dart';
 import 'services/text_recognition_service.dart';
 import 'services/csv_upload_service.dart';
 import 'services/background_transaction_monitor.dart'; // Background service
-import 'services/proactive_permission_service.dart';
 import 'services/sms_transaction_extractor.dart';
+import 'services/sms_listener_service.dart';
+import 'services/notification_service.dart';
 
 // Screens
 import 'screens/onboarding_screen.dart';
@@ -97,6 +98,11 @@ void main() async {
   final textRecognitionService = TextRecognitionService(offlineDataService);
   final csvUploadService = CSVUploadService(offlineDataService);
   final smsTransactionExtractor = SmsTransactionExtractor(offlineDataService);
+  final notificationService = NotificationService.instance;
+  final smsListenerService = SmsListenerService(
+    smsTransactionExtractor,
+    notificationService,
+  );
   final syncService = EnhancedSyncService(
     apiClient: apiClient,
     offlineDataService: offlineDataService,
@@ -120,6 +126,8 @@ void main() async {
         Provider<TextRecognitionService>.value(value: textRecognitionService),
         Provider<CSVUploadService>.value(value: csvUploadService),
         Provider<SmsTransactionExtractor>.value(value: smsTransactionExtractor),
+        Provider<NotificationService>.value(value: notificationService),
+        Provider<SmsListenerService>.value(value: smsListenerService),
         Provider<EnhancedSyncService>.value(value: syncService),
         Provider<BackgroundTransactionMonitor>.value(
           value: backgroundTransactionMonitor,
