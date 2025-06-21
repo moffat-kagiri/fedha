@@ -517,7 +517,6 @@ class AuthService extends ChangeNotifier {
           'Password changed successfully for profile: ${_currentProfile!.email}',
         );
       }
-
       return true;
     } catch (e) {
       if (kDebugMode) {
@@ -747,14 +746,6 @@ class AuthService extends ChangeNotifier {
   // Backward compatibility aliases for old method names
   Future<void> autoLogin() async => await tryAutoLogin();
   Future<bool> setInitialPin(String pin) async => await setInitialPassword(pin);
-  Future<Map<String, dynamic>> changePinOnServer({
-    required String email,
-    required String currentPin,
-    required String newPin,
-  }) async {
-    final success = await changePassword(currentPin, newPin);
-    return {'success': success};
-  }
 }
 
 // Alias for backward compatibility with EnhancedAuthService

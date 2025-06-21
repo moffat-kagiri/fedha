@@ -4,8 +4,17 @@ import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 import '../models/enhanced_profile.dart';
 
-class ProfileScreen extends StatelessWidget {
-  const ProfileScreen({super.key});  @override
+class ProfileScreen extends StatefulWidget {
+  const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  bool _isDarkMode = false;
+
+  @override
   Widget build(BuildContext context) {
     final authService = Provider.of<AuthService>(context);
     final currentProfile = authService.currentProfile;
@@ -17,157 +26,567 @@ class ProfileScreen extends StatelessWidget {
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Profile Settings')),
-      body: Padding(
+      appBar: AppBar(
+        title: const Text('Profile Settings'),
+        backgroundColor: const Color(0xFF007A39),
+        foregroundColor: Colors.white,
+        elevation: 0,
+      ),
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Enhanced Profile Info Card
+            // Profile Header Card
             Card(
               elevation: 4,
-              child: Padding(
-                padding: const EdgeInsets.all(20.0),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0xFF007A39), Color(0xFF005A2B)],
+                  ),
+                ),
+                padding: const EdgeInsets.all(24.0),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Profile Picture
+                    Stack(
+                      children: [
+                        CircleAvatar(
+                          radius: 50,
+                          backgroundColor: Colors.white.withOpacity(0.2),
+                          child: const Icon(
+                            Icons.person,
+                            size: 60,
+                            color: Colors.white,
+                          ),
+                        ),
+                        Positioned(
+                          bottom: 0,
+                          right: 0,
+                          child: GestureDetector(
+                            onTap: () => _showEditProfilePictureDialog(context),
+                            child: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: const BoxDecoration(
+                                color: Colors.white,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.camera_alt,
+                                size: 16,
+                                color: Color(0xFF007A39),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+
                     // User Name
                     if (currentProfile.name != null &&
                         currentProfile.name!.isNotEmpty)
                       Text(
                         currentProfile.name!,
-                        style: Theme.of(
-                          context,
-                        ).textTheme.headlineSmall?.copyWith(
+                        style: const TextStyle(
+                          fontSize: 24,
                           fontWeight: FontWeight.bold,
-                          color: Theme.of(context).primaryColor,
+                          color: Colors.white,
                         ),
                       ),
                     const SizedBox(height: 8),
 
-                    // Email (Emphasized)
+                    // Email
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 12,
                         vertical: 8,
                       ),
                       decoration: BoxDecoration(
-                        color: Theme.of(context).primaryColor.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: Theme.of(
-                            context,
-                          ).primaryColor.withOpacity(0.3),
-                        ),
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(20),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(
+                          const Icon(
                             Icons.email,
-                            color: Theme.of(context).primaryColor,
-                            size: 20,
+                            color: Colors.white,
+                            size: 16,
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            'Email: ',
-                            style: TextStyle(
-                              color: Theme.of(context).primaryColor,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          Text(
-                            currentProfile.email ?? '',
-                            style: TextStyle(
-                              fontFamily: 'monospace',
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Theme.of(context).primaryColor,
-                              letterSpacing: 1.2,
+                            currentProfile.email ?? 'No email set',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
                             ),
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 8),
 
                     // Profile Type
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.account_circle,
-                          size: 16,
-                          color: Colors.grey,
+                    Chip(
+                      label: Text(
+                        currentProfile.type
+                            .toString()
+                            .split('.')
+                            .last
+                            .toUpperCase(),
+                        style: const TextStyle(
+                          color: Color(0xFF007A39),
+                          fontWeight: FontWeight.w600,
                         ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Type: ${currentProfile.type.toString().split('.').last.toUpperCase()}',
-                          style: TextStyle(
-                            color:
-                                currentProfile.type == ProfileType.business
-                                    ? Colors.blue
-                                    : Colors.green,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
+                      ),
+                      backgroundColor: Colors.white,
                     ),
                   ],
                 ),
               ),
             ),
+
+            const SizedBox(height: 24),
+
+            // Personal Information Section
+            _buildSectionHeader('Personal Information'),
+            Card(
+              child: Column(
+                children: [
+                  _buildProfileTile(
+                    icon: Icons.person_outline,
+                    title: 'Edit Name',
+                    subtitle: currentProfile.name ?? 'Not set',
+                    onTap: () => _showEditNameDialog(context, currentProfile),
+                  ),
+                  const Divider(height: 1),
+                  _buildProfileTile(
+                    icon: Icons.email_outlined,
+                    title: 'Edit Email',
+                    subtitle: currentProfile.email ?? 'Not set',
+                    onTap: () => _showEditEmailDialog(context, currentProfile),
+                  ),
+                  const Divider(height: 1),
+                  _buildProfileTile(
+                    icon: Icons.phone_outlined,
+                    title: 'Contact Number',
+                    subtitle: 'Add your phone number',
+                    onTap: () => _showEditPhoneDialog(context),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 24),
+
+            // App Settings Section
+            _buildSectionHeader('App Settings'),
+            Card(
+              child: Column(
+                children: [
+                  _buildProfileTile(
+                    icon: Icons.palette_outlined,
+                    title: 'Theme',
+                    subtitle: _isDarkMode ? 'Dark Mode' : 'Light Mode',
+                    trailing: Switch(
+                      value: _isDarkMode,
+                      onChanged: (value) {
+                        setState(() {
+                          _isDarkMode = value;
+                        });
+                        _showThemeChangeDialog(context, value);
+                      },
+                      activeColor: const Color(0xFF007A39),
+                    ),
+                  ),
+                  const Divider(height: 1),
+                  _buildProfileTile(
+                    icon: Icons.language_outlined,
+                    title: 'Language',
+                    subtitle: 'English (Kenya)',
+                    onTap: () => _showLanguageDialog(context),
+                  ),
+                  const Divider(height: 1),
+                  _buildProfileTile(
+                    icon: Icons.currency_exchange_outlined,
+                    title: 'Currency',
+                    subtitle: 'Kenyan Shilling (Ksh)',
+                    onTap: () => _showCurrencyDialog(context),
+                  ),
+                ],
+              ),
+            ),
+
             const SizedBox(height: 24),
 
             // Security Section
-            const Text(
-              'SECURITY',
-              style: TextStyle(fontWeight: FontWeight.bold),
+            _buildSectionHeader('Security'),
+            Card(
+              child: Column(
+                children: [
+                  _buildProfileTile(
+                    icon: Icons.lock_outline,
+                    title: 'Change PIN',
+                    subtitle: 'Update your 4-digit PIN',
+                    onTap: () => _showChangePinDialog(context),
+                  ),
+                  const Divider(height: 1),
+                  _buildProfileTile(
+                    icon: Icons.fingerprint,
+                    title: 'Biometric Login',
+                    subtitle: 'Use fingerprint or face ID',
+                    trailing: Switch(
+                      value: false,
+                      onChanged: (value) {
+                        _showBiometricDialog(context);
+                      },
+                      activeColor: const Color(0xFF007A39),
+                    ),
+                  ),
+                ],
+              ),
             ),
-            ListTile(
-              leading: const Icon(Icons.lock),
-              title: const Text('Change Password'),
-              onTap: () => _showChangePasswordDialog(context),
-            ),
-            const Divider(),
+
+            const SizedBox(height: 24),
 
             // Support Section
-            const Text(
-              'SUPPORT',
-              style: TextStyle(fontWeight: FontWeight.bold),
+            _buildSectionHeader('Support & About'),
+            Card(
+              child: Column(
+                children: [
+                  _buildProfileTile(
+                    icon: Icons.help_outline,
+                    title: 'Help & Support',
+                    subtitle: 'Get help with your account',
+                    onTap: () => _contactSupport(context),
+                  ),
+                  const Divider(height: 1),
+                  _buildProfileTile(
+                    icon: Icons.info_outline,
+                    title: 'About Fedha',
+                    subtitle: 'Version 1.0.0',
+                    onTap: () => _showAboutDialog(context),
+                  ),
+                  const Divider(height: 1),
+                  _buildProfileTile(
+                    icon: Icons.privacy_tip_outlined,
+                    title: 'Privacy Policy',
+                    subtitle: 'Read our privacy policy',
+                    onTap: () => _showPrivacyPolicy(context),
+                  ),
+                ],
+              ),
             ),
-            ListTile(
-              leading: const Icon(Icons.help),
-              title: const Text('Contact Support'),
-              onTap: () => _contactSupport(context),
-            ),
-            const Divider(),
+
+            const SizedBox(height: 32),
 
             // Logout Button
             Center(
-              child: ElevatedButton.icon(
-                icon: const Icon(Icons.logout),
-                label: const Text('Logout'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red.withOpacity(0.1),
-                  foregroundColor: Colors.red,
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  icon: const Icon(Icons.logout),
+                  label: const Text('Logout'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red.shade50,
+                    foregroundColor: Colors.red,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      side: BorderSide(color: Colors.red.shade200),
+                    ),
+                  ),
+                  onPressed: () => _logout(context),
                 ),
-                onPressed: () => _logout(context),
               ),
             ),
+
+            const SizedBox(height: 32),
           ],
         ),
       ),
     );
   }
 
-  void _showChangePasswordDialog(BuildContext context) {
+  Widget _buildSectionHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, bottom: 8),
+      child: Text(
+        title.toUpperCase(),
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: Colors.grey.shade600,
+          letterSpacing: 1,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProfileTile({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    VoidCallback? onTap,
+    Widget? trailing,
+  }) {
+    return ListTile(
+      leading: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: const Color(0xFF007A39).withOpacity(0.1),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Icon(icon, color: const Color(0xFF007A39), size: 20),
+      ),
+      title: Text(
+        title,
+        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+      ),
+      subtitle: Text(
+        subtitle,
+        style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+      ),
+      trailing: trailing ?? const Icon(Icons.chevron_right, color: Colors.grey),
+      onTap: onTap,
+    );
+  }
+
+  // Dialog Methods
+  void _showEditProfilePictureDialog(BuildContext context) {
     showDialog(
       context: context,
       builder:
-          (_) => AlertDialog(
-            title: const Text('Change Password'),
+          (context) => AlertDialog(
+            title: const Text('Change Profile Picture'),
             content: const Text(
-              'This feature will be available in the next update.',
+              'Profile picture functionality will be available in the next update.\n\nYou will be able to:\n• Take a photo with camera\n• Choose from gallery\n• Use default avatars',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+    );
+  }
+
+  void _showEditNameDialog(BuildContext context, EnhancedProfile profile) {
+    final nameController = TextEditingController(text: profile.name);
+
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Edit Name'),
+            content: TextField(
+              controller: nameController,
+              decoration: const InputDecoration(
+                labelText: 'Full Name',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  // TODO: Implement name update functionality
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Name update functionality coming soon!'),
+                    ),
+                  );
+                },
+                child: const Text('Save'),
+              ),
+            ],
+          ),
+    );
+  }
+
+  void _showEditEmailDialog(BuildContext context, EnhancedProfile profile) {
+    final emailController = TextEditingController(text: profile.email);
+
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Edit Email'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: emailController,
+                  decoration: const InputDecoration(
+                    labelText: 'Email Address',
+                    border: OutlineInputBorder(),
+                  ),
+                  keyboardType: TextInputType.emailAddress,
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'We\'ll send a verification email to confirm the change.',
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  // TODO: Implement email update functionality
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Email update functionality coming soon!'),
+                    ),
+                  );
+                },
+                child: const Text('Update'),
+              ),
+            ],
+          ),
+    );
+  }
+
+  void _showEditPhoneDialog(BuildContext context) {
+    final phoneController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Add Contact Number'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: phoneController,
+                  decoration: const InputDecoration(
+                    labelText: 'Phone Number',
+                    border: OutlineInputBorder(),
+                    prefixText: '+254 ',
+                  ),
+                  keyboardType: TextInputType.phone,
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'We may use this for account security and SMS notifications.',
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  // TODO: Implement phone update functionality
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Phone number functionality coming soon!'),
+                    ),
+                  );
+                },
+                child: const Text('Save'),
+              ),
+            ],
+          ),
+    );
+  }
+
+  void _showThemeChangeDialog(BuildContext context, bool isDark) {
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Theme Changed'),
+            content: Text(
+              'Switched to ${isDark ? 'Dark' : 'Light'} mode.\n\nFull theme support will be available in the next update.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+    );
+  }
+
+  void _showLanguageDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Language Settings'),
+            content: const Text(
+              'Multiple language support coming soon!\n\nAvailable languages:\n• English (Kenya) - Current\n• Swahili - Coming Soon\n• French - Coming Soon',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+    );
+  }
+
+  void _showCurrencyDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Currency Settings'),
+            content: const Text(
+              'Multi-currency support coming soon!\n\nSupported currencies:\n• Kenyan Shilling (Ksh) - Current\n• US Dollar (USD) - Coming Soon\n• Euro (EUR) - Coming Soon\n• British Pound (GBP) - Coming Soon',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+    );
+  }
+
+  void _showChangePinDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => const _ChangePinDialog(),
+    );
+  }
+
+  void _showBiometricDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Biometric Authentication'),
+            content: const Text(
+              'Biometric login will be available in the next update.\n\nSupported methods:\n• Fingerprint\n• Face ID\n• Voice Recognition',
             ),
             actions: [
               TextButton(
@@ -183,10 +602,105 @@ class ProfileScreen extends StatelessWidget {
     showDialog(
       context: context,
       builder:
-          (_) => AlertDialog(
+          (context) => AlertDialog(
             title: const Text('Contact Support'),
-            content: const Text(
-              'Email: support@fedha.app\nPhone: +1 (555) 123-4567',
+            content: const Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Get help with your Fedha account:',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+                SizedBox(height: 16),
+                Row(
+                  children: [
+                    Icon(Icons.email, color: Color(0xFF007A39)),
+                    SizedBox(width: 8),
+                    Text('support@fedha.app'),
+                  ],
+                ),
+                SizedBox(height: 8),
+                Row(
+                  children: [
+                    Icon(Icons.phone, color: Color(0xFF007A39)),
+                    SizedBox(width: 8),
+                    Text('+254 700 123 456'),
+                  ],
+                ),
+                SizedBox(height: 8),
+                Row(
+                  children: [
+                    Icon(Icons.access_time, color: Color(0xFF007A39)),
+                    SizedBox(width: 8),
+                    Text('Mon-Fri, 8AM-6PM EAT'),
+                  ],
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Close'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  // TODO: Implement direct email/call functionality
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Opening email client...')),
+                  );
+                },
+                child: const Text('Send Email'),
+              ),
+            ],
+          ),
+    );
+  }
+
+  void _showAboutDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('About Fedha'),
+            content: const Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.account_balance,
+                      color: Color(0xFF007A39),
+                      size: 32,
+                    ),
+                    SizedBox(width: 12),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Fedha',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF007A39),
+                          ),
+                        ),
+                        Text('Version 1.0.0'),
+                      ],
+                    ),
+                  ],
+                ),
+                SizedBox(height: 16),
+                Text(
+                  'Your intelligent financial companion for managing money, tracking expenses, and achieving financial goals.',
+                ),
+                SizedBox(height: 12),
+                Text(
+                  'Built for the Kenyan market with SMS transaction ingestion, offline capabilities, and smart financial insights.',
+                ),
+              ],
             ),
             actions: [
               TextButton(
@@ -198,17 +712,275 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  void _logout(BuildContext context) async {
-    final authService = Provider.of<AuthService>(
-      context,
-      listen: false,
+  void _showPrivacyPolicy(BuildContext context) {
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Privacy Policy'),
+            content: const SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Data Protection',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    '• We protect your financial data with bank-level encryption\n'
+                    '• SMS data is processed locally on your device\n'
+                    '• Personal information is never shared without consent',
+                  ),
+                  SizedBox(height: 16),
+                  Text(
+                    'Data Collection',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    '• Transaction data for financial insights\n'
+                    '• Usage analytics to improve the app\n'
+                    '• Optional location data for merchant detection',
+                  ),
+                  SizedBox(height: 16),
+                  Text(
+                    'Your Rights',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    '• Access your data anytime\n'
+                    '• Request data deletion\n'
+                    '• Opt out of data collection',
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Close'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  // TODO: Open full privacy policy
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Opening full privacy policy...'),
+                    ),
+                  );
+                },
+                child: const Text('Read Full Policy'),
+              ),
+            ],
+          ),
     );
-    await authService.logout();
+  }
 
-    if (context.mounted) {
-      Navigator.of(
-        context,
-      ).pushNamedAndRemoveUntil('/signin', (route) => false);
+  void _logout(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Logout'),
+            content: const Text('Are you sure you want to logout?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Logout'),
+              ),
+            ],
+          ),
+    );
+    if (confirmed == true) {
+      final authService = Provider.of<AuthService>(context, listen: false);
+      await authService.logout();
+
+      if (context.mounted) {
+        Navigator.of(
+          context,
+        ).pushNamedAndRemoveUntil('/signin', (route) => false);
+      }
+    }
+  }
+}
+
+class _ChangePinDialog extends StatefulWidget {
+  const _ChangePinDialog();
+
+  @override
+  State<_ChangePinDialog> createState() => _ChangePinDialogState();
+}
+
+class _ChangePinDialogState extends State<_ChangePinDialog> {
+  final oldPinController = TextEditingController();
+  final newPinController = TextEditingController();
+  final confirmPinController = TextEditingController();
+  bool isLoading = false;
+
+  @override
+  void dispose() {
+    oldPinController.dispose();
+    newPinController.dispose();
+    confirmPinController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Change PIN'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: oldPinController,
+            decoration: const InputDecoration(
+              labelText: 'Current PIN',
+              border: OutlineInputBorder(),
+            ),
+            keyboardType: TextInputType.number,
+            obscureText: true,
+            maxLength: 4,
+            enabled: !isLoading,
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: newPinController,
+            decoration: const InputDecoration(
+              labelText: 'New PIN',
+              border: OutlineInputBorder(),
+            ),
+            keyboardType: TextInputType.number,
+            obscureText: true,
+            maxLength: 4,
+            enabled: !isLoading,
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: confirmPinController,
+            decoration: const InputDecoration(
+              labelText: 'Confirm New PIN',
+              border: OutlineInputBorder(),
+            ),
+            keyboardType: TextInputType.number,
+            obscureText: true,
+            maxLength: 4,
+            enabled: !isLoading,
+          ),
+          if (isLoading)
+            const Padding(
+              padding: EdgeInsets.only(top: 16),
+              child: CircularProgressIndicator(),
+            ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: isLoading ? null : () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: isLoading ? null : () => _changePinHandler(),
+          child: const Text('Update PIN'),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _changePinHandler() async {
+    final currentPin = oldPinController.text;
+    final newPin = newPinController.text;
+    final confirmPin = confirmPinController.text;
+
+    // Validation
+    if (currentPin.isEmpty || newPin.isEmpty || confirmPin.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please fill in all fields')),
+      );
+      return;
+    }
+
+    if (currentPin.length != 4 ||
+        newPin.length != 4 ||
+        confirmPin.length != 4) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('PIN must be exactly 4 digits')),
+      );
+      return;
+    }
+
+    if (newPin != confirmPin) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('New PIN and confirmation do not match')),
+      );
+      return;
+    }
+
+    if (currentPin == newPin) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('New PIN must be different from current PIN'),
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      isLoading = true;
+    });
+
+    try {
+      final authService = Provider.of<AuthService>(context, listen: false);
+      final success = await authService.changePassword(currentPin, newPin);
+
+      if (success) {
+        if (mounted) {
+          Navigator.pop(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('PIN changed successfully!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            isLoading = false;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Failed to change PIN. Please check your current PIN.',
+              ),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error changing PIN: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 }

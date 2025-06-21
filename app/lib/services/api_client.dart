@@ -11,7 +11,8 @@ import '../models/goal.dart';
 import '../models/budget.dart';
 
 class ApiClient {
-  // Platform-specific base URL configuration for cross-platform sync
+  // Unified base URL configuration for all platforms
+  // Using localhost with emulator-specific addressing for consistency
   static String get _baseUrl {
     if (kIsWeb) {
       // Web platform uses localhost directly
@@ -19,6 +20,7 @@ class ApiClient {
     } else {
       // Mobile platforms use emulator-specific localhost
       // 10.0.2.2 is the Android emulator's way to access host machine's 127.0.0.1
+      // This works for both Android emulator and iOS simulator
       return "http://10.0.2.2:8000/api";
     }
   }

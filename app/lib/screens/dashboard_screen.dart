@@ -131,16 +131,27 @@ class DashboardContent extends StatelessWidget {
           ],
         ),
         const Spacer(),
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Colors.grey.shade100,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Icon(
-            profileType == ProfileType.business ? Icons.business : Icons.person,
-            color: const Color(0xFF007A39),
-            size: 24,
+        GestureDetector(
+          onTap: () {
+            Navigator.pushNamed(context, '/profile');
+          },
+          child: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: const Color(0xFF007A39).withOpacity(0.2),
+                width: 1,
+              ),
+            ),
+            child: Icon(
+              profileType == ProfileType.business
+                  ? Icons.business
+                  : Icons.person,
+              color: const Color(0xFF007A39),
+              size: 24,
+            ),
           ),
         ),
       ],
@@ -200,7 +211,7 @@ class DashboardContent extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            '\$${availableToSpend.abs().toStringAsFixed(2)}',
+            'Ksh ${availableToSpend.abs().toStringAsFixed(2)}',
             style: const TextStyle(
               color: Colors.white,
               fontSize: 32,
@@ -210,7 +221,7 @@ class DashboardContent extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             budgetExceeded
-                ? 'Budget exceeded by \$${(data.totalExpenses - data.currentBudget!.totalBudget).toStringAsFixed(2)}'
+                ? 'Budget exceeded by Ksh ${(data.totalExpenses - data.currentBudget!.totalBudget).toStringAsFixed(2)}'
                 : isPositive
                 ? 'After expenses and savings'
                 : 'Over budget',
@@ -270,7 +281,7 @@ class DashboardContent extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         Text(
-          '\$${amount.toStringAsFixed(2)}',
+          'Ksh ${amount.toStringAsFixed(2)}',
           style: const TextStyle(
             color: Colors.white,
             fontSize: 16,
@@ -441,7 +452,7 @@ class DashboardContent extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      '\$${budget.totalSpent.toStringAsFixed(2)}',
+                      'Ksh ${budget.totalSpent.toStringAsFixed(2)}',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -464,7 +475,7 @@ class DashboardContent extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      '\$${budget.totalBudget.toStringAsFixed(2)}',
+                      'Ksh ${budget.totalBudget.toStringAsFixed(2)}',
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -621,7 +632,7 @@ class DashboardContent extends StatelessWidget {
             Row(
               children: [
                 Text(
-                  '\$${goal.currentAmount.toStringAsFixed(0)}',
+                  'Ksh ${goal.currentAmount.toStringAsFixed(0)}',
                   style: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -630,7 +641,7 @@ class DashboardContent extends StatelessWidget {
                 ),
                 const Spacer(),
                 Text(
-                  '\$${goal.targetAmount.toStringAsFixed(0)}',
+                  'Ksh ${goal.targetAmount.toStringAsFixed(0)}',
                   style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                 ),
               ],
@@ -1023,7 +1034,7 @@ class DashboardContent extends StatelessWidget {
             ],
           ),
           trailing: Text(
-            '$prefix\$${transaction.amount.toStringAsFixed(2)}',
+            '${prefix}Ksh ${transaction.amount.toStringAsFixed(2)}',
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,
