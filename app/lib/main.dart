@@ -32,6 +32,7 @@ import 'services/background_transaction_monitor.dart'; // Background service
 import 'services/sms_transaction_extractor.dart';
 import 'services/sms_listener_service.dart';
 import 'services/notification_service.dart';
+import 'services/theme_service.dart';
 
 // Screens
 import 'screens/onboarding_screen.dart';
@@ -45,7 +46,7 @@ import 'screens/transaction_candidates_screen.dart';
 import 'screens/csv_upload_screen.dart';
 import 'screens/test_transaction_ingestion_screen.dart';
 // Utils
-import 'utils/theme.dart';
+// import 'utils/theme.dart'; // Using ThemeService instead
 
 Future<void> initializeHive() async {
   await Hive.initFlutter(); // Register adapters (using their built-in typeIds from @HiveType annotations)
@@ -108,6 +109,7 @@ void main() async {
     offlineDataService: offlineDataService,
   );
   final authService = AuthService();
+  final themeService = ThemeService();
   // Initialize background transaction monitor (will be started after app loads)
   final backgroundTransactionMonitor = BackgroundTransactionMonitor(
     offlineDataService,
@@ -133,6 +135,7 @@ void main() async {
           value: backgroundTransactionMonitor,
         ),
         ChangeNotifierProvider(create: (_) => authService),
+        ChangeNotifierProvider(create: (_) => themeService),
         // Provider<GoogleDriveService>.value(value: googleDriveService),
       ],
       child: const MyApp(),
@@ -148,6 +151,8 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
+  bool _backgroundMonitorInitialized = false;
+
   @override
   void initState() {
     super.initState();
@@ -190,88 +195,103 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Fedha',
-      theme: FedhaTheme.lightTheme,
-      darkTheme: FedhaTheme.darkTheme,
-      themeMode: ThemeMode.system,
-      home: FutureBuilder<void>(
-        future: _initializeServices(context),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Scaffold(
-              body: Center(child: CircularProgressIndicator()),
-            );
-          }
-          return Consumer<AuthService>(
-            builder: (context, authService, child) {
-              return FutureBuilder<bool>(
-                future: _checkFirstTime(),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Scaffold(
-                      body: Center(child: CircularProgressIndicator()),
-                    );
-                  }
+    return Consumer<ThemeService>(
+      builder: (context, themeService, child) {
+        return MaterialApp(
+          title: 'Fedha',
+          theme: themeService.getLightTheme(),
+          darkTheme: themeService.getDarkTheme(),
+          themeMode: themeService.themeMode,
+          home: FutureBuilder<void>(
+            future: _initializeServices(context),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Scaffold(
+                  body: Center(child: CircularProgressIndicator()),
+                );
+              }
+              return Consumer<AuthService>(
+                builder: (context, authService, child) {
+                  return FutureBuilder<bool>(
+                    future: _checkFirstTime(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Scaffold(
+                          body: Center(child: CircularProgressIndicator()),
+                        );
+                      }
 
-                  final isFirstTime = snapshot.data ?? true;
-                  if (isFirstTime) {
-                    return const OnboardingScreen();
-                  } else if (authService.isLoggedIn) {
-                    return const AppWrapper(); // Use wrapper for permission handling
-                  } else {
-                    return const SignInScreen();
-                  }
+                      final isFirstTime = snapshot.data ?? true;
+                      if (isFirstTime) {
+                        return const OnboardingScreen();
+                      } else if (authService.isLoggedIn) {
+                        return const AppWrapper(); // Use wrapper for permission handling
+                      } else {
+                        return const SignInScreen();
+                      }
+                    },
+                  );
                 },
               );
             },
-          );
-        },
-      ),
-      routes: {
-        '/onboarding': (context) => const OnboardingScreen(),
-        '/signin': (context) => const SignInScreen(),
-        '/dashboard': (context) => const MainNavigation(),
-        '/profile': (context) => const ProfileScreen(),
-        '/permission_setup': (context) => const PermissionSetupScreen(),
-        '/text_recognition_setup':
-            (context) => const TextRecognitionSetupScreen(),
-        '/transaction_candidates':
-            (context) => const TransactionCandidatesScreen(),
-        '/csv_upload': (context) => const CSVUploadScreen(),
-        '/test_ingestion': (context) => const TestTransactionIngestionScreen(),
-      },
-      onGenerateRoute: (settings) {
-        // Handle unknown routes gracefully
-        if (settings.name?.startsWith('/edit_transaction_candidate') == true) {
-          // This route is obsolete - transaction editing now uses modal bottom sheets
-          return null; // Let the router handle this gracefully
-        }
-        return null;
+          ),
+          routes: {
+            '/onboarding': (context) => const OnboardingScreen(),
+            '/signin': (context) => const SignInScreen(),
+            '/dashboard': (context) => const MainNavigation(),
+            '/profile': (context) => const ProfileScreen(),
+            '/permission_setup': (context) => const PermissionSetupScreen(),
+            '/text_recognition_setup':
+                (context) => const TextRecognitionSetupScreen(),
+            '/transaction_candidates':
+                (context) => const TransactionCandidatesScreen(),
+            '/csv_upload': (context) => const CSVUploadScreen(),
+            '/test_ingestion':
+                (context) => const TestTransactionIngestionScreen(),
+          },
+          onGenerateRoute: (settings) {
+            // Handle unknown routes gracefully
+            if (settings.name?.startsWith('/edit_transaction_candidate') ==
+                true) {
+              // This route is obsolete - transaction editing now uses modal bottom sheets
+              return null; // Let the router handle this gracefully
+            }
+            return null;
+          },
+        );
       },
     );
   }
 
   Future<void> _initializeServices(BuildContext context) async {
     final authService = Provider.of<AuthService>(context, listen: false);
-    await authService.initialize();
-    await authService.tryAutoLogin(); // Using the correct method name
+    final themeService = Provider.of<ThemeService>(context, listen: false);
 
-    // Initialize background transaction monitor AFTER core services are ready
-    // Use a longer delay to ensure app is fully rendered
-    Future.delayed(const Duration(seconds: 5), () async {
-      try {
-        final backgroundMonitor = Provider.of<BackgroundTransactionMonitor>(
-          context,
-          listen: false,
-        );
-        await backgroundMonitor.initialize();
-      } catch (e) {
-        if (kDebugMode) {
-          print('Background monitor initialization deferred: $e');
+    await authService.initialize();
+    await themeService.initialize();
+    await authService
+        .tryAutoLogin(); // Using the correct method name    // Initialize background transaction monitor AFTER core services are ready
+    // Only initialize once to prevent infinite loops
+    // TEMPORARILY DISABLED FOR DEBUGGING
+    /*
+    if (!_backgroundMonitorInitialized) {
+      _backgroundMonitorInitialized = true;
+
+      Future.delayed(const Duration(seconds: 5), () async {
+        try {
+          final backgroundMonitor = Provider.of<BackgroundTransactionMonitor>(
+            context,
+            listen: false,
+          );
+          await backgroundMonitor.initialize();
+        } catch (e) {
+          if (kDebugMode) {
+            print('Background monitor initialization deferred: $e');
+          }
         }
-      }
-    });
+      });
+    }
+    */
   }
 
   Future<bool> _checkFirstTime() async {

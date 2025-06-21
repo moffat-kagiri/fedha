@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
+import '../services/theme_service.dart';
 import '../models/enhanced_profile.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -12,11 +13,10 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  bool _isDarkMode = false;
-
   @override
   Widget build(BuildContext context) {
     final authService = Provider.of<AuthService>(context);
+    final themeService = Provider.of<ThemeService>(context);
     final currentProfile = authService.currentProfile;
 
     if (currentProfile == null) {
@@ -196,13 +196,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   _buildProfileTile(
                     icon: Icons.palette_outlined,
                     title: 'Theme',
-                    subtitle: _isDarkMode ? 'Dark Mode' : 'Light Mode',
+                    subtitle: themeService.getThemeModeDisplayName(),
                     trailing: Switch(
-                      value: _isDarkMode,
-                      onChanged: (value) {
-                        setState(() {
-                          _isDarkMode = value;
-                        });
+                      value: themeService.themeMode == ThemeMode.dark,
+                      onChanged: (value) async {
+                        if (value) {
+                          await themeService.setThemeMode(ThemeMode.dark);
+                        } else {
+                          await themeService.setThemeMode(ThemeMode.light);
+                        }
                         _showThemeChangeDialog(context, value);
                       },
                       activeColor: const Color(0xFF007A39),
@@ -402,14 +404,56 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: const Text('Cancel'),
               ),
               ElevatedButton(
-                onPressed: () {
-                  // TODO: Implement name update functionality
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Name update functionality coming soon!'),
-                    ),
-                  );
+                onPressed: () async {
+                  final newName = nameController.text.trim();
+                  if (newName.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Name cannot be empty')),
+                    );
+                    return;
+                  }
+
+                  try {
+                    final authService = Provider.of<AuthService>(
+                      context,
+                      listen: false,
+                    );
+                    final success = await authService.updateProfileName(
+                      newName,
+                    );
+
+                    if (success) {
+                      if (mounted) {
+                        Navigator.pop(context);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Name updated successfully!'),
+                            backgroundColor: Colors.green,
+                          ),
+                        );
+                      }
+                    } else {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Failed to update name. Please try again.',
+                            ),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      }
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Error updating name: $e'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  }
                 },
                 child: const Text('Save'),
               ),
@@ -522,12 +566,69 @@ class _ProfileScreenState extends State<ProfileScreen> {
           (context) => AlertDialog(
             title: const Text('Theme Changed'),
             content: Text(
-              'Switched to ${isDark ? 'Dark' : 'Light'} mode.\n\nFull theme support will be available in the next update.',
+              'Switched to ${isDark ? 'Dark' : 'Light'} mode.\n\nTheme has been applied successfully!',
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
                 child: const Text('OK'),
+              ),
+              TextButton(
+                onPressed: () {
+                  // Offer to switch between Dark/Light/System modes
+                  Navigator.pop(context);
+                  _showThemeModeSelector(context);
+                },
+                child: const Text('More Options'),
+              ),
+            ],
+          ),
+    );
+  }
+
+  void _showThemeModeSelector(BuildContext context) {
+    final themeService = Provider.of<ThemeService>(context, listen: false);
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Select Theme Mode'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.brightness_auto),
+                  title: const Text('System Default'),
+                  subtitle: const Text('Follow device settings'),
+                  onTap: () async {
+                    await themeService.setThemeMode(ThemeMode.system);
+                    Navigator.pop(context);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.light_mode),
+                  title: const Text('Light Mode'),
+                  subtitle: const Text('Always use light theme'),
+                  onTap: () async {
+                    await themeService.setThemeMode(ThemeMode.light);
+                    Navigator.pop(context);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.dark_mode),
+                  title: const Text('Dark Mode'),
+                  subtitle: const Text('Always use dark theme'),
+                  onTap: () async {
+                    await themeService.setThemeMode(ThemeMode.dark);
+                    Navigator.pop(context);
+                  },
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
               ),
             ],
           ),
@@ -990,15 +1091,30 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
         currentPassword,
         newPassword,
       );
-
       if (success) {
         if (mounted) {
           Navigator.pop(context);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Password changed successfully!'),
-              backgroundColor: Colors.green,
-            ),
+
+          // Show success message and prompt for re-login
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder:
+                (context) => AlertDialog(
+                  title: const Text('Password Changed Successfully'),
+                  content: const Text(
+                    'Your password has been updated successfully.\n\nFor security reasons, please sign in again with your new password.',
+                  ),
+                  actions: [
+                    ElevatedButton(
+                      onPressed: () {
+                        Navigator.pop(context); // Close dialog
+                        _performReLogin(context);
+                      },
+                      child: const Text('Sign In Again'),
+                    ),
+                  ],
+                ),
           );
         }
       } else {
@@ -1038,5 +1154,14 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
     bool hasNumber = password.contains(RegExp(r'[0-9]'));
 
     return hasLetter && hasNumber;
+  }
+
+  void _performReLogin(BuildContext context) {
+    // Sign out and navigate to login screen
+    final authService = Provider.of<AuthService>(context, listen: false);
+    authService.logout();
+
+    // Navigate to login screen (assuming it's the root route)
+    Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
   }
 }

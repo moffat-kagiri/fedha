@@ -743,6 +743,39 @@ class AuthService extends ChangeNotifier {
     return daysSinceCreation < 1 && _currentProfile!.lastLogin == null;
   }
 
+  // Update profile name
+  Future<bool> updateProfileName(String newName) async {
+    if (_currentProfile == null || newName.trim().isEmpty) {
+      return false;
+    }
+
+    try {
+      // Update the profile locally
+      final updatedProfile = _currentProfile!.copyWith(name: newName.trim());
+
+      // Save to local storage
+      await _profileBox?.put(_currentProfile!.id, updatedProfile);
+
+      // Update current profile
+      _currentProfile = updatedProfile;
+      notifyListeners();
+
+      // TODO: Sync with server if needed
+      // _syncProfileWithServer();
+
+      if (kDebugMode) {
+        print('Profile name updated successfully: $newName');
+      }
+
+      return true;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Failed to update profile name: $e');
+      }
+      return false;
+    }
+  }
+
   // Backward compatibility aliases for old method names
   Future<void> autoLogin() async => await tryAutoLogin();
   Future<bool> setInitialPin(String pin) async => await setInitialPassword(pin);

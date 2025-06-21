@@ -21,6 +21,9 @@ class ApiClient {
       // Mobile platforms use emulator-specific localhost
       // 10.0.2.2 is the Android emulator's way to access host machine's 127.0.0.1
       // This works for both Android emulator and iOS simulator
+
+      // For real device testing, replace 10.0.2.2 with your computer's IP address
+      // Example: return "http://192.168.1.100:8000/api";
       return "http://10.0.2.2:8000/api";
     }
   }
