@@ -212,7 +212,7 @@ class ApiClient {
   // =============================================================================
   // ENHANCED PROFILE MANAGEMENT - EMAIL/PASSWORD AUTHENTICATION
   // =============================================================================
-  // Enhanced profile registration with pin-based authentication
+  // Enhanced profile registration with password-based authentication
   Future<Map<String, dynamic>> createEnhancedProfile({
     required String name,
     required String profileType,

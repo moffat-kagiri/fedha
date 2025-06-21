@@ -235,9 +235,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 children: [
                   _buildProfileTile(
                     icon: Icons.lock_outline,
-                    title: 'Change PIN',
-                    subtitle: 'Update your 4-digit PIN',
-                    onTap: () => _showChangePinDialog(context),
+                    title: 'Change Password',
+                    subtitle: 'Update your password',
+                    onTap: () => _showChangePasswordDialog(context),
                   ),
                   const Divider(height: 1),
                   _buildProfileTile(
@@ -572,10 +572,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  void _showChangePinDialog(BuildContext context) {
+  void _showChangePasswordDialog(BuildContext context) {
     showDialog(
       context: context,
-      builder: (context) => const _ChangePinDialog(),
+      builder: (context) => const _ChangePasswordDialog(),
     );
   }
 
@@ -815,67 +815,94 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 }
 
-class _ChangePinDialog extends StatefulWidget {
-  const _ChangePinDialog();
+class _ChangePasswordDialog extends StatefulWidget {
+  const _ChangePasswordDialog();
 
   @override
-  State<_ChangePinDialog> createState() => _ChangePinDialogState();
+  State<_ChangePasswordDialog> createState() => _ChangePasswordDialogState();
 }
 
-class _ChangePinDialogState extends State<_ChangePinDialog> {
-  final oldPinController = TextEditingController();
-  final newPinController = TextEditingController();
-  final confirmPinController = TextEditingController();
+class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
+  final oldPasswordController = TextEditingController();
+  final newPasswordController = TextEditingController();
+  final confirmPasswordController = TextEditingController();
   bool isLoading = false;
-
+  bool showOldPassword = false;
+  bool showNewPassword = false;
+  bool showConfirmPassword = false;
   @override
   void dispose() {
-    oldPinController.dispose();
-    newPinController.dispose();
-    confirmPinController.dispose();
+    oldPasswordController.dispose();
+    newPasswordController.dispose();
+    confirmPasswordController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Change PIN'),
+      title: const Text('Change Password'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           TextField(
-            controller: oldPinController,
-            decoration: const InputDecoration(
-              labelText: 'Current PIN',
-              border: OutlineInputBorder(),
+            controller: oldPasswordController,
+            decoration: InputDecoration(
+              labelText: 'Current Password',
+              border: const OutlineInputBorder(),
+              suffixIcon: IconButton(
+                icon: Icon(
+                  showOldPassword ? Icons.visibility_off : Icons.visibility,
+                ),
+                onPressed: () {
+                  setState(() {
+                    showOldPassword = !showOldPassword;
+                  });
+                },
+              ),
             ),
-            keyboardType: TextInputType.number,
-            obscureText: true,
-            maxLength: 4,
+            obscureText: !showOldPassword,
             enabled: !isLoading,
           ),
           const SizedBox(height: 16),
           TextField(
-            controller: newPinController,
-            decoration: const InputDecoration(
-              labelText: 'New PIN',
-              border: OutlineInputBorder(),
+            controller: newPasswordController,
+            decoration: InputDecoration(
+              labelText: 'New Password',
+              border: const OutlineInputBorder(),
+              suffixIcon: IconButton(
+                icon: Icon(
+                  showNewPassword ? Icons.visibility_off : Icons.visibility,
+                ),
+                onPressed: () {
+                  setState(() {
+                    showNewPassword = !showNewPassword;
+                  });
+                },
+              ),
+              helperText: 'Minimum 6 characters',
             ),
-            keyboardType: TextInputType.number,
-            obscureText: true,
-            maxLength: 4,
+            obscureText: !showNewPassword,
             enabled: !isLoading,
           ),
           const SizedBox(height: 16),
           TextField(
-            controller: confirmPinController,
-            decoration: const InputDecoration(
-              labelText: 'Confirm New PIN',
-              border: OutlineInputBorder(),
+            controller: confirmPasswordController,
+            decoration: InputDecoration(
+              labelText: 'Confirm New Password',
+              border: const OutlineInputBorder(),
+              suffixIcon: IconButton(
+                icon: Icon(
+                  showConfirmPassword ? Icons.visibility_off : Icons.visibility,
+                ),
+                onPressed: () {
+                  setState(() {
+                    showConfirmPassword = !showConfirmPassword;
+                  });
+                },
+              ),
             ),
-            keyboardType: TextInputType.number,
-            obscureText: true,
-            maxLength: 4,
+            obscureText: !showConfirmPassword,
             enabled: !isLoading,
           ),
           if (isLoading)
@@ -891,46 +918,63 @@ class _ChangePinDialogState extends State<_ChangePinDialog> {
           child: const Text('Cancel'),
         ),
         ElevatedButton(
-          onPressed: isLoading ? null : () => _changePinHandler(),
-          child: const Text('Update PIN'),
+          onPressed: isLoading ? null : () => _changePasswordHandler(),
+          child: const Text('Update Password'),
         ),
       ],
     );
   }
 
-  Future<void> _changePinHandler() async {
-    final currentPin = oldPinController.text;
-    final newPin = newPinController.text;
-    final confirmPin = confirmPinController.text;
+  Future<void> _changePasswordHandler() async {
+    final currentPassword = oldPasswordController.text;
+    final newPassword = newPasswordController.text;
+    final confirmPassword = confirmPasswordController.text;
 
     // Validation
-    if (currentPin.isEmpty || newPin.isEmpty || confirmPin.isEmpty) {
+    if (currentPassword.isEmpty ||
+        newPassword.isEmpty ||
+        confirmPassword.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please fill in all fields')),
       );
       return;
     }
 
-    if (currentPin.length != 4 ||
-        newPin.length != 4 ||
-        confirmPin.length != 4) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('PIN must be exactly 4 digits')),
-      );
-      return;
-    }
-
-    if (newPin != confirmPin) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('New PIN and confirmation do not match')),
-      );
-      return;
-    }
-
-    if (currentPin == newPin) {
+    if (newPassword.length < 6) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('New PIN must be different from current PIN'),
+          content: Text('Password must be at least 6 characters long'),
+        ),
+      );
+      return;
+    }
+
+    if (newPassword != confirmPassword) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('New password and confirmation do not match'),
+        ),
+      );
+      return;
+    }
+
+    if (currentPassword == newPassword) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('New password must be different from current password'),
+        ),
+      );
+      return;
+    }
+
+    // Check password strength
+    if (!_isPasswordStrong(newPassword)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Password should contain letters, numbers, and be at least 6 characters',
+          ),
+          duration: Duration(seconds: 3),
         ),
       );
       return;
@@ -942,14 +986,17 @@ class _ChangePinDialogState extends State<_ChangePinDialog> {
 
     try {
       final authService = Provider.of<AuthService>(context, listen: false);
-      final success = await authService.changePassword(currentPin, newPin);
+      final success = await authService.changePassword(
+        currentPassword,
+        newPassword,
+      );
 
       if (success) {
         if (mounted) {
           Navigator.pop(context);
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('PIN changed successfully!'),
+              content: Text('Password changed successfully!'),
               backgroundColor: Colors.green,
             ),
           );
@@ -962,7 +1009,7 @@ class _ChangePinDialogState extends State<_ChangePinDialog> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text(
-                'Failed to change PIN. Please check your current PIN.',
+                'Failed to change password. Please check your current password.',
               ),
               backgroundColor: Colors.red,
             ),
@@ -976,11 +1023,20 @@ class _ChangePinDialogState extends State<_ChangePinDialog> {
         });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error changing PIN: $e'),
+            content: Text('Error changing password: $e'),
             backgroundColor: Colors.red,
           ),
         );
       }
     }
+  }
+
+  bool _isPasswordStrong(String password) {
+    // Basic password strength check
+    if (password.length < 6) return false;
+    bool hasLetter = password.contains(RegExp(r'[a-zA-Z]'));
+    bool hasNumber = password.contains(RegExp(r'[0-9]'));
+
+    return hasLetter && hasNumber;
   }
 }

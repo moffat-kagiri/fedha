@@ -241,6 +241,14 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         '/csv_upload': (context) => const CSVUploadScreen(),
         '/test_ingestion': (context) => const TestTransactionIngestionScreen(),
       },
+      onGenerateRoute: (settings) {
+        // Handle unknown routes gracefully
+        if (settings.name?.startsWith('/edit_transaction_candidate') == true) {
+          // This route is obsolete - transaction editing now uses modal bottom sheets
+          return null; // Let the router handle this gracefully
+        }
+        return null;
+      },
     );
   }
 
