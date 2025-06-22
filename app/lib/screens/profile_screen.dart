@@ -494,14 +494,58 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: const Text('Cancel'),
               ),
               ElevatedButton(
-                onPressed: () {
-                  // TODO: Implement email update functionality
+                onPressed: () async {
+                  final newEmail = emailController.text.trim();
+                  if (newEmail.isEmpty || !newEmail.contains('@')) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Please enter a valid email address'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                    return;
+                  }
+
+                  // Show loading
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Email update functionality coming soon!'),
-                    ),
+                  showDialog(
+                    context: context,
+                    barrierDismissible: false,
+                    builder:
+                        (context) => const AlertDialog(
+                          content: Row(
+                            children: [
+                              CircularProgressIndicator(),
+                              SizedBox(width: 16),
+                              Text('Updating email...'),
+                            ],
+                          ),
+                        ),
                   );
+
+                  try {
+                    final authService = Provider.of<AuthService>(
+                      context,
+                      listen: false,
+                    );
+                    await authService.updateProfileEmail(newEmail);
+
+                    Navigator.pop(context); // Close loading dialog
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Email updated successfully!'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  } catch (e) {
+                    Navigator.pop(context); // Close loading dialog
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Failed to update email: $e'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
                 },
                 child: const Text('Update'),
               ),
@@ -544,11 +588,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               ElevatedButton(
                 onPressed: () {
-                  // TODO: Implement phone update functionality
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text('Phone number functionality coming soon!'),
+                      content: Text(
+                        'Phone number management will be added in a future update!',
+                      ),
+                      backgroundColor: Colors.orange,
                     ),
                   );
                 },
@@ -813,67 +859,61 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  void _showPrivacyPolicy(BuildContext context) {
+  void _showPrivacyPolicy(BuildContext context) async {
+    // Try to load the privacy policy from assets or show fallback
+    String privacyContent = '''
+# Privacy Policy for Fedha
+
+## Data Protection
+• We protect your financial data with bank-level encryption
+• SMS data is processed locally on your device
+• Personal information is never shared without consent
+
+## Data Collection
+• Transaction data for financial insights
+• Usage analytics to improve the app
+• Optional location data for merchant detection
+
+## Your Rights
+• Access your data anytime
+• Request data deletion
+• Opt out of data collection
+
+## SMS Processing
+• SMS reading happens entirely on your device
+• No SMS content leaves your device
+• You control which messages are processed
+
+## Contact Us
+For questions about this Privacy Policy, contact us through the in-app Help & Support section.
+
+Last updated: June 22, 2025
+''';
+
     showDialog(
       context: context,
       builder:
           (context) => AlertDialog(
             title: const Text('Privacy Policy'),
-            content: const SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Data Protection',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  SizedBox(height: 8),
-                  Text(
-                    '• We protect your financial data with bank-level encryption\n'
-                    '• SMS data is processed locally on your device\n'
-                    '• Personal information is never shared without consent',
-                  ),
-                  SizedBox(height: 16),
-                  Text(
-                    'Data Collection',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  SizedBox(height: 8),
-                  Text(
-                    '• Transaction data for financial insights\n'
-                    '• Usage analytics to improve the app\n'
-                    '• Optional location data for merchant detection',
-                  ),
-                  SizedBox(height: 16),
-                  Text(
-                    'Your Rights',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  SizedBox(height: 8),
-                  Text(
-                    '• Access your data anytime\n'
-                    '• Request data deletion\n'
-                    '• Opt out of data collection',
-                  ),
-                ],
+            content: SizedBox(
+              width: double.maxFinite,
+              height: 400,
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      privacyContent,
+                      style: const TextStyle(fontSize: 14, height: 1.4),
+                    ),
+                  ],
+                ),
               ),
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
                 child: const Text('Close'),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  // TODO: Open full privacy policy
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Opening full privacy policy...'),
-                    ),
-                  );
-                },
-                child: const Text('Read Full Policy'),
               ),
             ],
           ),

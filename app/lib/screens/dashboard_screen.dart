@@ -957,12 +957,7 @@ class DashboardContent extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  transaction.description ??
-                      transaction.category
-                          .toString()
-                          .split('.')
-                          .last
-                          .toUpperCase(),
+                  transaction.category.toString().split('.').last.toUpperCase(),
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -1003,6 +998,12 @@ class DashboardContent extends StatelessWidget {
           subtitle: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              if (transaction.description != null &&
+                  transaction.description!.isNotEmpty)
+                Text(
+                  transaction.description!,
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                ),
               Text(
                 transaction.date.toString().split(' ')[0],
                 style: TextStyle(fontSize: 12, color: Colors.grey.shade600),

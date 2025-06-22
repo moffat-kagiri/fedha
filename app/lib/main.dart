@@ -33,6 +33,7 @@ import 'services/sms_transaction_extractor.dart';
 import 'services/sms_listener_service.dart';
 import 'services/notification_service.dart';
 import 'services/theme_service.dart';
+import 'services/offline_manager.dart'; // Offline functionality
 
 // Screens
 import 'screens/onboarding_screen.dart';
@@ -110,6 +111,11 @@ void main() async {
   );
   final authService = AuthService();
   final themeService = ThemeService();
+
+  // Initialize offline manager for local calculations and parsing
+  final offlineManager = OfflineManager();
+  await offlineManager.initialize();
+
   // Initialize background transaction monitor (will be started after app loads)
   final backgroundTransactionMonitor = BackgroundTransactionMonitor(
     offlineDataService,
@@ -151,12 +157,15 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
-  bool _backgroundMonitorInitialized = false;
+  bool _isInitialized = false;
+  Future<void>? _initializationFuture;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // Start initialization immediately and cache the future
+    _initializationFuture = _initializeServicesOnce();
   }
 
   @override
@@ -203,11 +212,39 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           darkTheme: themeService.getDarkTheme(),
           themeMode: themeService.themeMode,
           home: FutureBuilder<void>(
-            future: _initializeServices(context),
+            future: _initializationFuture,
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Scaffold(
-                  body: Center(child: CircularProgressIndicator()),
+                  backgroundColor: Color(0xFF007A39),
+                  body: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.account_balance_wallet,
+                          size: 100,
+                          color: Colors.white,
+                        ),
+                        SizedBox(height: 24),
+                        Text(
+                          'Fedha',
+                          style: TextStyle(
+                            fontSize: 32,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                        SizedBox(height: 16),
+                        CircularProgressIndicator(color: Colors.white),
+                        SizedBox(height: 16),
+                        Text(
+                          'Loading...',
+                          style: TextStyle(fontSize: 16, color: Colors.white70),
+                        ),
+                      ],
+                    ),
+                  ),
                 );
               }
               return Consumer<AuthService>(
@@ -263,35 +300,43 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     );
   }
 
-  Future<void> _initializeServices(BuildContext context) async {
+  Future<void> _initializeServicesOnce() async {
+    if (_isInitialized) return;
+    _isInitialized = true;
+
     final authService = Provider.of<AuthService>(context, listen: false);
     final themeService = Provider.of<ThemeService>(context, listen: false);
 
-    await authService.initialize();
-    await themeService.initialize();
-    await authService
-        .tryAutoLogin(); // Using the correct method name    // Initialize background transaction monitor AFTER core services are ready
-    // Only initialize once to prevent infinite loops
-    // TEMPORARILY DISABLED FOR DEBUGGING
-    /*
-    if (!_backgroundMonitorInitialized) {
-      _backgroundMonitorInitialized = true;
+    try {
+      // Initialize core services sequentially to avoid blocking the UI
+      await Future.wait([authService.initialize(), themeService.initialize()]);
 
-      Future.delayed(const Duration(seconds: 5), () async {
-        try {
-          final backgroundMonitor = Provider.of<BackgroundTransactionMonitor>(
-            context,
-            listen: false,
-          );
-          await backgroundMonitor.initialize();
-        } catch (e) {
-          if (kDebugMode) {
-            print('Background monitor initialization deferred: $e');
+      await authService.tryAutoLogin();
+
+      // Initialize background services with a longer delay to avoid blocking UI
+      Future.delayed(const Duration(seconds: 10), () async {
+        if (mounted) {
+          try {
+            final backgroundMonitor = Provider.of<BackgroundTransactionMonitor>(
+              context,
+              listen: false,
+            );
+            await backgroundMonitor.initialize();
+            if (kDebugMode) {
+              print('Background monitor initialized successfully');
+            }
+          } catch (e) {
+            if (kDebugMode) {
+              print('Background monitor initialization deferred: $e');
+            }
           }
         }
       });
+    } catch (e) {
+      if (kDebugMode) {
+        print('Service initialization error: $e');
+      }
     }
-    */
   }
 
   Future<bool> _checkFirstTime() async {

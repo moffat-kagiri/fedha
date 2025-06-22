@@ -12,20 +12,37 @@ import '../models/budget.dart';
 
 class ApiClient {
   // Unified base URL configuration for all platforms
-  // Using localhost with emulator-specific addressing for consistency
+  // Using ngrok tunnel for real device testing
   static String get _baseUrl {
+    final String url;
     if (kIsWeb) {
       // Web platform uses localhost directly
-      return "http://127.0.0.1:8000/api";
+      url = "http://127.0.0.1:8000/api";
     } else {
-      // Mobile platforms use emulator-specific localhost
-      // 10.0.2.2 is the Android emulator's way to access host machine's 127.0.0.1
-      // This works for both Android emulator and iOS simulator
+      // Mobile platforms - using ngrok tunnel for real device access
+      // ngrok URL: https://5f1d-102-0-17-100.ngrok-free.app
+      url = "https://5f1d-102-0-17-100.ngrok-free.app/api";
 
-      // For real device testing, replace 10.0.2.2 with your computer's IP address
-      // Example: return "http://192.168.1.100:8000/api";
-      return "http://10.0.2.2:8000/api";
+      // For emulator testing (if needed), use:
+      // url = "http://10.0.2.2:8000/api";
     }
+
+    if (kDebugMode) {
+      print(
+        '🔗 API_CLIENT: Using base URL: $url (Platform: ${kIsWeb ? "Web" : "Mobile"})',
+      );
+    }
+
+    return url;
+  }
+
+  // Debug method to get current base URL
+  static String getBaseUrl() {
+    final url = _baseUrl;
+    if (kDebugMode) {
+      print('ApiClient: Current base URL: $url');
+    }
+    return url;
   }
 
   // Sync Transactions
@@ -33,11 +50,21 @@ class ApiClient {
     String profileId,
     List<Transaction> transactions,
   ) async {
+    final url = '$_baseUrl/sync/$profileId/';
+    if (kDebugMode) {
+      print('🔄 API_CLIENT: Syncing transactions to: $url');
+    }
+
     final response = await http.post(
-      Uri.parse('$_baseUrl/sync/$profileId/'),
+      Uri.parse(url),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode(transactions.map((t) => t.toJson()).toList()),
     );
+
+    if (kDebugMode) {
+      print('🔄 API_CLIENT: Sync response - Status: ${response.statusCode}');
+    }
+
     return jsonDecode(response.body);
   }
 
@@ -53,12 +80,27 @@ class ApiClient {
   // Health check for connectivity
   Future<bool> healthCheck() async {
     try {
+      final url = '$_baseUrl/health/';
+      if (kDebugMode) {
+        print('🌐 API_CLIENT: Making health check request to: $url');
+      }
+
       final response = await http.get(
-        Uri.parse('$_baseUrl/health/'),
+        Uri.parse(url),
         headers: {'Content-Type': 'application/json'},
       );
+
+      if (kDebugMode) {
+        print(
+          '🌐 API_CLIENT: Health check response - Status: ${response.statusCode}, Body: ${response.body}',
+        );
+      }
+
       return response.statusCode == 200;
     } catch (e) {
+      if (kDebugMode) {
+        print('🌐 API_CLIENT: Health check error: $e');
+      }
       return false;
     }
   }
