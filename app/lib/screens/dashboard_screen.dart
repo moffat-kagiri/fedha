@@ -16,6 +16,7 @@ import 'transactions_screen.dart';
 import 'loan_calculator_screen.dart';
 import 'create_budget_screen.dart';
 import 'budget_management_screen.dart';
+import 'sms_review_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -750,11 +751,11 @@ class DashboardContent extends StatelessWidget {
                   }
                 },
               ),
-              QuickAction('Set Goal', Icons.flag, Colors.orange, () {
+              QuickAction('SMS Review', Icons.message, Colors.orange, () {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const AddGoalScreen(),
+                    builder: (context) => const SmsReviewScreen(),
                   ),
                 );
               }),
