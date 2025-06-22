@@ -1,13 +1,29 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<svg width="200" height="200" viewBox="0 0 200 200" version="1.1" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <linearGradient id="greenGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#4CAF50;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#2E7D32;stop-opacity:1" />
-    </linearGradient>
-  </defs>
-  <!-- Background circle -->
-  <circle cx="100" cy="100" r="90" fill="url(#greenGradient)" />
-  <!-- Money symbol -->
-  <text x="100" y="140" font-family="Arial" font-size="140" font-weight="bold" fill="white" text-anchor="middle">$</text>
+<?xml version="1.0" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 20010904//EN"
+ "http://www.w3.org/TR/2001/REC-SVG-20010904/DTD/svg10.dtd">
+<svg version="1.0" xmlns="http://www.w3.org/2000/svg"
+ width="819.000000pt" height="819.000000pt" viewBox="0 0 819.000000 819.000000"
+ preserveAspectRatio="xMidYMid meet">
+<metadata>
+Created by potrace 1.16, written by Peter Selinger 2001-2019
+</metadata>
+<g transform="translate(0.000000,819.000000) scale(0.100000,-0.100000)"
+fill="#000000" stroke="none">
+<path d="M2415 6923 c-171 -12 -420 -75 -540 -135 -153 -78 -345 -243 -433
+-375 -97 -143 -171 -331 -209 -523 -17 -90 -18 -186 -18 -1815 l0 -1720 27
+-115 c123 -529 435 -841 954 -952 l109 -23 1795 0 1795 0 100 22 c268 60 456
+157 623 323 165 164 275 375 334 643 l23 102 0 1730 0 1730 -23 105 c-61 278
+-166 481 -334 650 -176 176 -394 283 -688 337 -88 16 -222 18 -1780 19 -927 0
+-1707 -1 -1735 -3z m2592 -1638 c93 -28 172 -105 203 -200 8 -24 14 -90 14
+-165 l1 -125 -590 -5 c-647 -5 -617 -2 -676 -67 -61 -65 -59 -44 -59 -613 0
+-460 2 -525 16 -553 23 -45 62 -85 109 -110 39 -22 47 -22 624 -25 l584 -3 -5
+-137 c-4 -115 -8 -145 -27 -184 -30 -63 -84 -116 -147 -145 l-52 -24 -903 3
+-904 3 -59 29 c-75 37 -131 93 -165 165 l-26 56 -3 905 -3 905 22 69 c39 121
+148 209 279 226 30 4 429 8 886 9 709 1 838 -1 881 -14z m209 -711 c15 -11 37
+-33 48 -48 20 -27 21 -39 21 -404 0 -419 0 -415 -67 -464 l-33 -23 -492 0
+c-481 0 -492 0 -519 21 -15 11 -37 33 -48 48 -20 26 -21 42 -24 384 -2 196 0
+371 3 389 7 40 49 91 90 109 24 11 127 13 512 11 469 -2 482 -3 509 -23z"/>
+<path d="M4505 4306 c-79 -36 -131 -126 -122 -209 16 -135 143 -223 265 -183
+160 54 192 273 54 371 -34 23 -55 30 -105 32 -38 2 -74 -2 -92 -11z"/>
+</g>
 </svg>

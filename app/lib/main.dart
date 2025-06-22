@@ -34,6 +34,9 @@ import 'services/sms_listener_service.dart';
 import 'services/notification_service.dart';
 import 'services/theme_service.dart';
 import 'services/offline_manager.dart'; // Offline functionality
+import 'services/navigation_service.dart';
+import 'services/sender_management_service.dart';
+import 'services/biometric_auth_service.dart';
 
 // Screens
 import 'screens/onboarding_screen.dart';
@@ -111,6 +114,9 @@ void main() async {
   );
   final authService = AuthService();
   final themeService = ThemeService();
+  final navigationService = NavigationService.instance;
+  final senderManagementService = SenderManagementService.instance;
+  final biometricAuthService = BiometricAuthService.instance;
 
   // Initialize offline manager for local calculations and parsing
   final offlineManager = OfflineManager();
@@ -124,12 +130,13 @@ void main() async {
 
   // Temporarily disable Google Drive to focus on core functionality
   // final googleDriveService = GoogleDriveService();
-
   runApp(
     MultiProvider(
       providers: [
         Provider<ApiClient>.value(value: apiClient),
-        Provider<OfflineDataService>.value(value: offlineDataService),
+        ChangeNotifierProvider<OfflineDataService>.value(
+          value: offlineDataService,
+        ),
         Provider<GoalTransactionService>.value(value: goalTransactionService),
         Provider<TextRecognitionService>.value(value: textRecognitionService),
         Provider<CSVUploadService>.value(value: csvUploadService),
@@ -140,6 +147,9 @@ void main() async {
         Provider<BackgroundTransactionMonitor>.value(
           value: backgroundTransactionMonitor,
         ),
+        Provider<NavigationService>.value(value: navigationService),
+        Provider<SenderManagementService>.value(value: senderManagementService),
+        Provider<BiometricAuthService>.value(value: biometricAuthService),
         ChangeNotifierProvider(create: (_) => authService),
         ChangeNotifierProvider(create: (_) => themeService),
         // Provider<GoogleDriveService>.value(value: googleDriveService),
@@ -211,6 +221,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           theme: themeService.getLightTheme(),
           darkTheme: themeService.getDarkTheme(),
           themeMode: themeService.themeMode,
+          navigatorKey: NavigationService.navigatorKey,
           home: FutureBuilder<void>(
             future: _initializationFuture,
             builder: (context, snapshot) {
@@ -306,12 +317,27 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
     final authService = Provider.of<AuthService>(context, listen: false);
     final themeService = Provider.of<ThemeService>(context, listen: false);
-
     try {
       // Initialize core services sequentially to avoid blocking the UI
       await Future.wait([authService.initialize(), themeService.initialize()]);
 
-      await authService.tryAutoLogin();
+      // Try biometric auto-login first if available
+      final biometricSuccess = await authService.tryBiometricAutoLogin();
+
+      if (!biometricSuccess) {
+        // Fall back to regular auto-login
+        await authService.tryAutoLogin();
+      }
+
+      // Update SMS listener with current profile ID after auto-login
+      final currentProfile = authService.currentProfile;
+      if (currentProfile != null) {
+        final smsListenerService = Provider.of<SmsListenerService>(
+          context,
+          listen: false,
+        );
+        smsListenerService.setCurrentProfile(currentProfile.id);
+      }
 
       // Initialize background services with a longer delay to avoid blocking UI
       Future.delayed(const Duration(seconds: 10), () async {

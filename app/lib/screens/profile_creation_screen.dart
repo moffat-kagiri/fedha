@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/enhanced_profile.dart';
 import '../services/auth_service.dart';
+import 'biometric_setup_screen.dart';
 
 class ProfileCreationScreen extends StatefulWidget {
   final ProfileType? initialProfileType;
@@ -345,9 +346,30 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen>
       final success = await authService.createEnhancedProfile(profileData);
 
       if (!mounted) return;
-
       if (success) {
-        Navigator.pushReplacementNamed(context, '/dashboard');
+        // Check if we should prompt for biometric setup
+        final shouldPrompt = await authService.shouldPromptBiometricSetup();
+
+        if (!mounted) return;
+        if (shouldPrompt) {
+          // Show biometric setup screen
+          await Navigator.push<bool>(
+            context,
+            MaterialPageRoute(
+              builder:
+                  (context) =>
+                      const BiometricSetupScreen(isFirstTimeSetup: true),
+            ),
+          );
+
+          if (!mounted) return;
+
+          // Navigate to dashboard regardless of biometric setup result
+          Navigator.pushReplacementNamed(context, '/dashboard');
+        } else {
+          // Go directly to dashboard
+          Navigator.pushReplacementNamed(context, '/dashboard');
+        }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(

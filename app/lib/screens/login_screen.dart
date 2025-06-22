@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/enhanced_profile.dart';
 import '../services/auth_service.dart';
+import '../services/sms_listener_service.dart';
+import '../services/biometric_auth_service.dart';
 
 class LoginScreen extends StatefulWidget {
   final ProfileType profileType;
@@ -17,6 +19,29 @@ class _LoginScreenState extends State<LoginScreen> {
   final _pinController = TextEditingController();
   bool _isLoading = false;
   String? _errorMessage;
+  bool _showBiometricOption = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkBiometricAvailability();
+  }
+
+  Future<void> _checkBiometricAvailability() async {
+    final biometricService = BiometricAuthService.instance;
+    final bool isSupported = await biometricService.isDeviceSupported();
+    final bool isFingerprintAvailable =
+        await biometricService.isFingerPrintAvailable();
+    final bool isEnabled = await biometricService.isBiometricEnabled();
+
+    if (mounted) {
+      setState(() {
+        // Show biometric option if device supports it, fingerprint is available, and user has enabled it
+        _showBiometricOption =
+            isSupported && isFingerprintAvailable && isEnabled;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -84,6 +109,42 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             ),
 
+            // Biometric Login Option
+            if (_showBiometricOption) ...[
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(child: Divider(color: Colors.grey.shade300)),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Text(
+                      'OR',
+                      style: TextStyle(
+                        color: Colors.grey.shade600,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  Expanded(child: Divider(color: Colors.grey.shade300)),
+                ],
+              ),
+              const SizedBox(height: 16),
+              OutlinedButton.icon(
+                onPressed: _isLoading ? null : _handleBiometricLogin,
+                icon: const Icon(Icons.fingerprint, size: 24),
+                label: const Text('Use Fingerprint'),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  side: BorderSide(
+                    color: Theme.of(context).primaryColor,
+                    width: 2,
+                  ),
+                ),
+              ),
+            ],
+
+            const SizedBox(height: 24),
+
             // Profile Help
             TextButton(
               onPressed: _showProfileHelp,
@@ -115,12 +176,58 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
 
       if (success) {
+        // Update SMS listener service with current profile ID
+        final smsListenerService = Provider.of<SmsListenerService>(
+          context,
+          listen: false,
+        );
+        final currentProfile = authService.currentProfile;
+        if (currentProfile != null) {
+          smsListenerService.setCurrentProfile(currentProfile.id);
+        }
+
         Navigator.pushReplacementNamed(context, '/dashboard');
       } else {
         setState(() => _errorMessage = 'Invalid PIN for selected profile');
       }
     } catch (e) {
       setState(() => _errorMessage = 'Login failed. Please try again.');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _handleBiometricLogin() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final authService = Provider.of<AuthService>(context, listen: false);
+      final success = await authService.loginWithBiometric();
+
+      if (!mounted) return;
+
+      if (success) {
+        // Update SMS listener service with current profile ID
+        final smsListenerService = Provider.of<SmsListenerService>(
+          context,
+          listen: false,
+        );
+        final currentProfile = authService.currentProfile;
+        if (currentProfile != null) {
+          smsListenerService.setCurrentProfile(currentProfile.id);
+        }
+
+        Navigator.pushReplacementNamed(context, '/dashboard');
+      } else {
+        setState(() => _errorMessage = 'Biometric authentication failed');
+      }
+    } catch (e) {
+      setState(
+        () => _errorMessage = 'Biometric login failed. Please try again.',
+      );
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

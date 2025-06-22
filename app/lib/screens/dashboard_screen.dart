@@ -17,6 +17,8 @@ import 'loan_calculator_screen.dart';
 import 'create_budget_screen.dart';
 import 'budget_management_screen.dart';
 import 'sms_review_screen.dart';
+import '../screens/progressive_goal_wizard_screen.dart';
+import '../screens/smart_goal_creation_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -656,9 +658,155 @@ class DashboardContent extends StatelessWidget {
   Widget _buildAddGoalCard(BuildContext context) {
     return GestureDetector(
       onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const AddGoalScreen()),
+        showModalBottomSheet(
+          context: context,
+          backgroundColor: Colors.transparent,
+          builder:
+              (context) => Container(
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                ),
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    const Text(
+                      'Create a New Goal',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Choose how you\'d like to create your financial goal',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey.shade600,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 24),
+                    ListTile(
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF007A39).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(
+                          Icons.auto_awesome,
+                          color: Color(0xFF007A39),
+                        ),
+                      ),
+                      title: const Text(
+                        'Goal Wizard (Recommended)',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      subtitle: const Text(
+                        'Step-by-step guided goal creation with SMART analysis',
+                      ),
+                      trailing: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.shade100,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          'NEW',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.orange.shade700,
+                          ),
+                        ),
+                      ),
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder:
+                                (context) =>
+                                    const ProgressiveGoalWizardScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                    const Divider(),
+                    ListTile(
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(Icons.psychology, color: Colors.blue),
+                      ),
+                      title: const Text(
+                        'SMART Goal',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      subtitle: const Text(
+                        'Advanced goal creation with validation',
+                      ),
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder:
+                                (context) => const SmartGoalCreationScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                    const Divider(),
+                    ListTile(
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(
+                          Icons.add_circle_outline,
+                          color: Colors.grey,
+                        ),
+                      ),
+                      title: const Text(
+                        'Quick Goal',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      subtitle: const Text('Simple goal creation'),
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const AddGoalScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                ),
+              ),
         );
       },
       child: Container(
@@ -685,7 +833,7 @@ class DashboardContent extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             const Text(
-              'Set New Goal',
+              'Create Goal',
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
@@ -694,7 +842,7 @@ class DashboardContent extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              'Track your progress',
+              'Start your journey',
               style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
             ),
           ],

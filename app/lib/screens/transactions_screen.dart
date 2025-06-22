@@ -32,12 +32,11 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
   bool _showAdvancedFilters = false;
   Goal? _selectedGoalFilter; // Add goal filtering
   List<Goal> _availableGoals = [];
-
   Future<List<Transaction>> _loadTransactions(
     OfflineDataService dataService,
     String profileId,
   ) async {
-    return await dataService.getTransactions(profileId);
+    return await dataService.getAllTransactions(profileId);
   }
 
   List<Transaction> _filterTransactions(List<Transaction> transactions) {
@@ -343,46 +342,48 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
           ),
         ],
       ),
-      body: Consumer<AuthService>(
-        builder: (context, authService, child) {
-          final profile = authService.currentProfile;
-          if (profile == null) {
-            return const Center(child: Text('Please log in'));
-          }
+      body: SafeArea(
+        child: Consumer<AuthService>(
+          builder: (context, authService, child) {
+            final profile = authService.currentProfile;
+            if (profile == null) {
+              return const Center(child: Text('Please log in'));
+            }
 
-          return Consumer<OfflineDataService>(
-            builder: (context, dataService, child) {
-              return FutureBuilder<List<Transaction>>(
-                future: _loadTransactions(dataService, profile.id),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
+            return Consumer<OfflineDataService>(
+              builder: (context, dataService, child) {
+                return FutureBuilder<List<Transaction>>(
+                  future: _loadTransactions(dataService, profile.id),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
 
-                  final transactions = snapshot.data ?? [];
-                  final filteredTransactions = _filterTransactions(
-                    transactions,
-                  );
+                    final transactions = snapshot.data ?? [];
+                    final filteredTransactions = _filterTransactions(
+                      transactions,
+                    );
 
-                  return Column(
-                    children: [
-                      // Search and Filter Section
-                      _buildSearchAndFilterSection(),
+                    return Column(
+                      children: [
+                        // Search and Filter Section
+                        _buildSearchAndFilterSection(),
 
-                      // Summary Cards
-                      _buildSummaryCards(transactions),
+                        // Summary Cards
+                        _buildSummaryCards(transactions),
 
-                      // Transactions List
-                      Expanded(
-                        child: _buildTransactionsList(filteredTransactions),
-                      ),
-                    ],
-                  );
-                },
-              );
-            },
-          );
-        },
+                        // Transactions List
+                        Expanded(
+                          child: _buildTransactionsList(filteredTransactions),
+                        ),
+                      ],
+                    );
+                  },
+                );
+              },
+            );
+          },
+        ),
       ),
     );
   }
@@ -817,7 +818,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
           Expanded(
             child: _buildSummaryCard(
               'Income',
-              '\$${income.toStringAsFixed(2)}',
+              'Ksh${income.toStringAsFixed(2)}',
               Colors.green,
               Icons.trending_up,
             ),
@@ -826,7 +827,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
           Expanded(
             child: _buildSummaryCard(
               'Expenses',
-              '\$${expenses.toStringAsFixed(2)}',
+              'Ksh${expenses.toStringAsFixed(2)}',
               Colors.red,
               Icons.trending_down,
             ),
@@ -835,7 +836,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
           Expanded(
             child: _buildSummaryCard(
               'Savings',
-              '\$${savings.toStringAsFixed(2)}',
+              'Ksh${savings.toStringAsFixed(2)}',
               Colors.blue,
               Icons.savings,
             ),
