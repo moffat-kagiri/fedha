@@ -2,12 +2,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/transaction.dart';
+import '../models/transaction_candidate.dart';
 import '../models/goal.dart';
 import '../services/auth_service.dart';
 import '../services/offline_data_service.dart';
-import '../services/goal_transaction_service.dart';
 import '../utils/profile_transaction_utils.dart';
 import 'add_transaction_screen.dart';
+import '../widgets/quick_transaction_entry.dart';
 
 class TransactionsScreen extends StatefulWidget {
   const TransactionsScreen({super.key});
@@ -31,12 +32,11 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
   bool _showAdvancedFilters = false;
   Goal? _selectedGoalFilter; // Add goal filtering
   List<Goal> _availableGoals = [];
-
   Future<List<Transaction>> _loadTransactions(
     OfflineDataService dataService,
     String profileId,
   ) async {
-    return await dataService.getTransactions(profileId);
+    return await dataService.getAllTransactions(profileId);
   }
 
   List<Transaction> _filterTransactions(List<Transaction> transactions) {
@@ -227,7 +227,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                       child: ElevatedButton(
                         onPressed: () {
                           Navigator.pop(context);
-                          // Navigate to edit transaction screen
+                          _showEditTransactionDialog(context, transaction);
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF007A39),
@@ -342,46 +342,48 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
           ),
         ],
       ),
-      body: Consumer<AuthService>(
-        builder: (context, authService, child) {
-          final profile = authService.currentProfile;
-          if (profile == null) {
-            return const Center(child: Text('Please log in'));
-          }
+      body: SafeArea(
+        child: Consumer<AuthService>(
+          builder: (context, authService, child) {
+            final profile = authService.currentProfile;
+            if (profile == null) {
+              return const Center(child: Text('Please log in'));
+            }
 
-          return Consumer<OfflineDataService>(
-            builder: (context, dataService, child) {
-              return FutureBuilder<List<Transaction>>(
-                future: _loadTransactions(dataService, profile.id),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
+            return Consumer<OfflineDataService>(
+              builder: (context, dataService, child) {
+                return FutureBuilder<List<Transaction>>(
+                  future: _loadTransactions(dataService, profile.id),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
 
-                  final transactions = snapshot.data ?? [];
-                  final filteredTransactions = _filterTransactions(
-                    transactions,
-                  );
+                    final transactions = snapshot.data ?? [];
+                    final filteredTransactions = _filterTransactions(
+                      transactions,
+                    );
 
-                  return Column(
-                    children: [
-                      // Search and Filter Section
-                      _buildSearchAndFilterSection(),
+                    return Column(
+                      children: [
+                        // Search and Filter Section
+                        _buildSearchAndFilterSection(),
 
-                      // Summary Cards
-                      _buildSummaryCards(transactions),
+                        // Summary Cards
+                        _buildSummaryCards(transactions),
 
-                      // Transactions List
-                      Expanded(
-                        child: _buildTransactionsList(filteredTransactions),
-                      ),
-                    ],
-                  );
-                },
-              );
-            },
-          );
-        },
+                        // Transactions List
+                        Expanded(
+                          child: _buildTransactionsList(filteredTransactions),
+                        ),
+                      ],
+                    );
+                  },
+                );
+              },
+            );
+          },
+        ),
       ),
     );
   }
@@ -816,7 +818,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
           Expanded(
             child: _buildSummaryCard(
               'Income',
-              '\$${income.toStringAsFixed(2)}',
+              'Ksh${income.toStringAsFixed(2)}',
               Colors.green,
               Icons.trending_up,
             ),
@@ -825,7 +827,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
           Expanded(
             child: _buildSummaryCard(
               'Expenses',
-              '\$${expenses.toStringAsFixed(2)}',
+              'Ksh${expenses.toStringAsFixed(2)}',
               Colors.red,
               Icons.trending_down,
             ),
@@ -834,7 +836,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
           Expanded(
             child: _buildSummaryCard(
               'Savings',
-              '\$${savings.toStringAsFixed(2)}',
+              'Ksh${savings.toStringAsFixed(2)}',
               Colors.blue,
               Icons.savings,
             ),
@@ -953,7 +955,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
           child: Icon(icon, color: color),
         ),
         title: Text(
-          transaction.description ?? 'No description',
+          _categoryToString(transaction.category),
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
         ),
         subtitle: Column(
@@ -961,7 +963,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
           children: [
             const SizedBox(height: 4),
             Text(
-              _categoryToString(transaction.category),
+              transaction.description ?? 'No description',
               style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
             ),
             const SizedBox(height: 2),
@@ -972,7 +974,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
           ],
         ),
         trailing: Text(
-          '$prefix\$${transaction.amount.toStringAsFixed(2)}',
+          '${prefix}Ksh${transaction.amount.toStringAsFixed(2)}',
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.bold,
@@ -981,6 +983,90 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
         ),
         onTap: () => _showTransactionDetails(transaction),
       ),
+    );
+  }
+
+  void _showEditTransactionDialog(
+    BuildContext context,
+    Transaction transaction,
+  ) {
+    showDialog(
+      context: context,
+      builder:
+          (context) => Dialog(
+            insetPadding: const EdgeInsets.all(16),
+            child: Container(
+              width: double.infinity,
+              height: MediaQuery.of(context).size.height * 0.8,
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Edit Transaction',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.close),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Expanded(
+                    child: QuickTransactionEntry(
+                      editingTransaction: TransactionCandidate(
+                        uuid: transaction.uuid,
+                        amount: transaction.amount,
+                        description: transaction.description,
+                        vendor: '', // Transaction doesn't have vendor field
+                        category: transaction.category,
+                        type: transaction.type,
+                        timestamp: transaction.date,
+                        sourceText: '', // No raw SMS for existing transactions
+                        sender: '',
+                        confidence:
+                            1.0, // Full confidence for manual transactions
+                        isConfirmed: true,
+                        isRejected: false,
+                      ),
+                      onTransactionUpdated: (updatedCandidate) async {
+                        // Update the existing transaction
+                        transaction.amount =
+                            updatedCandidate.amount ?? transaction.amount;
+                        transaction.description =
+                            updatedCandidate.description?.isEmpty == true
+                                ? null
+                                : updatedCandidate.description;
+                        transaction.category = updatedCandidate.category;
+                        transaction.date = updatedCandidate.timestamp;
+                        transaction.type = updatedCandidate.type;
+                        transaction.updatedAt = DateTime.now();
+
+                        // Save to database
+                        await transaction.save();
+
+                        Navigator.pop(context);
+                        setState(() {}); // Refresh the transaction list
+
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Transaction updated successfully!'),
+                            backgroundColor: Colors.green,
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
     );
   }
 }

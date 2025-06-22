@@ -16,6 +16,9 @@ import 'transactions_screen.dart';
 import 'loan_calculator_screen.dart';
 import 'create_budget_screen.dart';
 import 'budget_management_screen.dart';
+import 'sms_review_screen.dart';
+import '../screens/progressive_goal_wizard_screen.dart';
+import '../screens/smart_goal_creation_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -131,16 +134,27 @@ class DashboardContent extends StatelessWidget {
           ],
         ),
         const Spacer(),
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Colors.grey.shade100,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Icon(
-            profileType == ProfileType.business ? Icons.business : Icons.person,
-            color: const Color(0xFF007A39),
-            size: 24,
+        GestureDetector(
+          onTap: () {
+            Navigator.pushNamed(context, '/profile');
+          },
+          child: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: const Color(0xFF007A39).withOpacity(0.2),
+                width: 1,
+              ),
+            ),
+            child: Icon(
+              profileType == ProfileType.business
+                  ? Icons.business
+                  : Icons.person,
+              color: const Color(0xFF007A39),
+              size: 24,
+            ),
           ),
         ),
       ],
@@ -200,7 +214,7 @@ class DashboardContent extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            '\$${availableToSpend.abs().toStringAsFixed(2)}',
+            'Ksh ${availableToSpend.abs().toStringAsFixed(2)}',
             style: const TextStyle(
               color: Colors.white,
               fontSize: 32,
@@ -210,7 +224,7 @@ class DashboardContent extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             budgetExceeded
-                ? 'Budget exceeded by \$${(data.totalExpenses - data.currentBudget!.totalBudget).toStringAsFixed(2)}'
+                ? 'Budget exceeded by Ksh ${(data.totalExpenses - data.currentBudget!.totalBudget).toStringAsFixed(2)}'
                 : isPositive
                 ? 'After expenses and savings'
                 : 'Over budget',
@@ -270,7 +284,7 @@ class DashboardContent extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         Text(
-          '\$${amount.toStringAsFixed(2)}',
+          'Ksh ${amount.toStringAsFixed(2)}',
           style: const TextStyle(
             color: Colors.white,
             fontSize: 16,
@@ -441,7 +455,7 @@ class DashboardContent extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      '\$${budget.totalSpent.toStringAsFixed(2)}',
+                      'Ksh ${budget.totalSpent.toStringAsFixed(2)}',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -464,7 +478,7 @@ class DashboardContent extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      '\$${budget.totalBudget.toStringAsFixed(2)}',
+                      'Ksh ${budget.totalBudget.toStringAsFixed(2)}',
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -621,7 +635,7 @@ class DashboardContent extends StatelessWidget {
             Row(
               children: [
                 Text(
-                  '\$${goal.currentAmount.toStringAsFixed(0)}',
+                  'Ksh ${goal.currentAmount.toStringAsFixed(0)}',
                   style: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -630,7 +644,7 @@ class DashboardContent extends StatelessWidget {
                 ),
                 const Spacer(),
                 Text(
-                  '\$${goal.targetAmount.toStringAsFixed(0)}',
+                  'Ksh ${goal.targetAmount.toStringAsFixed(0)}',
                   style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                 ),
               ],
@@ -644,9 +658,155 @@ class DashboardContent extends StatelessWidget {
   Widget _buildAddGoalCard(BuildContext context) {
     return GestureDetector(
       onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const AddGoalScreen()),
+        showModalBottomSheet(
+          context: context,
+          backgroundColor: Colors.transparent,
+          builder:
+              (context) => Container(
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                ),
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    const Text(
+                      'Create a New Goal',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Choose how you\'d like to create your financial goal',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey.shade600,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 24),
+                    ListTile(
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF007A39).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(
+                          Icons.auto_awesome,
+                          color: Color(0xFF007A39),
+                        ),
+                      ),
+                      title: const Text(
+                        'Goal Wizard (Recommended)',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      subtitle: const Text(
+                        'Step-by-step guided goal creation with SMART analysis',
+                      ),
+                      trailing: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.shade100,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          'NEW',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.orange.shade700,
+                          ),
+                        ),
+                      ),
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder:
+                                (context) =>
+                                    const ProgressiveGoalWizardScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                    const Divider(),
+                    ListTile(
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(Icons.psychology, color: Colors.blue),
+                      ),
+                      title: const Text(
+                        'SMART Goal',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      subtitle: const Text(
+                        'Advanced goal creation with validation',
+                      ),
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder:
+                                (context) => const SmartGoalCreationScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                    const Divider(),
+                    ListTile(
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(
+                          Icons.add_circle_outline,
+                          color: Colors.grey,
+                        ),
+                      ),
+                      title: const Text(
+                        'Quick Goal',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      subtitle: const Text('Simple goal creation'),
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const AddGoalScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                ),
+              ),
         );
       },
       child: Container(
@@ -673,7 +833,7 @@ class DashboardContent extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             const Text(
-              'Set New Goal',
+              'Create Goal',
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
@@ -682,7 +842,7 @@ class DashboardContent extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              'Track your progress',
+              'Start your journey',
               style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
             ),
           ],
@@ -739,11 +899,11 @@ class DashboardContent extends StatelessWidget {
                   }
                 },
               ),
-              QuickAction('Set Goal', Icons.flag, Colors.orange, () {
+              QuickAction('SMS Review', Icons.message, Colors.orange, () {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const AddGoalScreen(),
+                    builder: (context) => const SmsReviewScreen(),
                   ),
                 );
               }),
@@ -946,12 +1106,7 @@ class DashboardContent extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  transaction.description ??
-                      transaction.category
-                          .toString()
-                          .split('.')
-                          .last
-                          .toUpperCase(),
+                  transaction.category.toString().split('.').last.toUpperCase(),
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -992,6 +1147,12 @@ class DashboardContent extends StatelessWidget {
           subtitle: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              if (transaction.description != null &&
+                  transaction.description!.isNotEmpty)
+                Text(
+                  transaction.description!,
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                ),
               Text(
                 transaction.date.toString().split(' ')[0],
                 style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
@@ -1023,7 +1184,7 @@ class DashboardContent extends StatelessWidget {
             ],
           ),
           trailing: Text(
-            '$prefix\$${transaction.amount.toStringAsFixed(2)}',
+            '${prefix}Ksh ${transaction.amount.toStringAsFixed(2)}',
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,

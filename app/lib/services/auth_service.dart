@@ -4,6 +4,7 @@ import 'package:hive/hive.dart';
 import 'package:uuid/uuid.dart';
 import '../models/enhanced_profile.dart';
 import '../services/api_client.dart';
+import '../services/biometric_auth_service.dart';
 
 // Result class for profile existence checks
 class ProfileExistenceResult {
@@ -517,11 +518,127 @@ class AuthService extends ChangeNotifier {
           'Password changed successfully for profile: ${_currentProfile!.email}',
         );
       }
-
       return true;
     } catch (e) {
       if (kDebugMode) {
         print('Failed to change password: $e');
+      }
+      return false;
+    }
+  }
+
+  // Biometric Authentication Methods
+
+  /// Try auto-login with biometric authentication
+  Future<bool> tryBiometricAutoLogin() async {
+    try {
+      final BiometricAuthService biometricService =
+          BiometricAuthService.instance;
+
+      // Check if biometric session is valid
+      final bool hasValidSession =
+          await biometricService.hasValidBiometricSession();
+      if (!hasValidSession) {
+        return false;
+      }
+
+      // Check if we have a current profile stored
+      final settingsBox = Hive.box('settings');
+      final currentProfileId = settingsBox.get('current_profile_id');
+
+      if (currentProfileId != null) {
+        final profile = _profileBox!.get(currentProfileId);
+        if (profile != null) {
+          // Authenticate with biometric
+          final bool authenticated = await biometricService
+              .authenticateWithBiometric(
+                reason: 'Please verify your identity to access your account',
+              );
+
+          if (authenticated) {
+            _currentProfile = profile.copyWith(lastLogin: DateTime.now());
+            await _profileBox!.put(profile.id, _currentProfile!);
+            notifyListeners();
+
+            if (kDebugMode) {
+              print(
+                'Biometric auto-login successful for profile: ${profile.email}',
+              );
+            }
+            return true;
+          }
+        }
+      }
+
+      return false;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Biometric auto-login failed: $e');
+      }
+      return false;
+    }
+  }
+
+  /// Login with biometric authentication
+  Future<bool> loginWithBiometric() async {
+    try {
+      final BiometricAuthService biometricService =
+          BiometricAuthService.instance;
+
+      // Check if biometric is available and enabled
+      if (!await biometricService.isBiometricEnabled()) {
+        if (kDebugMode) {
+          print('Biometric authentication is not enabled');
+        }
+        return false;
+      }
+
+      // Authenticate with biometric
+      final bool authenticated = await biometricService
+          .authenticateWithBiometric(
+            reason: 'Please verify your identity to access your account',
+          );
+
+      if (!authenticated) {
+        return false;
+      }
+
+      // Get current profile
+      final settingsBox = Hive.box('settings');
+      final currentProfileId = settingsBox.get('current_profile_id');
+
+      if (currentProfileId != null) {
+        final profile = _profileBox!.get(currentProfileId);
+        if (profile != null) {
+          _currentProfile = profile.copyWith(lastLogin: DateTime.now());
+          await _profileBox!.put(profile.id, _currentProfile!);
+          notifyListeners();
+
+          if (kDebugMode) {
+            print('Biometric login successful for profile: ${profile.email}');
+          }
+          return true;
+        }
+      }
+
+      return false;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Biometric login failed: $e');
+      }
+      return false;
+    }
+  }
+
+  /// Check if biometric setup should be prompted
+  Future<bool> shouldPromptBiometricSetup() async {
+    try {
+      final BiometricAuthService biometricService =
+          BiometricAuthService.instance;
+      return await biometricService.shouldPromptBiometricSetup();
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error checking biometric setup prompt: $e');
       }
       return false;
     }
@@ -744,17 +861,77 @@ class AuthService extends ChangeNotifier {
     return daysSinceCreation < 1 && _currentProfile!.lastLogin == null;
   }
 
+  // Update profile name
+  Future<bool> updateProfileName(String newName) async {
+    if (_currentProfile == null || newName.trim().isEmpty) {
+      return false;
+    }
+
+    try {
+      // Update the profile locally
+      final updatedProfile = _currentProfile!.copyWith(name: newName.trim());
+
+      // Save to local storage
+      await _profileBox?.put(_currentProfile!.id, updatedProfile);
+
+      // Update current profile
+      _currentProfile = updatedProfile;
+      notifyListeners();
+
+      // TODO: Sync with server if needed
+      // _syncProfileWithServer();
+
+      if (kDebugMode) {
+        print('Profile name updated successfully: $newName');
+      }
+
+      return true;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Failed to update profile name: $e');
+      }
+      return false;
+    }
+  }
+
+  // Update profile email
+  Future<bool> updateProfileEmail(String newEmail) async {
+    if (_currentProfile == null ||
+        newEmail.trim().isEmpty ||
+        !newEmail.contains('@')) {
+      return false;
+    }
+
+    try {
+      // Update the profile locally
+      final updatedProfile = _currentProfile!.copyWith(email: newEmail.trim());
+
+      // Save to local storage
+      await _profileBox?.put(_currentProfile!.id, updatedProfile);
+
+      // Update current profile
+      _currentProfile = updatedProfile;
+      notifyListeners();
+
+      // TODO: Sync with server if needed
+      // _syncProfileWithServer();
+
+      if (kDebugMode) {
+        print('Profile email updated successfully: $newEmail');
+      }
+
+      return true;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Failed to update profile email: $e');
+      }
+      return false;
+    }
+  }
+
   // Backward compatibility aliases for old method names
   Future<void> autoLogin() async => await tryAutoLogin();
   Future<bool> setInitialPin(String pin) async => await setInitialPassword(pin);
-  Future<Map<String, dynamic>> changePinOnServer({
-    required String email,
-    required String currentPin,
-    required String newPin,
-  }) async {
-    final success = await changePassword(currentPin, newPin);
-    return {'success': success};
-  }
 }
 
 // Alias for backward compatibility with EnhancedAuthService

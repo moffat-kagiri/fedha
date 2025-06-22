@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import 'models/profile.dart';
 import 'models/enhanced_profile.dart';
 import 'models/transaction.dart';
+import 'models/transaction_candidate.dart'; // Re-enabled with fixed typeId
 import 'models/category.dart';
 import 'models/client.dart';
 import 'models/invoice.dart';
@@ -25,37 +26,53 @@ import 'services/api_client.dart';
 import 'services/offline_data_service.dart';
 import 'services/enhanced_sync_service.dart';
 import 'services/goal_transaction_service.dart';
+import 'services/text_recognition_service.dart';
+import 'services/csv_upload_service.dart';
+import 'services/background_transaction_monitor.dart'; // Background service
+import 'services/sms_transaction_extractor.dart';
+import 'services/sms_listener_service.dart';
+import 'services/notification_service.dart';
+import 'services/theme_service.dart';
+import 'services/offline_manager.dart'; // Offline functionality
+import 'services/navigation_service.dart';
+import 'services/sender_management_service.dart';
+import 'services/biometric_auth_service.dart';
 
 // Screens
 import 'screens/onboarding_screen.dart';
 import 'screens/signin_screen.dart';
 import 'screens/main_navigation.dart';
+import 'screens/app_wrapper.dart';
 import 'screens/profile_screen.dart';
-
+import 'screens/permission_setup_screen.dart';
+import 'screens/text_recognition_setup_screen.dart';
+import 'screens/transaction_candidates_screen.dart';
+import 'screens/csv_upload_screen.dart';
+import 'screens/test_transaction_ingestion_screen.dart';
 // Utils
-import 'utils/theme.dart';
+// import 'utils/theme.dart'; // Using ThemeService instead
 
 Future<void> initializeHive() async {
-  await Hive.initFlutter();
-  // Register all adapters
+  await Hive.initFlutter(); // Register adapters (using their built-in typeIds from @HiveType annotations)
   // Generated adapters from .g.dart files
   Hive.registerAdapter(TransactionAdapter());
+  Hive.registerAdapter(
+    TransactionCandidateAdapter(),
+  ); // Re-enabled with typeId 8
   Hive.registerAdapter(CategoryAdapter());
   Hive.registerAdapter(ProfileAdapter());
-  Hive.registerAdapter(ProfileTypeAdapter()); // From enhanced_profile.g.dart
   Hive.registerAdapter(EnhancedProfileAdapter());
-  Hive.registerAdapter(SyncQueueItemAdapter());
+  Hive.registerAdapter(GoalAdapter());
+  Hive.registerAdapter(BudgetAdapter());
   Hive.registerAdapter(ClientAdapter());
   Hive.registerAdapter(InvoiceAdapter());
+  Hive.registerAdapter(SyncQueueItemAdapter());
+  Hive.registerAdapter(ProfileTypeAdapter());
   Hive.registerAdapter(InvoiceLineItemAdapter());
   Hive.registerAdapter(InvoiceStatusAdapter());
-  Hive.registerAdapter(GoalAdapter());
   Hive.registerAdapter(GoalTypeAdapter());
   Hive.registerAdapter(GoalStatusAdapter());
-  Hive.registerAdapter(BudgetAdapter());
-  Hive.registerAdapter(BudgetLineItemAdapter());
-
-  // Manual enum adapters
+  Hive.registerAdapter(BudgetLineItemAdapter()); // Manual enum adapters
   Hive.registerAdapter(enum_adapters.TransactionTypeAdapter());
   Hive.registerAdapter(enum_adapters.TransactionCategoryAdapter());
   Hive.registerAdapter(enum_adapters.BudgetPeriodAdapter());
@@ -65,6 +82,9 @@ Future<void> initializeHive() async {
   await Hive.openBox<Profile>('profiles');
   await Hive.openBox<EnhancedProfile>('enhanced_profiles');
   await Hive.openBox<Transaction>('transactions');
+  await Hive.openBox<TransactionCandidate>(
+    'transaction_candidates',
+  ); // Re-enabled with fixed typeId
   await Hive.openBox<Category>('categories');
   await Hive.openBox<Client>('clients');
   await Hive.openBox<Invoice>('invoices');
@@ -80,22 +100,58 @@ void main() async {
   final apiClient = ApiClient();
   final offlineDataService = OfflineDataService();
   final goalTransactionService = GoalTransactionService(offlineDataService);
+  final textRecognitionService = TextRecognitionService(offlineDataService);
+  final csvUploadService = CSVUploadService(offlineDataService);
+  final smsTransactionExtractor = SmsTransactionExtractor(offlineDataService);
+  final notificationService = NotificationService.instance;
+  final smsListenerService = SmsListenerService(
+    smsTransactionExtractor,
+    notificationService,
+  );
   final syncService = EnhancedSyncService(
     apiClient: apiClient,
     offlineDataService: offlineDataService,
   );
   final authService = AuthService();
+  final themeService = ThemeService();
+  final navigationService = NavigationService.instance;
+  final senderManagementService = SenderManagementService.instance;
+  final biometricAuthService = BiometricAuthService.instance;
+
+  // Initialize offline manager for local calculations and parsing
+  final offlineManager = OfflineManager();
+  await offlineManager.initialize();
+
+  // Initialize background transaction monitor (will be started after app loads)
+  final backgroundTransactionMonitor = BackgroundTransactionMonitor(
+    offlineDataService,
+    smsTransactionExtractor,
+  );
+
   // Temporarily disable Google Drive to focus on core functionality
   // final googleDriveService = GoogleDriveService();
-
   runApp(
     MultiProvider(
       providers: [
         Provider<ApiClient>.value(value: apiClient),
-        Provider<OfflineDataService>.value(value: offlineDataService),
+        ChangeNotifierProvider<OfflineDataService>.value(
+          value: offlineDataService,
+        ),
         Provider<GoalTransactionService>.value(value: goalTransactionService),
+        Provider<TextRecognitionService>.value(value: textRecognitionService),
+        Provider<CSVUploadService>.value(value: csvUploadService),
+        Provider<SmsTransactionExtractor>.value(value: smsTransactionExtractor),
+        Provider<NotificationService>.value(value: notificationService),
+        Provider<SmsListenerService>.value(value: smsListenerService),
         Provider<EnhancedSyncService>.value(value: syncService),
+        Provider<BackgroundTransactionMonitor>.value(
+          value: backgroundTransactionMonitor,
+        ),
+        Provider<NavigationService>.value(value: navigationService),
+        Provider<SenderManagementService>.value(value: senderManagementService),
+        Provider<BiometricAuthService>.value(value: biometricAuthService),
         ChangeNotifierProvider(create: (_) => authService),
+        ChangeNotifierProvider(create: (_) => themeService),
         // Provider<GoogleDriveService>.value(value: googleDriveService),
       ],
       child: const MyApp(),
@@ -111,10 +167,15 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
+  bool _isInitialized = false;
+  Future<void>? _initializationFuture;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // Start initialization immediately and cache the future
+    _initializationFuture = _initializeServicesOnce();
   }
 
   @override
@@ -153,58 +214,155 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Fedha',
-      theme: FedhaTheme.lightTheme,
-      darkTheme: FedhaTheme.darkTheme,
-      themeMode: ThemeMode.system,
-      home: FutureBuilder<void>(
-        future: _initializeServices(context),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Scaffold(
-              body: Center(child: CircularProgressIndicator()),
-            );
-          }
-          return Consumer<AuthService>(
-            builder: (context, authService, child) {
-              return FutureBuilder<bool>(
-                future: _checkFirstTime(),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Scaffold(
-                      body: Center(child: CircularProgressIndicator()),
-                    );
-                  }
+    return Consumer<ThemeService>(
+      builder: (context, themeService, child) {
+        return MaterialApp(
+          title: 'Fedha',
+          theme: themeService.getLightTheme(),
+          darkTheme: themeService.getDarkTheme(),
+          themeMode: themeService.themeMode,
+          navigatorKey: NavigationService.navigatorKey,
+          home: FutureBuilder<void>(
+            future: _initializationFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Scaffold(
+                  backgroundColor: Color(0xFF007A39),
+                  body: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.account_balance_wallet,
+                          size: 100,
+                          color: Colors.white,
+                        ),
+                        SizedBox(height: 24),
+                        Text(
+                          'Fedha',
+                          style: TextStyle(
+                            fontSize: 32,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                        SizedBox(height: 16),
+                        CircularProgressIndicator(color: Colors.white),
+                        SizedBox(height: 16),
+                        Text(
+                          'Loading...',
+                          style: TextStyle(fontSize: 16, color: Colors.white70),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }
+              return Consumer<AuthService>(
+                builder: (context, authService, child) {
+                  return FutureBuilder<bool>(
+                    future: _checkFirstTime(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Scaffold(
+                          body: Center(child: CircularProgressIndicator()),
+                        );
+                      }
 
-                  final isFirstTime = snapshot.data ?? true;
-
-                  if (isFirstTime) {
-                    return const OnboardingScreen();
-                  } else if (authService.isLoggedIn) {
-                    return const MainNavigation();
-                  } else {
-                    return const SignInScreen();
-                  }
+                      final isFirstTime = snapshot.data ?? true;
+                      if (isFirstTime) {
+                        return const OnboardingScreen();
+                      } else if (authService.isLoggedIn) {
+                        return const AppWrapper(); // Use wrapper for permission handling
+                      } else {
+                        return const SignInScreen();
+                      }
+                    },
+                  );
                 },
               );
             },
-          );
-        },
-      ),
-      routes: {
-        '/onboarding': (context) => const OnboardingScreen(),
-        '/signin': (context) => const SignInScreen(),
-        '/dashboard': (context) => const MainNavigation(),
-        '/profile': (context) => const ProfileScreen(),
+          ),
+          routes: {
+            '/onboarding': (context) => const OnboardingScreen(),
+            '/signin': (context) => const SignInScreen(),
+            '/dashboard': (context) => const MainNavigation(),
+            '/profile': (context) => const ProfileScreen(),
+            '/permission_setup': (context) => const PermissionSetupScreen(),
+            '/text_recognition_setup':
+                (context) => const TextRecognitionSetupScreen(),
+            '/transaction_candidates':
+                (context) => const TransactionCandidatesScreen(),
+            '/csv_upload': (context) => const CSVUploadScreen(),
+            '/test_ingestion':
+                (context) => const TestTransactionIngestionScreen(),
+          },
+          onGenerateRoute: (settings) {
+            // Handle unknown routes gracefully
+            if (settings.name?.startsWith('/edit_transaction_candidate') ==
+                true) {
+              // This route is obsolete - transaction editing now uses modal bottom sheets
+              return null; // Let the router handle this gracefully
+            }
+            return null;
+          },
+        );
       },
     );
   }
 
-  Future<void> _initializeServices(BuildContext context) async {
+  Future<void> _initializeServicesOnce() async {
+    if (_isInitialized) return;
+    _isInitialized = true;
+
     final authService = Provider.of<AuthService>(context, listen: false);
-    await authService.initialize();
-    await authService.tryAutoLogin(); // Using the correct method name
+    final themeService = Provider.of<ThemeService>(context, listen: false);
+    try {
+      // Initialize core services sequentially to avoid blocking the UI
+      await Future.wait([authService.initialize(), themeService.initialize()]);
+
+      // Try biometric auto-login first if available
+      final biometricSuccess = await authService.tryBiometricAutoLogin();
+
+      if (!biometricSuccess) {
+        // Fall back to regular auto-login
+        await authService.tryAutoLogin();
+      }
+
+      // Update SMS listener with current profile ID after auto-login
+      final currentProfile = authService.currentProfile;
+      if (currentProfile != null) {
+        final smsListenerService = Provider.of<SmsListenerService>(
+          context,
+          listen: false,
+        );
+        smsListenerService.setCurrentProfile(currentProfile.id);
+      }
+
+      // Initialize background services with a longer delay to avoid blocking UI
+      Future.delayed(const Duration(seconds: 10), () async {
+        if (mounted) {
+          try {
+            final backgroundMonitor = Provider.of<BackgroundTransactionMonitor>(
+              context,
+              listen: false,
+            );
+            await backgroundMonitor.initialize();
+            if (kDebugMode) {
+              print('Background monitor initialized successfully');
+            }
+          } catch (e) {
+            if (kDebugMode) {
+              print('Background monitor initialization deferred: $e');
+            }
+          }
+        }
+      });
+    } catch (e) {
+      if (kDebugMode) {
+        print('Service initialization error: $e');
+      }
+    }
   }
 
   Future<bool> _checkFirstTime() async {
