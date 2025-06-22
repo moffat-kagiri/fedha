@@ -134,7 +134,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                 ),
                 decoration: const InputDecoration(
                   labelText: 'Amount',
-                  prefixText: '\$ ',
+                  prefixText: 'KSh ',
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) return 'Required';

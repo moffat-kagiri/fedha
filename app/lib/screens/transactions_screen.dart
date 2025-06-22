@@ -196,7 +196,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                 const SizedBox(height: 20),
                 _buildDetailRow(
                   'Amount',
-                  '\$${transaction.amount.toStringAsFixed(2)}',
+                  'KSh${transaction.amount.toStringAsFixed(2)}',
                 ),
                 _buildDetailRow(
                   'Type',
@@ -709,7 +709,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
               child: TextFormField(
                 decoration: InputDecoration(
                   hintText: 'Min amount',
-                  prefixText: '\$ ',
+                  prefixText: 'KSh ',
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
@@ -733,7 +733,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
               child: TextFormField(
                 decoration: InputDecoration(
                   hintText: 'Max amount',
-                  prefixText: '\$ ',
+                  prefixText: 'KSh ',
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
