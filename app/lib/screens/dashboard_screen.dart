@@ -7,6 +7,7 @@ import '../models/budget.dart';
 import '../models/enhanced_profile.dart';
 import '../services/auth_service.dart';
 import '../services/offline_data_service.dart';
+import '../services/currency_service.dart';
 import '../widgets/quick_transaction_entry.dart';
 import 'main_navigation.dart';
 import 'add_goal_screen.dart';
@@ -635,7 +636,10 @@ class DashboardContent extends StatelessWidget {
             Row(
               children: [
                 Text(
-                  'Ksh ${goal.currentAmount.toStringAsFixed(0)}',
+                  CurrencyService.formatCurrency(
+                    goal.currentAmount,
+                    goal.currency,
+                  ),
                   style: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -644,7 +648,10 @@ class DashboardContent extends StatelessWidget {
                 ),
                 const Spacer(),
                 Text(
-                  'Ksh ${goal.targetAmount.toStringAsFixed(0)}',
+                  CurrencyService.formatCurrency(
+                    goal.targetAmount,
+                    goal.currency,
+                  ),
                   style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                 ),
               ],

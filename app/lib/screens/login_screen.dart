@@ -1,5 +1,6 @@
 // lib/screens/login_screen.dart
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import '../models/enhanced_profile.dart';
 import '../services/auth_service.dart';
@@ -34,12 +35,22 @@ class _LoginScreenState extends State<LoginScreen> {
         await biometricService.isFingerPrintAvailable();
     final bool isEnabled = await biometricService.isBiometricEnabled();
 
+    if (kDebugMode) {
+      print(
+        'LoginScreen: Biometric check - supported: $isSupported, fingerprint: $isFingerprintAvailable, enabled: $isEnabled',
+      );
+    }
+
     if (mounted) {
       setState(() {
         // Show biometric option if device supports it, fingerprint is available, and user has enabled it
         _showBiometricOption =
             isSupported && isFingerprintAvailable && isEnabled;
       });
+
+      if (kDebugMode) {
+        print('LoginScreen: Show biometric option: $_showBiometricOption');
+      }
     }
   }
 

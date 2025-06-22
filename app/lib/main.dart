@@ -52,6 +52,9 @@ import 'screens/test_transaction_ingestion_screen.dart';
 // Utils
 // import 'utils/theme.dart'; // Using ThemeService instead
 
+// Debug utilities
+import 'debug_sms_senders.dart';
+
 Future<void> initializeHive() async {
   await Hive.initFlutter(); // Register adapters (using their built-in typeIds from @HiveType annotations)
   // Generated adapters from .g.dart files
@@ -96,6 +99,12 @@ Future<void> initializeHive() async {
 
 void main() async {
   await initializeHive();
+
+  // Debug: Print SMS sender status on app start
+  if (kDebugMode) {
+    await DebugSmsSenders.printSenderStatus();
+  }
+
   // Initialize services
   final apiClient = ApiClient();
   final offlineDataService = OfflineDataService();
