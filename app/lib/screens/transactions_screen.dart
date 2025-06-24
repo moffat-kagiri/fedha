@@ -1046,20 +1046,28 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                         transaction.category = updatedCandidate.category;
                         transaction.date = updatedCandidate.timestamp;
                         transaction.type = updatedCandidate.type;
-                        transaction.updatedAt = DateTime.now();
-
-                        // Save to database
-                        await transaction.save();
-
-                        Navigator.pop(context);
-                        setState(() {}); // Refresh the transaction list
-
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Transaction updated successfully!'),
-                            backgroundColor: Colors.green,
-                          ),
+                        transaction.updatedAt =
+                            DateTime.now(); // Save to database using OfflineDataService to ensure proper notifications
+                        final dataService = Provider.of<OfflineDataService>(
+                          context,
+                          listen: false,
                         );
+                        await dataService.updateTransaction(transaction);
+
+                        if (mounted) {
+                          Navigator.pop(context);
+                          // Force rebuild of the transaction list
+                          setState(() {});
+
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Transaction updated successfully!',
+                              ),
+                              backgroundColor: Colors.green,
+                            ),
+                          );
+                        }
                       },
                     ),
                   ),

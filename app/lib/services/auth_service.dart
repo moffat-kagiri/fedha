@@ -749,19 +749,25 @@ class AuthService extends ChangeNotifier {
   // Logout
   Future<void> logout() async {
     try {
+      // Clear current profile
       _currentProfile = null;
 
+      // Clear stored session
       final settingsBox = Hive.box('settings');
       await settingsBox.delete('current_profile_id');
 
-      notifyListeners();
+      // Clear biometric session
+      final biometricService = BiometricAuthService.instance;
+      await biometricService.clearBiometricSession();
 
       if (kDebugMode) {
-        print('Logout successful');
+        print('AuthService: User logged out successfully');
       }
+
+      notifyListeners();
     } catch (e) {
       if (kDebugMode) {
-        print('Logout failed: $e');
+        print('AuthService: Error during logout: $e');
       }
     }
   }

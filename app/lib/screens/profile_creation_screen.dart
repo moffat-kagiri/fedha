@@ -7,8 +7,13 @@ import 'biometric_setup_screen.dart';
 
 class ProfileCreationScreen extends StatefulWidget {
   final ProfileType? initialProfileType;
+  final VoidCallback? onUserLoggedIn;
 
-  const ProfileCreationScreen({super.key, this.initialProfileType});
+  const ProfileCreationScreen({
+    super.key,
+    this.initialProfileType,
+    this.onUserLoggedIn,
+  });
 
   @override
   State<ProfileCreationScreen> createState() => _ProfileCreationScreenState();
@@ -357,18 +362,28 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen>
             context,
             MaterialPageRoute(
               builder:
-                  (context) =>
-                      const BiometricSetupScreen(isFirstTimeSetup: true),
+                  (context) => BiometricSetupScreen(
+                    isFirstTimeSetup: true,
+                    onUserLoggedIn: widget.onUserLoggedIn,
+                  ),
             ),
           );
 
           if (!mounted) return;
 
-          // Navigate to dashboard regardless of biometric setup result
-          Navigator.pushReplacementNamed(context, '/dashboard');
+          // Call the login callback instead of navigating directly
+          if (widget.onUserLoggedIn != null) {
+            widget.onUserLoggedIn!();
+          } else {
+            Navigator.pushReplacementNamed(context, '/dashboard');
+          }
         } else {
-          // Go directly to dashboard
-          Navigator.pushReplacementNamed(context, '/dashboard');
+          // Call the login callback instead of navigating directly
+          if (widget.onUserLoggedIn != null) {
+            widget.onUserLoggedIn!();
+          } else {
+            Navigator.pushReplacementNamed(context, '/dashboard');
+          }
         }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(

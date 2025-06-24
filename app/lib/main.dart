@@ -42,7 +42,7 @@ import 'services/biometric_auth_service.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/signin_screen.dart';
 import 'screens/main_navigation.dart';
-import 'screens/app_wrapper.dart';
+import 'screens/auth_wrapper.dart';
 import 'screens/profile_screen.dart';
 import 'screens/permission_setup_screen.dart';
 import 'screens/text_recognition_setup_screen.dart';
@@ -197,7 +197,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
 
-    // Trigger sync when app goes to background or is paused
+    // Only trigger sync when app goes to background - biometric handling is done in AuthWrapper
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.detached ||
         state == AppLifecycleState.inactive) {
@@ -267,29 +267,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                   ),
                 );
               }
-              return Consumer<AuthService>(
-                builder: (context, authService, child) {
-                  return FutureBuilder<bool>(
-                    future: _checkFirstTime(),
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Scaffold(
-                          body: Center(child: CircularProgressIndicator()),
-                        );
-                      }
-
-                      final isFirstTime = snapshot.data ?? true;
-                      if (isFirstTime) {
-                        return const OnboardingScreen();
-                      } else if (authService.isLoggedIn) {
-                        return const AppWrapper(); // Use wrapper for permission handling
-                      } else {
-                        return const SignInScreen();
-                      }
-                    },
-                  );
-                },
-              );
+              return const AuthWrapper();
             },
           ),
           routes: {
@@ -328,15 +306,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     final themeService = Provider.of<ThemeService>(context, listen: false);
     try {
       // Initialize core services sequentially to avoid blocking the UI
-      await Future.wait([authService.initialize(), themeService.initialize()]);
-
-      // Try biometric auto-login first if available
-      final biometricSuccess = await authService.tryBiometricAutoLogin();
-
-      if (!biometricSuccess) {
-        // Fall back to regular auto-login
-        await authService.tryAutoLogin();
-      }
+      await Future.wait(
+        [authService.initialize(), themeService.initialize()],
+      ); // Only try regular auto-login - biometric auth will be handled by AuthWrapper
+      await authService.tryAutoLogin();
 
       // Update SMS listener with current profile ID after auto-login
       final currentProfile = authService.currentProfile;
@@ -372,10 +345,5 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         print('Service initialization error: $e');
       }
     }
-  }
-
-  Future<bool> _checkFirstTime() async {
-    final settingsBox = Hive.box('settings');
-    return settingsBox.get('first_time', defaultValue: true);
   }
 }
