@@ -313,7 +313,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
       // Update SMS listener with current profile ID after auto-login
       final currentProfile = authService.currentProfile;
-      if (currentProfile != null) {
+      if (currentProfile != null && mounted) {
         final smsListenerService = Provider.of<SmsListenerService>(
           context,
           listen: false,

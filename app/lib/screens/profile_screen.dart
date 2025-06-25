@@ -228,9 +228,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
 
-            const SizedBox(height: 24),
-
-            // Security Section
+            const SizedBox(height: 24), // Security Section
             _buildSectionHeader('Security'),
             Card(
               child: Column(
@@ -240,19 +238,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     title: 'Change Password',
                     subtitle: 'Update your password',
                     onTap: () => _showChangePasswordDialog(context),
-                  ),
-                  const Divider(height: 1),
-                  _buildProfileTile(
-                    icon: Icons.fingerprint,
-                    title: 'Biometric Login',
-                    subtitle: 'Use fingerprint or face ID',
-                    trailing: Switch(
-                      value: false,
-                      onChanged: (value) {
-                        _showBiometricDialog(context);
-                      },
-                      activeColor: const Color(0xFF007A39),
-                    ),
                   ),
                 ],
               ),
@@ -723,25 +708,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     showDialog(
       context: context,
       builder: (context) => const _ChangePasswordDialog(),
-    );
-  }
-
-  void _showBiometricDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Biometric Authentication'),
-            content: const Text(
-              'Biometric login will be available in the next update.\n\nSupported methods:\n• Fingerprint\n• Face ID\n• Voice Recognition',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('OK'),
-              ),
-            ],
-          ),
     );
   }
 
