@@ -1,4 +1,5 @@
 // lib/screens/profile_type_screen.dart
+import 'package:fedha/models/enhanced_profile.dart' show ProfileType;
 import 'package:flutter/material.dart';
 import 'profile_creation_screen.dart';
 
@@ -61,11 +62,16 @@ class ProfileTypeScreen extends StatelessWidget {
       ),
     );
   }
+
   void _navigateToLogin(BuildContext context, {required bool isBusiness}) {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => const ProfileCreationScreen(),
+        builder:
+            (_) => ProfileCreationScreen(
+              initialProfileType:
+                  isBusiness ? ProfileType.business : ProfileType.personal,
+            ),
       ),
     );
   }
