@@ -47,7 +47,7 @@ class SyncService {
 
       if (unsyncedTransactions.isNotEmpty) {
         // Send to backend
-        final response = await _apiClient.syncTransactions(
+        final _ = await _apiClient.syncTransactions(
           profileId,
           unsyncedTransactions,
         );
@@ -102,7 +102,7 @@ class SyncService {
       final unsyncedCategories = categories.where((c) => !c.isSynced).toList();
 
       if (unsyncedCategories.isNotEmpty) {
-        final response = await _apiClient.syncCategories(
+        final _ = await _apiClient.syncCategories(
           profileId,
           unsyncedCategories,
         );

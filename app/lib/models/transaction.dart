@@ -87,7 +87,7 @@ enum TransactionCategory {
   marketing, // Maps to Django's 'MRKT'
   equipment, // Maps to Django's 'EQUP'
   supplies, // Maps to Django's 'SUPL'
-  professional_services, // Maps to Django's 'PROF'
+  professionalServices, // Maps to Django's 'PROF'
   travel, // Maps to Django's 'TRVL'
   // Personal Expense Categories
   groceries, // Maps to Django's 'GROC'

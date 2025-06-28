@@ -61,7 +61,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       children: [
                         CircleAvatar(
                           radius: 50,
-                          backgroundColor: Colors.white.withOpacity(0.2),
+                          backgroundColor: Colors.white.withValues(alpha: 0.2),
                           child: const Icon(
                             Icons.person,
                             size: 60,
@@ -111,7 +111,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         vertical: 8,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
+                        color: Colors.white.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Row(
@@ -228,9 +228,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
 
-            const SizedBox(height: 24),
-
-            // Security Section
+            const SizedBox(height: 24), // Security Section
             _buildSectionHeader('Security'),
             Card(
               child: Column(
@@ -240,19 +238,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     title: 'Change Password',
                     subtitle: 'Update your password',
                     onTap: () => _showChangePasswordDialog(context),
-                  ),
-                  const Divider(height: 1),
-                  _buildProfileTile(
-                    icon: Icons.fingerprint,
-                    title: 'Biometric Login',
-                    subtitle: 'Use fingerprint or face ID',
-                    trailing: Switch(
-                      value: false,
-                      onChanged: (value) {
-                        _showBiometricDialog(context);
-                      },
-                      activeColor: const Color(0xFF007A39),
-                    ),
                   ),
                 ],
               ),
@@ -345,7 +330,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       leading: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: const Color(0xFF007A39).withOpacity(0.1),
+          color: const Color(0xFF007A39).withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Icon(icon, color: const Color(0xFF007A39), size: 20),
@@ -723,25 +708,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     showDialog(
       context: context,
       builder: (context) => const _ChangePasswordDialog(),
-    );
-  }
-
-  void _showBiometricDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Biometric Authentication'),
-            content: const Text(
-              'Biometric login will be available in the next update.\n\nSupported methods:\n• Fingerprint\n• Face ID\n• Voice Recognition',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('OK'),
-              ),
-            ],
-          ),
     );
   }
 

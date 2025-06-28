@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "862134647621",
+    "project_id": "fedha-tracker",
+    "storage_bucket": "fedha-tracker.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:862134647621:android:e13263930355dde2cb1c2c",
+        "android_client_info": {
+          "package_name": "com.fedha.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBHDfLETpVeCZre8HvywU3HlsV2RUceHwc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -27,7 +27,7 @@ ngrok http 8000
 ```
 
 ### 5. Update Flutter app
-- Copy the https URL from ngrok (e.g., `https://abc123.ngrok.io`)
+- Copy the https URL from ngrok (e.g., `https://7a9a-41-209-9-54.ngrok-free.app`)
 - Update `api_client.dart`:
 
 ```dart
@@ -36,7 +36,7 @@ static String get _baseUrl {
     return "http://127.0.0.1:8000/api";
   } else {
     // Use ngrok URL for mobile testing
-    return "https://abc123.ngrok.io/api";
+    return "https://7a9a-41-209-9-54.ngrok-free.app/api";
   }
 }
 ```

@@ -78,8 +78,8 @@ class _LoginScreenState extends State<LoginScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               backgroundColor:
                   widget.profileType == ProfileType.business
-                      ? Colors.blue.withOpacity(0.2)
-                      : Colors.green.withOpacity(0.2),
+                      ? Colors.blue.withValues(alpha: 0.2)
+                      : Colors.green.withValues(alpha: 0.2),
             ),
             const SizedBox(height: 40),
 

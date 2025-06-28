@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 
 // Models
 import 'models/profile.dart';
@@ -37,12 +39,14 @@ import 'services/offline_manager.dart'; // Offline functionality
 import 'services/navigation_service.dart';
 import 'services/sender_management_service.dart';
 import 'services/biometric_auth_service.dart';
+import 'services/background_sms_service.dart'; // New background SMS service
+import 'services/background_sync_service.dart'; // Background sync service
 
 // Screens
 import 'screens/onboarding_screen.dart';
 import 'screens/signin_screen.dart';
 import 'screens/main_navigation.dart';
-import 'screens/app_wrapper.dart';
+import 'screens/auth_wrapper.dart';
 import 'screens/profile_screen.dart';
 import 'screens/permission_setup_screen.dart';
 import 'screens/text_recognition_setup_screen.dart';
@@ -98,6 +102,33 @@ Future<void> initializeHive() async {
 }
 
 void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Firebase (check if already initialized)
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  } catch (e) {
+    if (e.toString().contains('duplicate-app')) {
+      // Firebase already initialized, continue
+      if (kDebugMode) {
+        print('Firebase already initialized, continuing...');
+      }
+    } else {
+      // Re-throw other errors
+      rethrow;
+    }
+  }
+  // Initialize background SMS monitoring (auto-start on boot)
+  await BackgroundSmsService.initialize();
+
+  // Start background monitoring if device has booted
+  await BackgroundSmsService.startBackgroundMonitoring();
+
+  // Sync any background transactions from while app was closed
+  await BackgroundSyncService.syncBackgroundTransactions();
+
   await initializeHive();
 
   // Debug: Print SMS sender status on app start
@@ -197,7 +228,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
 
-    // Trigger sync when app goes to background or is paused
+    // Only trigger sync when app goes to background - biometric handling is done in AuthWrapper
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.detached ||
         state == AppLifecycleState.inactive) {
@@ -267,29 +298,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                   ),
                 );
               }
-              return Consumer<AuthService>(
-                builder: (context, authService, child) {
-                  return FutureBuilder<bool>(
-                    future: _checkFirstTime(),
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Scaffold(
-                          body: Center(child: CircularProgressIndicator()),
-                        );
-                      }
-
-                      final isFirstTime = snapshot.data ?? true;
-                      if (isFirstTime) {
-                        return const OnboardingScreen();
-                      } else if (authService.isLoggedIn) {
-                        return const AppWrapper(); // Use wrapper for permission handling
-                      } else {
-                        return const SignInScreen();
-                      }
-                    },
-                  );
-                },
-              );
+              return const AuthWrapper();
             },
           ),
           routes: {
@@ -328,19 +337,14 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     final themeService = Provider.of<ThemeService>(context, listen: false);
     try {
       // Initialize core services sequentially to avoid blocking the UI
-      await Future.wait([authService.initialize(), themeService.initialize()]);
-
-      // Try biometric auto-login first if available
-      final biometricSuccess = await authService.tryBiometricAutoLogin();
-
-      if (!biometricSuccess) {
-        // Fall back to regular auto-login
-        await authService.tryAutoLogin();
-      }
+      await Future.wait(
+        [authService.initialize(), themeService.initialize()],
+      ); // Only try regular auto-login - biometric auth will be handled by AuthWrapper
+      await authService.tryAutoLogin();
 
       // Update SMS listener with current profile ID after auto-login
       final currentProfile = authService.currentProfile;
-      if (currentProfile != null) {
+      if (currentProfile != null && mounted) {
         final smsListenerService = Provider.of<SmsListenerService>(
           context,
           listen: false,
@@ -372,10 +376,5 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         print('Service initialization error: $e');
       }
     }
-  }
-
-  Future<bool> _checkFirstTime() async {
-    final settingsBox = Hive.box('settings');
-    return settingsBox.get('first_time', defaultValue: true);
   }
 }

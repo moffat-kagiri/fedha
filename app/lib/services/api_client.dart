@@ -20,8 +20,8 @@ class ApiClient {
       url = "http://127.0.0.1:8000/api";
     } else {
       // Mobile platforms - using ngrok tunnel for real device access
-      // ngrok URL: https://5f1d-102-0-17-100.ngrok-free.app
-      url = "https://5f1d-102-0-17-100.ngrok-free.app/api";
+      // ngrok URL: https://7a9a-41-209-9-54.ngrok-free.app
+      url = "https://7a9a-41-209-9-54.ngrok-free.app/api";
 
       // For emulator testing (if needed), use:
       // url = "http://10.0.2.2:8000/api";
@@ -57,7 +57,7 @@ class ApiClient {
 
     final response = await http.post(
       Uri.parse(url),
-      headers: {'Content-Type': 'application/json'},
+      headers: _commonHeaders,
       body: jsonEncode(transactions.map((t) => t.toJson()).toList()),
     );
 
@@ -72,9 +72,23 @@ class ApiClient {
   Future<double> calculateRepayment(Map<String, dynamic> data) async {
     final response = await http.post(
       Uri.parse('$_baseUrl/calculate-repayment/'),
+      headers: _commonHeaders,
       body: jsonEncode(data),
     );
     return jsonDecode(response.body)['total_repayment'];
+  }
+
+  // Common headers for all requests (especially for ngrok)
+  static Map<String, String> get _commonHeaders {
+    return {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      // ngrok requires this header to avoid browser warning pages
+      'ngrok-skip-browser-warning': 'true',
+      // Additional headers that might help with ngrok
+      'User-Agent': 'Flutter-App/1.0',
+      'Cache-Control': 'no-cache',
+    };
   }
 
   // Health check for connectivity
@@ -83,17 +97,16 @@ class ApiClient {
       final url = '$_baseUrl/health/';
       if (kDebugMode) {
         print('🌐 API_CLIENT: Making health check request to: $url');
+        print('🌐 API_CLIENT: Headers: $_commonHeaders');
       }
 
-      final response = await http.get(
-        Uri.parse(url),
-        headers: {'Content-Type': 'application/json'},
-      );
+      final response = await http.get(Uri.parse(url), headers: _commonHeaders);
 
       if (kDebugMode) {
         print(
           '🌐 API_CLIENT: Health check response - Status: ${response.statusCode}, Body: ${response.body}',
         );
+        print('🌐 API_CLIENT: Response Headers: ${response.headers}');
       }
 
       return response.statusCode == 200;
@@ -117,7 +130,7 @@ class ApiClient {
   ) async {
     final response = await http.post(
       Uri.parse('$_baseUrl/sync/$profileId/categories/'),
-      headers: {'Content-Type': 'application/json'},
+      headers: _commonHeaders,
       body: jsonEncode(categories.map((c) => c.toJson()).toList()),
     );
     return jsonDecode(response.body);
@@ -130,7 +143,7 @@ class ApiClient {
   ) async {
     final response = await http.post(
       Uri.parse('$_baseUrl/sync/$profileId/clients/'),
-      headers: {'Content-Type': 'application/json'},
+      headers: _commonHeaders,
       body: jsonEncode(clients.map((c) => c.toJson()).toList()),
     );
     return jsonDecode(response.body);
@@ -143,7 +156,7 @@ class ApiClient {
   ) async {
     final response = await http.post(
       Uri.parse('$_baseUrl/sync/$profileId/invoices/'),
-      headers: {'Content-Type': 'application/json'},
+      headers: _commonHeaders,
       body: jsonEncode(invoices.map((i) => i.toJson()).toList()),
     );
     return jsonDecode(response.body);
@@ -156,7 +169,7 @@ class ApiClient {
   ) async {
     final response = await http.post(
       Uri.parse('$_baseUrl/sync/$profileId/goals/'),
-      headers: {'Content-Type': 'application/json'},
+      headers: _commonHeaders,
       body: jsonEncode(goals.map((g) => g.toJson()).toList()),
     );
     return jsonDecode(response.body);
@@ -169,7 +182,7 @@ class ApiClient {
   ) async {
     final response = await http.post(
       Uri.parse('$_baseUrl/sync/$profileId/budgets/'),
-      headers: {'Content-Type': 'application/json'},
+      headers: _commonHeaders,
       body: jsonEncode(budgets.map((b) => b.toJson()).toList()),
     );
     return jsonDecode(response.body);
@@ -179,7 +192,7 @@ class ApiClient {
   Future<List<Transaction>> fetchTransactions(String profileId) async {
     final response = await http.get(
       Uri.parse('$_baseUrl/profiles/$profileId/transactions/'),
-      headers: {'Content-Type': 'application/json'},
+      headers: _commonHeaders,
     );
 
     if (response.statusCode == 200) {
@@ -192,7 +205,7 @@ class ApiClient {
   Future<List<Category>> fetchCategories(String profileId) async {
     final response = await http.get(
       Uri.parse('$_baseUrl/profiles/$profileId/categories/'),
-      headers: {'Content-Type': 'application/json'},
+      headers: _commonHeaders,
     );
 
     if (response.statusCode == 200) {
@@ -205,7 +218,7 @@ class ApiClient {
   Future<List<Client>> fetchClients(String profileId) async {
     final response = await http.get(
       Uri.parse('$_baseUrl/profiles/$profileId/clients/'),
-      headers: {'Content-Type': 'application/json'},
+      headers: _commonHeaders,
     );
 
     if (response.statusCode == 200) {
@@ -218,7 +231,7 @@ class ApiClient {
   Future<List<Invoice>> fetchInvoices(String profileId) async {
     final response = await http.get(
       Uri.parse('$_baseUrl/profiles/$profileId/invoices/'),
-      headers: {'Content-Type': 'application/json'},
+      headers: _commonHeaders,
     );
 
     if (response.statusCode == 200) {
@@ -231,7 +244,7 @@ class ApiClient {
   Future<List<Goal>> fetchGoals(String profileId) async {
     final response = await http.get(
       Uri.parse('$_baseUrl/profiles/$profileId/goals/'),
-      headers: {'Content-Type': 'application/json'},
+      headers: _commonHeaders,
     );
 
     if (response.statusCode == 200) {
@@ -244,7 +257,7 @@ class ApiClient {
   Future<List<Budget>> fetchBudgets(String profileId) async {
     final response = await http.get(
       Uri.parse('$_baseUrl/profiles/$profileId/budgets/'),
-      headers: {'Content-Type': 'application/json'},
+      headers: _commonHeaders,
     );
 
     if (response.statusCode == 200) {
@@ -256,8 +269,7 @@ class ApiClient {
 
   // =============================================================================
   // ENHANCED PROFILE MANAGEMENT - EMAIL/PASSWORD AUTHENTICATION
-  // =============================================================================
-  // Enhanced profile registration with password-based authentication
+  // =============================================================================  // Enhanced profile registration with password-based authentication
   Future<Map<String, dynamic>> createEnhancedProfile({
     required String name,
     required String profileType,
@@ -269,7 +281,7 @@ class ApiClient {
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/enhanced/register/'),
-        headers: {'Content-Type': 'application/json'},
+        headers: _commonHeaders,
         body: jsonEncode({
           'name': name,
           'profile_type': profileType,
@@ -298,7 +310,7 @@ class ApiClient {
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/enhanced/login/'),
-        headers: {'Content-Type': 'application/json'},
+        headers: _commonHeaders,
         body: jsonEncode({'user_id': userId, 'pin': pin}),
       );
 
@@ -321,7 +333,7 @@ class ApiClient {
         Uri.parse(
           '$_baseUrl/enhanced/sync/?email=$email',
         ), // Changed from user_id
-        headers: {'Content-Type': 'application/json'},
+        headers: _commonHeaders,
       );
 
       if (response.statusCode == 200) {
@@ -345,7 +357,7 @@ class ApiClient {
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/enhanced/sync/'),
-        headers: {'Content-Type': 'application/json'},
+        headers: _commonHeaders,
         body: jsonEncode({
           'email': email,
           'profile_data': profileData,
@@ -369,7 +381,7 @@ class ApiClient {
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/enhanced/validate/'),
-        headers: {'Content-Type': 'application/json'},
+        headers: _commonHeaders,
         body: jsonEncode({'email': email}), // Changed from user_id
       );
 
@@ -393,7 +405,7 @@ class ApiClient {
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/enhanced/change-password/'),
-        headers: {'Content-Type': 'application/json'},
+        headers: _commonHeaders,
         body: jsonEncode({
           'email': email,
           'current_password': currentPassword,
@@ -423,7 +435,7 @@ class ApiClient {
     try {
       final response = await http.get(
         Uri.parse('$_baseUrl/enhanced/profile/?email=$email'),
-        headers: {'Content-Type': 'application/json'},
+        headers: _commonHeaders,
       );
 
       if (response.statusCode == 200) {
@@ -457,7 +469,7 @@ class ApiClient {
 
       final response = await http.put(
         Uri.parse('$_baseUrl/enhanced/profile/'),
-        headers: {'Content-Type': 'application/json'},
+        headers: _commonHeaders,
         body: jsonEncode(updateData),
       );
 
@@ -479,7 +491,7 @@ class ApiClient {
     try {
       final response = await http.delete(
         Uri.parse('$_baseUrl/enhanced/profile/?email=$email'),
-        headers: {'Content-Type': 'application/json'},
+        headers: _commonHeaders,
       );
 
       if (response.statusCode == 200) {
@@ -509,7 +521,7 @@ class ApiClient {
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/calculators/loan/'),
-        headers: {'Content-Type': 'application/json'},
+        headers: _commonHeaders,
         body: jsonEncode({
           'principal': principal,
           'annual_rate': annualRate,
@@ -541,7 +553,7 @@ class ApiClient {
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/calculators/interest-rate-solver/'),
-        headers: {'Content-Type': 'application/json'},
+        headers: _commonHeaders,
         body: jsonEncode({
           'principal': principal,
           'payment': payment,
@@ -572,7 +584,7 @@ class ApiClient {
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/calculators/amortization-schedule/'),
-        headers: {'Content-Type': 'application/json'},
+        headers: _commonHeaders,
         body: jsonEncode({
           'principal': principal,
           'annual_rate': annualRate,
@@ -605,7 +617,7 @@ class ApiClient {
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/calculators/early-payment/'),
-        headers: {'Content-Type': 'application/json'},
+        headers: _commonHeaders,
         body: jsonEncode({
           'principal': principal,
           'annual_rate': annualRate,
@@ -643,10 +655,9 @@ class ApiClient {
       if (timeYears != null) {
         body['time_years'] = timeYears;
       }
-
       final response = await http.post(
         Uri.parse('$_baseUrl/calculators/roi/'),
-        headers: {'Content-Type': 'application/json'},
+        headers: _commonHeaders,
         body: jsonEncode(body),
       );
 
@@ -672,7 +683,7 @@ class ApiClient {
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/calculators/compound-interest/'),
-        headers: {'Content-Type': 'application/json'},
+        headers: _commonHeaders,
         body: jsonEncode({
           'principal': principal,
           'annual_rate': annualRate,
@@ -702,7 +713,7 @@ class ApiClient {
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/calculators/portfolio-metrics/'),
-        headers: {'Content-Type': 'application/json'},
+        headers: _commonHeaders,
         body: jsonEncode({'investments': investments}),
       );
 
@@ -725,7 +736,7 @@ class ApiClient {
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/calculators/risk-assessment/'),
-        headers: {'Content-Type': 'application/json'},
+        headers: _commonHeaders,
         body: jsonEncode({'answers': answers}),
       );
 

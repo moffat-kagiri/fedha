@@ -145,7 +145,7 @@ class DashboardContent extends StatelessWidget {
               color: Colors.grey.shade100,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: const Color(0xFF007A39).withOpacity(0.2),
+                color: const Color(0xFF007A39).withValues(alpha: 0.2),
                 width: 1,
               ),
             ),
@@ -184,7 +184,7 @@ class DashboardContent extends StatelessWidget {
         boxShadow: [
           BoxShadow(
             color: (isPositive && !budgetExceeded ? Colors.green : Colors.red)
-                .withOpacity(0.3),
+                .withValues(alpha: 0.3),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -360,7 +360,7 @@ class DashboardContent extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: const Color(0xFF007A39).withOpacity(0.1),
+                color: const Color(0xFF007A39).withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               child: const Icon(Icons.add, color: Color(0xFF007A39), size: 32),
@@ -399,7 +399,7 @@ class DashboardContent extends StatelessWidget {
         border: Border.all(color: Colors.grey.shade200),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
+            color: Colors.grey.withValues(alpha: 0.1),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -585,7 +585,7 @@ class DashboardContent extends StatelessWidget {
           border: Border.all(color: Colors.grey.shade200),
           boxShadow: [
             BoxShadow(
-              color: Colors.grey.withOpacity(0.1),
+              color: Colors.grey.withValues(alpha: 0.1),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -709,7 +709,7 @@ class DashboardContent extends StatelessWidget {
                       leading: Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF007A39).withOpacity(0.1),
+                          color: const Color(0xFF007A39).withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: const Icon(
@@ -759,7 +759,7 @@ class DashboardContent extends StatelessWidget {
                       leading: Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: Colors.blue.withOpacity(0.1),
+                          color: Colors.blue.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: const Icon(Icons.psychology, color: Colors.blue),
@@ -787,7 +787,7 @@ class DashboardContent extends StatelessWidget {
                       leading: Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: Colors.grey.withOpacity(0.1),
+                          color: Colors.grey.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: const Icon(
@@ -833,7 +833,7 @@ class DashboardContent extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0xFF007A39).withOpacity(0.1),
+                color: const Color(0xFF007A39).withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               child: const Icon(Icons.add, color: Color(0xFF007A39), size: 24),
@@ -971,7 +971,7 @@ class DashboardContent extends StatelessWidget {
           border: Border.all(color: Colors.grey.shade200),
           boxShadow: [
             BoxShadow(
-              color: Colors.grey.withOpacity(0.1),
+              color: Colors.grey.withValues(alpha: 0.1),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -982,7 +982,7 @@ class DashboardContent extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: action.color.withOpacity(0.1),
+                color: action.color.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(action.icon, color: action.color, size: 20),
@@ -1104,7 +1104,7 @@ class DashboardContent extends StatelessWidget {
           leading: Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
+              color: color.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(icon, color: color, size: 20),

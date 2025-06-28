@@ -5,6 +5,7 @@ import 'package:uuid/uuid.dart';
 import '../models/enhanced_profile.dart';
 import '../services/api_client.dart';
 import '../services/biometric_auth_service.dart';
+import '../services/google_auth_service.dart';
 
 // Result class for profile existence checks
 class ProfileExistenceResult {
@@ -125,11 +126,21 @@ class AuthService extends ChangeNotifier {
 
       final settingsBox = Hive.box('settings');
       final currentProfileId = settingsBox.get('current_profile_id');
+      final persistentLoginEnabled = settingsBox.get(
+        'persistent_login_enabled',
+        defaultValue: true,
+      );
 
-      if (currentProfileId != null) {
+      if (currentProfileId != null && persistentLoginEnabled) {
         final profile = _profileBox!.get(currentProfileId);
         if (profile != null) {
           _currentProfile = profile;
+
+          // Update last login timestamp
+          final updatedProfile = profile.copyWith(lastLogin: DateTime.now());
+          await _profileBox!.put(currentProfileId, updatedProfile);
+          _currentProfile = updatedProfile;
+
           notifyListeners();
 
           if (kDebugMode) {
@@ -141,6 +152,40 @@ class AuthService extends ChangeNotifier {
       if (kDebugMode) {
         print('Auto login failed: $e');
       }
+    }
+  }
+
+  // Enable or disable persistent login
+  Future<void> setPersistentLoginEnabled(bool enabled) async {
+    try {
+      final settingsBox = Hive.box('settings');
+      await settingsBox.put('persistent_login_enabled', enabled);
+
+      if (!enabled) {
+        // If disabling persistent login, clear current session
+        await logout();
+      }
+
+      if (kDebugMode) {
+        print('Persistent login ${enabled ? 'enabled' : 'disabled'}');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Failed to set persistent login: $e');
+      }
+    }
+  }
+
+  // Check if persistent login is enabled
+  Future<bool> isPersistentLoginEnabled() async {
+    try {
+      final settingsBox = Hive.box('settings');
+      return settingsBox.get('persistent_login_enabled', defaultValue: true);
+    } catch (e) {
+      if (kDebugMode) {
+        print('Failed to check persistent login status: $e');
+      }
+      return false;
     }
   }
 
@@ -276,6 +321,12 @@ class AuthService extends ChangeNotifier {
         await settingsBox.put('current_profile_id', userId);
 
         _currentProfile = profile;
+
+        // Save to Google if requested
+        if (profileData['save_to_google'] == true) {
+          await saveCredentialsToGoogle();
+        }
+
         notifyListeners();
 
         if (kDebugMode) {
@@ -299,8 +350,12 @@ class AuthService extends ChangeNotifier {
     }
   }
 
-  // Enhanced login with better error handling
-  Future<LoginResult> enhancedLogin(String email, String pin) async {
+  // Enhanced login with better error handling and Google credential support
+  Future<LoginResult> enhancedLogin(
+    String email,
+    String pin, {
+    bool saveToGoogle = false,
+  }) async {
     if (kDebugMode) {
       print('Attempting enhanced login for email: $email');
     }
@@ -312,14 +367,27 @@ class AuthService extends ChangeNotifier {
 
       for (final profile in _profileBox!.values) {
         if (profile.email == email && profile.verifyPassword(pin)) {
-          _currentProfile = profile;
+          _currentProfile = profile.copyWith(lastLogin: DateTime.now());
+
+          // Save updated profile with last login time
+          await _profileBox!.put(profile.id, _currentProfile!);
+
+          // Save current profile ID for persistent login
+          final settingsBox = Hive.box('settings');
+          await settingsBox.put('current_profile_id', profile.id);
+
+          // Save to Google if requested
+          if (saveToGoogle) {
+            await saveCredentialsToGoogle();
+          }
+
           notifyListeners();
 
           if (kDebugMode) {
             print('Local login successful for email: $email');
           }
 
-          return LoginResult.success(profile: profile);
+          return LoginResult.success(profile: _currentProfile!);
         }
       }
       return LoginResult.error('Invalid email or PIN');
@@ -374,8 +442,12 @@ class AuthService extends ChangeNotifier {
   }
 
   // Login with email and pin
-  Future<bool> login(String email, String pin) async {
-    final result = await enhancedLogin(email, pin);
+  Future<bool> login(
+    String email,
+    String pin, {
+    bool saveToGoogle = false,
+  }) async {
+    final result = await enhancedLogin(email, pin, saveToGoogle: saveToGoogle);
     return result.success;
   }
 
@@ -749,19 +821,25 @@ class AuthService extends ChangeNotifier {
   // Logout
   Future<void> logout() async {
     try {
+      // Clear current profile
       _currentProfile = null;
 
+      // Clear stored session
       final settingsBox = Hive.box('settings');
       await settingsBox.delete('current_profile_id');
 
-      notifyListeners();
+      // Clear biometric session
+      final biometricService = BiometricAuthService.instance;
+      await biometricService.clearBiometricSession();
 
       if (kDebugMode) {
-        print('Logout successful');
+        print('AuthService: User logged out successfully');
       }
+
+      notifyListeners();
     } catch (e) {
       if (kDebugMode) {
-        print('Logout failed: $e');
+        print('AuthService: Error during logout: $e');
       }
     }
   }
@@ -929,9 +1007,91 @@ class AuthService extends ChangeNotifier {
     }
   }
 
-  // Backward compatibility aliases for old method names
-  Future<void> autoLogin() async => await tryAutoLogin();
-  Future<bool> setInitialPin(String pin) async => await setInitialPassword(pin);
+  // Google Credential Management Methods
+
+  /// Save login credentials to Google account
+  Future<bool> saveCredentialsToGoogle() async {
+    try {
+      if (_currentProfile == null) {
+        if (kDebugMode) {
+          print('AuthService: No current profile to save credentials for');
+        }
+        return false;
+      }
+
+      final googleAuthService = GoogleAuthService.instance;
+      final success = await googleAuthService.saveCredentialsToGoogle(
+        email: _currentProfile!.email ?? '',
+        name: _currentProfile!.name ?? '',
+      );
+
+      if (success) {
+        // Mark that credentials are saved to Google for this profile
+        final settingsBox = Hive.box('settings');
+        await settingsBox.put('credentials_saved_to_google', true);
+        await settingsBox.put('google_saved_profile_id', _currentProfile!.id);
+
+        if (kDebugMode) {
+          print(
+            'AuthService: Credentials saved to Google for profile: ${_currentProfile!.email}',
+          );
+        }
+      }
+
+      return success;
+    } catch (e) {
+      if (kDebugMode) {
+        print('AuthService: Error saving credentials to Google: $e');
+      }
+      return false;
+    }
+  }
+
+  /// Check if credentials are saved to Google for current profile
+  Future<bool> areCredentialsSavedToGoogle() async {
+    try {
+      final settingsBox = Hive.box('settings');
+      final credentialsSaved = settingsBox.get(
+        'credentials_saved_to_google',
+        defaultValue: false,
+      );
+      final savedProfileId = settingsBox.get('google_saved_profile_id');
+
+      // Check if the saved profile matches current profile
+      if (_currentProfile != null && savedProfileId == _currentProfile!.id) {
+        return credentialsSaved;
+      }
+
+      return false;
+    } catch (e) {
+      if (kDebugMode) {
+        print('AuthService: Error checking Google credentials status: $e');
+      }
+      return false;
+    }
+  }
+
+  /// Clear Google credential association
+  Future<void> clearGoogleCredentials() async {
+    try {
+      final settingsBox = Hive.box('settings');
+      await settingsBox.delete('credentials_saved_to_google');
+      await settingsBox.delete('google_saved_profile_id');
+
+      final googleAuthService = GoogleAuthService.instance;
+      await googleAuthService.clearSavedCredentials();
+
+      if (kDebugMode) {
+        print('AuthService: Google credentials cleared');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('AuthService: Error clearing Google credentials: $e');
+      }
+    }
+  }
+
+  // ...existing code...
 }
 
 // Alias for backward compatibility with EnhancedAuthService
