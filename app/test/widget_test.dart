@@ -13,7 +13,7 @@ import 'package:fedha/main.dart';
 void main() {
   testWidgets('Profile creation flow', (WidgetTester tester) async {
     // Build app
-    await tester.pumpWidget(const MyApp());
+    await tester.pumpWidget(const FedhaApp());
 
     // Tap "Create Business Profile" button
     await tester.tap(find.text('Create Business Profile'));

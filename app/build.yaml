@@ -1,13 +1,13 @@
 targets:
   $default:
     builders:
-      hive_generator:hive_generator:
+      hive_generator|hive_generator:
         options:
           create_to_json: true
           create_from_json: true
         generate_for:
           - lib/models/*.dart
-      json_serializable:serializable:
+      json_serializable|serializable:
         options:
           any_map: true
           checked: true
