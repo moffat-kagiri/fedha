@@ -19,11 +19,13 @@ class TransactionList extends StatelessWidget {
             final transaction = box.getAt(index);
             return ListTile(
               leading: Icon(
-                // ignore: unrelated_type_equality_checks
-                transaction!.type == 'IN'
+                transaction!.type == TransactionType.income
                     ? Icons.arrow_circle_up
                     : Icons.arrow_circle_down,
-                color: transaction.type == 'IN' ? Colors.green : Colors.red,
+                color:
+                    transaction.type == TransactionType.income
+                        ? Colors.green
+                        : Colors.red,
               ),
               title: Text(transaction.category as String),
               subtitle: Text(transaction.date.toString()),

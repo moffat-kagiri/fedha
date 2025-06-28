@@ -205,7 +205,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         } else {
                           await themeService.setThemeMode(ThemeMode.light);
                         }
-                        _showThemeChangeDialog(context, value);
+                        if (mounted) {
+                          _showThemeChangeDialog(context, value);
+                        }
                       },
                       activeColor: const Color(0xFF007A39),
                     ),
@@ -515,21 +517,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     );
                     await authService.updateProfileEmail(newEmail);
 
-                    Navigator.pop(context); // Close loading dialog
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Email updated successfully!'),
-                        backgroundColor: Colors.green,
-                      ),
-                    );
+                    if (mounted) {
+                      Navigator.pop(context); // Close loading dialog
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Email updated successfully!'),
+                          backgroundColor: Colors.green,
+                        ),
+                      );
+                    }
                   } catch (e) {
-                    Navigator.pop(context); // Close loading dialog
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Failed to update email: $e'),
-                        backgroundColor: Colors.red,
-                      ),
-                    );
+                    if (mounted) {
+                      Navigator.pop(context); // Close loading dialog
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Failed to update email: $e'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
                   }
                 },
                 child: const Text('Update'),
@@ -633,7 +639,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   subtitle: const Text('Follow device settings'),
                   onTap: () async {
                     await themeService.setThemeMode(ThemeMode.system);
-                    Navigator.pop(context);
+                    if (context.mounted) {
+                      Navigator.pop(context);
+                    }
                   },
                 ),
                 ListTile(
@@ -642,7 +650,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   subtitle: const Text('Always use light theme'),
                   onTap: () async {
                     await themeService.setThemeMode(ThemeMode.light);
-                    Navigator.pop(context);
+                    if (context.mounted) {
+                      Navigator.pop(context);
+                    }
                   },
                 ),
                 ListTile(
@@ -651,7 +661,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   subtitle: const Text('Always use dark theme'),
                   onTap: () async {
                     await themeService.setThemeMode(ThemeMode.dark);
-                    Navigator.pop(context);
+                    if (context.mounted) {
+                      Navigator.pop(context);
+                    }
                   },
                 ),
               ],

@@ -19,7 +19,7 @@ void main() {
       WidgetTester tester,
     ) async {
       // Build our app and trigger a frame
-      await tester.pumpWidget(const MyApp());
+      await tester.pumpWidget(const FedhaApp());
       await tester.pumpAndSettle();
 
       // Should start with onboarding screen for first-time users

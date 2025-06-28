@@ -17,10 +17,11 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _pinController = TextEditingController();
+  final _passwordController = TextEditingController();
   bool _isLoading = false;
   String? _errorMessage;
   bool _showBiometricOption = false;
+  bool _obscurePassword = true;
 
   @override
   void initState() {
@@ -83,17 +84,24 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
             const SizedBox(height: 40),
 
-            // PIN Input
+            // Password Input
             TextField(
-              controller: _pinController,
-              keyboardType: TextInputType.number,
-              obscureText: true,
-              maxLength: 4,
-              decoration: const InputDecoration(
-                labelText: 'Enter 4-Digit PIN',
-                border: OutlineInputBorder(),
-                counterText: '',
+              controller: _passwordController,
+              decoration: InputDecoration(
+                labelText: 'Enter Password',
+                border: const OutlineInputBorder(),
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _obscurePassword ? Icons.visibility : Icons.visibility_off,
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      _obscurePassword = !_obscurePassword;
+                    });
+                  },
+                ),
               ),
+              obscureText: _obscurePassword,
               onChanged: (_) => setState(() => _errorMessage = null),
             ),
 
@@ -168,8 +176,13 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _handleLogin() async {
-    if (_pinController.text.length != 4) {
-      setState(() => _errorMessage = 'Please enter a 4-digit PIN');
+    if (_passwordController.text.trim().isEmpty) {
+      setState(() => _errorMessage = 'Please enter your password');
+      return;
+    }
+
+    if (_passwordController.text.length < 6) {
+      setState(() => _errorMessage = 'Password must be at least 6 characters');
       return;
     }
 
@@ -181,7 +194,7 @@ class _LoginScreenState extends State<LoginScreen> {
       final authService = Provider.of<AuthService>(context, listen: false);
       final success = await authService.loginByType(
         widget.profileType,
-        _pinController.text,
+        _passwordController.text.trim(),
       );
 
       if (!mounted) return;
@@ -199,7 +212,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
         Navigator.pushReplacementNamed(context, '/dashboard');
       } else {
-        setState(() => _errorMessage = 'Invalid PIN for selected profile');
+        setState(() => _errorMessage = 'Invalid password for selected profile');
       }
     } catch (e) {
       setState(() => _errorMessage = 'Login failed. Please try again.');
@@ -251,7 +264,7 @@ class _LoginScreenState extends State<LoginScreen> {
           (_) => AlertDialog(
             title: const Text('Profile Help'),
             content: const Text(
-              'Contact support at support@fedha.app if you\'ve forgotten your PIN.',
+              'Contact support at support@fedha.app if you\'ve forgotten your password.',
             ),
             actions: [
               TextButton(
@@ -265,7 +278,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   void dispose() {
-    _pinController.dispose();
+    _passwordController.dispose();
     super.dispose();
   }
 }

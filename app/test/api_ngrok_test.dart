@@ -1,6 +1,6 @@
 // import 'package:flutter/material.dart'; // Commented out - unused
 import 'package:flutter_test/flutter_test.dart';
-import '../lib/services/api_client.dart';
+import 'package:fedha/services/api_client.dart';
 
 void main() {
   group('API Client ngrok Connection Tests', () {
