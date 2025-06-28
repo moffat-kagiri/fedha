@@ -104,8 +104,22 @@ Future<void> initializeHive() async {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Firebase
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  // Initialize Firebase (check if already initialized)
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  } catch (e) {
+    if (e.toString().contains('duplicate-app')) {
+      // Firebase already initialized, continue
+      if (kDebugMode) {
+        print('Firebase already initialized, continuing...');
+      }
+    } else {
+      // Re-throw other errors
+      rethrow;
+    }
+  }
   // Initialize background SMS monitoring (auto-start on boot)
   await BackgroundSmsService.initialize();
 

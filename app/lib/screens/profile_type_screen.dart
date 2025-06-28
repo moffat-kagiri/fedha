@@ -45,7 +45,7 @@ class ProfileTypeScreen extends StatelessWidget {
   ) {
     return Card(
       elevation: 4,
-      color: color.withOpacity(0.1),
+      color: color.withValues(alpha: 0.1),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),

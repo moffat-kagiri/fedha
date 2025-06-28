@@ -3,10 +3,10 @@ package com.fedha.fedha
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
 import android.provider.Telephony
 import android.telephony.SmsMessage
-import io.flutter.plugin.common.MethodChannel
-import io.flutter.view.FlutterMain
+import android.util.Log
 
 class SmsReceiver : BroadcastReceiver() {
     companion object {

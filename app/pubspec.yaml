@@ -37,7 +37,6 @@ dependencies:
   firebase_analytics: ^10.7.4
   firebase_crashlytics: ^3.4.8
   firebase_messaging: ^14.7.10
-  telephony: ^0.2.0
 
 dev_dependencies:
   flutter_test:
@@ -73,7 +72,3 @@ flutter_launcher_icons:
     image_path: "assets/icons/app_icon.png"
     background_color: "#4CAF50"
     theme_color: "#4CAF50"
-  windows:
-    generate: true
-    image_path: "assets/icons/app_icon.png"
-    icon_size: 48

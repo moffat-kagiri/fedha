@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/enhanced_profile.dart';
 import '../services/auth_service.dart';
-import '../services/google_auth_service.dart';
+// import '../services/google_auth_service.dart'; // Commented out - unused
 
 class ProfileCreationScreen extends StatefulWidget {
   final ProfileType initialProfileType;
@@ -61,7 +61,7 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
                       onPressed: () => Navigator.pop(context),
                       icon: const Icon(Icons.arrow_back, color: Colors.white),
                       style: IconButton.styleFrom(
-                        backgroundColor: Colors.white.withOpacity(0.2),
+                        backgroundColor: Colors.white.withValues(alpha: 0.2),
                       ),
                     ),
                     const SizedBox(width: 16),
@@ -101,7 +101,7 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
                     borderRadius: BorderRadius.circular(24),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
+                        color: Colors.black.withValues(alpha: 0.1),
                         blurRadius: 20,
                         offset: const Offset(0, 10),
                       ),
