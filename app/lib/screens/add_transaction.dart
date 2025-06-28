@@ -304,13 +304,17 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       final profileId = authService.currentProfile?.id;
 
       if (profileId == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please log in to add transactions')),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Please log in to add transactions')),
+          );
+        }
         return;
       }
 
       try {
+        String? successMessage;
+
         if (_selectedType == TransactionType.savings) {
           // Use the goal transaction service for savings
           final transaction = await _goalService.createSavingsTransaction(
@@ -325,7 +329,15 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
             notes: _notesController.text.isEmpty ? null : _notesController.text,
             goalId: _selectedGoal?.id,
           );
-          Navigator.pop(context, transaction);
+
+          successMessage =
+              _selectedGoal != null
+                  ? 'Transaction saved and added to ${_selectedGoal!.name}'
+                  : 'Transaction saved successfully';
+
+          if (mounted) {
+            Navigator.pop(context, transaction);
+          }
         } else {
           // Regular transaction creation
           final transaction = Transaction(
@@ -346,26 +358,31 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
             listen: false,
           );
           await dataService.saveTransaction(transaction);
-          Navigator.pop(context, transaction);
+
+          successMessage = 'Transaction saved successfully';
+
+          if (mounted) {
+            Navigator.pop(context, transaction);
+          }
         }
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              _selectedType == TransactionType.savings && _selectedGoal != null
-                  ? 'Transaction saved and added to ${_selectedGoal!.name}'
-                  : 'Transaction saved successfully',
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(successMessage),
+              backgroundColor: Colors.green,
             ),
-            backgroundColor: Colors.green,
-          ),
-        );
+          );
+        }
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error saving transaction: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error saving transaction: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       }
     }
   }

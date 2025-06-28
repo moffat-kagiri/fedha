@@ -156,7 +156,7 @@ class Profile(models.Model):
     )
     pin_hash = models.CharField(
         max_length=128,
-        help_text="SHA-256 hash of 4-digit PIN with application salt"
+        help_text="Secure hash of user password (minimum 6 characters, alphanumeric supported)"
     )
     
     # Base currency and localization
@@ -233,23 +233,23 @@ class Profile(models.Model):
     @staticmethod
     def hash_pin(raw_pin: str) -> str:
         """
-        Securely hash a PIN using PBKDF2 with SHA256.
+        Securely hash a password using PBKDF2 with SHA256.
         
         This method uses Django's built-in password hashing system which implements
         PBKDF2 with SHA256, providing strong protection against rainbow table
         and brute force attacks.
         
         Args:
-            raw_pin: PIN string (minimum 3 characters, alphanumeric allowed)
+            raw_pin: Password string (minimum 6 characters, alphanumeric allowed)
             
         Returns:
             PBKDF2 hash string in Django format (algorithm$iterations$salt$hash)
             
         Raises:
-            ValueError: If PIN is less than 3 characters
+            ValueError: If password is less than 6 characters
         """        
-        if len(raw_pin) < 3:
-            raise ValueError("PIN must be at least 3 characters")
+        if len(raw_pin) < 6:
+            raise ValueError("Password must be at least 6 characters")
         
         from django.contrib.auth.hashers import make_password
         return make_password(raw_pin)
@@ -271,13 +271,13 @@ class Profile(models.Model):
                 return user_id
     def verify_pin(self, raw_pin: str) -> bool:
         """
-        Verify a raw PIN against the stored hash using Django's secure password checking.
+        Verify a raw password against the stored hash using Django's secure password checking.
         
         Args:
-            raw_pin: PIN string to verify
+            raw_pin: Password string to verify
             
         Returns:
-            True if PIN matches, False otherwise
+            True if password matches, False otherwise
         """
         try:
             from django.contrib.auth.hashers import check_password
@@ -287,10 +287,10 @@ class Profile(models.Model):
 
     def set_pin(self, raw_pin: str):
         """
-        Set a new PIN for the profile.
+        Set a new password for the profile.
         
         Args:
-            raw_pin: PIN string (minimum 3 characters, alphanumeric allowed)
+            raw_pin: Password string (minimum 6 characters, alphanumeric allowed)
         """
         self.pin_hash = self.hash_pin(raw_pin)
 
