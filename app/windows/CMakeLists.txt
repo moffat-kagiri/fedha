@@ -47,7 +47,26 @@ endfunction()
 
 # Flutter library and tool build rules.
 set(FLUTTER_MANAGED_DIR "${CMAKE_CURRENT_SOURCE_DIR}/flutter")
-add_subdirectory(${FLUTTER_MANAGED_DIR})
+
+# Check if flutter directory exists
+
+set(FLUTTER_LIBRARY "${FLUTTER_MANAGED_DIR}/flutter_windows.dll")
+set(FLUTTER_ICU_DATA_FILE "${FLUTTER_MANAGED_DIR}/icudtl.dat")
+set(AOT_LIBRARY "${FLUTTER_MANAGED_DIR}/flutter_windows.dll.a")
+
+# Try to include flutter ephemeral directory
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/flutter/ephemeral/CMakeLists.txt")
+  add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/flutter/ephemeral FLUTTER)
+elseif(EXISTS "${FLUTTER_MANAGED_DIR}/CMakeLists.txt")
+  add_subdirectory(${FLUTTER_MANAGED_DIR})
+else()
+  # Flutter managed directory doesn't exist
+  # This can happen when running CMake manually before Flutter generates necessary files
+  message(STATUS "Flutter managed directory not found. Run 'flutter build windows' first to generate required files.")
+  
+  # Create a mock Flutter configuration to allow CMake to continue
+  include(${CMAKE_CURRENT_SOURCE_DIR}/flutter/ephemeral/generated_config.cmake OPTIONAL)
+endif()
 
 # Application build; see runner/CMakeLists.txt.
 add_subdirectory("runner")

@@ -37,6 +37,7 @@ dependencies:
   firebase_analytics: ^10.7.4
   firebase_crashlytics: ^3.4.8
   firebase_messaging: ^14.7.10
+  telephony: ^0.2.0
 
 dev_dependencies:
   flutter_test:

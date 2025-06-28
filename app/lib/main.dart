@@ -39,6 +39,8 @@ import 'services/offline_manager.dart'; // Offline functionality
 import 'services/navigation_service.dart';
 import 'services/sender_management_service.dart';
 import 'services/biometric_auth_service.dart';
+import 'services/background_sms_service.dart'; // New background SMS service
+import 'services/background_sync_service.dart'; // Background sync service
 
 // Screens
 import 'screens/onboarding_screen.dart';
@@ -104,6 +106,14 @@ void main() async {
 
   // Initialize Firebase
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  // Initialize background SMS monitoring (auto-start on boot)
+  await BackgroundSmsService.initialize();
+
+  // Start background monitoring if device has booted
+  await BackgroundSmsService.startBackgroundMonitoring();
+
+  // Sync any background transactions from while app was closed
+  await BackgroundSyncService.syncBackgroundTransactions();
 
   await initializeHive();
 
