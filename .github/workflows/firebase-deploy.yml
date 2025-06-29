@@ -20,7 +20,12 @@ jobs:
       with:
         distribution: 'temurin'
         java-version: '11'
-        
+
+    - name: Setup Dart
+      uses: dart-lang/setup-dart@v1
+      with:
+        sdk: "3.7"  # Use Dart SDK 3.7 for compatibility with Flutter 3.16.9  
+
     - name: Setup Flutter
       uses: subosito/flutter-action@v2
       with:
