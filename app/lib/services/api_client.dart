@@ -9,22 +9,22 @@ import '../models/client.dart';
 import '../models/invoice.dart';
 import '../models/goal.dart';
 import '../models/budget.dart';
+import 'firebase_auth_service.dart';
 
 class ApiClient {
   // Unified base URL configuration for all platforms
-  // Using ngrok tunnel for real device testing
+  // Priority: Firebase Functions > Local Django > Fallback local
   static String get _baseUrl {
     final String url;
     if (kIsWeb) {
-      // Web platform uses localhost directly
-      url = "http://127.0.0.1:8000/api";
+      // Web platform uses Firebase Functions or localhost for development
+      url = "https://africa-south1-fedha-tracker.cloudfunctions.net";
     } else {
-      // Mobile platforms - using ngrok tunnel for real device access
-      // ngrok URL: https://7a9a-41-209-9-54.ngrok-free.app
-      url = "https://7a9a-41-209-9-54.ngrok-free.app/api";
+      // Mobile platforms - use Firebase Functions in production
+      url = "https://africa-south1-fedha-tracker.cloudfunctions.net";
 
-      // For emulator testing (if needed), use:
-      // url = "http://10.0.2.2:8000/api";
+      // For local development, uncomment this line:
+      // url = "http://10.0.2.2:8000/api";  // Android emulator localhost
     }
 
     if (kDebugMode) {
@@ -279,15 +279,16 @@ class ApiClient {
     String timezone = 'GMT+3',
   }) async {
     try {
+      // Try Firebase Functions first
       final response = await http.post(
-        Uri.parse('$_baseUrl/enhanced/register/'),
+        Uri.parse('$_baseUrl/register'),
         headers: _commonHeaders,
         body: jsonEncode({
           'name': name,
-          'profile_type': profileType,
+          'profileType': profileType,
           'pin': pin,
           'email': email,
-          'base_currency': baseCurrency,
+          'baseCurrency': baseCurrency,
           'timezone': timezone,
         }),
       );
@@ -295,10 +296,41 @@ class ApiClient {
       if (response.statusCode == 201) {
         return jsonDecode(response.body);
       } else {
-        throw Exception('Failed to create profile: \\${response.body}');
+        throw Exception('Firebase Functions failed: ${response.body}');
       }
     } catch (e) {
-      throw Exception('Network error creating profile: $e');
+      if (kDebugMode) {
+        print(
+          '⚠️ Firebase Functions unavailable, falling back to Firebase Auth',
+        );
+        print('   Error: $e');
+      }
+
+      // Fallback to Firebase Authentication
+      try {
+        final FirebaseAuthService authService = FirebaseAuthService();
+
+        if (email != null && email.isNotEmpty) {
+          return await authService.registerWithEmailAndPassword(
+            name: name,
+            profileType: profileType,
+            password: pin,
+            email: email,
+            baseCurrency: baseCurrency,
+            timezone: timezone,
+          );
+        } else {
+          return await authService.registerLocalProfile(
+            name: name,
+            profileType: profileType,
+            password: pin,
+            baseCurrency: baseCurrency,
+            timezone: timezone,
+          );
+        }
+      } catch (authError) {
+        throw Exception('Registration failed: $authError');
+      }
     }
   }
 
@@ -308,8 +340,9 @@ class ApiClient {
     required String pin,
   }) async {
     try {
+      // Try Firebase Functions first
       final response = await http.post(
-        Uri.parse('$_baseUrl/enhanced/login/'),
+        Uri.parse('$_baseUrl/login'),
         headers: _commonHeaders,
         body: jsonEncode({'user_id': userId, 'pin': pin}),
       );
@@ -317,11 +350,35 @@ class ApiClient {
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       } else {
-        final errorData = jsonDecode(response.body);
-        throw Exception(errorData['error'] ?? 'Login failed');
+        throw Exception('Firebase Functions failed');
       }
     } catch (e) {
-      throw Exception('Network error during login: $e');
+      if (kDebugMode) {
+        print(
+          '⚠️ Firebase Functions unavailable, falling back to Firebase Auth',
+        );
+        print('   Error: $e');
+      }
+
+      // Fallback to Firebase Authentication
+      try {
+        final FirebaseAuthService authService = FirebaseAuthService();
+
+        // Check if userId looks like an email
+        if (userId.contains('@')) {
+          return await authService.loginWithEmailAndPassword(
+            email: userId,
+            password: pin,
+          );
+        } else {
+          return await authService.loginWithProfileId(
+            profileId: userId,
+            password: pin,
+          );
+        }
+      } catch (authError) {
+        throw Exception('Login failed: $authError');
+      }
     }
   }
 

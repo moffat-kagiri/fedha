@@ -6,6 +6,7 @@ import '../models/enhanced_profile.dart';
 import '../services/api_client.dart';
 import '../services/biometric_auth_service.dart';
 import '../services/google_auth_service.dart';
+import '../services/auth_api_client.dart';
 
 // Result class for profile existence checks
 class ProfileExistenceResult {
@@ -283,7 +284,7 @@ class AuthService extends ChangeNotifier {
               .split('.')
               .last; // First try to create profile on server
       try {
-        final serverResponse = await _apiClient.createEnhancedProfile(
+        final serverResponse = await AuthApiClient.registerProfile(
           name: name,
           profileType: profileTypeString,
           pin: pin,
@@ -361,83 +362,103 @@ class AuthService extends ChangeNotifier {
     }
 
     try {
-      // TODO: Fix login to use userId instead of email
-      // For now, try to find local profile by email
-      _profileBox ??= await Hive.openBox<EnhancedProfile>('enhanced_profiles');
-
-      for (final profile in _profileBox!.values) {
-        if (profile.email == email && profile.verifyPassword(pin)) {
-          _currentProfile = profile.copyWith(lastLogin: DateTime.now());
-
-          // Save updated profile with last login time
-          await _profileBox!.put(profile.id, _currentProfile!);
-
-          // Save current profile ID for persistent login
-          final settingsBox = Hive.box('settings');
-          await settingsBox.put('current_profile_id', profile.id);
-
-          // Save to Google if requested
-          if (saveToGoogle) {
-            await saveCredentialsToGoogle();
-          }
-
-          notifyListeners();
-
-          if (kDebugMode) {
-            print('Local login successful for email: $email');
-          }
-
-          return LoginResult.success(profile: _currentProfile!);
-        }
-      }
-      return LoginResult.error('Invalid email or PIN');
-
-      /* TODO: Restore server login with userId
-      final serverProfileData = await _apiClient.loginEnhancedProfile(
-        userId: userId,  // Need to get userId from email somehow
+      // Use the new AuthApiClient for login (with Firebase Auth fallback)
+      final serverResponse = await AuthApiClient.loginProfile(
+        userId: email,
         pin: pin,
       );
 
       if (kDebugMode) {
-        print('Server login successful: $serverProfileData');
+        print('Server login successful: $serverResponse');
       }
 
-      // Create profile from server data
-      final String serverId = serverProfileData['id']?.toString() ?? email;
+      // Extract profile data from server response
+      final profileData = serverResponse['profile'] ?? serverResponse;
+      final String serverId =
+          profileData['id']?.toString() ??
+          profileData['user_id']?.toString() ??
+          email;
+
       final profileToSave = EnhancedProfile(
         id: serverId,
         type: ProfileType.values.firstWhere(
-          (e) =>
-              e.toString().split('.').last == serverProfileData['profile_type'],
+          (e) => e.toString().split('.').last == profileData['profile_type'],
           orElse: () => ProfileType.personal,
         ),
         passwordHash: EnhancedProfile.hashPassword(pin),
-        name: serverProfileData['name'] ?? 'Default Name',
-        email: email,
-        baseCurrency: serverProfileData['base_currency'] ?? 'KES',
-        timezone: serverProfileData['timezone'] ?? 'GMT+3',
+        name: profileData['name'] ?? 'Default Name',
+        email: profileData['email'] ?? email,
+        baseCurrency: profileData['base_currency'] ?? 'KES',
+        timezone: profileData['timezone'] ?? 'GMT+3',
+        lastLogin: DateTime.now(),
       );
 
+      // Save locally
       _profileBox ??= await Hive.openBox<EnhancedProfile>('enhanced_profiles');
       await _profileBox!.put(serverId, profileToSave);
 
+      // Set as current profile
       final settingsBox = Hive.box('settings');
       await settingsBox.put('current_profile_id', serverId);
-
       _currentProfile = profileToSave;
+
+      // Save to Google if requested
+      if (saveToGoogle) {
+        await saveCredentialsToGoogle();
+      }
+
       notifyListeners();
 
       if (kDebugMode) {
-        print('Enhanced login successful for email: $email');
+        print(
+          'Enhanced login successful for email: $email, User ID: $serverId',
+        );
       }
 
       return LoginResult.success(profile: profileToSave);
-      */
     } catch (e) {
       if (kDebugMode) {
-        print('Enhanced login failed: $e');
+        print('Server login failed, trying local login: $e');
       }
-      return LoginResult.error('Login failed: $e');
+
+      // Fallback to local login
+      try {
+        _profileBox ??= await Hive.openBox<EnhancedProfile>(
+          'enhanced_profiles',
+        );
+
+        for (final profile in _profileBox!.values) {
+          if (profile.email == email && profile.verifyPassword(pin)) {
+            _currentProfile = profile.copyWith(lastLogin: DateTime.now());
+
+            // Save updated profile with last login time
+            await _profileBox!.put(profile.id, _currentProfile!);
+
+            // Save current profile ID for persistent login
+            final settingsBox = Hive.box('settings');
+            await settingsBox.put('current_profile_id', profile.id);
+
+            // Save to Google if requested
+            if (saveToGoogle) {
+              await saveCredentialsToGoogle();
+            }
+
+            notifyListeners();
+
+            if (kDebugMode) {
+              print('Local login successful for email: $email');
+            }
+
+            return LoginResult.success(profile: _currentProfile!);
+          }
+        }
+        return LoginResult.error('Invalid email or password');
+      } catch (localError) {
+        if (kDebugMode) {
+          print('Local login also failed: $localError');
+        }
+        return LoginResult.error('Login failed: $e');
+      }
     }
   }
 
@@ -596,6 +617,30 @@ class AuthService extends ChangeNotifier {
         print('Failed to change password: $e');
       }
       return false;
+    }
+  }
+
+  // Reset password via email using Firebase Auth
+  Future<Map<String, dynamic>> resetPassword({required String email}) async {
+    try {
+      if (kDebugMode) {
+        print('Attempting password reset for email: $email');
+      }
+
+      // Use the new AuthApiClient for password reset (with Firebase Auth fallback)
+      final result = await AuthApiClient.resetPassword(email: email);
+
+      if (kDebugMode) {
+        print('Password reset successful: ${result['message']}');
+      }
+
+      return result;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Password reset failed: $e');
+      }
+
+      return {'success': false, 'message': 'Password reset failed: $e'};
     }
   }
 
