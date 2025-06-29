@@ -6,7 +6,7 @@ version: 1.0.0+1
 repository: https://github.com/your-username/fedha
 homepage: https://fedha-project.example.com
 environment:
-  sdk: '>=3.7.0 <4.0.0'
+  sdk: '>=3.2.0 <4.0.0'  # Temporarily reduced for CI compatibility
 dependencies:
   flutter:
     sdk: flutter

@@ -24,12 +24,15 @@ jobs:
     - name: Setup Flutter
       uses: subosito/flutter-action@v2
       with:
-        flutter-version: '3.24.0'  # This version includes Dart 3.7+
+        flutter-version: '3.16.9'
         channel: 'stable'
         
-    - name: Verify Flutter and Dart versions
+    - name: Verify versions
+      working-directory: ./app
       run: |
+        echo "Flutter version:"
         flutter --version
+        echo "Dart version:"
         dart --version
         
     - name: Get Flutter dependencies
