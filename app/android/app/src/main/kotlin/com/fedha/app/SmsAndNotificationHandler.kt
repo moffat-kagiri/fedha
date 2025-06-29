@@ -38,45 +38,59 @@ class SmsAndNotificationHandler(private val context: Context, private val flutte
     private var isListening = false
 
     init {
-        setupChannels()
+        try {
+            setupChannels()
+        } catch (e: Exception) {
+            android.util.Log.e("SmsAndNotificationHandler", "Failed to setup channels", e)
+        }
     }
 
     private fun setupChannels() {
-        // Setup method channels
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, SMS_CHANNEL).setMethodCallHandler(this)
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, NOTIFICATION_CHANNEL).setMethodCallHandler(this)
-        
-        // Setup event channel for SMS
-        EventChannel(flutterEngine.dartExecutor.binaryMessenger, SMS_EVENT_CHANNEL)
-            .setStreamHandler(object : EventChannel.StreamHandler {
-                override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
-                    smsEventSink = events
-                }
+        try {
+            // Setup method channels
+            MethodChannel(flutterEngine.dartExecutor.binaryMessenger, SMS_CHANNEL).setMethodCallHandler(this)
+            MethodChannel(flutterEngine.dartExecutor.binaryMessenger, NOTIFICATION_CHANNEL).setMethodCallHandler(this)
+            
+            // Setup event channel for SMS
+            EventChannel(flutterEngine.dartExecutor.binaryMessenger, SMS_EVENT_CHANNEL)
+                .setStreamHandler(object : EventChannel.StreamHandler {
+                    override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+                        smsEventSink = events
+                    }
 
-                override fun onCancel(arguments: Any?) {
-                    smsEventSink = null
-                }
-            })
+                    override fun onCancel(arguments: Any?) {
+                        smsEventSink = null
+                    }
+                })
+        } catch (e: Exception) {
+            android.util.Log.e("SmsAndNotificationHandler", "Error setting up channels", e)
+            throw e
+        }
     }
 
     override fun onMethodCall(call: MethodCall, result: Result) {
-        when (call.method) {
-            // SMS Methods
-            "startSmsListener" -> startSmsListener(result)
-            "stopSmsListener" -> stopSmsListener(result)
-            "getRecentSms" -> getRecentSms(call, result)
-            
-            // Notification Methods
-            "initializeNotifications" -> initializeNotifications(call, result)
-            "showNotification" -> showNotification(call, result)
-            "cancelNotification" -> cancelNotification(call, result)
-            "cancelAllNotifications" -> cancelAllNotifications(result)
-            "areNotificationsEnabled" -> areNotificationsEnabled(result)
-            "openNotificationSettings" -> openNotificationSettings(result)
-            "scheduleNotification" -> scheduleNotification(call, result)
-            "getPendingNotifications" -> getPendingNotifications(result)
-            
-            else -> result.notImplemented()
+        try {
+            when (call.method) {
+                // SMS Methods
+                "startSmsListener" -> startSmsListener(result)
+                "stopSmsListener" -> stopSmsListener(result)
+                "getRecentSms" -> getRecentSms(call, result)
+                
+                // Notification Methods
+                "initializeNotifications" -> initializeNotifications(call, result)
+                "showNotification" -> showNotification(call, result)
+                "cancelNotification" -> cancelNotification(call, result)
+                "cancelAllNotifications" -> cancelAllNotifications(result)
+                "areNotificationsEnabled" -> areNotificationsEnabled(result)
+                "openNotificationSettings" -> openNotificationSettings(result)
+                "scheduleNotification" -> scheduleNotification(call, result)
+                "getPendingNotifications" -> getPendingNotifications(result)
+                
+                else -> result.notImplemented()
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("SmsAndNotificationHandler", "Error in onMethodCall: ${call.method}", e)
+            result.error("METHOD_CALL_ERROR", "Failed to execute ${call.method}: ${e.message}", null)
         }
     }
 
@@ -250,7 +264,7 @@ class SmsAndNotificationHandler(private val context: Context, private val flutte
             val notification = NotificationCompat.Builder(context, channelId)
                 .setContentTitle(title)
                 .setContentText(body)
-                .setSmallIcon(R.drawable.ic_notification) // You'll need to add this icon
+                .setSmallIcon(android.R.drawable.ic_dialog_info) // Use system icon to avoid resource issues
                 .setContentIntent(pendingIntent)
                 .setAutoCancel(true)
                 .setPriority(NotificationCompat.PRIORITY_DEFAULT)
@@ -343,11 +357,15 @@ class SmsAndNotificationHandler(private val context: Context, private val flutte
     }
 
     fun cleanup() {
-        stopSmsListener(object : Result {
-            override fun success(result: Any?) {}
-            override fun error(errorCode: String, errorMessage: String?, errorDetails: Any?) {}
-            override fun notImplemented() {}
-        })
-        smsEventSink = null
+        try {
+            stopSmsListener(object : Result {
+                override fun success(result: Any?) {}
+                override fun error(errorCode: String, errorMessage: String?, errorDetails: Any?) {}
+                override fun notImplemented() {}
+            })
+            smsEventSink = null
+        } catch (e: Exception) {
+            android.util.Log.e("SmsAndNotificationHandler", "Error during cleanup", e)
+        }
     }
 }
