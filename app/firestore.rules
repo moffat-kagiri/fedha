@@ -1,18 +1,93 @@
-rules_version='2'
+rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
-      // This rule allows anyone with your database reference to view, edit,
-      // and delete all data in your database. It is useful for getting
-      // started, but it is configured to expire after 30 days because it
-      // leaves your app open to attackers. At that time, all client
-      // requests to your database will be denied.
-      //
-      // Make sure to write security rules for your app before that time, or
-      // else all client requests to your database will be denied until you
-      // update your rules.
-      allow read, write: if request.time < timestamp.date(2025, 7, 27);
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
     }
+    
+    function isOwner(profileId) {
+      return isAuthenticated() && request.auth.uid == profileId;
+    }
+    
+    function isValidProfile() {
+      return request.resource.data.keys().hasAll(['id', 'name', 'profileType', 'passwordHash', 'baseCurrency', 'timezone', 'createdAt', 'isActive'])
+        && request.resource.data.id is string
+        && request.resource.data.name is string
+        && request.resource.data.profileType in ['BIZ', 'PERS']
+        && request.resource.data.passwordHash is string
+        && request.resource.data.baseCurrency is string
+        && request.resource.data.timezone is string
+        && request.resource.data.isActive is bool;
+    }
+    
+    function isValidTransaction() {
+      return request.resource.data.keys().hasAll(['profileId', 'amount', 'type', 'category', 'description', 'date', 'createdAt'])
+        && request.resource.data.profileId is string
+        && request.resource.data.amount is number
+        && request.resource.data.type in ['income', 'expense']
+        && request.resource.data.category is string
+        && request.resource.data.description is string;
+    }
+    
+    // Profiles collection
+    match /profiles/{profileId} {
+      // Allow read/write for authenticated users accessing their own profile
+      allow read, write: if isAuthenticated() && 
+        (request.auth.uid == profileId || 
+         (resource != null && request.auth.uid == resource.data.firebaseUid));
+      
+      // Allow profile creation (for registration)
+      allow create: if isValidProfile();
+      
+      // Allow profile updates by owner
+      allow update: if isAuthenticated() && 
+        (request.auth.uid == profileId || 
+         (resource != null && request.auth.uid == resource.data.firebaseUid));
+    }
+    
+    // Transactions collection
+    match /transactions/{transactionId} {
+      // Allow read/write only for transactions belonging to the authenticated user
+      allow read, write: if isAuthenticated() && 
+        request.auth.uid == resource.data.profileId;
+      
+      // Allow creation if valid transaction and user owns the profile
+      allow create: if isAuthenticated() && 
+        isValidTransaction() &&
+        request.auth.uid == request.resource.data.profileId;
+    }
+    
+    // Budgets collection
+    match /budgets/{budgetId} {
+      // Allow read/write only for budgets belonging to the authenticated user
+      allow read, write: if isAuthenticated() && 
+        request.auth.uid == resource.data.profileId;
+      
+      // Allow creation if user owns the profile
+      allow create: if isAuthenticated() && 
+        request.auth.uid == request.resource.data.profileId;
+    }
+    
+    // Goals collection
+    match /goals/{goalId} {
+      // Allow read/write only for goals belonging to the authenticated user
+      allow read, write: if isAuthenticated() && 
+        request.auth.uid == resource.data.profileId;
+      
+      // Allow creation if user owns the profile
+      allow create: if isAuthenticated() && 
+        request.auth.uid == request.resource.data.profileId;
+    }
+    
+    // Public read access for app configuration (if needed)
+    match /config/{document} {
+      allow read: if true;
+      allow write: if false; // Only admins should write config
+    }
+    
+
   }
 }
