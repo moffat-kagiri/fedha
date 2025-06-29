@@ -36,6 +36,20 @@ jobs:
       working-directory: ./app
       run: flutter pub get
       
+    - name: Setup Node.js for Firebase CLI
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        
+    - name: Install Firebase CLI
+      run: npm install -g firebase-tools
+      
+    - name: Deploy Firestore Rules
+      working-directory: ./app
+      run: |
+        echo "Deploying Firestore security rules..."
+        firebase deploy --only firestore:rules --project fedha-tracker --token ${{ secrets.FIREBASE_TOKEN }}
+      
     - name: Run Flutter tests
       working-directory: ./app
       run: flutter test

@@ -88,10 +88,6 @@ service cloud.firestore {
       allow write: if false; // Only admins should write config
     }
     
-    // Temporary: Allow Functions to create profiles during migration
-    // Remove this after migration is complete
-    match /profiles/{profileId} {
-      allow write: if true; // Temporary for Functions
-    }
+
   }
 }
