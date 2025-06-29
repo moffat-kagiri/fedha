@@ -13,20 +13,32 @@ class MainActivity : FlutterFragmentActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         
-        // Initialize SMS and notification handler
-        smsAndNotificationHandler = SmsAndNotificationHandler(this, flutterEngine)
+        try {
+            // Initialize SMS and notification handler
+            smsAndNotificationHandler = SmsAndNotificationHandler(this, flutterEngine)
+        } catch (e: Exception) {
+            android.util.Log.e("MainActivity", "Failed to initialize SmsAndNotificationHandler", e)
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        // Handle notification taps
-        handleNotificationIntent(intent)
+        try {
+            // Handle notification taps
+            handleNotificationIntent(intent)
+        } catch (e: Exception) {
+            android.util.Log.e("MainActivity", "Error handling notification intent", e)
+        }
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        handleNotificationIntent(intent)
+        try {
+            handleNotificationIntent(intent)
+        } catch (e: Exception) {
+            android.util.Log.e("MainActivity", "Error handling new intent", e)
+        }
     }
 
     private fun handleNotificationIntent(intent: Intent?) {
@@ -41,6 +53,10 @@ class MainActivity : FlutterFragmentActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        smsAndNotificationHandler?.cleanup()
+        try {
+            smsAndNotificationHandler?.cleanup()
+        } catch (e: Exception) {
+            android.util.Log.e("MainActivity", "Error during cleanup", e)
+        }
     }
 }
