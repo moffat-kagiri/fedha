@@ -37,7 +37,12 @@ jobs:
         
     - name: Get Flutter dependencies
       working-directory: ./app
-      run: flutter pub get
+      run: |
+        echo "📦 Resolving Flutter dependencies..."
+        flutter pub get
+        echo "✅ Dependencies resolved successfully!"
+        echo "📋 Dependency tree:"
+        flutter pub deps --style=compact
       
     - name: Setup Node.js for Firebase CLI
       uses: actions/setup-node@v4
