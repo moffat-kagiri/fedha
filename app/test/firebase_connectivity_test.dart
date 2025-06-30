@@ -56,7 +56,7 @@ void main() {
       expect(app.options.projectId, 'fedha-tracker');
       print('✅ Project ID: ${app.options.projectId}');
       print('✅ Auth Domain: ${app.options.authDomain}');
-      print('✅ API Key configured: ${app.options.apiKey?.isNotEmpty == true}');
+      print('✅ API Key configured: ${app.options.apiKey.isNotEmpty == true}');
     });
   });
 }

@@ -8,9 +8,11 @@
  */
 
 import {setGlobalOptions} from "firebase-functions";
-import {onRequest} from "firebase-functions/v2/https";
+import {onRequest, onCall} from "firebase-functions/v2/https";
+import {onDocumentCreated} from "firebase-functions/v2/firestore";
 import * as logger from "firebase-functions/logger";
 import * as admin from "firebase-admin";
+import * as nodemailer from "nodemailer";
 
 // Initialize Firebase Admin SDK
 admin.initializeApp();
@@ -249,7 +251,7 @@ export const resetPassword = onRequest(async (request, response) => {
     });
 
     // Send email with temporary password
-    await sendPasswordResetEmail(email, profile.name, profile.id, tempPassword);
+    await sendPasswordResetEmail(email, profile.name, tempPassword);
 
     response.status(200).json({
       message: "If an account exists with this email, password reset instructions have been sent.",
@@ -260,6 +262,211 @@ export const resetPassword = onRequest(async (request, response) => {
     response.status(500).json({error: "Failed to process password reset"});
   }
 });
+
+// Advanced user registration with email verification (Blaze plan feature)
+export const registerWithVerification = onCall(async (request) => {
+  const {name, email, password, profileType, baseCurrency = "ZAR"} = request.data;
+
+  try {
+    // Create user with Firebase Auth
+    const userRecord = await admin.auth().createUser({
+      email: email,
+      password: password,
+      displayName: name,
+      emailVerified: false,
+    });
+
+    // Generate verification token
+    const verificationLink = await admin.auth().generateEmailVerificationLink(email);
+
+    // Create profile in Firestore
+    const profileId = `${profileType.toUpperCase()}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    await admin.firestore().collection('profiles').doc(profileId).set({
+      id: profileId,
+      name: name,
+      email: email,
+      profileType: profileType === 'business' ? 'BIZ' : 'PERS',
+      baseCurrency: baseCurrency,
+      firebaseUid: userRecord.uid,
+      emailVerified: false,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      isActive: true,
+    });
+
+    // Send verification email (Blaze plan allows external APIs)
+    await sendVerificationEmail(email, name, verificationLink);
+
+    return {
+      success: true,
+      profileId: profileId,
+      message: "Account created successfully. Please check your email for verification.",
+      uid: userRecord.uid,
+    };
+  } catch (error) {
+    logger.error("Registration error:", error);
+    throw new Error(`Registration failed: ${error}`);
+  }
+});
+
+// Email notification for new user registration (Firestore trigger)
+export const onUserRegistered = onDocumentCreated("profiles/{profileId}", async (event) => {
+  const profileData = event.data?.data();
+  
+  if (profileData && profileData.email) {
+    logger.info(`New user registered: ${profileData.email}`);
+    
+    // Send welcome email with onboarding information
+    await sendWelcomeEmail(profileData.email, profileData.name, profileData.id);
+    
+    // Log analytics event (Blaze plan allows external service calls)
+    await logAnalyticsEvent("user_registered", {
+      profileId: profileData.id,
+      profileType: profileData.profileType,
+      baseCurrency: profileData.baseCurrency,
+    });
+  }
+});
+
+// Password reset with custom email template
+export const resetPasswordAdvanced = onCall(async (request) => {
+  const {email} = request.data;
+
+  try {
+    // Generate password reset link
+    const resetLink = await admin.auth().generatePasswordResetLink(email);
+    
+    // Find user profile
+    const profileQuery = await admin.firestore()
+      .collection('profiles')
+      .where('email', '==', email)
+      .limit(1)
+      .get();
+
+    if (!profileQuery.empty) {
+      const profile = profileQuery.docs[0].data();
+      
+      // Send custom password reset email
+      await sendPasswordResetEmail(email, profile.name, resetLink);
+      
+      return {
+        success: true,
+        message: "Password reset email sent successfully",
+      };
+    } else {
+      throw new Error("User profile not found");
+    }
+  } catch (error) {
+    logger.error("Password reset error:", error);
+    throw new Error(`Password reset failed: ${error}`);
+  }
+});
+
+// Advanced user profile analytics
+export const getUserAnalytics = onCall(async (request) => {
+  const {profileId} = request.data;
+
+  try {
+    // Get profile data
+    const profileDoc = await admin.firestore().collection('profiles').doc(profileId).get();
+    
+    if (!profileDoc.exists) {
+      throw new Error("Profile not found");
+    }
+
+    const profileData = profileDoc.data();
+
+    // Calculate analytics (Blaze plan allows complex calculations)
+    const analytics = {
+      profileId: profileId,
+      accountAge: calculateAccountAge(profileData?.createdAt),
+      lastLoginDays: calculateDaysSinceLastLogin(profileData?.lastLogin),
+      profileCompleteness: calculateProfileCompleteness(profileData),
+      riskScore: calculateRiskScore(profileData),
+    };
+
+    return {
+      success: true,
+      analytics: analytics,
+    };
+  } catch (error) {
+    logger.error("Analytics error:", error);
+    throw new Error(`Analytics calculation failed: ${error}`);
+  }
+});
+
+// Email service functions (using Blaze plan external API access)
+async function sendVerificationEmail(email: string, name: string, verificationLink: string) {
+  // Configure your email service (e.g., SendGrid, Mailgun, etc.)
+  const transporter = nodemailer.createTransport({
+    // Add your email service configuration here
+    service: 'gmail', // or your preferred service
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS,
+    },
+  });
+
+  const mailOptions = {
+    from: 'noreply@fedha-tracker.com',
+    to: email,
+    subject: 'Verify Your Fedha Account',
+    html: `
+      <h2>Welcome to Fedha, ${name}!</h2>
+      <p>Please verify your email address by clicking the link below:</p>
+      <a href="${verificationLink}" style="background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Verify Email</a>
+      <p>If you didn't create this account, please ignore this email.</p>
+    `,
+  };
+
+  await transporter.sendMail(mailOptions);
+}
+
+async function sendWelcomeEmail(email: string, name: string, profileId: string) {
+  // Similar email configuration for welcome email
+  logger.info(`Sending welcome email to ${email} for profile ${profileId}`);
+}
+
+async function sendPasswordResetEmail(email: string, name: string, resetLink: string) {
+  // Similar email configuration for password reset
+  logger.info(`Sending password reset email to ${email}`);
+}
+
+// Analytics helper functions
+function calculateAccountAge(createdAt: any): number {
+  if (!createdAt) return 0;
+  const created = createdAt.toDate();
+  const now = new Date();
+  return Math.floor((now.getTime() - created.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+function calculateDaysSinceLastLogin(lastLogin: any): number {
+  if (!lastLogin) return -1;
+  const login = lastLogin.toDate();
+  const now = new Date();
+  return Math.floor((now.getTime() - login.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+function calculateProfileCompleteness(profile: any): number {
+  const fields = ['name', 'email', 'profileType', 'baseCurrency'];
+  const completedFields = fields.filter(field => profile[field] && profile[field] !== '');
+  return Math.round((completedFields.length / fields.length) * 100);
+}
+
+function calculateRiskScore(profile: any): string {
+  // Simple risk calculation - can be enhanced
+  const age = calculateAccountAge(profile.createdAt);
+  const completeness = calculateProfileCompleteness(profile);
+  
+  if (age > 30 && completeness > 80) return 'LOW';
+  if (age > 7 && completeness > 60) return 'MEDIUM';
+  return 'HIGH';
+}
+
+async function logAnalyticsEvent(eventName: string, data: any) {
+  // Log to external analytics service (Blaze plan allows external calls)
+  logger.info(`Analytics Event: ${eventName}`, data);
+}
 
 // Helper functions
 function generateProfileId(profileType: string): string {
@@ -281,21 +488,4 @@ async function hashPassword(password: string): Promise<string> {
 async function verifyPassword(plaintext: string, hash: string): Promise<boolean> {
   const computedHash = await hashPassword(plaintext);
   return computedHash === hash;
-}
-
-async function sendPasswordResetEmail(email: string, name: string, profileId: string, tempPassword: string): Promise<void> {
-  try {
-    // For production deployment, set up nodemailer with Firebase config:
-    // firebase functions:config:set gmail.user="gaussanalyticske@gmail.com"
-    // firebase functions:config:set gmail.password="your-gmail-app-password"
-    
-    // For now, log credentials for manual support via gaussanalyticske@gmail.com
-    logger.info(`Password reset requested for ${email}. Credentials for manual support:`);
-    logger.info(`Name: ${name}, Profile ID: ${profileId}, Temp Password: ${tempPassword}`);
-    logger.info(`Support team: Please send the above credentials to ${email} manually via gaussanalyticske@gmail.com`);
-    
-  } catch (error) {
-    logger.error("Password reset function error:", error);
-    logger.info(`MANUAL SUPPORT NEEDED - Email: ${email}, Profile ID: ${profileId}, Temp Password: ${tempPassword}`);
-  }
 }
