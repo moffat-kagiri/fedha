@@ -34,6 +34,13 @@ chmod +x manual_deploy.sh
 quick_deploy.bat
 ```
 
+### 4. **Deployment Status Check**
+```powershell
+# Check current Firebase deployment status
+.\check_deployment_status.ps1   # Windows
+./check_deployment_status.sh    # Linux/macOS
+```
+
 ## 🔧 Prerequisites
 
 ### Required Tools
@@ -186,6 +193,18 @@ Successful deployment will show:
 ✅ APK built successfully!
 🎉 Manual deployment completed successfully!
 ```
+
+## ✅ Deployment Verification
+
+After running any deployment script, verify your setup using:
+
+📖 **[Firebase Deployment Verification Guide](FIREBASE_DEPLOYMENT_VERIFICATION.md)**
+
+This comprehensive guide shows you how to:
+- ✅ Verify GitHub Actions deployment status
+- 🔥 Check Firebase Console for correct configuration
+- 🧪 Test authentication and Firestore integration
+- 🚨 Troubleshoot common deployment issues
 
 ## 🔗 Related Files
 
