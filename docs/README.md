@@ -2,6 +2,10 @@
 
 **Your Personal Finance Companion** 🏦
 
+[![Firebase Deploy](https://github.com/YOUR_USERNAME/fedha/actions/workflows/firebase-deploy.yml/badge.svg)](https://github.com/YOUR_USERNAME/fedha/actions/workflows/firebase-deploy.yml)
+[![Firebase Rules](https://img.shields.io/badge/Firestore%20Rules-Deployed-green)](https://console.firebase.google.com/project/fedha-tracker/firestore/rules)
+[![Firebase Auth](https://img.shields.io/badge/Firebase%20Auth-Enabled-blue)](https://console.firebase.google.com/project/fedha-tracker/authentication)
+
 A privacy-focused, cross-platform personal and business finance management application designed for individuals and SMEs. Fedha combines advanced financial calculations, intelligent transaction tracking, and comprehensive budget management in a beautiful, offline-first mobile experience.
 
 **Current Status:** 90% Complete - Advanced Development Phase  
