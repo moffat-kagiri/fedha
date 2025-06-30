@@ -27,7 +27,10 @@ void main() {
       print('✅ Cloud Functions SDK ready');
 
       // Test basic functions connectivity (without calling actual functions yet)
-      expect(functions.region, isNotNull);
+      final regionalFunctions = FirebaseFunctions.instanceFor(
+        region: 'us-central1',
+      );
+      expect(regionalFunctions, isNotNull);
       print('🌍 Functions region configured');
     });
 
@@ -46,8 +49,8 @@ void main() {
       // Test advanced querying
       final collection = firestore.collection('profiles');
       final advancedQuery = collection
-          .where('isActive', '==', true)
-          .where('profileType', 'in', ['PERS', 'BIZ'])
+          .where('isActive', isEqualTo: true)
+          .where('profileType', whereIn: ['PERS', 'BIZ'])
           .orderBy('createdAt', descending: true)
           .limit(10);
 

@@ -398,3 +398,14 @@ htmlcov/
 # Example:
 # custom-config.json
 # local-development-settings/
+
+# ==============================================================================
+# ARCHIVE FOLDERS (PROJECT CLEANUP)
+# ==============================================================================
+/app/archive/
+/app/test/archive/
+/app/test/integration/archive/
+/app/scripts/archive/
+/docs/archive/
+/docs/guides/archive/
+/docs/summaries/archive/
