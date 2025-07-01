@@ -60,15 +60,15 @@ export const register = onRequest(async (request, response) => {
   }
 
   try {
-    const {name, profileType, pin, email, baseCurrency = "KES", timezone = "GMT+3"} = request.body;
+    const {name, profileType, password, email, baseCurrency = "KES", timezone = "GMT+3"} = request.body;
 
     // Validate required fields
-    if (!name || !profileType || !pin) {
+    if (!name || !profileType || !password) {
       response.status(400).json({error: "Name, profile type, and password are required"});
       return;
     }
 
-    if (pin.length < 6) {
+    if (password.length < 6) {
       response.status(400).json({error: "Password must be at least 6 characters"});
       return;
     }
@@ -77,7 +77,7 @@ export const register = onRequest(async (request, response) => {
     const profileId = generateProfileId(profileType);
     
     // Hash the password (simple version - in production use bcrypt)
-    const passwordHash = await hashPassword(pin);
+    const passwordHash = await hashPassword(password);
 
     // Create profile in Firestore
     const profileData = {
@@ -128,9 +128,9 @@ export const login = onRequest(async (request, response) => {
   }
 
   try {
-    const {user_id, pin, email} = request.body;
+    const {user_id, password, email} = request.body;
 
-    if ((!user_id && !email) || !pin) {
+    if ((!user_id && !email) || !password) {
       response.status(400).json({error: "User ID/email and password are required"});
       return;
     }
@@ -164,7 +164,7 @@ export const login = onRequest(async (request, response) => {
     }
 
     // Verify password
-    const isValidPassword = await verifyPassword(pin, profile.passwordHash);
+    const isValidPassword = await verifyPassword(password, profile.passwordHash);
     if (!isValidPassword) {
       response.status(401).json({error: "Invalid password"});
       return;
