@@ -1,9 +1,7 @@
 // lib/screens/profile_creation_screen.dart
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import '../models/enhanced_profile.dart';
-import '../services/auth_service.dart';
-// import '../services/google_auth_service.dart'; // Commented out - unused
+import '../services/enhanced_firebase_auth_service.dart';
 
 class ProfileCreationScreen extends StatefulWidget {
   final ProfileType initialProfileType;
@@ -23,8 +21,8 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
-  final _pinController = TextEditingController();
-  final _confirmPinController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
 
   bool _isLoading = false;
   bool _saveToGoogle = false;
@@ -35,8 +33,8 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
   void dispose() {
     _nameController.dispose();
     _emailController.dispose();
-    _pinController.dispose();
-    _confirmPinController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
   }
 
@@ -193,7 +191,7 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
 
                           // Password Field
                           TextFormField(
-                            controller: _pinController,
+                            controller: _passwordController,
                             decoration: InputDecoration(
                               labelText: 'Password',
                               hintText: 'Minimum 6 characters',
@@ -232,7 +230,7 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
 
                           // Confirm Password Field
                           TextFormField(
-                            controller: _confirmPinController,
+                            controller: _confirmPasswordController,
                             decoration: InputDecoration(
                               labelText: 'Confirm Password',
                               border: OutlineInputBorder(
@@ -258,7 +256,7 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
                               if (value == null || value.isEmpty) {
                                 return 'Please confirm your password';
                               }
-                              if (value != _pinController.text) {
+                              if (value != _passwordController.text) {
                                 return 'Passwords do not match';
                               }
                               return null;
@@ -363,25 +361,25 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
     });
 
     try {
-      final authService = context.read<AuthService>();
+      final enhancedAuthService = EnhancedFirebaseAuthService();
 
-      final profileData = {
-        'name': _nameController.text.trim(),
-        'email': _emailController.text.trim(),
-        'pin': _pinController.text.trim(),
-        'profile_type': widget.initialProfileType,
-        'base_currency': 'KES',
-        'timezone': 'GMT+3',
-        'save_to_google': _saveToGoogle,
-      };
+      final result = await enhancedAuthService.registerWithEmailVerification(
+        name: _nameController.text.trim(),
+        email: _emailController.text.trim(),
+        password: _passwordController.text.trim(),
+        profileType:
+            widget.initialProfileType == ProfileType.business
+                ? 'business'
+                : 'personal',
+        baseCurrency: 'ZAR',
+        autoLogin: true, // Enable auto-login after registration
+      );
 
-      final success = await authService.createEnhancedProfile(profileData);
-
-      if (success && mounted) {
+      if (result['success'] == true && mounted) {
         // Show success message
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Account created successfully!'),
+          SnackBar(
+            content: Text(result['message'] ?? 'Account created successfully!'),
             backgroundColor: Colors.green,
           ),
         );
@@ -391,15 +389,34 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
           widget.onUserLoggedIn!();
         }
 
-        // Navigate back to main app
-        if (mounted) {
-          Navigator.of(context).pushReplacementNamed('/dashboard');
+        // Check if user was automatically logged in
+        if (result['loggedIn'] == true) {
+          // User is logged in and ready for dashboard
+          if (mounted) {
+            Navigator.of(context).pushReplacementNamed('/dashboard');
+          }
+        } else {
+          // Registration successful but login failed - show message and go to login
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'Account created! Please login with your credentials.',
+                ),
+                backgroundColor: Colors.orange,
+              ),
+            );
+            Navigator.of(context).pushReplacementNamed('/login');
+          }
         }
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Failed to create account. Please try again.'),
+            SnackBar(
+              content: Text(
+                result['error'] ??
+                    'Failed to create account. Please try again.',
+              ),
               backgroundColor: Colors.red,
             ),
           );

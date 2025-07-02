@@ -1,0 +1,8 @@
+{
+  "name": "New Test User",
+  "email": "newtest@example.com",
+  "password": "newpass123",
+  "profileType": "personal",
+  "baseCurrency": "ZAR",
+  "timezone": "Africa/Johannesburg"
+}
