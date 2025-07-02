@@ -1,8 +1,0 @@
-{
-  "name": "Jane Doe",
-  "email": "jane.doe@example.com",
-  "password": "password123",
-  "profileType": "business",
-  "baseCurrency": "ZAR",
-  "timezone": "Africa/Johannesburg"
-}
