@@ -12,15 +12,16 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == profileId;
     }
     
+    // Updated profile validation for Firebase Auth integration
     function isValidProfile() {
-      return request.resource.data.keys().hasAll(['id', 'name', 'profileType', 'passwordHash', 'baseCurrency', 'timezone', 'createdAt', 'isActive'])
+      return request.resource.data.keys().hasAll(['id', 'name', 'profileType', 'baseCurrency', 'timezone', 'createdAt', 'isActive', 'firebaseUid'])
         && request.resource.data.id is string
         && request.resource.data.name is string
         && request.resource.data.profileType in ['BIZ', 'PERS']
-        && request.resource.data.passwordHash is string
         && request.resource.data.baseCurrency is string
         && request.resource.data.timezone is string
-        && request.resource.data.isActive is bool;
+        && request.resource.data.isActive is bool
+        && request.resource.data.firebaseUid is string;
     }
     
     function isValidTransaction() {
@@ -32,54 +33,82 @@ service cloud.firestore {
         && request.resource.data.description is string;
     }
     
-    // Profiles collection
+    // Helper function to check if user owns a profile
+    function ownsProfile(profileId) {
+      return isAuthenticated() && 
+        (request.auth.uid == profileId || 
+         get(/databases/$(database)/documents/profiles/$(profileId)).data.firebaseUid == request.auth.uid);
+    }
+    
+    // Helper function to check if user owns a profile by ID in resource
+    function ownsProfileFromResource(profileId) {
+      return isAuthenticated() && 
+        get(/databases/$(database)/documents/profiles/$(profileId)).data.firebaseUid == request.auth.uid;
+    }
+    
+    // Profiles collection - Updated for Firebase Auth integration
     match /profiles/{profileId} {
-      // Allow read/write for authenticated users accessing their own profile
-      allow read, write: if isAuthenticated() && 
+      // Allow read for authenticated users accessing their own profile
+      allow read: if isAuthenticated() && 
         (request.auth.uid == profileId || 
          (resource != null && request.auth.uid == resource.data.firebaseUid));
       
-      // Allow profile creation (for registration)
-      allow create: if isValidProfile();
+      // Allow profile creation for authenticated users during registration
+      allow create: if isAuthenticated() && isValidProfile() &&
+        request.resource.data.firebaseUid == request.auth.uid;
       
       // Allow profile updates by owner
       allow update: if isAuthenticated() && 
         (request.auth.uid == profileId || 
          (resource != null && request.auth.uid == resource.data.firebaseUid));
+         
+      // Allow profile deletion by owner
+      allow delete: if isAuthenticated() && 
+        (request.auth.uid == profileId || 
+         (resource != null && request.auth.uid == resource.data.firebaseUid));
     }
     
-    // Transactions collection
+    // Documents collection (for file uploads)
+    match /documents/{documentId} {
+      // Allow read/write for authenticated users
+      allow read, write: if isAuthenticated();
+      
+      // Allow creation for authenticated users
+      allow create: if isAuthenticated();
+    }
+    
+    // Transactions collection - Updated for Firebase Auth integration
     match /transactions/{transactionId} {
-      // Allow read/write only for transactions belonging to the authenticated user
+      // Allow read/write only for transactions belonging to the authenticated user's profiles
       allow read, write: if isAuthenticated() && 
-        request.auth.uid == resource.data.profileId;
+        ownsProfileFromResource(resource.data.profileId);
       
       // Allow creation if valid transaction and user owns the profile
       allow create: if isAuthenticated() && 
         isValidTransaction() &&
-        request.auth.uid == request.resource.data.profileId;
+        ownsProfileFromResource(request.resource.data.profileId);
     }
     
-    // Budgets collection
+    // Budgets collection - Updated for Firebase Auth integration
     match /budgets/{budgetId} {
-      // Allow read/write only for budgets belonging to the authenticated user
+      // Allow read/write only for budgets belonging to the authenticated user's profiles
       allow read, write: if isAuthenticated() && 
-        request.auth.uid == resource.data.profileId;
+        ownsProfileFromResource(resource.data.profileId);
       
       // Allow creation if user owns the profile
       allow create: if isAuthenticated() && 
-        request.auth.uid == request.resource.data.profileId;
+        ownsProfileFromResource(request.resource.data.profileId);
     }
     
-    // Goals collection
+    // Goals collection - Updated for Firebase Auth integration
     match /goals/{goalId} {
-      // Allow read/write only for goals belonging to the authenticated user
+      // Allow read/write only for goals belonging to the authenticated user's profiles
       allow read, write: if isAuthenticated() && 
-        request.auth.uid == resource.data.profileId;
+        ownsProfileFromResource(resource.data.profileId);
       
       // Allow creation if user owns the profile
       allow create: if isAuthenticated() && 
-        request.auth.uid == request.resource.data.profileId;
+        ownsProfileFromResource(request.resource.data.profileId);
     }
     
     // Public read access for app configuration (if needed)
@@ -88,6 +117,11 @@ service cloud.firestore {
       allow write: if false; // Only admins should write config
     }
     
-
+    // Allow analytics and logs for debugging (optional)
+    match /analytics/{document} {
+      allow read, write: if isAuthenticated();
+    }
+    
+    // Storage rules are handled in storage.rules
   }
 }
