@@ -6,6 +6,7 @@ import '../models/enhanced_profile.dart';
 import '../services/auth_service.dart';
 import '../services/sms_listener_service.dart';
 import '../services/biometric_auth_service.dart';
+import '../services/enhanced_firebase_auth_service.dart';
 
 class LoginScreen extends StatefulWidget {
   final ProfileType profileType;
@@ -166,8 +167,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
             // Profile Help
             TextButton(
-              onPressed: _showProfileHelp,
-              child: const Text('Having trouble logging in?'),
+              onPressed: _showForgotPassword,
+              child: const Text('Forgot Password?'),
             ),
           ],
         ),
@@ -190,29 +191,73 @@ class _LoginScreenState extends State<LoginScreen> {
       _isLoading = true;
       _errorMessage = null;
     });
+
     try {
+      // Use Enhanced Firebase Auth Service for login
+      final enhancedAuthService = EnhancedFirebaseAuthService();
+
+      // For login screen, we need an email. Let's get it from user input or profile
+      // This assumes we have an email field or we're using the old auth service for profile selection
+      // We need to update this to work with the enhanced service
       final authService = Provider.of<AuthService>(context, listen: false);
-      final success = await authService.loginByType(
-        widget.profileType,
-        _passwordController.text.trim(),
-      );
 
-      if (!mounted) return;
+      // Try to get email from current profile context
+      String? email;
+      if (authService.currentProfile != null) {
+        email = authService.currentProfile!.email;
+      }
 
-      if (success) {
-        // Update SMS listener service with current profile ID
-        final smsListenerService = Provider.of<SmsListenerService>(
-          context,
-          listen: false,
+      if (email != null) {
+        // Use enhanced Firebase auth service
+        final result = await enhancedAuthService.loginWithEmailAndPassword(
+          email: email,
+          password: _passwordController.text.trim(),
         );
-        final currentProfile = authService.currentProfile;
-        if (currentProfile != null) {
-          smsListenerService.setCurrentProfile(currentProfile.id);
-        }
 
-        Navigator.pushReplacementNamed(context, '/dashboard');
+        if (!mounted) return;
+
+        if (result['success'] == true) {
+          // Update SMS listener service with current profile ID
+          final smsListenerService = Provider.of<SmsListenerService>(
+            context,
+            listen: false,
+          );
+
+          final profileId = result['profileId'];
+          if (profileId != null) {
+            smsListenerService.setCurrentProfile(profileId);
+          }
+
+          Navigator.pushReplacementNamed(context, '/dashboard');
+        } else {
+          setState(() => _errorMessage = result['error'] ?? 'Login failed');
+        }
       } else {
-        setState(() => _errorMessage = 'Invalid password for selected profile');
+        // Fallback to old auth service if no email available
+        final success = await authService.loginByType(
+          widget.profileType,
+          _passwordController.text.trim(),
+        );
+
+        if (!mounted) return;
+
+        if (success) {
+          // Update SMS listener service with current profile ID
+          final smsListenerService = Provider.of<SmsListenerService>(
+            context,
+            listen: false,
+          );
+          final currentProfile = authService.currentProfile;
+          if (currentProfile != null) {
+            smsListenerService.setCurrentProfile(currentProfile.id);
+          }
+
+          Navigator.pushReplacementNamed(context, '/dashboard');
+        } else {
+          setState(
+            () => _errorMessage = 'Invalid password for selected profile',
+          );
+        }
       }
     } catch (e) {
       setState(() => _errorMessage = 'Login failed. Please try again.');
@@ -257,23 +302,88 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  void _showProfileHelp() {
+  void _showForgotPassword() {
+    final emailController = TextEditingController();
+
     showDialog(
       context: context,
       builder:
-          (_) => AlertDialog(
-            title: const Text('Profile Help'),
-            content: const Text(
-              'Contact support at support@fedha.app if you\'ve forgotten your password.',
+          (context) => AlertDialog(
+            title: const Text('Reset Password'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Enter your email address to receive password reset instructions.',
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: emailController,
+                  decoration: const InputDecoration(
+                    labelText: 'Email Address',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.email),
+                  ),
+                  keyboardType: TextInputType.emailAddress,
+                ),
+              ],
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('OK'),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  final email = emailController.text.trim();
+                  if (email.isEmpty || !email.contains('@')) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Please enter a valid email address'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                    return;
+                  }
+
+                  Navigator.pop(context);
+                  await _handlePasswordReset(email);
+                },
+                child: const Text('Send Reset Email'),
               ),
             ],
           ),
     );
+  }
+
+  Future<void> _handlePasswordReset(String email) async {
+    try {
+      final enhancedAuthService = EnhancedFirebaseAuthService();
+      final result = await enhancedAuthService.resetPassword(email: email);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              result['success']
+                  ? result['message'] ??
+                      'Password reset email sent successfully!'
+                  : result['error'] ?? 'Failed to send reset email',
+            ),
+            backgroundColor: result['success'] ? Colors.green : Colors.red,
+            duration: const Duration(
+              seconds: 5,
+            ), // Longer duration for success message
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
   }
 
   @override
