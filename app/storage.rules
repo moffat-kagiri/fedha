@@ -1,0 +1,37 @@
+rules_version = '2';
+
+// Firebase Storage Rules for Fedha App (Blaze Plan)
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Profile images - users can upload their own profile pictures
+    match /profile-images/{userId}/{allPaths=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId
+        && request.resource.size < 5 * 1024 * 1024; // 5MB limit for profile images
+    }
+    
+    // Document uploads - users can upload financial documents
+    match /documents/{userId}/{allPaths=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId
+        && request.resource.size < 10 * 1024 * 1024 // 10MB limit
+        && request.resource.contentType.matches('image/.*|application/pdf');
+    }
+    
+    // Receipt/invoice images
+    match /receipts/{userId}/{allPaths=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId
+        && request.resource.size < 5 * 1024 * 1024 // 5MB limit
+        && request.resource.contentType.matches('image/.*');
+    }
+    
+    // Shared public assets (app logos, etc.)
+    match /public/{allPaths=**} {
+      allow read: if true;
+      allow write: if false; // Only admin can write to public
+    }
+    
+    // Default deny all other access
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

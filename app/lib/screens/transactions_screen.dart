@@ -2,10 +2,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/transaction.dart';
+import '../models/transaction_candidate.dart';
+import '../models/goal.dart';
 import '../services/auth_service.dart';
 import '../services/offline_data_service.dart';
 import '../utils/profile_transaction_utils.dart';
 import 'add_transaction_screen.dart';
+import '../widgets/quick_transaction_entry.dart';
 
 class TransactionsScreen extends StatefulWidget {
   const TransactionsScreen({super.key});
@@ -17,7 +20,6 @@ class TransactionsScreen extends StatefulWidget {
 class _TransactionsScreenState extends State<TransactionsScreen> {
   String _selectedFilter = 'All';
   final List<String> _filterOptions = ['All', 'Income', 'Expense', 'Savings'];
-  
   // Search and enhanced filtering
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
@@ -25,15 +27,18 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
   DateTimeRange? _selectedDateRange;
   double? _minAmount;
   double? _maxAmount;
-  String _sortBy = 'Date (Newest)'; // Date (Newest), Date (Oldest), Amount (High), Amount (Low)
+  String _sortBy =
+      'Date (Newest)'; // Date (Newest), Date (Oldest), Amount (High), Amount (Low)
   bool _showAdvancedFilters = false;
-
+  Goal? _selectedGoalFilter; // Add goal filtering
+  List<Goal> _availableGoals = [];
   Future<List<Transaction>> _loadTransactions(
     OfflineDataService dataService,
     String profileId,
   ) async {
-    return await dataService.getTransactions(profileId);
+    return await dataService.getAllTransactions(profileId);
   }
+
   List<Transaction> _filterTransactions(List<Transaction> transactions) {
     List<Transaction> filtered = transactions;
 
@@ -58,46 +63,62 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
 
     // Filter by search query
     if (_searchQuery.isNotEmpty) {
-      filtered = filtered.where((t) {
-        final description = t.description?.toLowerCase() ?? '';
-        final category = _categoryToString(t.category).toLowerCase();
-        final notes = t.notes?.toLowerCase() ?? '';
-        final amount = t.amount.toString();
-        
-        return description.contains(_searchQuery.toLowerCase()) ||
-               category.contains(_searchQuery.toLowerCase()) ||
-               notes.contains(_searchQuery.toLowerCase()) ||
-               amount.contains(_searchQuery);
-      }).toList();
+      filtered =
+          filtered.where((t) {
+            final description = t.description?.toLowerCase() ?? '';
+            final category = _categoryToString(t.category).toLowerCase();
+            final notes = t.notes?.toLowerCase() ?? '';
+            final amount = t.amount.toString();
+
+            return description.contains(_searchQuery.toLowerCase()) ||
+                category.contains(_searchQuery.toLowerCase()) ||
+                notes.contains(_searchQuery.toLowerCase()) ||
+                amount.contains(_searchQuery);
+          }).toList();
     }
 
     // Filter by category
     if (_selectedCategory != null) {
-      filtered = filtered.where((t) => t.category == _selectedCategory).toList();
+      filtered =
+          filtered.where((t) => t.category == _selectedCategory).toList();
     }
 
     // Filter by date range
     if (_selectedDateRange != null) {
-      filtered = filtered.where((t) {
-        final transactionDate = DateTime(t.date.year, t.date.month, t.date.day);
-        final startDate = DateTime(_selectedDateRange!.start.year, 
-                                 _selectedDateRange!.start.month, 
-                                 _selectedDateRange!.start.day);
-        final endDate = DateTime(_selectedDateRange!.end.year, 
-                               _selectedDateRange!.end.month, 
-                               _selectedDateRange!.end.day);
-        return transactionDate.isAtSameMomentAs(startDate) ||
-               transactionDate.isAtSameMomentAs(endDate) ||
-               (transactionDate.isAfter(startDate) && transactionDate.isBefore(endDate));
-      }).toList();
-    }
-
-    // Filter by amount range
+      filtered =
+          filtered.where((t) {
+            final transactionDate = DateTime(
+              t.date.year,
+              t.date.month,
+              t.date.day,
+            );
+            final startDate = DateTime(
+              _selectedDateRange!.start.year,
+              _selectedDateRange!.start.month,
+              _selectedDateRange!.start.day,
+            );
+            final endDate = DateTime(
+              _selectedDateRange!.end.year,
+              _selectedDateRange!.end.month,
+              _selectedDateRange!.end.day,
+            );
+            return transactionDate.isAtSameMomentAs(startDate) ||
+                transactionDate.isAtSameMomentAs(endDate) ||
+                (transactionDate.isAfter(startDate) &&
+                    transactionDate.isBefore(endDate));
+          }).toList();
+    } // Filter by amount range
     if (_minAmount != null) {
       filtered = filtered.where((t) => t.amount >= _minAmount!).toList();
     }
     if (_maxAmount != null) {
       filtered = filtered.where((t) => t.amount <= _maxAmount!).toList();
+    }
+
+    // Filter by goal assignment
+    if (_selectedGoalFilter != null) {
+      filtered =
+          filtered.where((t) => t.goalId == _selectedGoalFilter!.id).toList();
     }
 
     // Sort transactions
@@ -175,7 +196,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                 const SizedBox(height: 20),
                 _buildDetailRow(
                   'Amount',
-                  '\$${transaction.amount.toStringAsFixed(2)}',
+                  'KSh${transaction.amount.toStringAsFixed(2)}',
                 ),
                 _buildDetailRow(
                   'Type',
@@ -206,7 +227,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                       child: ElevatedButton(
                         onPressed: () {
                           Navigator.pop(context);
-                          // Navigate to edit transaction screen
+                          _showEditTransactionDialog(context, transaction);
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF007A39),
@@ -260,7 +281,30 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
       _minAmount = null;
       _maxAmount = null;
       _sortBy = 'Date (Newest)';
+      _selectedGoalFilter = null;
     });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadGoals();
+  }
+
+  Future<void> _loadGoals() async {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final profileId = authService.currentProfile?.id;
+
+    if (profileId != null) {
+      final dataService = Provider.of<OfflineDataService>(
+        context,
+        listen: false,
+      );
+      final goals = await dataService.getAllGoals(profileId);
+      setState(() {
+        _availableGoals = goals;
+      });
+    }
   }
 
   @override
@@ -298,47 +342,52 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
           ),
         ],
       ),
-      body: Consumer<AuthService>(
-        builder: (context, authService, child) {
-          final profile = authService.currentProfile;
-          if (profile == null) {
-            return const Center(child: Text('Please log in'));
-          }
+      body: SafeArea(
+        child: Consumer<AuthService>(
+          builder: (context, authService, child) {
+            final profile = authService.currentProfile;
+            if (profile == null) {
+              return const Center(child: Text('Please log in'));
+            }
 
-          return Consumer<OfflineDataService>(
-            builder: (context, dataService, child) {
-              return FutureBuilder<List<Transaction>>(
-                future: _loadTransactions(dataService, profile.id),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
+            return Consumer<OfflineDataService>(
+              builder: (context, dataService, child) {
+                return FutureBuilder<List<Transaction>>(
+                  future: _loadTransactions(dataService, profile.id),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
 
-                  final transactions = snapshot.data ?? [];                  final filteredTransactions = _filterTransactions(
-                    transactions,
-                  );
+                    final transactions = snapshot.data ?? [];
+                    final filteredTransactions = _filterTransactions(
+                      transactions,
+                    );
 
-                  return Column(
-                    children: [                      // Search and Filter Section
-                      _buildSearchAndFilterSection(),
+                    return Column(
+                      children: [
+                        // Search and Filter Section
+                        _buildSearchAndFilterSection(),
 
-                      // Summary Cards
-                      _buildSummaryCards(transactions),
+                        // Summary Cards
+                        _buildSummaryCards(transactions),
 
-                      // Transactions List
-                      Expanded(
-                        child: _buildTransactionsList(filteredTransactions),
-                      ),
-                    ],
-                  );
-                },
-              );
-            },
-          );
-        },
+                        // Transactions List
+                        Expanded(
+                          child: _buildTransactionsList(filteredTransactions),
+                        ),
+                      ],
+                    );
+                  },
+                );
+              },
+            );
+          },
+        ),
       ),
     );
   }
+
   Widget _buildSearchAndFilterSection() {
     return Container(
       color: Colors.white,
@@ -352,17 +401,18 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
               decoration: InputDecoration(
                 hintText: 'Search transactions...',
                 prefixIcon: const Icon(Icons.search, color: Color(0xFF007A39)),
-                suffixIcon: _searchQuery.isNotEmpty 
-                  ? IconButton(
-                      icon: const Icon(Icons.clear),
-                      onPressed: () {
-                        setState(() {
-                          _searchController.clear();
-                          _searchQuery = '';
-                        });
-                      },
-                    )
-                  : null,
+                suffixIcon:
+                    _searchQuery.isNotEmpty
+                        ? IconButton(
+                          icon: const Icon(Icons.clear),
+                          onPressed: () {
+                            setState(() {
+                              _searchController.clear();
+                              _searchQuery = '';
+                            });
+                          },
+                        )
+                        : null,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide(color: Colors.grey.shade300),
@@ -381,7 +431,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
               },
             ),
           ),
-          
+
           // Filter and Sort Row
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -392,34 +442,42 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                   child: SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: Row(
-                      children: _filterOptions.map((option) {
-                        final isSelected = _selectedFilter == option;
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: FilterChip(
-                            label: Text(option),
-                            selected: isSelected,
-                            onSelected: (selected) {
-                              setState(() {
-                                _selectedFilter = option;
-                              });
-                            },
-                            selectedColor: const Color(0xFF007A39).withOpacity(0.2),
-                            checkmarkColor: const Color(0xFF007A39),
-                          ),
-                        );
-                      }).toList(),
+                      children:
+                          _filterOptions.map((option) {
+                            final isSelected = _selectedFilter == option;
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: FilterChip(
+                                label: Text(option),
+                                selected: isSelected,
+                                onSelected: (selected) {
+                                  setState(() {
+                                    _selectedFilter = option;
+                                  });
+                                },
+                                selectedColor: const Color(
+                                  0xFF007A39,
+                                ).withValues(alpha: 0.2),
+                                checkmarkColor: const Color(0xFF007A39),
+                              ),
+                            );
+                          }).toList(),
                     ),
                   ),
                 ),
-                
+
                 const SizedBox(width: 8),
-                
+
                 // Advanced Filters Button
                 IconButton(
                   icon: Icon(
-                    _showAdvancedFilters ? Icons.filter_list : Icons.filter_list_outlined,
-                    color: _hasActiveFilters() ? const Color(0xFF007A39) : Colors.grey.shade600,
+                    _showAdvancedFilters
+                        ? Icons.filter_list
+                        : Icons.filter_list_outlined,
+                    color:
+                        _hasActiveFilters()
+                            ? const Color(0xFF007A39)
+                            : Colors.grey.shade600,
                   ),
                   onPressed: () {
                     setState(() {
@@ -428,7 +486,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                   },
                   tooltip: 'Advanced Filters',
                 ),
-                
+
                 // Sort Button
                 PopupMenuButton<String>(
                   icon: Icon(Icons.sort, color: Colors.grey.shade600),
@@ -438,20 +496,33 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                       _sortBy = value;
                     });
                   },
-                  itemBuilder: (context) => [
-                    const PopupMenuItem(value: 'Date (Newest)', child: Text('Date (Newest)')),
-                    const PopupMenuItem(value: 'Date (Oldest)', child: Text('Date (Oldest)')),
-                    const PopupMenuItem(value: 'Amount (High)', child: Text('Amount (High)')),
-                    const PopupMenuItem(value: 'Amount (Low)', child: Text('Amount (Low)')),
-                  ],
+                  itemBuilder:
+                      (context) => [
+                        const PopupMenuItem(
+                          value: 'Date (Newest)',
+                          child: Text('Date (Newest)'),
+                        ),
+                        const PopupMenuItem(
+                          value: 'Date (Oldest)',
+                          child: Text('Date (Oldest)'),
+                        ),
+                        const PopupMenuItem(
+                          value: 'Amount (High)',
+                          child: Text('Amount (High)'),
+                        ),
+                        const PopupMenuItem(
+                          value: 'Amount (Low)',
+                          child: Text('Amount (Low)'),
+                        ),
+                      ],
                 ),
               ],
             ),
           ),
-          
+
           // Advanced Filters Panel
           if (_showAdvancedFilters) _buildAdvancedFiltersPanel(),
-          
+
           const SizedBox(height: 8),
         ],
       ),
@@ -460,11 +531,12 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
 
   bool _hasActiveFilters() {
     return _selectedCategory != null ||
-           _selectedDateRange != null ||
-           _minAmount != null ||
-           _maxAmount != null ||
-           _searchQuery.isNotEmpty ||
-           _selectedFilter != 'All';
+        _selectedDateRange != null ||
+        _minAmount != null ||
+        _maxAmount != null ||
+        _searchQuery.isNotEmpty ||
+        _selectedFilter != 'All' ||
+        _selectedGoalFilter != null;
   }
 
   Widget _buildAdvancedFiltersPanel() {
@@ -497,21 +569,25 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                 ),
             ],
           ),
-          
+
           const SizedBox(height: 16),
-          
+
           // Category Filter
           _buildCategoryFilter(),
-          
+
           const SizedBox(height: 16),
-          
+
           // Date Range Filter
           _buildDateRangeFilter(),
-          
+
           const SizedBox(height: 16),
-          
           // Amount Range Filter
           _buildAmountRangeFilter(),
+
+          const SizedBox(height: 16),
+
+          // Goal Filter
+          _buildGoalFilter(),
         ],
       ),
     );
@@ -519,7 +595,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
 
   Widget _buildCategoryFilter() {
     final availableCategories = TransactionCategory.values;
-    
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -532,17 +608,19 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
           value: _selectedCategory,
           decoration: InputDecoration(
             hintText: 'Select category',
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 8,
             ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           ),
-          items: availableCategories.map((category) {
-            return DropdownMenuItem(
-              value: category,
-              child: Text(_categoryToString(category)),
-            );
-          }).toList(),
+          items:
+              availableCategories.map((category) {
+                return DropdownMenuItem(
+                  value: category,
+                  child: Text(_categoryToString(category)),
+                );
+              }).toList(),
           onChanged: (value) {
             setState(() {
               _selectedCategory = value;
@@ -592,7 +670,10 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                         ? 'Select date range'
                         : '${_formatDate(_selectedDateRange!.start)} - ${_formatDate(_selectedDateRange!.end)}',
                     style: TextStyle(
-                      color: _selectedDateRange == null ? Colors.grey.shade600 : Colors.black87,
+                      color:
+                          _selectedDateRange == null
+                              ? Colors.grey.shade600
+                              : Colors.black87,
                     ),
                   ),
                 ),
@@ -628,13 +709,18 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
               child: TextFormField(
                 decoration: InputDecoration(
                   hintText: 'Min amount',
-                  prefixText: '\$ ',
+                  prefixText: 'KSh ',
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                 ),
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
                 onChanged: (value) {
                   setState(() {
                     _minAmount = double.tryParse(value);
@@ -647,13 +733,18 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
               child: TextFormField(
                 decoration: InputDecoration(
                   hintText: 'Max amount',
-                  prefixText: '\$ ',
+                  prefixText: 'KSh ',
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                 ),
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
                 onChanged: (value) {
                   setState(() {
                     _maxAmount = double.tryParse(value);
@@ -662,6 +753,47 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
               ),
             ),
           ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildGoalFilter() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Goal Assignment',
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+        ),
+        const SizedBox(height: 8),
+        DropdownButtonFormField<Goal>(
+          value: _selectedGoalFilter,
+          decoration: InputDecoration(
+            hintText: 'Filter by goal',
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 8,
+            ),
+          ),
+          items: [
+            const DropdownMenuItem<Goal>(
+              value: null,
+              child: Text('All transactions'),
+            ),
+            ..._availableGoals.map((goal) {
+              return DropdownMenuItem<Goal>(
+                value: goal,
+                child: Text(goal.name),
+              );
+            }),
+          ],
+          onChanged: (value) {
+            setState(() {
+              _selectedGoalFilter = value;
+            });
+          },
         ),
       ],
     );
@@ -686,7 +818,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
           Expanded(
             child: _buildSummaryCard(
               'Income',
-              '\$${income.toStringAsFixed(2)}',
+              'Ksh${income.toStringAsFixed(2)}',
               Colors.green,
               Icons.trending_up,
             ),
@@ -695,7 +827,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
           Expanded(
             child: _buildSummaryCard(
               'Expenses',
-              '\$${expenses.toStringAsFixed(2)}',
+              'Ksh${expenses.toStringAsFixed(2)}',
               Colors.red,
               Icons.trending_down,
             ),
@@ -704,7 +836,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
           Expanded(
             child: _buildSummaryCard(
               'Savings',
-              '\$${savings.toStringAsFixed(2)}',
+              'Ksh${savings.toStringAsFixed(2)}',
               Colors.blue,
               Icons.savings,
             ),
@@ -723,9 +855,9 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Column(
         children: [
@@ -817,13 +949,13 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
           width: 48,
           height: 48,
           decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
+            color: color.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(24),
           ),
           child: Icon(icon, color: color),
         ),
         title: Text(
-          transaction.description ?? 'No description',
+          _categoryToString(transaction.category),
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
         ),
         subtitle: Column(
@@ -831,7 +963,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
           children: [
             const SizedBox(height: 4),
             Text(
-              _categoryToString(transaction.category),
+              transaction.description ?? 'No description',
               style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
             ),
             const SizedBox(height: 2),
@@ -842,7 +974,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
           ],
         ),
         trailing: Text(
-          '$prefix\$${transaction.amount.toStringAsFixed(2)}',
+          '${prefix}Ksh${transaction.amount.toStringAsFixed(2)}',
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.bold,
@@ -851,6 +983,98 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
         ),
         onTap: () => _showTransactionDetails(transaction),
       ),
+    );
+  }
+
+  void _showEditTransactionDialog(
+    BuildContext context,
+    Transaction transaction,
+  ) {
+    showDialog(
+      context: context,
+      builder:
+          (context) => Dialog(
+            insetPadding: const EdgeInsets.all(16),
+            child: Container(
+              width: double.infinity,
+              height: MediaQuery.of(context).size.height * 0.8,
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Edit Transaction',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.close),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Expanded(
+                    child: QuickTransactionEntry(
+                      editingTransaction: TransactionCandidate(
+                        uuid: transaction.uuid,
+                        amount: transaction.amount,
+                        description: transaction.description,
+                        vendor: '', // Transaction doesn't have vendor field
+                        category: transaction.category,
+                        type: transaction.type,
+                        timestamp: transaction.date,
+                        sourceText: '', // No raw SMS for existing transactions
+                        sender: '',
+                        confidence:
+                            1.0, // Full confidence for manual transactions
+                        isConfirmed: true,
+                        isRejected: false,
+                      ),
+                      onTransactionUpdated: (updatedCandidate) async {
+                        // Update the existing transaction
+                        transaction.amount =
+                            updatedCandidate.amount ?? transaction.amount;
+                        transaction.description =
+                            updatedCandidate.description?.isEmpty == true
+                                ? null
+                                : updatedCandidate.description;
+                        transaction.category = updatedCandidate.category;
+                        transaction.date = updatedCandidate.timestamp;
+                        transaction.type = updatedCandidate.type;
+                        transaction.updatedAt =
+                            DateTime.now(); // Save to database using OfflineDataService to ensure proper notifications
+                        final dataService = Provider.of<OfflineDataService>(
+                          context,
+                          listen: false,
+                        );
+                        await dataService.updateTransaction(transaction);
+
+                        if (mounted) {
+                          Navigator.pop(context);
+                          // Force rebuild of the transaction list
+                          setState(() {});
+
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Transaction updated successfully!',
+                              ),
+                              backgroundColor: Colors.green,
+                            ),
+                          );
+                        }
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
     );
   }
 }

@@ -9,17 +9,40 @@ import '../models/client.dart';
 import '../models/invoice.dart';
 import '../models/goal.dart';
 import '../models/budget.dart';
+import 'firebase_auth_service.dart';
 
 class ApiClient {
-  // Platform-specific base URL configuration for cross-platform sync
+  // Unified base URL configuration for all platforms
+  // Priority: Firebase Functions > Local Django > Fallback local
   static String get _baseUrl {
+    final String url;
     if (kIsWeb) {
-      // Web platform uses localhost directly
-      return "http://localhost:8000/api";
+      // Web platform uses Firebase Functions or localhost for development
+      url = "https://africa-south1-fedha-tracker.cloudfunctions.net";
     } else {
-      // Mobile platforms use emulator-specific localhost
-      return "http://10.0.2.2:8000/api";
+      // Mobile platforms - use Firebase Functions in production
+      url = "https://africa-south1-fedha-tracker.cloudfunctions.net";
+
+      // For local development, uncomment this line:
+      // url = "http://10.0.2.2:8000/api";  // Android emulator localhost
     }
+
+    if (kDebugMode) {
+      print(
+        '🔗 API_CLIENT: Using base URL: $url (Platform: ${kIsWeb ? "Web" : "Mobile"})',
+      );
+    }
+
+    return url;
+  }
+
+  // Debug method to get current base URL
+  static String getBaseUrl() {
+    final url = _baseUrl;
+    if (kDebugMode) {
+      print('ApiClient: Current base URL: $url');
+    }
+    return url;
   }
 
   // Sync Transactions
@@ -27,11 +50,21 @@ class ApiClient {
     String profileId,
     List<Transaction> transactions,
   ) async {
+    final url = '$_baseUrl/sync/$profileId/';
+    if (kDebugMode) {
+      print('🔄 API_CLIENT: Syncing transactions to: $url');
+    }
+
     final response = await http.post(
-      Uri.parse('$_baseUrl/sync/$profileId/'),
-      headers: {'Content-Type': 'application/json'},
+      Uri.parse(url),
+      headers: _commonHeaders,
       body: jsonEncode(transactions.map((t) => t.toJson()).toList()),
     );
+
+    if (kDebugMode) {
+      print('🔄 API_CLIENT: Sync response - Status: ${response.statusCode}');
+    }
+
     return jsonDecode(response.body);
   }
 
@@ -39,20 +72,48 @@ class ApiClient {
   Future<double> calculateRepayment(Map<String, dynamic> data) async {
     final response = await http.post(
       Uri.parse('$_baseUrl/calculate-repayment/'),
+      headers: _commonHeaders,
       body: jsonEncode(data),
     );
     return jsonDecode(response.body)['total_repayment'];
   }
 
+  // Common headers for all requests (especially for ngrok)
+  static Map<String, String> get _commonHeaders {
+    return {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      // ngrok requires this header to avoid browser warning pages
+      'ngrok-skip-browser-warning': 'true',
+      // Additional headers that might help with ngrok
+      'User-Agent': 'Flutter-App/1.0',
+      'Cache-Control': 'no-cache',
+    };
+  }
+
   // Health check for connectivity
   Future<bool> healthCheck() async {
     try {
-      final response = await http.get(
-        Uri.parse('$_baseUrl/health/'),
-        headers: {'Content-Type': 'application/json'},
-      );
+      final url = '$_baseUrl/health/';
+      if (kDebugMode) {
+        print('🌐 API_CLIENT: Making health check request to: $url');
+        print('🌐 API_CLIENT: Headers: $_commonHeaders');
+      }
+
+      final response = await http.get(Uri.parse(url), headers: _commonHeaders);
+
+      if (kDebugMode) {
+        print(
+          '🌐 API_CLIENT: Health check response - Status: ${response.statusCode}, Body: ${response.body}',
+        );
+        print('🌐 API_CLIENT: Response Headers: ${response.headers}');
+      }
+
       return response.statusCode == 200;
     } catch (e) {
+      if (kDebugMode) {
+        print('🌐 API_CLIENT: Health check error: $e');
+      }
       return false;
     }
   }
@@ -69,7 +130,7 @@ class ApiClient {
   ) async {
     final response = await http.post(
       Uri.parse('$_baseUrl/sync/$profileId/categories/'),
-      headers: {'Content-Type': 'application/json'},
+      headers: _commonHeaders,
       body: jsonEncode(categories.map((c) => c.toJson()).toList()),
     );
     return jsonDecode(response.body);
@@ -82,7 +143,7 @@ class ApiClient {
   ) async {
     final response = await http.post(
       Uri.parse('$_baseUrl/sync/$profileId/clients/'),
-      headers: {'Content-Type': 'application/json'},
+      headers: _commonHeaders,
       body: jsonEncode(clients.map((c) => c.toJson()).toList()),
     );
     return jsonDecode(response.body);
@@ -95,7 +156,7 @@ class ApiClient {
   ) async {
     final response = await http.post(
       Uri.parse('$_baseUrl/sync/$profileId/invoices/'),
-      headers: {'Content-Type': 'application/json'},
+      headers: _commonHeaders,
       body: jsonEncode(invoices.map((i) => i.toJson()).toList()),
     );
     return jsonDecode(response.body);
@@ -108,7 +169,7 @@ class ApiClient {
   ) async {
     final response = await http.post(
       Uri.parse('$_baseUrl/sync/$profileId/goals/'),
-      headers: {'Content-Type': 'application/json'},
+      headers: _commonHeaders,
       body: jsonEncode(goals.map((g) => g.toJson()).toList()),
     );
     return jsonDecode(response.body);
@@ -121,7 +182,7 @@ class ApiClient {
   ) async {
     final response = await http.post(
       Uri.parse('$_baseUrl/sync/$profileId/budgets/'),
-      headers: {'Content-Type': 'application/json'},
+      headers: _commonHeaders,
       body: jsonEncode(budgets.map((b) => b.toJson()).toList()),
     );
     return jsonDecode(response.body);
@@ -131,7 +192,7 @@ class ApiClient {
   Future<List<Transaction>> fetchTransactions(String profileId) async {
     final response = await http.get(
       Uri.parse('$_baseUrl/profiles/$profileId/transactions/'),
-      headers: {'Content-Type': 'application/json'},
+      headers: _commonHeaders,
     );
 
     if (response.statusCode == 200) {
@@ -144,7 +205,7 @@ class ApiClient {
   Future<List<Category>> fetchCategories(String profileId) async {
     final response = await http.get(
       Uri.parse('$_baseUrl/profiles/$profileId/categories/'),
-      headers: {'Content-Type': 'application/json'},
+      headers: _commonHeaders,
     );
 
     if (response.statusCode == 200) {
@@ -157,7 +218,7 @@ class ApiClient {
   Future<List<Client>> fetchClients(String profileId) async {
     final response = await http.get(
       Uri.parse('$_baseUrl/profiles/$profileId/clients/'),
-      headers: {'Content-Type': 'application/json'},
+      headers: _commonHeaders,
     );
 
     if (response.statusCode == 200) {
@@ -170,7 +231,7 @@ class ApiClient {
   Future<List<Invoice>> fetchInvoices(String profileId) async {
     final response = await http.get(
       Uri.parse('$_baseUrl/profiles/$profileId/invoices/'),
-      headers: {'Content-Type': 'application/json'},
+      headers: _commonHeaders,
     );
 
     if (response.statusCode == 200) {
@@ -183,7 +244,7 @@ class ApiClient {
   Future<List<Goal>> fetchGoals(String profileId) async {
     final response = await http.get(
       Uri.parse('$_baseUrl/profiles/$profileId/goals/'),
-      headers: {'Content-Type': 'application/json'},
+      headers: _commonHeaders,
     );
 
     if (response.statusCode == 200) {
@@ -196,7 +257,7 @@ class ApiClient {
   Future<List<Budget>> fetchBudgets(String profileId) async {
     final response = await http.get(
       Uri.parse('$_baseUrl/profiles/$profileId/budgets/'),
-      headers: {'Content-Type': 'application/json'},
+      headers: _commonHeaders,
     );
 
     if (response.statusCode == 200) {
@@ -208,8 +269,7 @@ class ApiClient {
 
   // =============================================================================
   // ENHANCED PROFILE MANAGEMENT - EMAIL/PASSWORD AUTHENTICATION
-  // =============================================================================
-  // Enhanced profile registration with pin-based authentication
+  // =============================================================================  // Enhanced profile registration with password-based authentication
   Future<Map<String, dynamic>> createEnhancedProfile({
     required String name,
     required String profileType,
@@ -219,15 +279,16 @@ class ApiClient {
     String timezone = 'GMT+3',
   }) async {
     try {
+      // Try Firebase Functions first
       final response = await http.post(
-        Uri.parse('$_baseUrl/enhanced/register/'),
-        headers: {'Content-Type': 'application/json'},
+        Uri.parse('$_baseUrl/register'),
+        headers: _commonHeaders,
         body: jsonEncode({
           'name': name,
-          'profile_type': profileType,
+          'profileType': profileType,
           'pin': pin,
           'email': email,
-          'base_currency': baseCurrency,
+          'baseCurrency': baseCurrency,
           'timezone': timezone,
         }),
       );
@@ -235,10 +296,41 @@ class ApiClient {
       if (response.statusCode == 201) {
         return jsonDecode(response.body);
       } else {
-        throw Exception('Failed to create profile: \\${response.body}');
+        throw Exception('Firebase Functions failed: ${response.body}');
       }
     } catch (e) {
-      throw Exception('Network error creating profile: $e');
+      if (kDebugMode) {
+        print(
+          '⚠️ Firebase Functions unavailable, falling back to Firebase Auth',
+        );
+        print('   Error: $e');
+      }
+
+      // Fallback to Firebase Authentication
+      try {
+        final FirebaseAuthService authService = FirebaseAuthService();
+
+        if (email != null && email.isNotEmpty) {
+          return await authService.registerWithEmailAndPassword(
+            name: name,
+            profileType: profileType,
+            password: pin,
+            email: email,
+            baseCurrency: baseCurrency,
+            timezone: timezone,
+          );
+        } else {
+          return await authService.registerLocalProfile(
+            name: name,
+            profileType: profileType,
+            password: pin,
+            baseCurrency: baseCurrency,
+            timezone: timezone,
+          );
+        }
+      } catch (authError) {
+        throw Exception('Registration failed: $authError');
+      }
     }
   }
 
@@ -248,20 +340,45 @@ class ApiClient {
     required String pin,
   }) async {
     try {
+      // Try Firebase Functions first
       final response = await http.post(
-        Uri.parse('$_baseUrl/enhanced/login/'),
-        headers: {'Content-Type': 'application/json'},
+        Uri.parse('$_baseUrl/login'),
+        headers: _commonHeaders,
         body: jsonEncode({'user_id': userId, 'pin': pin}),
       );
 
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       } else {
-        final errorData = jsonDecode(response.body);
-        throw Exception(errorData['error'] ?? 'Login failed');
+        throw Exception('Firebase Functions failed');
       }
     } catch (e) {
-      throw Exception('Network error during login: $e');
+      if (kDebugMode) {
+        print(
+          '⚠️ Firebase Functions unavailable, falling back to Firebase Auth',
+        );
+        print('   Error: $e');
+      }
+
+      // Fallback to Firebase Authentication
+      try {
+        final FirebaseAuthService authService = FirebaseAuthService();
+
+        // Check if userId looks like an email
+        if (userId.contains('@')) {
+          return await authService.loginWithEmailAndPassword(
+            email: userId,
+            password: pin,
+          );
+        } else {
+          return await authService.loginWithProfileId(
+            profileId: userId,
+            password: pin,
+          );
+        }
+      } catch (authError) {
+        throw Exception('Login failed: $authError');
+      }
     }
   }
 
@@ -273,7 +390,7 @@ class ApiClient {
         Uri.parse(
           '$_baseUrl/enhanced/sync/?email=$email',
         ), // Changed from user_id
-        headers: {'Content-Type': 'application/json'},
+        headers: _commonHeaders,
       );
 
       if (response.statusCode == 200) {
@@ -297,7 +414,7 @@ class ApiClient {
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/enhanced/sync/'),
-        headers: {'Content-Type': 'application/json'},
+        headers: _commonHeaders,
         body: jsonEncode({
           'email': email,
           'profile_data': profileData,
@@ -321,7 +438,7 @@ class ApiClient {
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/enhanced/validate/'),
-        headers: {'Content-Type': 'application/json'},
+        headers: _commonHeaders,
         body: jsonEncode({'email': email}), // Changed from user_id
       );
 
@@ -345,7 +462,7 @@ class ApiClient {
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/enhanced/change-password/'),
-        headers: {'Content-Type': 'application/json'},
+        headers: _commonHeaders,
         body: jsonEncode({
           'email': email,
           'current_password': currentPassword,
@@ -375,7 +492,7 @@ class ApiClient {
     try {
       final response = await http.get(
         Uri.parse('$_baseUrl/enhanced/profile/?email=$email'),
-        headers: {'Content-Type': 'application/json'},
+        headers: _commonHeaders,
       );
 
       if (response.statusCode == 200) {
@@ -409,7 +526,7 @@ class ApiClient {
 
       final response = await http.put(
         Uri.parse('$_baseUrl/enhanced/profile/'),
-        headers: {'Content-Type': 'application/json'},
+        headers: _commonHeaders,
         body: jsonEncode(updateData),
       );
 
@@ -431,7 +548,7 @@ class ApiClient {
     try {
       final response = await http.delete(
         Uri.parse('$_baseUrl/enhanced/profile/?email=$email'),
-        headers: {'Content-Type': 'application/json'},
+        headers: _commonHeaders,
       );
 
       if (response.statusCode == 200) {
@@ -442,6 +559,251 @@ class ApiClient {
       }
     } catch (e) {
       throw Exception('Network error deleting profile: $e');
+    }
+  }
+
+  // =============================================================================
+  // LOAN CALCULATOR METHODS
+  // =============================================================================
+
+  /// Calculate loan payment using the comprehensive calculator
+  Future<Map<String, dynamic>> calculateLoanPayment({
+    required double principal,
+    required double annualRate,
+    required int termYears,
+    required String interestType, // 'SIMPLE', 'COMPOUND', 'REDUCING', 'FLAT'
+    required String
+    paymentFrequency, // 'MONTHLY', 'QUARTERLY', 'SEMI_ANNUALLY', 'ANNUALLY'
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/calculators/loan/'),
+        headers: _commonHeaders,
+        body: jsonEncode({
+          'principal': principal,
+          'annual_rate': annualRate,
+          'term_years': termYears,
+          'interest_type': interestType,
+          'payment_frequency': paymentFrequency,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        throw Exception('Failed to calculate loan payment: ${response.body}');
+      }
+    } catch (e) {
+      throw Exception('Network error calculating loan payment: $e');
+    }
+  }
+
+  /// Solve for interest rate given payment amount
+  Future<Map<String, dynamic>> solveInterestRate({
+    required double principal,
+    required double payment,
+    required int termYears,
+    required String paymentFrequency, // 'MONTHLY', 'QUARTERLY', etc.
+    double tolerance = 0.00001,
+    int maxIterations = 100,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/calculators/interest-rate-solver/'),
+        headers: _commonHeaders,
+        body: jsonEncode({
+          'principal': principal,
+          'payment': payment,
+          'term_years': termYears,
+          'payment_frequency': paymentFrequency,
+          'tolerance': tolerance,
+          'max_iterations': maxIterations,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        throw Exception('Failed to solve interest rate: ${response.body}');
+      }
+    } catch (e) {
+      throw Exception('Network error solving interest rate: $e');
+    }
+  }
+
+  /// Generate complete amortization schedule
+  Future<Map<String, dynamic>> generateAmortizationSchedule({
+    required double principal,
+    required double annualRate,
+    required int termYears,
+    required String paymentFrequency, // 'MONTHLY', 'QUARTERLY', etc.
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/calculators/amortization-schedule/'),
+        headers: _commonHeaders,
+        body: jsonEncode({
+          'principal': principal,
+          'annual_rate': annualRate,
+          'term_years': termYears,
+          'payment_frequency': paymentFrequency,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        throw Exception(
+          'Failed to generate amortization schedule: ${response.body}',
+        );
+      }
+    } catch (e) {
+      throw Exception('Network error generating amortization schedule: $e');
+    }
+  }
+
+  /// Calculate early payment savings
+  Future<Map<String, dynamic>> calculateEarlyPaymentSavings({
+    required double principal,
+    required double annualRate,
+    required int termYears,
+    required double extraPayment,
+    required String paymentFrequency, // 'MONTHLY', 'QUARTERLY', etc.
+    required String extraPaymentType, // 'MONTHLY', 'ONE_TIME'
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/calculators/early-payment/'),
+        headers: _commonHeaders,
+        body: jsonEncode({
+          'principal': principal,
+          'annual_rate': annualRate,
+          'term_years': termYears,
+          'extra_payment': extraPayment,
+          'payment_frequency': paymentFrequency,
+          'extra_payment_type': extraPaymentType,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        throw Exception(
+          'Failed to calculate early payment savings: ${response.body}',
+        );
+      }
+    } catch (e) {
+      throw Exception('Network error calculating early payment savings: $e');
+    }
+  }
+
+  /// Calculate Return on Investment (ROI)
+  Future<Map<String, dynamic>> calculateROI({
+    required double initialInvestment,
+    required double finalValue,
+    double? timeYears,
+  }) async {
+    try {
+      final body = {
+        'initial_investment': initialInvestment,
+        'final_value': finalValue,
+      };
+
+      if (timeYears != null) {
+        body['time_years'] = timeYears;
+      }
+      final response = await http.post(
+        Uri.parse('$_baseUrl/calculators/roi/'),
+        headers: _commonHeaders,
+        body: jsonEncode(body),
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        throw Exception('Failed to calculate ROI: ${response.body}');
+      }
+    } catch (e) {
+      throw Exception('Network error calculating ROI: $e');
+    }
+  }
+
+  /// Calculate compound interest
+  Future<Map<String, dynamic>> calculateCompoundInterest({
+    required double principal,
+    required double annualRate,
+    required double timeYears,
+    required String compoundingFrequency, // 'MONTHLY', 'QUARTERLY', etc.
+    double additionalPayment = 0,
+    String additionalFrequency = 'MONTHLY',
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/calculators/compound-interest/'),
+        headers: _commonHeaders,
+        body: jsonEncode({
+          'principal': principal,
+          'annual_rate': annualRate,
+          'time_years': timeYears,
+          'compounding_frequency': compoundingFrequency,
+          'additional_payment': additionalPayment,
+          'additional_frequency': additionalFrequency,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        throw Exception(
+          'Failed to calculate compound interest: ${response.body}',
+        );
+      }
+    } catch (e) {
+      throw Exception('Network error calculating compound interest: $e');
+    }
+  }
+
+  /// Calculate portfolio metrics
+  Future<Map<String, dynamic>> calculatePortfolioMetrics({
+    required List<Map<String, double>> investments,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/calculators/portfolio-metrics/'),
+        headers: _commonHeaders,
+        body: jsonEncode({'investments': investments}),
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        throw Exception(
+          'Failed to calculate portfolio metrics: ${response.body}',
+        );
+      }
+    } catch (e) {
+      throw Exception('Network error calculating portfolio metrics: $e');
+    }
+  }
+
+  /// Assess investment risk profile
+  Future<Map<String, dynamic>> assessRiskProfile({
+    required List<int> answers,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/calculators/risk-assessment/'),
+        headers: _commonHeaders,
+        body: jsonEncode({'answers': answers}),
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        throw Exception('Failed to assess risk profile: ${response.body}');
+      }
+    } catch (e) {
+      throw Exception('Network error assessing risk profile: $e');
     }
   }
 

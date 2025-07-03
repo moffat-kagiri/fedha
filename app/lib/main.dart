@@ -1,13 +1,17 @@
-// lib/main.dart
+// lib/main.dart - Full Fedha with crash-resistant initialization
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'dart:io';
+import 'firebase_options.dart';
 
 // Models
 import 'models/profile.dart';
 import 'models/enhanced_profile.dart';
 import 'models/transaction.dart';
+import 'models/transaction_candidate.dart';
 import 'models/category.dart';
 import 'models/client.dart';
 import 'models/invoice.dart';
@@ -20,188 +24,289 @@ import 'adapters/enum_adapters.dart' as enum_adapters;
 
 // Services
 import 'services/auth_service.dart';
-// import 'services/google_drive_service.dart';
 import 'services/api_client.dart';
 import 'services/offline_data_service.dart';
 import 'services/enhanced_sync_service.dart';
+import 'services/goal_transaction_service.dart';
+import 'services/text_recognition_service.dart';
+import 'services/csv_upload_service.dart';
+import 'services/sms_transaction_extractor.dart';
+import 'services/sms_listener_service.dart';
+import 'services/notification_service.dart';
+import 'services/theme_service.dart';
+import 'services/navigation_service.dart';
+import 'services/sender_management_service.dart';
+import 'services/biometric_auth_service.dart';
+import 'services/background_sms_service.dart';
+import 'services/background_sync_service.dart';
 
 // Screens
 import 'screens/onboarding_screen.dart';
-import 'screens/signin_screen.dart';
-import 'screens/main_navigation.dart';
-import 'screens/profile_screen.dart';
+import 'screens/auth_wrapper.dart';
 
 // Utils
-import 'utils/theme.dart';
+import 'debug_sms_senders.dart';
 
+/// Safe initialization of Hive with all required adapters
 Future<void> initializeHive() async {
-  await Hive.initFlutter();
-  // Register all adapters
-  // Generated adapters from .g.dart files
-  Hive.registerAdapter(TransactionAdapter());
-  Hive.registerAdapter(CategoryAdapter());
-  Hive.registerAdapter(ProfileAdapter());
-  Hive.registerAdapter(ProfileTypeAdapter()); // From enhanced_profile.g.dart
-  Hive.registerAdapter(EnhancedProfileAdapter());
-  Hive.registerAdapter(SyncQueueItemAdapter());
-  Hive.registerAdapter(ClientAdapter());
-  Hive.registerAdapter(InvoiceAdapter());
-  Hive.registerAdapter(InvoiceLineItemAdapter());
-  Hive.registerAdapter(InvoiceStatusAdapter());
-  Hive.registerAdapter(GoalAdapter());
-  Hive.registerAdapter(GoalTypeAdapter());
-  Hive.registerAdapter(GoalStatusAdapter());
-  Hive.registerAdapter(BudgetAdapter());
-  Hive.registerAdapter(BudgetLineItemAdapter());
+  try {
+    await Hive.initFlutter();
 
-  // Manual enum adapters
-  Hive.registerAdapter(enum_adapters.TransactionTypeAdapter());
-  Hive.registerAdapter(enum_adapters.TransactionCategoryAdapter());
-  Hive.registerAdapter(enum_adapters.BudgetPeriodAdapter());
-  Hive.registerAdapter(enum_adapters.BudgetStatusAdapter());
+    // Register adapters safely
+    try {
+      if (!Hive.isAdapterRegistered(1)) {
+        Hive.registerAdapter(ProfileAdapter());
+      }
+      if (!Hive.isAdapterRegistered(8)) {
+        Hive.registerAdapter(EnhancedProfileAdapter());
+      }
+      if (!Hive.isAdapterRegistered(0)) {
+        Hive.registerAdapter(TransactionAdapter());
+      }
+      if (!Hive.isAdapterRegistered(9)) {
+        Hive.registerAdapter(TransactionCandidateAdapter());
+      }
+      if (!Hive.isAdapterRegistered(2)) {
+        Hive.registerAdapter(CategoryAdapter());
+      }
+      if (!Hive.isAdapterRegistered(3)) {
+        Hive.registerAdapter(ClientAdapter());
+      }
+      if (!Hive.isAdapterRegistered(4)) {
+        Hive.registerAdapter(InvoiceAdapter());
+      }
+      if (!Hive.isAdapterRegistered(5)) {
+        Hive.registerAdapter(GoalAdapter());
+      }
+      if (!Hive.isAdapterRegistered(6)) {
+        Hive.registerAdapter(BudgetAdapter());
+      }
+      if (!Hive.isAdapterRegistered(7)) {
+        Hive.registerAdapter(SyncQueueItemAdapter());
+      }
 
-  // Open boxes
-  await Hive.openBox<Profile>('profiles');
-  await Hive.openBox<EnhancedProfile>('enhanced_profiles');
-  await Hive.openBox<Transaction>('transactions');
-  await Hive.openBox<Category>('categories');
-  await Hive.openBox<Client>('clients');
-  await Hive.openBox<Invoice>('invoices');  await Hive.openBox<Goal>('goals');
-  await Hive.openBox<Budget>('budgets');
-  await Hive.openBox<SyncQueueItem>('sync_queue');
-  await Hive.openBox('settings');
+      // Register enum adapters safely
+      enum_adapters.registerAdapters();
+
+      if (kDebugMode) {
+        print('✅ Hive adapters registered successfully');
+      }
+    } catch (adapterError) {
+      if (kDebugMode) {
+        print('⚠️ Adapter registration failed: $adapterError');
+      }
+    }
+
+    // Open boxes safely
+    final boxesToOpen = [
+      'profiles',
+      'transactions',
+      'transaction_candidates',
+      'categories',
+      'clients',
+      'invoices',
+      'goals',
+      'budgets',
+      'sync_queue',
+      'settings',
+    ];
+
+    for (final boxName in boxesToOpen) {
+      try {
+        if (!Hive.isBoxOpen(boxName)) {
+          await Hive.openBox(boxName);
+        }
+      } catch (boxError) {
+        if (kDebugMode) {
+          print('⚠️ Failed to open box $boxName: $boxError');
+        }
+      }
+    }
+
+    // Open typed boxes separately
+    try {
+      if (!Hive.isBoxOpen('enhanced_profiles')) {
+        await Hive.openBox<EnhancedProfile>('enhanced_profiles');
+      }
+    } catch (boxError) {
+      if (kDebugMode) {
+        print('⚠️ Failed to open enhanced_profiles box: $boxError');
+      }
+    }
+
+    if (kDebugMode) {
+      print('✅ Hive initialization completed');
+    }
+  } catch (e) {
+    if (kDebugMode) {
+      print('⚠️ Hive initialization failed: $e');
+    }
+    // Continue without Hive
+  }
+}
+
+/// Safe Firebase initialization
+Future<void> initializeFirebaseSafe() async {
+  try {
+    if (Firebase.apps.isEmpty) {
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+      if (kDebugMode) {
+        print('✅ Firebase initialized successfully');
+      }
+    } else {
+      if (kDebugMode) {
+        print('ℹ️ Firebase already initialized');
+      }
+    }
+  } catch (e) {
+    if (kDebugMode) {
+      print('⚠️ Firebase initialization failed: $e');
+    }
+    // Continue without Firebase
+  }
+}
+
+/// Safe background services initialization
+Future<void> initializeBackgroundServices() async {
+  try {
+    if (Platform.isAndroid) {
+      await BackgroundSmsService.initialize();
+      await BackgroundSmsService.startBackgroundMonitoring();
+      await BackgroundSyncService.syncBackgroundTransactions();
+      if (kDebugMode) {
+        print('✅ Background services initialized');
+      }
+    }
+  } catch (e) {
+    if (kDebugMode) {
+      print('⚠️ Background services initialization failed: $e');
+    }
+    // Continue without background services
+  }
 }
 
 void main() async {
-  await initializeHive();
-  // Initialize services
-  final apiClient = ApiClient();
-  final offlineDataService = OfflineDataService();
-  final syncService = EnhancedSyncService(
-  apiClient: apiClient,
-    offlineDataService: offlineDataService,
-  );
-  final authService = AuthService();
-  // Temporarily disable Google Drive to focus on core functionality
-  // final googleDriveService = GoogleDriveService();
+  WidgetsFlutterBinding.ensureInitialized();
 
-  runApp(
-    MultiProvider(
-      providers: [
-        Provider<ApiClient>.value(value: apiClient),
-        Provider<OfflineDataService>.value(value: offlineDataService),
-        Provider<EnhancedSyncService>.value(value: syncService),
-        ChangeNotifierProvider(create: (_) => authService),
-        // Provider<GoogleDriveService>.value(value: googleDriveService),
-      ],
-      child: const MyApp(),
-    ),
-  );
-}
+  try {
+    // Initialize core systems
+    await initializeFirebaseSafe();
+    await initializeHive();
 
-class MyApp extends StatefulWidget {
-  const MyApp({super.key});
+    // Initialize background services (non-critical)
+    await initializeBackgroundServices();
 
-  @override
-  State<MyApp> createState() => _MyAppState();
-}
-
-class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addObserver(this);
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    super.didChangeAppLifecycleState(state);
-    
-    // Trigger sync when app goes to background or is paused
-    if (state == AppLifecycleState.paused || 
-        state == AppLifecycleState.detached ||
-        state == AppLifecycleState.inactive) {
-      _syncProfileOnAppBackground();
-    }
-  }
-  Future<void> _syncProfileOnAppBackground() async {
-    try {
-      final authService = Provider.of<AuthService>(context, listen: false);
-      if (authService.isLoggedIn) {
-        if (kDebugMode) {
-          print('App going to background, syncing profile...');
-        }
-        await authService.syncProfileWithServer();
+    // Debug SMS senders (non-critical)
+    if (kDebugMode) {
+      try {
+        await DebugSmsSenders.printSenderStatus();
+      } catch (e) {
+        print('⚠️ Debug SMS status failed: $e');
       }
+    }
+
+    if (kDebugMode) {
+      print('🚀 Fedha app initialization completed');
+    }
+  } catch (e) {
+    if (kDebugMode) {
+      print('⚠️ Critical initialization error: $e');
+    }
+    // Continue with minimal functionality
+  }
+
+  runApp(const FedhaApp());
+}
+
+class FedhaApp extends StatelessWidget {
+  const FedhaApp({super.key});
+
+  /// Safe service initialization with fallbacks
+  Widget _buildAppWithServices() {
+    try {
+      // Initialize services with null safety
+      final apiClient = ApiClient();
+      final offlineDataService = OfflineDataService();
+      final goalTransactionService = GoalTransactionService(offlineDataService);
+      final textRecognitionService = TextRecognitionService(offlineDataService);
+      final csvUploadService = CSVUploadService(offlineDataService);
+      final smsTransactionExtractor = SmsTransactionExtractor(
+        offlineDataService,
+      );
+      final notificationService = NotificationService.instance;
+      final smsListenerService = SmsListenerService(
+        smsTransactionExtractor,
+        notificationService,
+      );
+      final syncService = EnhancedSyncService(
+        apiClient: apiClient,
+        offlineDataService: offlineDataService,
+      );
+      final authService = AuthService();
+      final themeService = ThemeService();
+      final navigationService = NavigationService.instance;
+      final senderManagementService = SenderManagementService.instance;
+      final biometricAuthService = BiometricAuthService.instance;
+
+      return MultiProvider(
+        providers: [
+          Provider<ApiClient>.value(value: apiClient),
+          ChangeNotifierProvider<OfflineDataService>.value(
+            value: offlineDataService,
+          ),
+          Provider<GoalTransactionService>.value(value: goalTransactionService),
+          Provider<TextRecognitionService>.value(value: textRecognitionService),
+          Provider<CSVUploadService>.value(value: csvUploadService),
+          Provider<SmsTransactionExtractor>.value(
+            value: smsTransactionExtractor,
+          ),
+          Provider<NotificationService>.value(value: notificationService),
+          Provider<SmsListenerService>.value(value: smsListenerService),
+          Provider<EnhancedSyncService>.value(value: syncService),
+          ChangeNotifierProvider<AuthService>.value(value: authService),
+          ChangeNotifierProvider<ThemeService>.value(value: themeService),
+          Provider<NavigationService>.value(value: navigationService),
+          Provider<SenderManagementService>.value(
+            value: senderManagementService,
+          ),
+          Provider<BiometricAuthService>.value(value: biometricAuthService),
+        ],
+        child: Consumer<ThemeService>(
+          builder: (context, themeService, child) {
+            return MaterialApp(
+              title: 'Fedha - Personal Finance',
+              theme: themeService.lightTheme,
+              darkTheme: themeService.darkTheme,
+              themeMode: themeService.themeMode,
+              navigatorKey: NavigationService.navigatorKey,
+              home: const AuthWrapper(),
+              debugShowCheckedModeBanner: false,
+            );
+          },
+        ),
+      );
     } catch (e) {
       if (kDebugMode) {
-        print('Background sync failed: $e');
+        print('⚠️ Service initialization failed, using minimal app: $e');
       }
+      return _buildMinimalApp();
     }
   }
-  
-  @override
-  Widget build(BuildContext context) {
+
+  /// Minimal app fallback if services fail
+  Widget _buildMinimalApp() {
     return MaterialApp(
-      title: 'Fedha',
-      theme: FedhaTheme.lightTheme,
-      darkTheme: FedhaTheme.darkTheme,
-      themeMode: ThemeMode.system,
-      home: FutureBuilder<void>(
-        future: _initializeServices(context),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Scaffold(
-              body: Center(child: CircularProgressIndicator()),
-            );
-          }          return Consumer<AuthService>(
-            builder: (context, authService, child) {
-              return FutureBuilder<bool>(
-                future: _checkFirstTime(),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Scaffold(
-                      body: Center(child: CircularProgressIndicator()),
-                    );
-                  }
-
-                  final isFirstTime = snapshot.data ?? true;
-
-                  if (isFirstTime) {
-                    return const OnboardingScreen();
-                  } else if (authService.isLoggedIn) {
-                    return const MainNavigation();
-                  } else {
-                    return const SignInScreen();
-                  }
-                },
-              );
-            },
-          );
-        },
-      ),
-      routes: {
-        '/onboarding': (context) => const OnboardingScreen(),
-        '/signin': (context) => const SignInScreen(),
-        '/dashboard': (context) => const MainNavigation(),
-        '/profile': (context) => const ProfileScreen(),
-      },
+      title: 'Fedha - Personal Finance',
+      theme: ThemeData(primarySwatch: Colors.green, useMaterial3: true),
+      home: const OnboardingScreen(),
+      debugShowCheckedModeBanner: false,
     );
   }
-  Future<void> _initializeServices(BuildContext context) async {
-    final authService = Provider.of<AuthService>(context, listen: false);
-    await authService.initialize();
-    await authService.tryAutoLogin(); // Using the correct method name
-  }
 
-  Future<bool> _checkFirstTime() async {
-    final settingsBox = Hive.box('settings');
-    return settingsBox.get('first_time', defaultValue: true);
+  @override
+  Widget build(BuildContext context) {
+    return _buildAppWithServices();
   }
 }

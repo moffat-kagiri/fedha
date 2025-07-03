@@ -217,15 +217,27 @@ class AccountTypeSelectionView(APIView):
             if profile_serializer.is_valid():
                 profile = profile_serializer.save()
                 
-                # Use dictionary lookup for response message
-                message_key = 'registration_with_email' if profile_data.get('email') else 'registration_without_email'
+                # Handle case where save() might return a list
+                if isinstance(profile, list) and profile:
+                    profile = profile[0]  # Get first item if it's a list
                 
-                response_data = {
-                    'profile_id': profile.id,
-                    'profile_type': profile.profile_type,
-                    'name': profile.name,
-                    'message': RESPONSE_MESSAGES[message_key]
-                }
+                # Ensure profile is a Profile instance
+                from .models import Profile
+                if isinstance(profile, Profile):
+                    # Use dictionary lookup for response message
+                    message_key = 'registration_with_email' if profile_data.get('email') else 'registration_without_email'
+                    
+                    response_data = {
+                        'profile_id': profile.id,
+                        'profile_type': profile.profile_type,
+                        'name': profile.name,
+                        'message': RESPONSE_MESSAGES[message_key]
+                    }
+                else:
+                    return Response(
+                        {'error': 'Invalid profile data returned from serializer'},
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                    )
                 
                 return Response(response_data, status=status.HTTP_201_CREATED)
             else:
@@ -297,35 +309,35 @@ class PINChangeView(APIView):
                 # Check for missing fields
                 if not current_pin:
                     return Response(
-                        {'error': ERROR_MESSAGES['current_pin_required']}, 
+                        {'error': 'Current password is required'}, 
                         status=status.HTTP_400_BAD_REQUEST
                     )
                 
                 if not new_pin:
                     return Response(
-                        {'error': ERROR_MESSAGES['new_pin_required']}, 
+                        {'error': 'New password is required'}, 
                         status=status.HTTP_400_BAD_REQUEST
                     )
                 
-                # Verify current PIN
+                # Verify current password
                 if not profile.verify_pin(current_pin):
                     return Response(
-                        {'error': ERROR_MESSAGES['incorrect_current_pin']}, 
+                        {'error': 'Current password is incorrect'}, 
                         status=status.HTTP_400_BAD_REQUEST
                     )
                 
-                # Set new PIN
+                # Set new password
                 profile.set_pin(new_pin)
                 
                 return Response({
-                    'message': RESPONSE_MESSAGES['pin_change_success'],
+                    'message': 'Password changed successfully',
                     'redirect_to_dashboard': True,
-                    'dashboard_url': get_dashboard_url(profile.profile_type)
+                    'dashboard_url': f'/dashboard/{profile.profile_type.lower()}/'
                 })
                 
             except Profile.DoesNotExist:
                 return Response(
-                    {'error': ERROR_MESSAGES['profile_not_found']}, 
+                    {'error': 'Profile not found'}, 
                     status=status.HTTP_404_NOT_FOUND
                 )
         

@@ -25,7 +25,7 @@ SECRET_KEY = 'django-insecure-#c3pev3pw9r!r)5_bwx6qwkti9v@ths1k87#-04$u@+n#9=ed0
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '10.0.2.2']
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '10.0.2.2', '7a9a-41-209-9-54.ngrok-free.app']
 
 
 # Application definition
@@ -44,6 +44,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',  # Must be at the top
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -51,7 +52,6 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'corsheaders.middleware.CorsMiddleware',
 ]
 
 ROOT_URLCONF = 'backend.urls'
@@ -164,6 +164,40 @@ REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20
 }
+
+# =============================================================================
+# CORS CONFIGURATION FOR CROSS-PLATFORM ACCESS
+# =============================================================================
+
+# Allow all origins during development (for mobile app access)
+CORS_ALLOW_ALL_ORIGINS = True
+
+# Specific origins (use this in production instead of CORS_ALLOW_ALL_ORIGINS)
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+    "http://10.0.2.2:8000",
+    "http://localhost:3000",  # For web development
+]
+
+# Allow all headers for development
+CORS_ALLOW_ALL_HEADERS = True
+
+# Allow credentials
+CORS_ALLOW_CREDENTIALS = True
+
+# Specific headers (use in production)
+CORS_ALLOWED_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+]
 
 # =============================================================================
 # FEDHA SPECIFIC SETTINGS

@@ -7,11 +7,19 @@ import '../models/budget.dart';
 import '../models/enhanced_profile.dart';
 import '../services/auth_service.dart';
 import '../services/offline_data_service.dart';
+import '../services/currency_service.dart';
 import '../widgets/quick_transaction_entry.dart';
 import 'main_navigation.dart';
 import 'add_goal_screen.dart';
+import 'goals_screen.dart';
+import 'goal_details_screen.dart';
 import 'transactions_screen.dart';
 import 'loan_calculator_screen.dart';
+import 'create_budget_screen.dart';
+import 'budget_management_screen.dart';
+import 'sms_review_screen.dart';
+import '../screens/progressive_goal_wizard_screen.dart';
+import '../screens/smart_goal_creation_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -64,15 +72,20 @@ class DashboardContent extends StatelessWidget {
                         // Financial Position Card
                         _buildFinancialPositionCard(context, data),
 
+                        const SizedBox(height: 24), // Budget Section
+                        _buildBudgetSection(context, data.currentBudget),
+
                         const SizedBox(height: 24),
 
                         // Goals Section
                         _buildGoalsSection(context, data.goals),
 
-                        const SizedBox(height: 24),
-
-                        // Quick Actions
-                        _buildQuickActions(context, profile.type),
+                        const SizedBox(height: 24), // Quick Actions
+                        _buildQuickActions(
+                          context,
+                          profile.type,
+                          data.currentBudget,
+                        ),
 
                         const SizedBox(height: 24),
 
@@ -122,16 +135,27 @@ class DashboardContent extends StatelessWidget {
           ],
         ),
         const Spacer(),
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Colors.grey.shade100,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Icon(
-            profileType == ProfileType.business ? Icons.business : Icons.person,
-            color: const Color(0xFF007A39),
-            size: 24,
+        GestureDetector(
+          onTap: () {
+            Navigator.pushNamed(context, '/profile');
+          },
+          child: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: const Color(0xFF007A39).withValues(alpha: 0.2),
+                width: 1,
+              ),
+            ),
+            child: Icon(
+              profileType == ProfileType.business
+                  ? Icons.business
+                  : Icons.person,
+              color: const Color(0xFF007A39),
+              size: 24,
+            ),
           ),
         ),
       ],
@@ -160,7 +184,7 @@ class DashboardContent extends StatelessWidget {
         boxShadow: [
           BoxShadow(
             color: (isPositive && !budgetExceeded ? Colors.green : Colors.red)
-                .withOpacity(0.3),
+                .withValues(alpha: 0.3),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -191,7 +215,7 @@ class DashboardContent extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            '\$${availableToSpend.abs().toStringAsFixed(2)}',
+            'Ksh ${availableToSpend.abs().toStringAsFixed(2)}',
             style: const TextStyle(
               color: Colors.white,
               fontSize: 32,
@@ -201,7 +225,7 @@ class DashboardContent extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             budgetExceeded
-                ? 'Budget exceeded by \$${(data.totalExpenses - data.currentBudget!.totalBudget).toStringAsFixed(2)}'
+                ? 'Budget exceeded by Ksh ${(data.totalExpenses - data.currentBudget!.totalBudget).toStringAsFixed(2)}'
                 : isPositive
                 ? 'After expenses and savings'
                 : 'Over budget',
@@ -261,7 +285,7 @@ class DashboardContent extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         Text(
-          '\$${amount.toStringAsFixed(2)}',
+          'Ksh ${amount.toStringAsFixed(2)}',
           style: const TextStyle(
             color: Colors.white,
             fontSize: 16,
@@ -269,6 +293,228 @@ class DashboardContent extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildBudgetSection(BuildContext context, Budget? currentBudget) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Text(
+              'Budget',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
+            ),
+            const Spacer(),
+            if (currentBudget != null)
+              TextButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder:
+                          (context) =>
+                              BudgetManagementScreen(budget: currentBudget),
+                    ),
+                  );
+                },
+                child: const Text('View Details'),
+              ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        if (currentBudget == null)
+          _buildCreateBudgetCard(context)
+        else
+          _buildBudgetOverviewCard(context, currentBudget),
+      ],
+    );
+  }
+
+  Widget _buildCreateBudgetCard(BuildContext context) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const CreateBudgetScreen()),
+        );
+      },
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade50,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: Colors.grey.shade300,
+            style: BorderStyle.solid,
+          ),
+        ),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF007A39).withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.add, color: Color(0xFF007A39), size: 32),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Create Budget',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF007A39),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Set spending limits and track your expenses',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBudgetOverviewCard(BuildContext context, Budget budget) {
+    final progress = budget.spentPercentage / 100;
+    final isOverBudget = budget.isOverBudget;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withValues(alpha: 0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  budget.name,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color:
+                      isOverBudget ? Colors.red.shade50 : Colors.green.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  isOverBudget ? 'Over Budget' : 'On Track',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color:
+                        isOverBudget
+                            ? Colors.red.shade700
+                            : Colors.green.shade700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Spent',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                    Text(
+                      'Ksh ${budget.totalSpent.toStringAsFixed(2)}',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color:
+                            isOverBudget ? Colors.red.shade600 : Colors.black87,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      'Budget',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                    Text(
+                      'Ksh ${budget.totalBudget.toStringAsFixed(2)}',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          LinearProgressIndicator(
+            value: progress.clamp(0.0, 1.0),
+            backgroundColor: Colors.grey.shade200,
+            valueColor: AlwaysStoppedAnimation<Color>(
+              isOverBudget ? Colors.red.shade600 : Colors.blue.shade600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Text(
+                '${budget.spentPercentage.toStringAsFixed(1)}% used',
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+              ),
+              const Spacer(),
+              Text(
+                '${budget.daysRemaining} days left',
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -289,7 +535,10 @@ class DashboardContent extends StatelessWidget {
             const Spacer(),
             TextButton(
               onPressed: () {
-                // Navigate to goals screen
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const GoalsScreen()),
+                );
               },
               child: const Text('View All'),
             ),
@@ -317,82 +566,98 @@ class DashboardContent extends StatelessWidget {
     final progress = goal.currentAmount / goal.targetAmount;
     final daysLeft = goal.targetDate.difference(DateTime.now()).inDays;
 
-    return Container(
-      width: 200,
-      margin: const EdgeInsets.only(right: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => GoalDetailsScreen(goal: goal),
           ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(
-                  _getGoalIcon(goal.goalType),
-                  color: Colors.blue.shade600,
-                  size: 16,
-                ),
-              ),
-              const Spacer(),
-              Text(
-                '$daysLeft days',
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            goal.name,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: Colors.black87,
+        );
+      },
+      child: Container(
+        width: 200,
+        margin: const EdgeInsets.only(right: 16),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.shade200),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withValues(alpha: 0.1),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
             ),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: 8),
-          LinearProgressIndicator(
-            value: progress.clamp(0.0, 1.0),
-            backgroundColor: Colors.grey.shade200,
-            valueColor: AlwaysStoppedAnimation<Color>(Colors.blue.shade600),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Text(
-                '\$${goal.currentAmount.toStringAsFixed(0)}',
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black87,
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    _getGoalIcon(goal.goalType),
+                    color: Colors.blue.shade600,
+                    size: 16,
+                  ),
                 ),
+                const Spacer(),
+                Text(
+                  '$daysLeft days',
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              goal.name,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Colors.black87,
               ),
-              const Spacer(),
-              Text(
-                '\$${goal.targetAmount.toStringAsFixed(0)}',
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-              ),
-            ],
-          ),
-        ],
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 8),
+            LinearProgressIndicator(
+              value: progress.clamp(0.0, 1.0),
+              backgroundColor: Colors.grey.shade200,
+              valueColor: AlwaysStoppedAnimation<Color>(Colors.blue.shade600),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Text(
+                  CurrencyService.formatCurrency(
+                    goal.currentAmount,
+                    goal.currency,
+                  ),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  CurrencyService.formatCurrency(
+                    goal.targetAmount,
+                    goal.currency,
+                  ),
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -400,9 +665,155 @@ class DashboardContent extends StatelessWidget {
   Widget _buildAddGoalCard(BuildContext context) {
     return GestureDetector(
       onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const AddGoalScreen()),
+        showModalBottomSheet(
+          context: context,
+          backgroundColor: Colors.transparent,
+          builder:
+              (context) => Container(
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                ),
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    const Text(
+                      'Create a New Goal',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Choose how you\'d like to create your financial goal',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey.shade600,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 24),
+                    ListTile(
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF007A39).withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(
+                          Icons.auto_awesome,
+                          color: Color(0xFF007A39),
+                        ),
+                      ),
+                      title: const Text(
+                        'Goal Wizard (Recommended)',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      subtitle: const Text(
+                        'Step-by-step guided goal creation with SMART analysis',
+                      ),
+                      trailing: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.shade100,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          'NEW',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.orange.shade700,
+                          ),
+                        ),
+                      ),
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder:
+                                (context) =>
+                                    const ProgressiveGoalWizardScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                    const Divider(),
+                    ListTile(
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(Icons.psychology, color: Colors.blue),
+                      ),
+                      title: const Text(
+                        'SMART Goal',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      subtitle: const Text(
+                        'Advanced goal creation with validation',
+                      ),
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder:
+                                (context) => const SmartGoalCreationScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                    const Divider(),
+                    ListTile(
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(
+                          Icons.add_circle_outline,
+                          color: Colors.grey,
+                        ),
+                      ),
+                      title: const Text(
+                        'Quick Goal',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      subtitle: const Text('Simple goal creation'),
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const AddGoalScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                ),
+              ),
         );
       },
       child: Container(
@@ -422,14 +833,14 @@ class DashboardContent extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0xFF007A39).withOpacity(0.1),
+                color: const Color(0xFF007A39).withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               child: const Icon(Icons.add, color: Color(0xFF007A39), size: 24),
             ),
             const SizedBox(height: 12),
             const Text(
-              'Set New Goal',
+              'Create Goal',
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
@@ -438,7 +849,7 @@ class DashboardContent extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              'Track your progress',
+              'Start your journey',
               style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
             ),
           ],
@@ -447,7 +858,11 @@ class DashboardContent extends StatelessWidget {
     );
   }
 
-  Widget _buildQuickActions(BuildContext context, ProfileType profileType) {
+  Widget _buildQuickActions(
+    BuildContext context,
+    ProfileType profileType,
+    Budget? currentBudget,
+  ) {
     final actions =
         profileType == ProfileType.business
             ? [
@@ -467,15 +882,39 @@ class DashboardContent extends StatelessWidget {
               QuickAction('Add Transaction', Icons.add, Colors.green, () {
                 _showQuickTransactionEntry(context);
               }),
-              QuickAction('View Budget', Icons.pie_chart, Colors.blue, () {}),
-              QuickAction('Set Goal', Icons.flag, Colors.orange, () {
+              QuickAction(
+                currentBudget != null ? 'View Budget' : 'Create Budget',
+                Icons.pie_chart,
+                Colors.blue,
+                () {
+                  if (currentBudget != null) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder:
+                            (context) =>
+                                BudgetManagementScreen(budget: currentBudget),
+                      ),
+                    );
+                  } else {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const CreateBudgetScreen(),
+                      ),
+                    );
+                  }
+                },
+              ),
+              QuickAction('SMS Review', Icons.message, Colors.orange, () {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const AddGoalScreen(),
+                    builder: (context) => const SmsReviewScreen(),
                   ),
                 );
-              }),              QuickAction(
+              }),
+              QuickAction(
                 'Loan Calculator',
                 Icons.calculate,
                 Colors.purple,
@@ -532,7 +971,7 @@ class DashboardContent extends StatelessWidget {
           border: Border.all(color: Colors.grey.shade200),
           boxShadow: [
             BoxShadow(
-              color: Colors.grey.withOpacity(0.1),
+              color: Colors.grey.withValues(alpha: 0.1),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -543,7 +982,7 @@ class DashboardContent extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: action.color.withOpacity(0.1),
+                color: action.color.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(action.icon, color: action.color, size: 20),
@@ -658,36 +1097,109 @@ class DashboardContent extends StatelessWidget {
         break;
     }
 
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(8),
+    return Column(
+      children: [
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: color, size: 20),
+          ),
+          title: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  transaction.category.toString().split('.').last.toUpperCase(),
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
+                  ),
+                ),
+              ),
+              if (transaction.type == TransactionType.savings &&
+                  transaction.goalId != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.blue.shade200),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.flag, size: 12, color: Colors.blue.shade600),
+                      const SizedBox(width: 2),
+                      Text(
+                        'Goal',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Colors.blue.shade600,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (transaction.description != null &&
+                  transaction.description!.isNotEmpty)
+                Text(
+                  transaction.description!,
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                ),
+              Text(
+                transaction.date.toString().split(' ')[0],
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+              ),
+              if (transaction.type == TransactionType.savings &&
+                  transaction.goalId != null)
+                FutureBuilder<Goal?>(
+                  future: Provider.of<OfflineDataService>(
+                    context,
+                    listen: false,
+                  ).getGoal(transaction.goalId!),
+                  builder: (context, snapshot) {
+                    if (snapshot.hasData && snapshot.data != null) {
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(
+                          'Contributing to: ${snapshot.data!.name}',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.blue.shade600,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  },
+                ),
+            ],
+          ),
+          trailing: Text(
+            '${prefix}Ksh ${transaction.amount.toStringAsFixed(2)}',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: color,
+            ),
+          ),
         ),
-        child: Icon(icon, color: color, size: 20),
-      ),
-      title: Text(
-        transaction.category.toString().split('.').last.toUpperCase(),
-        style: const TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
-          color: Colors.black87,
-        ),
-      ),
-      subtitle: Text(
-        transaction.date.toString().split(' ')[0],
-        style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-      ),
-      trailing: Text(
-        '$prefix\$${transaction.amount.toStringAsFixed(2)}',
-        style: TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
-          color: color,
-        ),
-      ),
+      ],
     );
   }
 

@@ -45,14 +45,14 @@ class EnhancedProfileRegistrationView(APIView):
             # Validate required fields
             if not profile_type or not pin:
                 return Response(
-                    {'error': 'Profile type and PIN are required'}, 
+                    {'error': 'Profile type and password are required'}, 
                     status=status.HTTP_400_BAD_REQUEST
                 )
             
-            # Validate PIN length
-            if len(pin) < 4:
+            # Validate password length (minimum 6 characters for frontend consistency)
+            if len(pin) < 6:
                 return Response(
-                    {'error': 'PIN must be at least 4 characters'}, 
+                    {'error': 'Password must be at least 6 characters'}, 
                     status=status.HTTP_400_BAD_REQUEST
                 )
             
@@ -68,7 +68,7 @@ class EnhancedProfileRegistrationView(APIView):
                 timezone=timezone_str
             )
             
-            # Set PIN using the model's secure hash method
+            # Set password using the model's secure hash method
             profile.set_pin(pin)
             profile.save()
             
@@ -119,7 +119,7 @@ class EnhancedProfileLoginView(APIView):
             
             if not user_id or not pin:
                 return Response(
-                    {'error': 'User ID and PIN are required'}, 
+                    {'error': 'User ID and password are required'}, 
                     status=status.HTTP_400_BAD_REQUEST
                 )
             
@@ -132,10 +132,10 @@ class EnhancedProfileLoginView(APIView):
                     status=status.HTTP_404_NOT_FOUND
                 )
             
-            # Verify PIN using the model's secure verification method
+            # Verify password using the model's secure verification method
             if not profile.verify_pin(pin):
                 return Response(
-                    {'error': 'Invalid PIN'}, 
+                    {'error': 'Invalid password'}, 
                     status=status.HTTP_401_UNAUTHORIZED
                 )
             

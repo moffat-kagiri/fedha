@@ -6,32 +6,46 @@ version: 1.0.0+1
 repository: https://github.com/your-username/fedha
 homepage: https://fedha-project.example.com
 environment:
-  sdk: '>=3.7.0 <4.0.0'
+  sdk: '>=3.7.0 <4.0.0'  # Latest Dart requirements restored
 dependencies:
   flutter:
     sdk: flutter
   hive: ^2.2.3
   hive_flutter: ^1.1.0
   http: ^1.4.0
-  provider: ^6.1.1
+  provider: ^6.1.1  
   uuid: ^4.5.1
   intl: ^0.20.2
   syncfusion_flutter_charts: ^29.2.4
-  json_annotation: ^4.8.1
+  json_annotation: ^4.9.0
   google_sign_in: ^6.2.1
   googleapis: ^14.0.0
   image_picker: ^1.0.7
-  path_provider: ^2.1.2
+  path_provider: ^2.1.2  
   crypto: ^3.0.3
   googleapis_auth: ^2.0.0
+  flutter_svg: ^2.0.7
+  permission_handler: ^12.0.0+1
+  file_picker: ^10.2.0
+  csv: ^6.0.0
+  local_auth: ^2.1.8
+  shared_preferences: ^2.2.2
+  firebase_core: ^2.24.2
+  cloud_firestore: ^4.13.6
+  firebase_auth: ^4.15.3
+  firebase_storage: ^11.5.6
+  cloud_functions: ^4.6.0
+  firebase_analytics: ^10.7.4
+  firebase_crashlytics: ^3.4.8
+  firebase_messaging: ^14.7.10
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^6.0.0
-  build_runner: ^2.4.4
+  flutter_lints: ^6.0.0  # Latest linting rules restored
+  build_runner: ^2.4.13
   hive_generator: ^2.0.1
-  json_serializable: ^6.7.1
+  json_serializable: ^6.8.0
   flutter_launcher_icons: ^0.14.3
 
 flutter:
@@ -40,6 +54,10 @@ flutter:
     - assets/icons/
     - assets/images/
     - assets/logos/
+    # Fedha SVG Logos
+    - assets/icons/fedha_logo.svg
+    - assets/icons/fedha_logo_simple.svg
+    - assets/icons/fedha_logo_mono.svg
   fonts:
     - family: CustomFont
       fonts:
@@ -55,7 +73,3 @@ flutter_launcher_icons:
     image_path: "assets/icons/app_icon.png"
     background_color: "#4CAF50"
     theme_color: "#4CAF50"
-  windows:
-    generate: true
-    image_path: "assets/icons/app_icon.png"
-    icon_size: 48
