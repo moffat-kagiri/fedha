@@ -54,34 +54,34 @@ Future<void> initializeHive() async {
 
     // Register adapters safely
     try {
-      if (!Hive.isAdapterRegistered(0)) {
+      if (!Hive.isAdapterRegistered(1)) {
         Hive.registerAdapter(ProfileAdapter());
       }
-      if (!Hive.isAdapterRegistered(1)) {
+      if (!Hive.isAdapterRegistered(8)) {
         Hive.registerAdapter(EnhancedProfileAdapter());
       }
-      if (!Hive.isAdapterRegistered(2)) {
+      if (!Hive.isAdapterRegistered(0)) {
         Hive.registerAdapter(TransactionAdapter());
       }
-      if (!Hive.isAdapterRegistered(3)) {
+      if (!Hive.isAdapterRegistered(9)) {
         Hive.registerAdapter(TransactionCandidateAdapter());
       }
-      if (!Hive.isAdapterRegistered(4)) {
+      if (!Hive.isAdapterRegistered(2)) {
         Hive.registerAdapter(CategoryAdapter());
       }
-      if (!Hive.isAdapterRegistered(5)) {
+      if (!Hive.isAdapterRegistered(3)) {
         Hive.registerAdapter(ClientAdapter());
       }
-      if (!Hive.isAdapterRegistered(6)) {
+      if (!Hive.isAdapterRegistered(4)) {
         Hive.registerAdapter(InvoiceAdapter());
       }
-      if (!Hive.isAdapterRegistered(7)) {
+      if (!Hive.isAdapterRegistered(5)) {
         Hive.registerAdapter(GoalAdapter());
       }
-      if (!Hive.isAdapterRegistered(8)) {
+      if (!Hive.isAdapterRegistered(6)) {
         Hive.registerAdapter(BudgetAdapter());
       }
-      if (!Hive.isAdapterRegistered(9)) {
+      if (!Hive.isAdapterRegistered(7)) {
         Hive.registerAdapter(SyncQueueItemAdapter());
       }
 
@@ -100,7 +100,6 @@ Future<void> initializeHive() async {
     // Open boxes safely
     final boxesToOpen = [
       'profiles',
-      'enhanced_profiles',
       'transactions',
       'transaction_candidates',
       'categories',
@@ -121,6 +120,17 @@ Future<void> initializeHive() async {
         if (kDebugMode) {
           print('⚠️ Failed to open box $boxName: $boxError');
         }
+      }
+    }
+
+    // Open typed boxes separately
+    try {
+      if (!Hive.isBoxOpen('enhanced_profiles')) {
+        await Hive.openBox<EnhancedProfile>('enhanced_profiles');
+      }
+    } catch (boxError) {
+      if (kDebugMode) {
+        print('⚠️ Failed to open enhanced_profiles box: $boxError');
       }
     }
 
