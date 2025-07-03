@@ -1,7 +1,7 @@
 // lib/screens/profile_creation_screen.dart
 import 'package:flutter/material.dart';
 import '../models/enhanced_profile.dart';
-import '../services/enhanced_firebase_auth_service.dart';
+import '../services/hybrid_auth_service.dart';
 
 class ProfileCreationScreen extends StatefulWidget {
   final ProfileType initialProfileType;
@@ -361,9 +361,10 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
     });
 
     try {
-      final enhancedAuthService = EnhancedFirebaseAuthService();
+      // Use Hybrid Auth Service for concurrent registration
+      final hybridAuthService = HybridAuthService.instance;
 
-      final result = await enhancedAuthService.registerWithEmailVerification(
+      final result = await hybridAuthService.register(
         name: _nameController.text.trim(),
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
@@ -371,15 +372,19 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
             widget.initialProfileType == ProfileType.business
                 ? 'business'
                 : 'personal',
+        context: context,
         baseCurrency: 'ZAR',
-        autoLogin: true, // Enable auto-login after registration
       );
 
       if (result['success'] == true && mounted) {
-        // Show success message
+        // Show success message indicating which method was used
+        final method = result['method'] ?? 'unknown';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(result['message'] ?? 'Account created successfully!'),
+            content: Text(
+              result['message'] ??
+                  'Account created successfully via ${method.toUpperCase()}!',
+            ),
             backgroundColor: Colors.green,
           ),
         );
@@ -389,24 +394,25 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
           widget.onUserLoggedIn!();
         }
 
-        // Check if user was automatically logged in
-        if (result['loggedIn'] == true) {
-          // User is logged in and ready for dashboard
-          if (mounted) {
-            Navigator.of(context).pushReplacementNamed('/dashboard');
-          }
-        } else {
-          // Registration successful but login failed - show message and go to login
+        // Navigate to dashboard or login depending on the registration method
+        if (result['method'] == 'firebase' &&
+            result['requiresEmailVerification'] == true) {
+          // Firebase registration with email verification required
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
+              const SnackBar(
                 content: Text(
-                  'Account created! Please login with your credentials.',
+                  'Account created! Please check your email for verification, then login.',
                 ),
                 backgroundColor: Colors.orange,
               ),
             );
             Navigator.of(context).pushReplacementNamed('/login');
+          }
+        } else {
+          // Direct navigation to dashboard
+          if (mounted) {
+            Navigator.of(context).pushReplacementNamed('/dashboard');
           }
         }
       } else {

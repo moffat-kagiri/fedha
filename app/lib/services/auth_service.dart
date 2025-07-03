@@ -247,11 +247,18 @@ class AuthService extends ChangeNotifier {
   }
 
   // Create enhanced profile with additional metadata
-  Future<bool> createEnhancedProfile(Map<String, dynamic> profileData) async {
+  Future<bool> createEnhancedProfile(
+    Map<String, dynamic> profileData, {
+    bool localOnly = false,
+  }) async {
     try {
       if (kDebugMode) {
-        print('Creating enhanced profile with data: $profileData');
-      } // Extract email and pin, which are now primary for server interaction
+        print(
+          'Creating enhanced profile with data: $profileData (localOnly: $localOnly)',
+        );
+      }
+
+      // Extract email and pin, which are now primary for server interaction
       final String? email = profileData['email'];
       final String? pin = profileData['pin'];
       final String? name = profileData['name'];
@@ -259,90 +266,98 @@ class AuthService extends ChangeNotifier {
 
       if (email == null || email.isEmpty || pin == null || pin.isEmpty) {
         if (kDebugMode) {
-          print('Email or PIN is missing. Cannot create server profile.');
+          print('Email or PIN is missing. Cannot create profile.');
         }
         throw Exception('Email and PIN are required to create a profile.');
       }
 
       if (name == null || name.isEmpty) {
         if (kDebugMode) {
-          print('Name is missing. Cannot create server profile.');
+          print('Name is missing. Cannot create profile.');
         }
         throw Exception('Name is required to create a profile.');
       }
 
       if (profileTypeEnum == null) {
         if (kDebugMode) {
-          print('Profile type is missing. Cannot create server profile.');
+          print('Profile type is missing. Cannot create profile.');
         }
         throw Exception('Profile type is required to create a profile.');
       }
 
       final String profileTypeString =
-          profileTypeEnum
-              .toString()
-              .split('.')
-              .last; // First try to create profile on server
-      try {
-        final serverResponse = await AuthApiClient.registerProfile(
-          name: name,
-          profileType: profileTypeString,
-          pin: pin,
-          email: email,
-          baseCurrency: profileData['base_currency'] ?? 'KES',
-          timezone: profileData['timezone'] ?? 'GMT+3',
-        );
-        if (kDebugMode) {
-          print('Server profile created successfully: $serverResponse');
-        }
+          profileTypeEnum.toString().split('.').last;
 
-        String userId =
-            serverResponse['user_id'] ??
-            serverResponse['profile_id'] ??
-            _uuid.v4();
-        final profile = EnhancedProfile(
-          id: userId, // Use server-provided user_id
-          type: profileData['profile_type'],
-          passwordHash: EnhancedProfile.hashPassword(pin),
-          name: profileData['name'],
-          email: email,
-          baseCurrency: profileData['base_currency'] ?? 'KES',
-          timezone: profileData['timezone'] ?? 'GMT+3',
-        );
-        _profileBox ??= await Hive.openBox<EnhancedProfile>(
-          'enhanced_profiles',
-        );
-        await _profileBox!.put(userId, profile);
+      String userId = _uuid.v4(); // Default to local UUID
 
-        final settingsBox = Hive.box('settings');
-        await settingsBox.put(
-          'google_drive_enabled',
-          profileData['enable_google_drive'] ?? false,
-        );
-        await settingsBox.put('current_profile_id', userId);
-
-        _currentProfile = profile;
-
-        // Save to Google if requested
-        if (profileData['save_to_google'] == true) {
-          await saveCredentialsToGoogle();
-        }
-
-        notifyListeners();
-
-        if (kDebugMode) {
-          print(
-            'Enhanced profile created successfully with email: ${profile.email}, User ID: $userId',
+      // Try to create profile on server (unless localOnly is true)
+      if (!localOnly) {
+        try {
+          final serverResponse = await AuthApiClient.registerProfile(
+            name: name,
+            profileType: profileTypeString,
+            pin: pin,
+            email: email,
+            baseCurrency: profileData['base_currency'] ?? 'KES',
+            timezone: profileData['timezone'] ?? 'GMT+3',
           );
-        }
+          if (kDebugMode) {
+            print('Server profile created successfully: $serverResponse');
+          }
 
-        return true;
-      } catch (serverError) {
-        if (kDebugMode) {
-          print('Server profile creation failed: $serverError');
+          userId =
+              serverResponse['user_id'] ??
+              serverResponse['profile_id'] ??
+              userId; // Use server-provided ID if available
+        } catch (serverError) {
+          if (kDebugMode) {
+            print('Server profile creation failed: $serverError');
+          }
+          // Continue with local profile creation
         }
-        return false;
+      } else {
+        if (kDebugMode) {
+          print('Creating local-only profile (skipping server)');
+        }
       }
+
+      // Create local profile
+      final profile = EnhancedProfile(
+        id: userId,
+        type: profileData['profile_type'],
+        passwordHash: EnhancedProfile.hashPassword(pin),
+        name: profileData['name'],
+        email: email,
+        baseCurrency: profileData['base_currency'] ?? 'ZAR',
+        timezone: profileData['timezone'] ?? 'Africa/Johannesburg',
+      );
+
+      _profileBox ??= await Hive.openBox<EnhancedProfile>('enhanced_profiles');
+      await _profileBox!.put(userId, profile);
+
+      final settingsBox = Hive.box('settings');
+      await settingsBox.put(
+        'google_drive_enabled',
+        profileData['enable_google_drive'] ?? false,
+      );
+      await settingsBox.put('current_profile_id', userId);
+
+      _currentProfile = profile;
+
+      // Save to Google if requested
+      if (profileData['save_to_google'] == true) {
+        await saveCredentialsToGoogle();
+      }
+
+      notifyListeners();
+
+      if (kDebugMode) {
+        print(
+          'Enhanced profile created successfully with email: ${profile.email}, User ID: $userId',
+        );
+      }
+
+      return true;
     } catch (e) {
       if (kDebugMode) {
         print('Enhanced profile creation failed: $e');

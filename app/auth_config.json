@@ -1,0 +1,81 @@
+{"users": [
+{
+  "localId": "GEtynlu95Efx43ninlsOaLUExbW2",
+  "email": "testuserr@example.com",
+  "emailVerified": false,
+  "passwordHash": "QQQn7U0kyxjhnwK+tW5zX5FJCz0C+6gzpOx9F55N1fK9X+0+0WELlhHXNmUTXaKm0cFxaOpfBvAZJRz28yjSHA==",
+  "salt": "pe6o+Y0PnRb0RQ==",
+  "lastSignedInAt": "1751473726011",
+  "createdAt": "1751473726011",
+  "providerUserInfo": []
+},
+{
+  "localId": "QqZiB24OlUMzXT6gW8SZfT4gfK52",
+  "email": "kags@gmail.com",
+  "emailVerified": false,
+  "passwordHash": "6Zd+71lUnXi38gT+9els8F6a6VaqssK4AqHSlwE5/cVFpOFrts2EESkU7elBk3LJ9lXMnWvqmLSbXZaSTJN3ng==",
+  "salt": "TRyyTW+doFeV6w==",
+  "lastSignedInAt": "1751426931291",
+  "createdAt": "1751426931291",
+  "providerUserInfo": []
+},
+{
+  "localId": "TewntQlm21OuBB0Z8OA6IiORTRU2",
+  "email": "testuser1@example.com",
+  "emailVerified": false,
+  "passwordHash": "Ozsqbs0HNXnozOq7BIU6zDLCF0fj2gD/kJVbacF9J7XGe9id8JRicK5/S0lvgClOyC0IRQI5h9bI0KN8plSVHA==",
+  "salt": "Gorfita9wCPLJQ==",
+  "lastSignedInAt": "1751473712710",
+  "createdAt": "1751473712710",
+  "providerUserInfo": []
+},
+{
+  "localId": "b5HAeVXPK7ZKcrtNg4Atayflavi2",
+  "email": "kagirimoffat@outlook.com",
+  "emailVerified": true,
+  "passwordHash": "WPFtSrC6yI1zxtTR8G/bhWU2Mwf8MtqEo2LtYPby+HljVhfNAAopvEaE/ZQapnpOeZ9D8X/hu7IAqFW+HeSgTw==",
+  "salt": "DnN+f1SeQZsXRg==",
+  "lastSignedInAt": "1751426846994",
+  "createdAt": "1751401584665",
+  "providerUserInfo": []
+},
+{
+  "localId": "dgNwzLuAkrSitiopkbQvhciSj4w1",
+  "email": "gaussanalyticske@gmail.com",
+  "emailVerified": false,
+  "passwordHash": "8EbdBRDN1y3dg6SGc4N6PH9DujvaKVEtXI6RoczHNmw4Upxvrdt5JWgIZxfKpdOCQJ4Gh1kqcAC6TA8bZUltvg==",
+  "salt": "JZK1tyX93lmu7w==",
+  "lastSignedInAt": "1751395754808",
+  "createdAt": "1751395754808",
+  "providerUserInfo": []
+},
+{
+  "localId": "eOtK4ialNcbuNZsQvPeoniYGv142",
+  "email": "testuser@example.com",
+  "emailVerified": false,
+  "passwordHash": "J72oo2SKz5BEx8dBl4FKUCC60BaIVNaRZLXHLS0PTWI4TyFcKk+D28eDQfLffR5WHsyWrCQ1jlhD7V3ehuF6hg==",
+  "salt": "W6oT0X/mSRykCQ==",
+  "lastSignedInAt": "1751473475513",
+  "createdAt": "1751473475513",
+  "providerUserInfo": []
+},
+{
+  "localId": "klvtIaM9dNOLcMyfzo4sK5NAwsw2",
+  "email": "lib.erty@gmail.com",
+  "emailVerified": false,
+  "passwordHash": "3r1p+yrMUD4T73dXTnyBSJ8s61Sewu0xOq5VlNiE3WHSmYyHOKrGRCB4A2UhRrhApmCAybI0T99vYNsXkm5IIw==",
+  "salt": "MRN308l527IL/w==",
+  "lastSignedInAt": "1751399309258",
+  "createdAt": "1751399309258",
+  "providerUserInfo": []
+},
+{
+  "localId": "pndryWitEAUrU6re2vLrax7PwKo2",
+  "email": "kagirimoffat@gmail.com",
+  "emailVerified": true,
+  "passwordHash": "zwxhuA2Xcd5W26fu7n2W6vT4b8bbQe8ewL5IHEROxLcxwf3iZr2r2S0aKHGfKja/C5nzIopkA/5peqib44AUQw==",
+  "salt": "kP0alTUM3MZ9dg==",
+  "lastSignedInAt": "1751401527005",
+  "createdAt": "1751391111633",
+  "providerUserInfo": []
+}]}
