@@ -2,7 +2,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/transaction.dart';
-import '../models/transaction_candidate.dart';
 import '../models/goal.dart';
 import '../services/auth_service.dart';
 import '../services/offline_data_service.dart';

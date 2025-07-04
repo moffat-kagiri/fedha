@@ -23,10 +23,10 @@ import 'models/sync_queue_item.dart';
 import 'adapters/enum_adapters.dart' as enum_adapters;
 
 // Services
-import 'services/auth_service.dart';
+import 'services/offline_first_auth_service.dart';
 import 'services/api_client.dart';
 import 'services/offline_data_service.dart';
-import 'services/enhanced_sync_service.dart';
+import 'services/sync_service.dart';
 import 'services/goal_transaction_service.dart';
 import 'services/text_recognition_service.dart';
 import 'services/csv_upload_service.dart';
@@ -64,7 +64,7 @@ Future<void> initializeHive() async {
         Hive.registerAdapter(TransactionAdapter());
       }
       if (!Hive.isAdapterRegistered(9)) {
-        Hive.registerAdapter(TransactionCandidateAdapter());
+        // Hive.registerAdapter(TransactionCandidateAdapter()); // TODO: Implement when model is ready
       }
       if (!Hive.isAdapterRegistered(2)) {
         Hive.registerAdapter(CategoryAdapter());
@@ -240,11 +240,11 @@ class FedhaApp extends StatelessWidget {
         smsTransactionExtractor,
         notificationService,
       );
-      final syncService = EnhancedSyncService(
+      final syncService = SyncService(
         apiClient: apiClient,
         offlineDataService: offlineDataService,
       );
-      final authService = AuthService();
+      final authService = OfflineFirstAuthService.instance;
       final themeService = ThemeService();
       final navigationService = NavigationService.instance;
       final senderManagementService = SenderManagementService.instance;
@@ -264,8 +264,10 @@ class FedhaApp extends StatelessWidget {
           ),
           Provider<NotificationService>.value(value: notificationService),
           Provider<SmsListenerService>.value(value: smsListenerService),
-          Provider<EnhancedSyncService>.value(value: syncService),
-          ChangeNotifierProvider<AuthService>.value(value: authService),
+          Provider<SyncService>.value(value: syncService),
+          ChangeNotifierProvider<OfflineFirstAuthService>.value(
+            value: authService,
+          ),
           ChangeNotifierProvider<ThemeService>.value(value: themeService),
           Provider<NavigationService>.value(value: navigationService),
           Provider<SenderManagementService>.value(

@@ -2,7 +2,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
-import '../services/theme_service.dart';
 import '../models/enhanced_profile.dart';
 
 class ProfileScreen extends StatefulWidget {

@@ -2,14 +2,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../lib/firebase_options.dart';
+import 'package:fedha/firebase_options.dart';
 
 void main() {
   group('Firebase Auth-Firestore Connection Test', () {
     setUpAll(() async {
       // Initialize Flutter test binding
       TestWidgetsFlutterBinding.ensureInitialized();
-      
+
       // Initialize Firebase for testing
       await Firebase.initializeApp(
         options: DefaultFirebaseOptions.currentPlatform,

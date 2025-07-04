@@ -1,9 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
-import '../lib/services/hybrid_auth_service.dart';
-import '../lib/services/auth_service.dart';
-import '../lib/models/enhanced_profile.dart';
-import '../lib/firebase_options.dart';
+import 'package:fedha/services/hybrid_auth_service.dart';
+import 'package:fedha/services/auth_service.dart';
+import 'package:fedha/models/enhanced_profile.dart';
+import 'package:fedha/firebase_options.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 
