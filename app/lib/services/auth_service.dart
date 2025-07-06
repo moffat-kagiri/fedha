@@ -79,6 +79,9 @@ class AuthService extends ChangeNotifier {
   bool get isLoggedIn => _currentProfile != null;
   bool get isInitialized => _isInitialized;
 
+  /// Get current profile ID
+  String? get currentProfileId => _currentProfile?.id;
+
   // Initialize the service
   Future<void> initialize() async {
     if (_isInitialized) return;
@@ -624,7 +627,7 @@ class AuthService extends ChangeNotifier {
           // Authenticate with biometric
           final bool authenticated = await biometricService
               .authenticateWithBiometric(
-                reason: 'Please verify your identity to access your account',
+                'Please verify your identity to access your account',
               );
 
           if (authenticated) {
@@ -668,7 +671,7 @@ class AuthService extends ChangeNotifier {
       // Authenticate with biometric
       final bool authenticated = await biometricService
           .authenticateWithBiometric(
-            reason: 'Please verify your identity to access your account',
+            'Please verify your identity to access your account',
           );
 
       if (!authenticated) {

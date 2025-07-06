@@ -10,7 +10,6 @@ import '../services/offline_data_service.dart';
 import '../services/currency_service.dart';
 import '../widgets/quick_transaction_entry.dart';
 import 'main_navigation.dart';
-import 'add_goal_screen.dart';
 import 'goals_screen.dart';
 import 'goal_details_screen.dart';
 import 'transactions_screen.dart';
@@ -18,8 +17,6 @@ import 'loan_calculator_screen.dart';
 import 'create_budget_screen.dart';
 import 'budget_management_screen.dart';
 import 'sms_review_screen.dart';
-import '../screens/progressive_goal_wizard_screen.dart';
-import '../screens/smart_goal_creation_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -167,7 +164,7 @@ class DashboardContent extends StatelessWidget {
     final isPositive = availableToSpend >= 0;
     final budgetExceeded =
         data.currentBudget != null &&
-        data.totalExpenses > data.currentBudget!.totalBudget;
+        data.totalExpenses > data.currentBudget!.budgetAmount;
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -225,7 +222,7 @@ class DashboardContent extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             budgetExceeded
-                ? 'Budget exceeded by Ksh ${(data.totalExpenses - data.currentBudget!.totalBudget).toStringAsFixed(2)}'
+                ? 'Budget exceeded by Ksh ${(data.totalExpenses - data.currentBudget!.budgetAmount).toStringAsFixed(2)}'
                 : isPositive
                 ? 'After expenses and savings'
                 : 'Over budget',
@@ -317,9 +314,7 @@ class DashboardContent extends StatelessWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder:
-                          (context) =>
-                              BudgetManagementScreen(budget: currentBudget),
+                      builder: (context) => const BudgetManagementScreen(),
                     ),
                   );
                 },
@@ -456,7 +451,7 @@ class DashboardContent extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      'Ksh ${budget.totalSpent.toStringAsFixed(2)}',
+                      'Ksh ${budget.spentAmount.toStringAsFixed(2)}',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -479,7 +474,7 @@ class DashboardContent extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      'Ksh ${budget.totalBudget.toStringAsFixed(2)}',
+                      'Ksh ${budget.budgetAmount.toStringAsFixed(2)}',
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -603,7 +598,7 @@ class DashboardContent extends StatelessWidget {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Icon(
-                    _getGoalIcon(goal.goalType),
+                    _getGoalIcon(goal.type),
                     color: Colors.blue.shade600,
                     size: 16,
                   ),
@@ -638,7 +633,7 @@ class DashboardContent extends StatelessWidget {
                 Text(
                   CurrencyService.formatCurrency(
                     goal.currentAmount,
-                    goal.currency,
+                    'KES', // Default currency
                   ),
                   style: const TextStyle(
                     fontSize: 12,
@@ -650,7 +645,7 @@ class DashboardContent extends StatelessWidget {
                 Text(
                   CurrencyService.formatCurrency(
                     goal.targetAmount,
-                    goal.currency,
+                    'KES', // Default currency
                   ),
                   style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                 ),
@@ -749,7 +744,7 @@ class DashboardContent extends StatelessWidget {
                           MaterialPageRoute(
                             builder:
                                 (context) =>
-                                    const ProgressiveGoalWizardScreen(),
+                                    const GoalsScreen(), // Use existing screen
                           ),
                         );
                       },
@@ -777,7 +772,8 @@ class DashboardContent extends StatelessWidget {
                           context,
                           MaterialPageRoute(
                             builder:
-                                (context) => const SmartGoalCreationScreen(),
+                                (context) =>
+                                    const GoalsScreen(), // Use existing screen
                           ),
                         );
                       },
@@ -805,7 +801,9 @@ class DashboardContent extends StatelessWidget {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => const AddGoalScreen(),
+                            builder:
+                                (context) =>
+                                    const GoalsScreen(), // Use existing screen
                           ),
                         );
                       },
@@ -891,9 +889,7 @@ class DashboardContent extends StatelessWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder:
-                            (context) =>
-                                BudgetManagementScreen(budget: currentBudget),
+                        builder: (context) => const BudgetManagementScreen(),
                       ),
                     );
                   } else {
@@ -1207,20 +1203,14 @@ class DashboardContent extends StatelessWidget {
     switch (goalType) {
       case GoalType.savings:
         return Icons.savings;
-      case GoalType.debtReduction:
+      case GoalType.debtPayoff:
         return Icons.money_off;
       case GoalType.investment:
         return Icons.trending_up;
-      case GoalType.expenseReduction:
-        return Icons.trending_down;
-      case GoalType.emergencyFund:
+      case GoalType.purchase:
+        return Icons.shopping_cart;
+      case GoalType.emergency:
         return Icons.security;
-      case GoalType.other:
-        return Icons.flag;
-      case GoalType.incomeIncrease:
-        return Icons.attach_money;
-      case GoalType.retirement:
-        return Icons.account_balance;
     }
   }
 
@@ -1229,9 +1219,9 @@ class DashboardContent extends StatelessWidget {
     String profileId,
   ) async {
     try {
-      final transactions = await dataService.getAllTransactions(profileId);
+      final transactions = await dataService.getAllTransactions();
       final goals = await dataService.getAllGoals(profileId);
-      final budgets = await dataService.getAllBudgets(profileId);
+      final budgets = await dataService.getBudgets();
 
       final currentBudget = budgets.isNotEmpty ? budgets.first : null;
 

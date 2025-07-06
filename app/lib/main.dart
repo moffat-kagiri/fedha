@@ -8,7 +8,6 @@ import 'package:provider/provider.dart';
 import 'models/profile.dart';
 import 'models/enhanced_profile.dart';
 import 'models/transaction.dart';
-import 'models/transaction_candidate.dart'; // Re-enabled with fixed typeId
 import 'models/category.dart';
 import 'models/client.dart';
 import 'models/invoice.dart';
@@ -21,19 +20,15 @@ import 'adapters/enum_adapters.dart' as enum_adapters;
 
 // Services
 import 'services/auth_service.dart';
-// import 'services/google_drive_service.dart';
 import 'services/api_client.dart';
 import 'services/offline_data_service.dart';
-import 'services/enhanced_sync_service.dart';
 import 'services/goal_transaction_service.dart';
 import 'services/text_recognition_service.dart';
 import 'services/csv_upload_service.dart';
-import 'services/background_transaction_monitor.dart'; // Background service
 import 'services/sms_transaction_extractor.dart';
 import 'services/sms_listener_service.dart';
 import 'services/notification_service.dart';
 import 'services/theme_service.dart';
-import 'services/offline_manager.dart'; // Offline functionality
 import 'services/navigation_service.dart';
 import 'services/sender_management_service.dart';
 import 'services/biometric_auth_service.dart';
@@ -44,11 +39,6 @@ import 'screens/signin_screen.dart';
 import 'screens/main_navigation.dart';
 import 'screens/auth_wrapper.dart';
 import 'screens/profile_screen.dart';
-import 'screens/permission_setup_screen.dart';
-import 'screens/text_recognition_setup_screen.dart';
-import 'screens/transaction_candidates_screen.dart';
-import 'screens/csv_upload_screen.dart';
-import 'screens/test_transaction_ingestion_screen.dart';
 // Utils
 // import 'utils/theme.dart'; // Using ThemeService instead
 
@@ -59,9 +49,6 @@ Future<void> initializeHive() async {
   await Hive.initFlutter(); // Register adapters (using their built-in typeIds from @HiveType annotations)
   // Generated adapters from .g.dart files
   Hive.registerAdapter(TransactionAdapter());
-  Hive.registerAdapter(
-    TransactionCandidateAdapter(),
-  ); // Re-enabled with typeId 8
   Hive.registerAdapter(CategoryAdapter());
   Hive.registerAdapter(ProfileAdapter());
   Hive.registerAdapter(EnhancedProfileAdapter());
@@ -75,19 +62,13 @@ Future<void> initializeHive() async {
   Hive.registerAdapter(InvoiceStatusAdapter());
   Hive.registerAdapter(GoalTypeAdapter());
   Hive.registerAdapter(GoalStatusAdapter());
-  Hive.registerAdapter(BudgetLineItemAdapter()); // Manual enum adapters
+  // Manual enum adapters
   Hive.registerAdapter(enum_adapters.TransactionTypeAdapter());
-  Hive.registerAdapter(enum_adapters.TransactionCategoryAdapter());
-  Hive.registerAdapter(enum_adapters.BudgetPeriodAdapter());
-  Hive.registerAdapter(enum_adapters.BudgetStatusAdapter());
 
   // Open boxes
   await Hive.openBox<Profile>('profiles');
   await Hive.openBox<EnhancedProfile>('enhanced_profiles');
   await Hive.openBox<Transaction>('transactions');
-  await Hive.openBox<TransactionCandidate>(
-    'transaction_candidates',
-  ); // Re-enabled with fixed typeId
   await Hive.openBox<Category>('categories');
   await Hive.openBox<Client>('clients');
   await Hive.openBox<Invoice>('invoices');
@@ -109,33 +90,20 @@ void main() async {
   final apiClient = ApiClient();
   final offlineDataService = OfflineDataService();
   final goalTransactionService = GoalTransactionService(offlineDataService);
-  final textRecognitionService = TextRecognitionService(offlineDataService);
+  final textRecognitionService = TextRecognitionService();
   final csvUploadService = CSVUploadService(offlineDataService);
   final smsTransactionExtractor = SmsTransactionExtractor(offlineDataService);
   final notificationService = NotificationService.instance;
   final smsListenerService = SmsListenerService(
     smsTransactionExtractor,
     notificationService,
-  );
-  final syncService = EnhancedSyncService(
-    apiClient: apiClient,
-    offlineDataService: offlineDataService,
+    offlineDataService,
   );
   final authService = AuthService();
   final themeService = ThemeService();
   final navigationService = NavigationService.instance;
   final senderManagementService = SenderManagementService.instance;
   final biometricAuthService = BiometricAuthService.instance;
-
-  // Initialize offline manager for local calculations and parsing
-  final offlineManager = OfflineManager();
-  await offlineManager.initialize();
-
-  // Initialize background transaction monitor (will be started after app loads)
-  final backgroundTransactionMonitor = BackgroundTransactionMonitor(
-    offlineDataService,
-    smsTransactionExtractor,
-  );
 
   // Temporarily disable Google Drive to focus on core functionality
   // final googleDriveService = GoogleDriveService();
@@ -152,16 +120,11 @@ void main() async {
         Provider<SmsTransactionExtractor>.value(value: smsTransactionExtractor),
         Provider<NotificationService>.value(value: notificationService),
         Provider<SmsListenerService>.value(value: smsListenerService),
-        Provider<EnhancedSyncService>.value(value: syncService),
-        Provider<BackgroundTransactionMonitor>.value(
-          value: backgroundTransactionMonitor,
-        ),
         Provider<NavigationService>.value(value: navigationService),
         Provider<SenderManagementService>.value(value: senderManagementService),
         Provider<BiometricAuthService>.value(value: biometricAuthService),
         ChangeNotifierProvider(create: (_) => authService),
         ChangeNotifierProvider(create: (_) => themeService),
-        // Provider<GoogleDriveService>.value(value: googleDriveService),
       ],
       child: const MyApp(),
     ),
@@ -227,9 +190,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       builder: (context, themeService, child) {
         return MaterialApp(
           title: 'Fedha',
-          theme: themeService.getLightTheme(),
-          darkTheme: themeService.getDarkTheme(),
-          themeMode: themeService.themeMode,
+          theme: ThemeData.light(),
+          darkTheme: ThemeData.dark(),
+          themeMode: ThemeMode.system,
           navigatorKey: NavigationService.navigatorKey,
           home: FutureBuilder<void>(
             future: _initializationFuture,
@@ -275,14 +238,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             '/signin': (context) => const SignInScreen(),
             '/dashboard': (context) => const MainNavigation(),
             '/profile': (context) => const ProfileScreen(),
-            '/permission_setup': (context) => const PermissionSetupScreen(),
-            '/text_recognition_setup':
-                (context) => const TextRecognitionSetupScreen(),
-            '/transaction_candidates':
-                (context) => const TransactionCandidatesScreen(),
-            '/csv_upload': (context) => const CSVUploadScreen(),
-            '/test_ingestion':
-                (context) => const TestTransactionIngestionScreen(),
           },
           onGenerateRoute: (settings) {
             // Handle unknown routes gracefully
@@ -303,11 +258,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     _isInitialized = true;
 
     final authService = Provider.of<AuthService>(context, listen: false);
-    final themeService = Provider.of<ThemeService>(context, listen: false);
     try {
       // Initialize core services sequentially to avoid blocking the UI
       await Future.wait(
-        [authService.initialize(), themeService.initialize()],
+        [authService.initialize()],
       ); // Only try regular auto-login - biometric auth will be handled by AuthWrapper
       await authService.tryAutoLogin();
 
@@ -320,26 +274,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         );
         smsListenerService.setCurrentProfile(currentProfile.id);
       }
-
-      // Initialize background services with a longer delay to avoid blocking UI
-      Future.delayed(const Duration(seconds: 10), () async {
-        if (mounted) {
-          try {
-            final backgroundMonitor = Provider.of<BackgroundTransactionMonitor>(
-              context,
-              listen: false,
-            );
-            await backgroundMonitor.initialize();
-            if (kDebugMode) {
-              print('Background monitor initialized successfully');
-            }
-          } catch (e) {
-            if (kDebugMode) {
-              print('Background monitor initialization deferred: $e');
-            }
-          }
-        }
-      });
     } catch (e) {
       if (kDebugMode) {
         print('Service initialization error: $e');

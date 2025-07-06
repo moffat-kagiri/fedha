@@ -72,7 +72,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
         _descriptionController.text,
       );
       setState(() {
-        _suggestedGoals = suggested;
+        _suggestedGoals = suggested.cast<Goal>();
       });
     }
   }
@@ -312,10 +312,10 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
 
       try {
         if (_selectedType == TransactionType.savings) {
-          // Use the goal transaction service for savings
-          final transaction = await _goalService.createSavingsTransaction(
-            profileId: profileId,
+          // Create transaction object first
+          final transaction = Transaction(
             amount: double.parse(_amountController.text),
+            type: _selectedType,
             category: _selectedCategory,
             date: _selectedDate,
             description:
@@ -323,7 +323,18 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                     ? null
                     : _descriptionController.text,
             notes: _notesController.text.isEmpty ? null : _notesController.text,
-            goalId: _selectedGoal?.id,
+            profileId: profileId,
+          );
+
+          // Use the goal transaction service for savings
+          await _goalService.createSavingsTransaction(
+            profileId: profileId,
+            amount: double.parse(_amountController.text),
+            category: _selectedCategory,
+            date: _selectedDate,
+            description: _descriptionController.text,
+            notes: _notesController.text,
+            goalId: _selectedGoal!.id,
           );
           Navigator.pop(context, transaction);
         } else {

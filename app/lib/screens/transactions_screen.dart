@@ -2,11 +2,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/transaction.dart';
-import '../models/transaction_candidate.dart';
 import '../models/goal.dart';
 import '../services/auth_service.dart';
 import '../services/offline_data_service.dart';
-import '../utils/profile_transaction_utils.dart';
 import 'add_transaction_screen.dart';
 import '../widgets/quick_transaction_entry.dart';
 
@@ -36,7 +34,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     OfflineDataService dataService,
     String profileId,
   ) async {
-    return await dataService.getAllTransactions(profileId);
+    return await dataService.getAllTransactions();
   }
 
   List<Transaction> _filterTransactions(List<Transaction> transactions) {
@@ -141,7 +139,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
   }
 
   String _categoryToString(TransactionCategory category) {
-    return ProfileTransactionUtils.getCategoryDisplayName(category);
+    return category.toString().split('.').last;
   }
 
   String _formatDate(DateTime date) {
@@ -1020,34 +1018,21 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                   const SizedBox(height: 16),
                   Expanded(
                     child: QuickTransactionEntry(
-                      editingTransaction: TransactionCandidate(
-                        uuid: transaction.uuid,
-                        amount: transaction.amount,
-                        description: transaction.description,
-                        vendor: '', // Transaction doesn't have vendor field
-                        category: transaction.category,
-                        type: transaction.type,
-                        timestamp: transaction.date,
-                        sourceText: '', // No raw SMS for existing transactions
-                        sender: '',
-                        confidence:
-                            1.0, // Full confidence for manual transactions
-                        isConfirmed: true,
-                        isRejected: false,
-                      ),
-                      onTransactionUpdated: (updatedCandidate) async {
+                      initialAmount: transaction.amount,
+                      initialDescription: transaction.description,
+                      initialCategory:
+                          transaction.category.toString().split('.').last,
+                      onTransactionAdded: (updatedTransaction) async {
                         // Update the existing transaction
-                        transaction.amount =
-                            updatedCandidate.amount ?? transaction.amount;
+                        transaction.amount = updatedTransaction.amount;
                         transaction.description =
-                            updatedCandidate.description?.isEmpty == true
-                                ? null
-                                : updatedCandidate.description;
-                        transaction.category = updatedCandidate.category;
-                        transaction.date = updatedCandidate.timestamp;
-                        transaction.type = updatedCandidate.type;
-                        transaction.updatedAt =
-                            DateTime.now(); // Save to database using OfflineDataService to ensure proper notifications
+                            updatedTransaction.description;
+                        transaction.category = updatedTransaction.category;
+                        transaction.date = updatedTransaction.date;
+                        transaction.type = updatedTransaction.type;
+                        transaction.updatedAt = DateTime.now();
+
+                        // Save to database using OfflineDataService
                         final dataService = Provider.of<OfflineDataService>(
                           context,
                           listen: false,
@@ -1061,9 +1046,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
 
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text(
-                                'Transaction updated successfully!',
-                              ),
+                              content: Text('Transaction updated successfully'),
                               backgroundColor: Colors.green,
                             ),
                           );
