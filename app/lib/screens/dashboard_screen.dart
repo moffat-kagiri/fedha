@@ -4,22 +4,23 @@ import 'package:provider/provider.dart';
 import '../models/transaction.dart';
 import '../models/goal.dart';
 import '../models/budget.dart';
-import '../models/enhanced_profile.dart';
+import '../models/enhanced_profile.dart' show ProfileType;
 import '../services/auth_service.dart';
 import '../services/offline_data_service.dart';
 import '../services/currency_service.dart';
 import '../widgets/quick_transaction_entry.dart';
+import '../widgets/budget_card.dart';
 import 'main_navigation.dart';
-import 'add_goal_screen.dart';
 import 'goals_screen.dart';
 import 'goal_details_screen.dart';
 import 'transactions_screen.dart';
-import 'loan_calculator_screen.dart';
-import 'create_budget_screen.dart';
 import 'budget_management_screen.dart';
+import 'create_budget_screen.dart';
+// Removed unused imports
 import 'sms_review_screen.dart';
-import '../screens/progressive_goal_wizard_screen.dart';
-import '../screens/smart_goal_creation_screen.dart';
+import 'sms_debug_screen.dart';
+import 'loan_calculator_screen.dart';
+import 'create_goal_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -37,15 +38,15 @@ class DashboardContent extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<AuthService>(
       builder: (context, authService, child) {
-        final profile = authService.currentProfile;
-        if (profile == null) {
+        final profileId = authService.currentProfileId;
+        if (profileId == null) {
           return const Center(child: Text('Please log in'));
         }
 
         return Consumer<OfflineDataService>(
           builder: (context, dataService, child) {
             return FutureBuilder<DashboardData>(
-              future: _loadDashboardData(dataService, profile.id),
+              future: _loadDashboardData(dataService, profileId),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
@@ -65,7 +66,7 @@ class DashboardContent extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         // Welcome Header
-                        _buildWelcomeHeader(context, profile.type),
+                        _buildWelcomeHeader(context, ProfileType.personal),
 
                         const SizedBox(height: 24),
 
@@ -83,7 +84,7 @@ class DashboardContent extends StatelessWidget {
                         const SizedBox(height: 24), // Quick Actions
                         _buildQuickActions(
                           context,
-                          profile.type,
+                          ProfileType.personal,
                           data.currentBudget,
                         ),
 
@@ -167,7 +168,7 @@ class DashboardContent extends StatelessWidget {
     final isPositive = availableToSpend >= 0;
     final budgetExceeded =
         data.currentBudget != null &&
-        data.totalExpenses > data.currentBudget!.totalBudget;
+        data.totalExpenses > data.currentBudget!.budgetAmount;
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -225,7 +226,7 @@ class DashboardContent extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             budgetExceeded
-                ? 'Budget exceeded by Ksh ${(data.totalExpenses - data.currentBudget!.totalBudget).toStringAsFixed(2)}'
+                ? 'Budget exceeded by Ksh ${(data.totalExpenses - data.currentBudget!.budgetAmount).toStringAsFixed(2)}'
                 : isPositive
                 ? 'After expenses and savings'
                 : 'Over budget',
@@ -317,9 +318,7 @@ class DashboardContent extends StatelessWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder:
-                          (context) =>
-                              BudgetManagementScreen(budget: currentBudget),
+                      builder: (context) => const BudgetManagementScreen(),
                     ),
                   );
                 },
@@ -387,133 +386,22 @@ class DashboardContent extends StatelessWidget {
   }
 
   Widget _buildBudgetOverviewCard(BuildContext context, Budget budget) {
-    final progress = budget.spentPercentage / 100;
-    final isOverBudget = budget.isOverBudget;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withValues(alpha: 0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  budget.name,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black87,
-                  ),
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color:
-                      isOverBudget ? Colors.red.shade50 : Colors.green.shade50,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  isOverBudget ? 'Over Budget' : 'On Track',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color:
-                        isOverBudget
-                            ? Colors.red.shade700
-                            : Colors.green.shade700,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Spent',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey.shade600,
-                      ),
-                    ),
-                    Text(
-                      'Ksh ${budget.totalSpent.toStringAsFixed(2)}',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color:
-                            isOverBudget ? Colors.red.shade600 : Colors.black87,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      'Budget',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey.shade600,
-                      ),
-                    ),
-                    Text(
-                      'Ksh ${budget.totalBudget.toStringAsFixed(2)}',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          LinearProgressIndicator(
-            value: progress.clamp(0.0, 1.0),
-            backgroundColor: Colors.grey.shade200,
-            valueColor: AlwaysStoppedAnimation<Color>(
-              isOverBudget ? Colors.red.shade600 : Colors.blue.shade600,
+    // Reuse BudgetCard widget for overview
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: BudgetCard(
+        budget: budget,
+        onEdit: () {
+          Navigator.push<bool>(
+            context,
+            MaterialPageRoute(
+              builder: (context) => CreateBudgetScreen(budget: budget),
             ),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Text(
-                '${budget.spentPercentage.toStringAsFixed(1)}% used',
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-              ),
-              const Spacer(),
-              Text(
-                '${budget.daysRemaining} days left',
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-              ),
-            ],
-          ),
-        ],
+          ).then((_) {
+            // Optionally refresh dashboard data
+          });
+        },
+        onDelete: null,
       ),
     );
   }
@@ -563,8 +451,10 @@ class DashboardContent extends StatelessWidget {
   }
 
   Widget _buildGoalCard(BuildContext context, Goal goal) {
-    final progress = goal.currentAmount / goal.targetAmount;
-    final daysLeft = goal.targetDate.difference(DateTime.now()).inDays;
+    final progress =
+        goal.progressPercentage / 100; // Using the computed property
+    final timeRemaining = goal.timeRemaining;
+    final daysLeft = timeRemaining.inDays;
 
     return GestureDetector(
       onTap: () {
@@ -603,14 +493,14 @@ class DashboardContent extends StatelessWidget {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Icon(
-                    _getGoalIcon(goal.goalType),
+                    _getGoalIcon(goal.type),
                     color: Colors.blue.shade600,
                     size: 16,
                   ),
                 ),
                 const Spacer(),
                 Text(
-                  '$daysLeft days',
+                  daysLeft > 0 ? '$daysLeft days' : 'Due today',
                   style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                 ),
               ],
@@ -628,9 +518,11 @@ class DashboardContent extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             LinearProgressIndicator(
-              value: progress.clamp(0.0, 1.0),
+              value: progress,
               backgroundColor: Colors.grey.shade200,
-              valueColor: AlwaysStoppedAnimation<Color>(Colors.blue.shade600),
+              valueColor: AlwaysStoppedAnimation<Color>(
+                goal.isCompleted ? Colors.green.shade600 : Colors.blue.shade600,
+              ),
             ),
             const SizedBox(height: 8),
             Row(
@@ -638,7 +530,7 @@ class DashboardContent extends StatelessWidget {
                 Text(
                   CurrencyService.formatCurrency(
                     goal.currentAmount,
-                    goal.currency,
+                    'USD', // Default currency since Goal doesn't have currency field
                   ),
                   style: const TextStyle(
                     fontSize: 12,
@@ -648,10 +540,7 @@ class DashboardContent extends StatelessWidget {
                 ),
                 const Spacer(),
                 Text(
-                  CurrencyService.formatCurrency(
-                    goal.targetAmount,
-                    goal.currency,
-                  ),
+                  'Ksh ${goal.targetAmount.toStringAsFixed(2)}',
                   style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                 ),
               ],
@@ -744,14 +633,8 @@ class DashboardContent extends StatelessWidget {
                       ),
                       onTap: () {
                         Navigator.pop(context);
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder:
-                                (context) =>
-                                    const ProgressiveGoalWizardScreen(),
-                          ),
-                        );
+                        // Show a dialog with SMART goal guidance before navigating to the create goal screen
+                        _showSmartGoalGuidanceDialog(context);
                       },
                     ),
                     const Divider(),
@@ -776,8 +659,7 @@ class DashboardContent extends StatelessWidget {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder:
-                                (context) => const SmartGoalCreationScreen(),
+                            builder: (context) => const CreateGoalScreen(),
                           ),
                         );
                       },
@@ -805,7 +687,7 @@ class DashboardContent extends StatelessWidget {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => const AddGoalScreen(),
+                            builder: (context) => const CreateGoalScreen(),
                           ),
                         );
                       },
@@ -891,9 +773,7 @@ class DashboardContent extends StatelessWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder:
-                            (context) =>
-                                BudgetManagementScreen(budget: currentBudget),
+                        builder: (context) => const BudgetManagementScreen(),
                       ),
                     );
                   } else {
@@ -927,6 +807,14 @@ class DashboardContent extends StatelessWidget {
                   );
                 },
               ),
+              QuickAction('SMS Debug', Icons.bug_report, Colors.red, () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const SmsDebugScreen(),
+                  ),
+                );
+              }),
             ];
 
     return Column(
@@ -1207,20 +1095,14 @@ class DashboardContent extends StatelessWidget {
     switch (goalType) {
       case GoalType.savings:
         return Icons.savings;
-      case GoalType.debtReduction:
+      case GoalType.debtPayoff:
         return Icons.money_off;
       case GoalType.investment:
         return Icons.trending_up;
-      case GoalType.expenseReduction:
-        return Icons.trending_down;
-      case GoalType.emergencyFund:
+      case GoalType.purchase:
+        return Icons.shopping_cart;
+      case GoalType.emergency:
         return Icons.security;
-      case GoalType.other:
-        return Icons.flag;
-      case GoalType.incomeIncrease:
-        return Icons.attach_money;
-      case GoalType.retirement:
-        return Icons.account_balance;
     }
   }
 
@@ -1229,9 +1111,9 @@ class DashboardContent extends StatelessWidget {
     String profileId,
   ) async {
     try {
-      final transactions = await dataService.getAllTransactions(profileId);
+      final transactions = await dataService.getAllTransactions();
       final goals = await dataService.getAllGoals(profileId);
-      final budgets = await dataService.getAllBudgets(profileId);
+      final budgets = await dataService.getAllBudgets();
 
       final currentBudget = budgets.isNotEmpty ? budgets.first : null;
 
@@ -1272,6 +1154,63 @@ class DashboardContent extends StatelessWidget {
             ),
             child: const QuickTransactionEntry(),
           ),
+    );
+  }
+
+  static void _showSmartGoalGuidanceDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('SMART Goal Guidance'),
+          content: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: const [
+                Text(
+                  'Create a SMART financial goal:',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                SizedBox(height: 10),
+                Text('• Specific: Clearly define what you want to achieve'),
+                Text('• Measurable: Set a specific amount to save'),
+                Text('• Achievable: Make sure it\'s realistic for your income'),
+                Text('• Relevant: Align with your financial priorities'),
+                Text('• Time-bound: Set a target date for completion'),
+                SizedBox(height: 15),
+                Text(
+                  'Examples:',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                Text('✓ "Save \$5,000 for a down payment by December 2023"'),
+                Text('✓ "Build an emergency fund of \$3,000 in 6 months"'),
+                Text('✓ "Pay off \$10,000 credit card debt by next year"'),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              child: const Text('Cancel'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+            TextButton(
+              child: const Text('Create Goal'),
+              onPressed: () {
+                Navigator.of(context).pop();
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const CreateGoalScreen(),
+                  ),
+                );
+              },
+            ),
+          ],
+        );
+      },
     );
   }
 }

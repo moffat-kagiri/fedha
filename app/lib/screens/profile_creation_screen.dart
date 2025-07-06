@@ -27,7 +27,7 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
   final _confirmPinController = TextEditingController();
 
   bool _isLoading = false;
-  bool _saveToGoogle = false;
+  final bool _saveToGoogle = false;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
 
@@ -191,153 +191,78 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
                           ),
                           const SizedBox(height: 20),
 
-                          // Password Field
+                          // PIN Field
+                          const SizedBox(height: 20),
                           TextFormField(
                             controller: _pinController,
+                            obscureText: _obscurePassword,
                             decoration: InputDecoration(
                               labelText: 'Password',
-                              hintText: 'Minimum 6 characters',
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),
-                              prefixIcon: const Icon(Icons.lock),
                               suffixIcon: IconButton(
                                 icon: Icon(
                                   _obscurePassword
                                       ? Icons.visibility
                                       : Icons.visibility_off,
                                 ),
-                                onPressed: () {
-                                  setState(() {
-                                    _obscurePassword = !_obscurePassword;
-                                  });
-                                },
+                                onPressed:
+                                    () => setState(
+                                      () =>
+                                          _obscurePassword = !_obscurePassword,
+                                    ),
                               ),
                             ),
-                            obscureText: _obscurePassword,
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Password is required';
+                            validator: (v) {
+                              if (v == null || v.isEmpty) {
+                                return 'Password required';
                               }
-                              if (value.length < 6) {
-                                return 'Password must be at least 6 characters';
-                              }
-                              if (!_isPasswordStrong(value)) {
-                                return 'Password should contain letters and numbers';
+                              if (!_isPasswordStrong(v)) {
+                                return 'Password too weak';
                               }
                               return null;
                             },
                           ),
                           const SizedBox(height: 20),
-
-                          // Confirm Password Field
                           TextFormField(
                             controller: _confirmPinController,
+                            obscureText: _obscureConfirmPassword,
                             decoration: InputDecoration(
                               labelText: 'Confirm Password',
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),
-                              prefixIcon: const Icon(Icons.lock_outline),
                               suffixIcon: IconButton(
                                 icon: Icon(
                                   _obscureConfirmPassword
                                       ? Icons.visibility
                                       : Icons.visibility_off,
                                 ),
-                                onPressed: () {
-                                  setState(() {
-                                    _obscureConfirmPassword =
-                                        !_obscureConfirmPassword;
-                                  });
-                                },
+                                onPressed:
+                                    () => setState(
+                                      () =>
+                                          _obscureConfirmPassword =
+                                              !_obscureConfirmPassword,
+                                    ),
                               ),
                             ),
-                            obscureText: _obscureConfirmPassword,
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Please confirm your password';
-                              }
-                              if (value != _pinController.text) {
-                                return 'Passwords do not match';
-                              }
-                              return null;
-                            },
+                            validator:
+                                (v) =>
+                                    v != _pinController.text
+                                        ? 'Passwords do not match'
+                                        : null,
                           ),
-                          const SizedBox(height: 30),
-
-                          // Save to Google Option
-                          Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: Colors.grey.shade50,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.grey.shade200),
-                            ),
-                            child: Row(
-                              children: [
-                                Checkbox(
-                                  value: _saveToGoogle,
-                                  onChanged: (value) {
-                                    setState(() {
-                                      _saveToGoogle = value ?? false;
-                                    });
-                                  },
-                                ),
-                                const SizedBox(width: 12),
-                                const Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'Save to Google Account',
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.w600,
-                                          fontSize: 16,
-                                        ),
-                                      ),
-                                      SizedBox(height: 4),
-                                      Text(
-                                        'Securely save your login details to your Google account for easy access across devices',
-                                        style: TextStyle(
-                                          color: Colors.grey,
-                                          fontSize: 14,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 40),
-
-                          // Create Account Button
+                          const SizedBox(height: 32),
                           SizedBox(
                             width: double.infinity,
-                            height: 50,
                             child: ElevatedButton(
-                              onPressed: _isLoading ? null : _createProfile,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF007A39),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
+                              onPressed:
+                                  _isLoading ? null : _handleCreateProfile,
                               child:
                                   _isLoading
-                                      ? const CircularProgressIndicator(
-                                        color: Colors.white,
-                                      )
-                                      : const Text(
-                                        'Create Account',
-                                        style: TextStyle(
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.white,
-                                        ),
-                                      ),
+                                      ? const CircularProgressIndicator()
+                                      : const Text('Create Account'),
                             ),
                           ),
                         ],
@@ -353,70 +278,42 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
     );
   }
 
-  Future<void> _createProfile() async {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
-
-    setState(() {
-      _isLoading = true;
-    });
-
+  Future<void> _handleCreateProfile() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _isLoading = true);
     try {
-      final authService = context.read<AuthService>();
+      await Provider.of<AuthService>(context, listen: false).createProfile(
+        type: widget.initialProfileType,
+        name: _nameController.text.trim(),
+        email:
+            _emailController.text.trim().isEmpty
+                ? null
+                : _emailController.text.trim(),
+        password: _pinController.text.trim(),
+      );
 
-      final profileData = {
-        'name': _nameController.text.trim(),
-        'email': _emailController.text.trim(),
-        'pin': _pinController.text.trim(),
-        'profile_type': widget.initialProfileType,
-        'base_currency': 'KES',
-        'timezone': 'GMT+3',
-        'save_to_google': _saveToGoogle,
-      };
-
-      final success = await authService.createEnhancedProfile(profileData);
-
-      if (success && mounted) {
-        // Show success message
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Account created successfully!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-
-        // Call the callback if provided
-        if (widget.onUserLoggedIn != null) {
-          widget.onUserLoggedIn!();
-        }
-
-        // Navigate back to main app
-        if (mounted) {
-          Navigator.of(context).pushReplacementNamed('/dashboard');
-        }
+      // Call onUserLoggedIn callback if provided to properly navigate
+      if (widget.onUserLoggedIn != null) {
+        widget.onUserLoggedIn!();
       } else {
+        // If no callback is provided, just pop back to previous screen
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Failed to create account. Please try again.'),
-              backgroundColor: Colors.red,
-            ),
-          );
+          Navigator.of(context).pop(true);
         }
+      }
+
+      // Show success message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Account created successfully!')),
+        );
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
-        );
-      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error creating profile: $e')));
     } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 }

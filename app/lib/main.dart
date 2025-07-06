@@ -3,15 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'dart:io';
-import 'firebase_options.dart';
 
 // Models
 import 'models/profile.dart';
 import 'models/enhanced_profile.dart';
 import 'models/transaction.dart';
-import 'models/transaction_candidate.dart';
+// import 'models/transaction_candidate.dart';
 import 'models/category.dart';
 import 'models/client.dart';
 import 'models/invoice.dart';
@@ -33,16 +31,17 @@ import 'services/csv_upload_service.dart';
 import 'services/sms_transaction_extractor.dart';
 import 'services/sms_listener_service.dart';
 import 'services/notification_service.dart';
-import 'services/theme_service.dart';
+// import 'services/theme_service.dart';
 import 'services/navigation_service.dart';
 import 'services/sender_management_service.dart';
 import 'services/biometric_auth_service.dart';
-import 'services/background_sms_service.dart';
-import 'services/background_sync_service.dart';
+// import 'services/background_sms_service.dart';
+// import 'services/background_sync_service.dart';
 
 // Screens
 import 'screens/onboarding_screen.dart';
 import 'screens/auth_wrapper.dart';
+import 'screens/sms_debug_screen.dart';
 
 // Utils
 import 'debug_sms_senders.dart';
@@ -54,38 +53,22 @@ Future<void> initializeHive() async {
 
     // Register adapters safely
     try {
-      if (!Hive.isAdapterRegistered(0)) {
-        Hive.registerAdapter(ProfileAdapter());
-      }
-      if (!Hive.isAdapterRegistered(1)) {
-        Hive.registerAdapter(EnhancedProfileAdapter());
-      }
-      if (!Hive.isAdapterRegistered(2)) {
-        Hive.registerAdapter(TransactionAdapter());
-      }
-      if (!Hive.isAdapterRegistered(3)) {
-        Hive.registerAdapter(TransactionCandidateAdapter());
-      }
-      if (!Hive.isAdapterRegistered(4)) {
-        Hive.registerAdapter(CategoryAdapter());
-      }
-      if (!Hive.isAdapterRegistered(5)) {
-        Hive.registerAdapter(ClientAdapter());
-      }
-      if (!Hive.isAdapterRegistered(6)) {
-        Hive.registerAdapter(InvoiceAdapter());
-      }
-      if (!Hive.isAdapterRegistered(7)) {
-        Hive.registerAdapter(GoalAdapter());
-      }
-      if (!Hive.isAdapterRegistered(8)) {
-        Hive.registerAdapter(BudgetAdapter());
-      }
-      if (!Hive.isAdapterRegistered(9)) {
-        Hive.registerAdapter(SyncQueueItemAdapter());
-      }
+      // Hive type adapters for models
+      Hive.registerAdapter(ProfileAdapter());
+      Hive.registerAdapter(EnhancedProfileAdapter());
+      Hive.registerAdapter(ProfileTypeAdapter());
+      Hive.registerAdapter(TransactionAdapter());
+      Hive.registerAdapter(CategoryAdapter());
+      Hive.registerAdapter(ClientAdapter());
+      Hive.registerAdapter(InvoiceAdapter());
+      Hive.registerAdapter(GoalAdapter());
+      Hive.registerAdapter(GoalTypeAdapter());
+      Hive.registerAdapter(GoalStatusAdapter());
+      Hive.registerAdapter(BudgetAdapter());
+      Hive.registerAdapter(BudgetPeriodAdapter());
+      Hive.registerAdapter(SyncQueueItemAdapter());
 
-      // Register enum adapters safely
+      // Register enum adapters
       enum_adapters.registerAdapters();
 
       if (kDebugMode) {
@@ -99,8 +82,8 @@ Future<void> initializeHive() async {
 
     // Open boxes safely
     final boxesToOpen = [
-      'profiles',
-      'enhanced_profiles',
+      // 'profiles',        // Handled by AuthService
+      // 'enhanced_profiles', // Handled by AuthService
       'transactions',
       'transaction_candidates',
       'categories',
@@ -135,26 +118,18 @@ Future<void> initializeHive() async {
   }
 }
 
-/// Safe Firebase initialization
-Future<void> initializeFirebaseSafe() async {
+/// Local authentication initialization
+Future<void> initializeLocalAuth() async {
   try {
-    if (Firebase.apps.isEmpty) {
-      await Firebase.initializeApp(
-        options: DefaultFirebaseOptions.currentPlatform,
-      );
-      if (kDebugMode) {
-        print('✅ Firebase initialized successfully');
-      }
-    } else {
-      if (kDebugMode) {
-        print('ℹ️ Firebase already initialized');
-      }
+    // Initialize local authentication methods and services
+    if (kDebugMode) {
+      print('✅ Local authentication initialized successfully');
     }
   } catch (e) {
     if (kDebugMode) {
-      print('⚠️ Firebase initialization failed: $e');
+      print('⚠️ Local authentication initialization failed: $e');
     }
-    // Continue without Firebase
+    // Continue without local authentication
   }
 }
 
@@ -162,9 +137,10 @@ Future<void> initializeFirebaseSafe() async {
 Future<void> initializeBackgroundServices() async {
   try {
     if (Platform.isAndroid) {
-      await BackgroundSmsService.initialize();
-      await BackgroundSmsService.startBackgroundMonitoring();
-      await BackgroundSyncService.syncBackgroundTransactions();
+      // Background services temporarily disabled
+      // await BackgroundSmsService.initialize();
+      // await BackgroundSmsService.startBackgroundMonitoring();
+      // await BackgroundSyncService.syncBackgroundTransactions();
       if (kDebugMode) {
         print('✅ Background services initialized');
       }
@@ -177,16 +153,37 @@ Future<void> initializeBackgroundServices() async {
   }
 }
 
+/// Safe text recognition service initialization
+Future<void> initializeTextRecognition() async {
+  try {
+    final textRecognition = TextRecognitionService.instance;
+    await textRecognition.initialize();
+    await textRecognition.enableTextRecognition();
+
+    if (kDebugMode) {
+      print('✅ Text recognition service initialized');
+    }
+  } catch (e) {
+    if (kDebugMode) {
+      print('⚠️ Text recognition initialization failed: $e');
+    }
+    // Continue without text recognition
+  }
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   try {
     // Initialize core systems
-    await initializeFirebaseSafe();
+    await initializeLocalAuth();
     await initializeHive();
 
     // Initialize background services (non-critical)
     await initializeBackgroundServices();
+
+    // Initialize text recognition service (non-critical)
+    await initializeTextRecognition();
 
     // Debug SMS senders (non-critical)
     if (kDebugMode) {
@@ -220,7 +217,7 @@ class FedhaApp extends StatelessWidget {
       final apiClient = ApiClient();
       final offlineDataService = OfflineDataService();
       final goalTransactionService = GoalTransactionService(offlineDataService);
-      final textRecognitionService = TextRecognitionService(offlineDataService);
+      final textRecognitionService = TextRecognitionService.instance;
       final csvUploadService = CSVUploadService(offlineDataService);
       final smsTransactionExtractor = SmsTransactionExtractor(
         offlineDataService,
@@ -229,13 +226,14 @@ class FedhaApp extends StatelessWidget {
       final smsListenerService = SmsListenerService(
         smsTransactionExtractor,
         notificationService,
+        offlineDataService,
       );
       final syncService = EnhancedSyncService(
         apiClient: apiClient,
         offlineDataService: offlineDataService,
       );
       final authService = AuthService();
-      final themeService = ThemeService();
+      // final themeService = ThemeService();
       final navigationService = NavigationService.instance;
       final senderManagementService = SenderManagementService.instance;
       final biometricAuthService = BiometricAuthService.instance;
@@ -247,7 +245,9 @@ class FedhaApp extends StatelessWidget {
             value: offlineDataService,
           ),
           Provider<GoalTransactionService>.value(value: goalTransactionService),
-          Provider<TextRecognitionService>.value(value: textRecognitionService),
+          ChangeNotifierProvider<TextRecognitionService>.value(
+            value: textRecognitionService,
+          ),
           Provider<CSVUploadService>.value(value: csvUploadService),
           Provider<SmsTransactionExtractor>.value(
             value: smsTransactionExtractor,
@@ -256,25 +256,21 @@ class FedhaApp extends StatelessWidget {
           Provider<SmsListenerService>.value(value: smsListenerService),
           Provider<EnhancedSyncService>.value(value: syncService),
           ChangeNotifierProvider<AuthService>.value(value: authService),
-          ChangeNotifierProvider<ThemeService>.value(value: themeService),
+          // ChangeNotifierProvider<ThemeService>.value(value: themeService),
           Provider<NavigationService>.value(value: navigationService),
           Provider<SenderManagementService>.value(
             value: senderManagementService,
           ),
           Provider<BiometricAuthService>.value(value: biometricAuthService),
         ],
-        child: Consumer<ThemeService>(
-          builder: (context, themeService, child) {
-            return MaterialApp(
-              title: 'Fedha - Personal Finance',
-              theme: themeService.lightTheme,
-              darkTheme: themeService.darkTheme,
-              themeMode: themeService.themeMode,
-              navigatorKey: NavigationService.navigatorKey,
-              home: const AuthWrapper(),
-              debugShowCheckedModeBanner: false,
-            );
-          },
+        child: MaterialApp(
+          title: 'Fedha - Personal Finance',
+          theme: ThemeData.light(),
+          darkTheme: ThemeData.dark(),
+          themeMode: ThemeMode.system,
+          navigatorKey: NavigationService.navigatorKey,
+          home: const AuthWrapper(),
+          debugShowCheckedModeBanner: false,
         ),
       );
     } catch (e) {

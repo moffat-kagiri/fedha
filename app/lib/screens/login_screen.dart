@@ -67,109 +67,118 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
       body: Padding(
         padding: const EdgeInsets.all(32.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // Profile Type Indicator
-            Chip(
-              label: Text(
-                widget.profileType.toString().split('.').last,
-                style: const TextStyle(fontSize: 16),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Profile Type Indicator
+              Chip(
+                label: Text(
+                  widget.profileType.toString().split('.').last,
+                  style: const TextStyle(fontSize: 16),
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                backgroundColor:
+                    widget.profileType == ProfileType.business
+                        ? Colors.blue.withValues(alpha: 0.2)
+                        : Colors.green.withValues(alpha: 0.2),
               ),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              backgroundColor:
-                  widget.profileType == ProfileType.business
-                      ? Colors.blue.withValues(alpha: 0.2)
-                      : Colors.green.withValues(alpha: 0.2),
-            ),
-            const SizedBox(height: 40),
+              const SizedBox(height: 40),
 
-            // Password Input
-            TextField(
-              controller: _passwordController,
-              decoration: InputDecoration(
-                labelText: 'Enter Password',
-                border: const OutlineInputBorder(),
-                suffixIcon: IconButton(
-                  icon: Icon(
-                    _obscurePassword ? Icons.visibility : Icons.visibility_off,
+              // Password Input
+              TextField(
+                controller: _passwordController,
+                decoration: InputDecoration(
+                  labelText: 'Enter Password',
+                  border: const OutlineInputBorder(),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscurePassword
+                          ? Icons.visibility
+                          : Icons.visibility_off,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _obscurePassword = !_obscurePassword;
+                      });
+                    },
                   ),
-                  onPressed: () {
-                    setState(() {
-                      _obscurePassword = !_obscurePassword;
-                    });
-                  },
                 ),
+                obscureText: _obscurePassword,
+                onChanged: (_) => setState(() => _errorMessage = null),
               ),
-              obscureText: _obscurePassword,
-              onChanged: (_) => setState(() => _errorMessage = null),
-            ),
 
-            // Error Message
-            if (_errorMessage != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 8.0),
-                child: Text(
-                  _errorMessage!,
-                  style: TextStyle(color: Theme.of(context).colorScheme.error),
-                ),
-              ),
-            const SizedBox(height: 24),
-
-            // Login Button
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _isLoading ? null : _handleLogin,
-                child:
-                    _isLoading
-                        ? const CircularProgressIndicator()
-                        : const Text('Login'),
-              ),
-            ),
-
-            // Biometric Login Option
-            if (_showBiometricOption) ...[
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(child: Divider(color: Colors.grey.shade300)),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Text(
-                      'OR',
-                      style: TextStyle(
-                        color: Colors.grey.shade600,
-                        fontWeight: FontWeight.w500,
-                      ),
+              // Error Message
+              if (_errorMessage != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8.0),
+                  child: Text(
+                    _errorMessage!,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
                     ),
                   ),
-                  Expanded(child: Divider(color: Colors.grey.shade300)),
-                ],
-              ),
-              const SizedBox(height: 16),
-              OutlinedButton.icon(
-                onPressed: _isLoading ? null : _handleBiometricLogin,
-                icon: const Icon(Icons.fingerprint, size: 24),
-                label: const Text('Use Fingerprint'),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  side: BorderSide(
-                    color: Theme.of(context).primaryColor,
-                    width: 2,
-                  ),
+                ),
+              const SizedBox(height: 24),
+
+              // Login Button
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _isLoading ? null : _handleLogin,
+                  child:
+                      _isLoading
+                          ? const CircularProgressIndicator()
+                          : const Text('Login'),
                 ),
               ),
+
+              // Biometric Login Option
+              if (_showBiometricOption) ...[
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(child: Divider(color: Colors.grey.shade300)),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Text(
+                        'OR',
+                        style: TextStyle(
+                          color: Colors.grey.shade600,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                    Expanded(child: Divider(color: Colors.grey.shade300)),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                OutlinedButton.icon(
+                  onPressed: _isLoading ? null : _handleBiometricLogin,
+                  icon: const Icon(Icons.fingerprint, size: 24),
+                  label: const Text('Use Fingerprint'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    side: BorderSide(
+                      color: Theme.of(context).primaryColor,
+                      width: 2,
+                    ),
+                  ),
+                ),
+              ],
+
+              const SizedBox(height: 24),
+
+              // Profile Help
+              TextButton(
+                onPressed: _showProfileHelp,
+                child: const Text('Having trouble logging in?'),
+              ),
             ],
-
-            const SizedBox(height: 24),
-
-            // Profile Help
-            TextButton(
-              onPressed: _showProfileHelp,
-              child: const Text('Having trouble logging in?'),
-            ),
-          ],
+          ),
         ),
       ),
     );

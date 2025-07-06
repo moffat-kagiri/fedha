@@ -72,7 +72,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
         _descriptionController.text,
       );
       setState(() {
-        _suggestedGoals = suggested;
+        _suggestedGoals = suggested.map((map) => Goal.fromJson(map)).toList();
       });
     }
   }
@@ -317,17 +317,18 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
 
         if (_selectedType == TransactionType.savings) {
           // Use the goal transaction service for savings
-          final transaction = await _goalService.createSavingsTransaction(
+          await _goalService.createSavingsTransaction(
             profileId: profileId,
             amount: double.parse(_amountController.text),
             category: _selectedCategory,
             date: _selectedDate,
             description:
                 _descriptionController.text.isEmpty
-                    ? null
+                    ? ""
                     : _descriptionController.text,
-            notes: _notesController.text.isEmpty ? null : _notesController.text,
-            goalId: _selectedGoal?.id,
+            // If notes parameter isn't defined in the method, remove or rename it
+            // notes: _notesController.text.isEmpty ? "" : _notesController.text,
+            goalId: _selectedGoal?.id ?? "",
           );
 
           successMessage =
@@ -336,7 +337,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                   : 'Transaction saved successfully';
 
           if (mounted) {
-            Navigator.pop(context, transaction);
+            Navigator.pop(context);
           }
         } else {
           // Regular transaction creation
