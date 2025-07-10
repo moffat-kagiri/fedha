@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
-import '../services/theme_service.dart';
+import '../services/biometric_auth_service.dart';
 import '../models/enhanced_profile.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -16,7 +16,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final authService = Provider.of<AuthService>(context);
-    final themeService = Provider.of<ThemeService>(context);
     final currentProfile = authService.currentProfile;
 
     if (currentProfile == null) {
@@ -194,24 +193,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: Column(
                 children: [
                   _buildProfileTile(
-                    icon: Icons.palette_outlined,
-                    title: 'Theme',
-                    subtitle: themeService.getThemeModeDisplayName(),
-                    trailing: Switch(
-                      value: themeService.themeMode == ThemeMode.dark,
-                      onChanged: (value) async {
-                        if (value) {
-                          await themeService.setThemeMode(ThemeMode.dark);
-                        } else {
-                          await themeService.setThemeMode(ThemeMode.light);
-                        }
-                        _showThemeChangeDialog(context, value);
-                      },
-                      activeColor: const Color(0xFF007A39),
-                    ),
-                  ),
-                  const Divider(height: 1),
-                  _buildProfileTile(
                     icon: Icons.language_outlined,
                     title: 'Language',
                     subtitle: 'English (Kenya)',
@@ -221,8 +202,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   _buildProfileTile(
                     icon: Icons.currency_exchange_outlined,
                     title: 'Currency',
-                    subtitle: 'Kenyan Shilling (Ksh)',
+                    subtitle: 'Kenyan Shilling (KSh)',
                     onTap: () => _showCurrencyDialog(context),
+                  ),
+                  const Divider(height: 1),
+                  _buildProfileTile(
+                    icon: Icons.email_outlined,
+                    title: 'Contact Developer',
+                    subtitle: 'Send feedback or get support',
+                    onTap: () => _contactDeveloper(context),
                   ),
                 ],
               ),
@@ -233,6 +221,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Card(
               child: Column(
                 children: [
+                  FutureBuilder<void>(
+                    future: BiometricAuthService.instance.initialize(),
+                    builder: (context, snapshot) {
+                      return _buildBiometricTile();
+                    },
+                  ),
+                  const Divider(height: 1),
                   _buildProfileTile(
                     icon: Icons.lock_outline,
                     title: 'Change Password',
@@ -294,6 +289,60 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   onPressed: () => _logout(context),
                 ),
+              ),
+            ),
+
+            const SizedBox(height: 32),
+
+            // Copyright Footer
+            Center(
+              child: Column(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.shade200),
+                    ),
+                    child: Column(
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(
+                              Icons.copyright,
+                              color: Color(0xFF007A39),
+                              size: 16,
+                            ),
+                            const SizedBox(width: 4),
+                            const Text(
+                              '2025 Gauss Analytics',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF007A39),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'All rights reserved',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Fedha v1.0.0',
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                  ),
+                ],
               ),
             ),
 
@@ -590,76 +639,149 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  void _showThemeChangeDialog(BuildContext context, bool isDark) {
-    showDialog(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Theme Changed'),
-            content: Text(
-              'Switched to ${isDark ? 'Dark' : 'Light'} mode.\n\nTheme has been applied successfully!',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('OK'),
-              ),
-              TextButton(
-                onPressed: () {
-                  // Offer to switch between Dark/Light/System modes
-                  Navigator.pop(context);
-                  _showThemeModeSelector(context);
+  Widget _buildBiometricTile() {
+    final biometricService = BiometricAuthService.instance;
+
+    return _buildProfileTile(
+      icon:
+          biometricService.isAvailable ? Icons.fingerprint : Icons.lock_outline,
+      title: 'Biometric Authentication',
+      subtitle:
+          biometricService.isAvailable
+              ? (biometricService.isEnabled
+                  ? 'Enabled (${biometricService.getBiometricTypeDescription()})'
+                  : 'Available - Tap to enable')
+              : 'Not available on this device',
+      trailing:
+          biometricService.isAvailable
+              ? Switch(
+                value: biometricService.isEnabled,
+                onChanged: (value) async {
+                  if (value) {
+                    // Test authentication before enabling
+                    final success = await biometricService.authenticate(
+                      localizedReason:
+                          'Please authenticate to enable biometric lock',
+                    );
+                    if (success) {
+                      await biometricService.setEnabled(true);
+                      setState(() {});
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Biometric authentication enabled'),
+                            backgroundColor: Color(0xFF007A39),
+                          ),
+                        );
+                      }
+                    }
+                  } else {
+                    await biometricService.setEnabled(false);
+                    setState(() {});
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Biometric authentication disabled'),
+                        ),
+                      );
+                    }
+                  }
                 },
-                child: const Text('More Options'),
-              ),
-            ],
-          ),
+                activeColor: const Color(0xFF007A39),
+              )
+              : null,
+      onTap:
+          biometricService.isAvailable && !biometricService.isEnabled
+              ? () async {
+                final success = await biometricService.authenticate(
+                  localizedReason:
+                      'Please authenticate to enable biometric lock',
+                );
+                if (success) {
+                  await biometricService.setEnabled(true);
+                  setState(() {});
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Biometric authentication enabled'),
+                        backgroundColor: Color(0xFF007A39),
+                      ),
+                    );
+                  }
+                }
+              }
+              : null,
     );
   }
 
-  void _showThemeModeSelector(BuildContext context) {
-    final themeService = Provider.of<ThemeService>(context, listen: false);
+  void _contactDeveloper(BuildContext context) {
     showDialog(
       context: context,
       builder:
           (context) => AlertDialog(
-            title: const Text('Select Theme Mode'),
+            title: Row(
+              children: [
+                Icon(Icons.email, color: Color(0xFF007A39)),
+                SizedBox(width: 8),
+                Text('Contact Developer'),
+              ],
+            ),
             content: Column(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                ListTile(
-                  leading: const Icon(Icons.brightness_auto),
-                  title: const Text('System Default'),
-                  subtitle: const Text('Follow device settings'),
-                  onTap: () async {
-                    await themeService.setThemeMode(ThemeMode.system);
-                    Navigator.pop(context);
-                  },
+                Text(
+                  'Get in touch with the developer for support, feedback, or feature requests.',
+                  style: TextStyle(fontSize: 16),
                 ),
-                ListTile(
-                  leading: const Icon(Icons.light_mode),
-                  title: const Text('Light Mode'),
-                  subtitle: const Text('Always use light theme'),
-                  onTap: () async {
-                    await themeService.setThemeMode(ThemeMode.light);
-                    Navigator.pop(context);
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.dark_mode),
-                  title: const Text('Dark Mode'),
-                  subtitle: const Text('Always use dark theme'),
-                  onTap: () async {
-                    await themeService.setThemeMode(ThemeMode.dark);
-                    Navigator.pop(context);
-                  },
+                SizedBox(height: 16),
+                Container(
+                  padding: EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.email, color: Color(0xFF007A39)),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'gaussanalyticske@gmail.com',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w500,
+                            color: Color(0xFF007A39),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel'),
+                child: Text('Close'),
+              ),
+              ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        'Email address copied! You can now email the developer.',
+                      ),
+                      backgroundColor: Color(0xFF007A39),
+                    ),
+                  );
+                },
+                icon: Icon(Icons.copy),
+                label: Text('Copy Email'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Color(0xFF007A39),
+                  foregroundColor: Colors.white,
+                ),
               ),
             ],
           ),

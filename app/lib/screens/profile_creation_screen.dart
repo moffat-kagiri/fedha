@@ -22,18 +22,20 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
-  final _pinController = TextEditingController();
-  final _confirmPinController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
 
   bool _isLoading = false;
   bool _saveToGoogle = false;
+  bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
 
   @override
   void dispose() {
     _nameController.dispose();
     _emailController.dispose();
-    _pinController.dispose();
-    _confirmPinController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
   }
 
@@ -180,50 +182,71 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
                           ),
                           const SizedBox(height: 20),
 
-                          // PIN Field
+                          // Password Field
                           TextFormField(
-                            controller: _pinController,
+                            controller: _passwordController,
                             decoration: InputDecoration(
-                              labelText: 'PIN (6 digits)',
+                              labelText: 'Password',
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               prefixIcon: const Icon(Icons.lock),
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _obscurePassword
+                                      ? Icons.visibility_off
+                                      : Icons.visibility,
+                                ),
+                                onPressed: () {
+                                  setState(() {
+                                    _obscurePassword = !_obscurePassword;
+                                  });
+                                },
+                              ),
                             ),
-                            obscureText: true,
-                            keyboardType: TextInputType.number,
-                            maxLength: 6,
+                            obscureText: _obscurePassword,
                             validator: (value) {
                               if (value == null || value.isEmpty) {
-                                return 'PIN is required';
+                                return 'Password is required';
                               }
-                              if (value.length != 6) {
-                                return 'PIN must be exactly 6 digits';
+                              if (value.length < 6) {
+                                return 'Password must be at least 6 characters';
                               }
                               return null;
                             },
                           ),
                           const SizedBox(height: 20),
 
-                          // Confirm PIN Field
+                          // Confirm Password Field
                           TextFormField(
-                            controller: _confirmPinController,
+                            controller: _confirmPasswordController,
                             decoration: InputDecoration(
-                              labelText: 'Confirm PIN',
+                              labelText: 'Confirm Password',
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               prefixIcon: const Icon(Icons.lock_outline),
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _obscureConfirmPassword
+                                      ? Icons.visibility_off
+                                      : Icons.visibility,
+                                ),
+                                onPressed: () {
+                                  setState(() {
+                                    _obscureConfirmPassword =
+                                        !_obscureConfirmPassword;
+                                  });
+                                },
+                              ),
                             ),
-                            obscureText: true,
-                            keyboardType: TextInputType.number,
-                            maxLength: 6,
+                            obscureText: _obscureConfirmPassword,
                             validator: (value) {
                               if (value == null || value.isEmpty) {
-                                return 'Please confirm your PIN';
+                                return 'Please confirm your password';
                               }
-                              if (value != _pinController.text) {
-                                return 'PINs do not match';
+                              if (value != _passwordController.text) {
+                                return 'Passwords do not match';
                               }
                               return null;
                             },
@@ -332,7 +355,7 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
       final profileData = {
         'name': _nameController.text.trim(),
         'email': _emailController.text.trim(),
-        'pin': _pinController.text.trim(),
+        'password': _passwordController.text.trim(),
         'profile_type': widget.initialProfileType,
         'base_currency': 'KES',
         'timezone': 'GMT+3',

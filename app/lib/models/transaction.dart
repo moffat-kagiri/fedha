@@ -67,12 +67,6 @@ class Transaction extends HiveObject {
 }
 
 // Enums with matching values to Django choices
-enum TransactionType {
-  income, // Maps to Django's 'IN'
-  expense, // Maps to Django's 'EX'
-  savings, // Maps to Django's 'SAV' - money transferred to savings
-}
-
 enum TransactionCategory {
   // Business Income Categories
   sales, // Maps to Django's 'SALE'
@@ -101,4 +95,17 @@ enum TransactionCategory {
   rent, // Maps to Django's 'RENT'
   utilities, // Maps to Django's 'UTIL'
   other, // Maps to Django's 'OTHR'
+}
+
+/// Transaction type enumeration
+@HiveType(typeId: 4)
+enum TransactionType {
+  @HiveField(0)
+  income,
+
+  @HiveField(1)
+  expense,
+
+  @HiveField(2)
+  savings,
 }

@@ -28,6 +28,9 @@ dependencies:
   local_auth: ^2.1.8
   shared_preferences: ^2.2.2
   google_sign_in: ^6.1.6
+  pdf: ^3.10.8
+  share_plus: ^11.0.0
+  audioplayers: ^6.0.0
 
 dev_dependencies:
   flutter_test:

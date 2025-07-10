@@ -30,10 +30,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _checkBiometricAvailability() async {
     final biometricService = BiometricAuthService.instance;
-    final bool isSupported = await biometricService.isDeviceSupported();
-    final bool isFingerprintAvailable =
-        await biometricService.isFingerPrintAvailable();
-    final bool isEnabled = await biometricService.isBiometricEnabled();
+    await biometricService.initialize();
+    final bool isSupported = biometricService.isAvailable;
+    final bool isFingerprintAvailable = biometricService.isAvailable;
+    final bool isEnabled = biometricService.isEnabled;
 
     if (kDebugMode) {
       print(

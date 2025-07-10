@@ -11,20 +11,18 @@ import '../models/goal.dart';
 import '../models/budget.dart';
 
 class ApiClient {
-  // Unified base URL configuration for all platforms
-  // Using ngrok tunnel for real device testing
+  // Local development base URL configuration
   static String get _baseUrl {
     final String url;
     if (kIsWeb) {
       // Web platform uses localhost directly
       url = "http://127.0.0.1:8000/api";
     } else {
-      // Mobile platforms - using ngrok tunnel for real device access
-      // ngrok URL: https://7a9a-41-209-9-54.ngrok-free.app
-      url = "https://7a9a-41-209-9-54.ngrok-free.app/api";
-
-      // For emulator testing (if needed), use:
-      // url = "http://10.0.2.2:8000/api";
+      // Mobile platforms - use localhost for emulator, or disable server calls for real devices
+      // For Android emulator: 10.0.2.2:8000
+      // For iOS simulator: 127.0.0.1:8000
+      // For real devices: Server should be disabled for offline-first approach
+      url = "http://10.0.2.2:8000/api"; // Android emulator
     }
 
     if (kDebugMode) {

@@ -10,12 +10,11 @@ import '../services/offline_data_service.dart';
 import '../services/currency_service.dart';
 import '../widgets/quick_transaction_entry.dart';
 import 'main_navigation.dart';
-import 'goals_screen.dart';
+import 'enhanced_goals_screen.dart';
+import 'enhanced_budget_screen.dart';
 import 'goal_details_screen.dart';
 import 'transactions_screen.dart';
 import 'loan_calculator_screen.dart';
-import 'create_budget_screen.dart';
-import 'budget_management_screen.dart';
 import 'sms_review_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
@@ -106,56 +105,81 @@ class DashboardContent extends StatelessWidget {
   Widget _buildWelcomeHeader(BuildContext context, ProfileType profileType) {
     final timeOfDay = DateTime.now().hour;
     String greeting = 'Good morning';
-    if (timeOfDay >= 12 && timeOfDay < 17) greeting = 'Good afternoon';
-    if (timeOfDay >= 17) greeting = 'Good evening';
+    IconData greetingIcon = Icons.wb_sunny;
+    Color greetingColor = Colors.orange.shade600;
 
-    return Row(
-      children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              greeting,
-              style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              profileType == ProfileType.business
-                  ? 'Business Dashboard'
-                  : 'Personal Dashboard',
-              style: const TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Colors.black87,
-              ),
-            ),
+    if (timeOfDay >= 12 && timeOfDay < 17) {
+      greeting = 'Good afternoon';
+      greetingIcon = Icons.wb_sunny_outlined;
+      greetingColor = Colors.amber.shade700;
+    }
+    if (timeOfDay >= 17) {
+      greeting = 'Good evening';
+      greetingIcon = Icons.nightlight_round;
+      greetingColor = Colors.indigo.shade600;
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      margin: const EdgeInsets.only(top: 8, bottom: 8),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            const Color(0xFF007A39).withOpacity(0.1),
+            const Color(0xFF007A39).withOpacity(0.05),
           ],
         ),
-        const Spacer(),
-        GestureDetector(
-          onTap: () {
-            Navigator.pushNamed(context, '/profile');
-          },
-          child: Container(
-            padding: const EdgeInsets.all(8),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: const Color(0xFF007A39).withOpacity(0.2),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.grey.shade100,
+              color: greetingColor.withOpacity(0.1),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: const Color(0xFF007A39).withOpacity(0.2),
-                width: 1,
-              ),
             ),
-            child: Icon(
-              profileType == ProfileType.business
-                  ? Icons.business
-                  : Icons.person,
-              color: const Color(0xFF007A39),
-              size: 24,
+            child: Icon(greetingIcon, color: greetingColor, size: 28),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      greeting,
+                      style: TextStyle(
+                        fontSize: 24,
+                        color: greetingColor,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text('👋', style: const TextStyle(fontSize: 24)),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Welcome back to Fedha',
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.grey.shade600,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+              ],
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -314,7 +338,7 @@ class DashboardContent extends StatelessWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => const BudgetManagementScreen(),
+                      builder: (context) => const EnhancedBudgetScreen(),
                     ),
                   );
                 },
@@ -336,7 +360,7 @@ class DashboardContent extends StatelessWidget {
       onTap: () {
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => const CreateBudgetScreen()),
+          MaterialPageRoute(builder: (context) => const EnhancedBudgetScreen()),
         );
       },
       child: Container(
@@ -532,7 +556,7 @@ class DashboardContent extends StatelessWidget {
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const GoalsScreen()),
+                  MaterialPageRoute(builder: (context) => const EnhancedGoalsScreen()),
                 );
               },
               child: const Text('View All'),
@@ -744,7 +768,7 @@ class DashboardContent extends StatelessWidget {
                           MaterialPageRoute(
                             builder:
                                 (context) =>
-                                    const GoalsScreen(), // Use existing screen
+                                    const EnhancedGoalsScreen(), // Enhanced goals screen
                           ),
                         );
                       },
@@ -773,7 +797,7 @@ class DashboardContent extends StatelessWidget {
                           MaterialPageRoute(
                             builder:
                                 (context) =>
-                                    const GoalsScreen(), // Use existing screen
+                                    const EnhancedGoalsScreen(), // Enhanced goals screen
                           ),
                         );
                       },
@@ -803,7 +827,7 @@ class DashboardContent extends StatelessWidget {
                           MaterialPageRoute(
                             builder:
                                 (context) =>
-                                    const GoalsScreen(), // Use existing screen
+                                    const EnhancedGoalsScreen(), // Enhanced goals screen
                           ),
                         );
                       },
@@ -885,21 +909,12 @@ class DashboardContent extends StatelessWidget {
                 Icons.pie_chart,
                 Colors.blue,
                 () {
-                  if (currentBudget != null) {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const BudgetManagementScreen(),
-                      ),
-                    );
-                  } else {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const CreateBudgetScreen(),
-                      ),
-                    );
-                  }
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const EnhancedBudgetScreen(),
+                    ),
+                  );
                 },
               ),
               QuickAction('SMS Review', Icons.message, Colors.orange, () {
