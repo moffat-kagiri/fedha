@@ -1,6 +1,7 @@
 // lib/services/auth_service.dart
 import 'package:flutter/foundation.dart';
 import 'package:hive/hive.dart';
+import 'package:uuid/uuid.dart';
 import '../models/enhanced_profile.dart';
 import '../services/api_client.dart';
 import '../services/biometric_auth_service.dart';
@@ -246,7 +247,7 @@ class AuthService extends ChangeNotifier {
     }
   }
 
-  // Create enhanced profile with additional metadata
+  // Create enhanced profile with device-generated UUID, sync to server
   Future<bool> createEnhancedProfile(Map<String, dynamic> profileData) async {
     try {
       if (kDebugMode) {
@@ -270,10 +271,14 @@ class AuthService extends ChangeNotifier {
       final String profileTypeString =
           profileTypeEnum.toString().split('.').last;
 
-      // Only use server-provided ID. If not available, fail.
-      String? serverUserId;
+      // Generate UUID for new profile
+      final String deviceProfileId = const Uuid().v4();
+      String? serverProfileId;
+
+      // Sync profile to server, passing deviceProfileId
       try {
         final serverResponse = await _apiClient.createEnhancedProfile(
+          id: deviceProfileId,
           name: name,
           profileType: profileTypeString,
           pin: pin,
@@ -284,8 +289,10 @@ class AuthService extends ChangeNotifier {
         if (kDebugMode) {
           print('Server profile created successfully: $serverResponse');
         }
-        serverUserId =
-            serverResponse['user_id'] ?? serverResponse['profile_id'];
+        serverProfileId =
+            serverResponse['user_id'] ??
+            serverResponse['profile_id'] ??
+            deviceProfileId;
       } catch (serverError) {
         if (kDebugMode) {
           print('Server profile creation failed: $serverError');
@@ -293,13 +300,13 @@ class AuthService extends ChangeNotifier {
         throw Exception('Failed to create profile on server.');
       }
 
-      if (serverUserId == null || serverUserId.isEmpty) {
+      if (serverProfileId == null || serverProfileId.isEmpty) {
         throw Exception('Server did not return a valid profile ID.');
       }
 
-      // Create profile locally using only the server ID
+      // Create profile locally using the server-synced ID
       final profile = EnhancedProfile(
-        id: serverUserId,
+        id: serverProfileId,
         type: profileData['profile_type'],
         passwordHash: EnhancedProfile.hashPassword(pin),
         name: profileData['name'],
@@ -309,14 +316,14 @@ class AuthService extends ChangeNotifier {
       );
 
       _profileBox ??= await Hive.openBox<EnhancedProfile>('enhanced_profiles');
-      await _profileBox!.put(serverUserId, profile);
+      await _profileBox!.put(serverProfileId, profile);
 
       final settingsBox = Hive.box('settings');
       await settingsBox.put(
         'google_drive_enabled',
         profileData['enable_google_drive'] ?? false,
       );
-      await settingsBox.put('current_profile_id', serverUserId);
+      await settingsBox.put('current_profile_id', serverProfileId);
 
       _currentProfile = profile;
 
@@ -335,7 +342,7 @@ class AuthService extends ChangeNotifier {
 
       if (kDebugMode) {
         print(
-          'Enhanced profile created successfully with email: ${profile.email}, User ID: $serverUserId (synced to server)',
+          'Enhanced profile created successfully with email: ${profile.email}, User ID: $serverProfileId (synced to server)',
         );
       }
 
@@ -348,7 +355,7 @@ class AuthService extends ChangeNotifier {
     }
   }
 
-  // Enhanced login with better error handling and Google credential support
+  // Enhanced login: always fetch profile from server using email, use server ID for session
   Future<LoginResult> enhancedLogin(
     String email,
     String pin, {
@@ -359,82 +366,47 @@ class AuthService extends ChangeNotifier {
     }
 
     try {
-      // TODO: Fix login to use userId instead of email
-      // For now, try to find local profile by email
+      // Fetch profile from server using email
+      final serverProfile = await _apiClient.getEnhancedProfile(email: email);
+      final serverProfileId =
+          serverProfile['id'] ??
+          serverProfile['user_id'] ??
+          serverProfile['profile_id'];
+      if (serverProfileId == null || serverProfileId.isEmpty) {
+        return LoginResult.error('No profile found for this email.');
+      }
+      // Verify password/pin
+      if (serverProfile['pin'] != pin) {
+        return LoginResult.error('Invalid password or pin.');
+      }
+      // Create/update local profile
+      final profile = EnhancedProfile(
+        id: serverProfileId,
+        type: ProfileType.values.firstWhere(
+          (t) => t.toString().split('.').last == serverProfile['profile_type'],
+          orElse: () => ProfileType.personal,
+        ),
+        passwordHash: EnhancedProfile.hashPassword(pin),
+        name: serverProfile['name'],
+        email: email,
+        baseCurrency: serverProfile['base_currency'] ?? 'KES',
+        timezone: serverProfile['timezone'] ?? 'GMT+3',
+      );
       _profileBox ??= await Hive.openBox<EnhancedProfile>('enhanced_profiles');
-
+      await _profileBox!.put(serverProfileId, profile);
+      final settingsBox = Hive.box('settings');
+      await settingsBox.put('current_profile_id', serverProfileId);
+      _currentProfile = profile.copyWith(lastLogin: DateTime.now());
+      await _profileBox!.put(serverProfileId, _currentProfile!);
+      notifyListeners();
       if (kDebugMode) {
-        print('Found ${_profileBox!.values.length} profiles in local storage');
-        for (final profile in _profileBox!.values) {
-          print('Profile: ${profile.email}, ID: ${profile.id}');
-        }
-      }
-
-      for (final profile in _profileBox!.values) {
-        if (profile.email == email) {
-          if (kDebugMode) {
-            print('Found matching profile for email: $email');
-          }
-
-          if (profile.verifyPassword(pin)) {
-            if (kDebugMode) {
-              print('Password verification successful');
-            }
-
-            _currentProfile = profile.copyWith(lastLogin: DateTime.now());
-
-            // Save updated profile with last login time
-            await _profileBox!.put(profile.id, _currentProfile!);
-
-            // Save current profile ID for persistent login
-            final settingsBox = Hive.box('settings');
-            await settingsBox.put('current_profile_id', profile.id);
-
-            // Save to Google if requested
-            if (saveToGoogle) {
-              try {
-                await saveCredentialsToGoogle();
-              } catch (googleError) {
-                if (kDebugMode) {
-                  print('Google save failed: $googleError');
-                }
-              }
-            }
-
-            notifyListeners();
-
-            if (kDebugMode) {
-              print('Local login successful for email: $email');
-            }
-
-            // Prompt for biometric setup if needed
-            await promptBiometricSetupIfNeeded();
-
-            return LoginResult.success(profile: _currentProfile!);
-          } else {
-            if (kDebugMode) {
-              print('Password verification failed for email: $email');
-            }
-          }
-        }
-      }
-
-      if (kDebugMode) {
-        print('No matching profile found for email: $email');
         print(
-          'Available profiles: ${_profileBox!.values.map((p) => p.email).join(', ')}',
+          'Server login successful for email: $email, ID: $serverProfileId',
         );
       }
-
-      if (_profileBox!.values.isEmpty) {
-        return LoginResult.error(
-          'No accounts found. Please create an account first.',
-        );
-      } else {
-        return LoginResult.error(
-          'Invalid email or password. Please check your credentials.',
-        );
-      }
+      // Prompt for biometric setup if needed
+      await promptBiometricSetupIfNeeded();
+      return LoginResult.success(profile: _currentProfile!);
     } catch (e) {
       if (kDebugMode) {
         print('Login error: $e');

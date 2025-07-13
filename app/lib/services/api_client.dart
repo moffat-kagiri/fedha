@@ -11,26 +11,34 @@ import '../models/goal.dart';
 import '../models/budget.dart';
 
 class ApiClient {
-  // Local development base URL configuration
+  // Configurable API base URL
+  static String? _customBaseUrl;
+
+  static void setCustomBaseUrl(String url) {
+    _customBaseUrl = url;
+    if (kDebugMode) {
+      print('🔗 API_CLIENT: Custom base URL set: $url');
+    }
+  }
+
   static String get _baseUrl {
+    if (_customBaseUrl != null && _customBaseUrl!.isNotEmpty) {
+      if (kDebugMode) {
+        print('🔗 API_CLIENT: Using custom base URL: $_customBaseUrl');
+      }
+      return _customBaseUrl!;
+    }
     final String url;
     if (kIsWeb) {
-      // Web platform uses localhost directly
       url = "http://127.0.0.1:8000/api";
     } else {
-      // Mobile platforms - use localhost for emulator, or disable server calls for real devices
-      // For Android emulator: 10.0.2.2:8000
-      // For iOS simulator: 127.0.0.1:8000
-      // For real devices: Server should be disabled for offline-first approach
-      url = "http://10.0.2.2:8000/api"; // Android emulator
+      url = "http://10.0.2.2:8000/api";
     }
-
     if (kDebugMode) {
       print(
         '🔗 API_CLIENT: Using base URL: $url (Platform: ${kIsWeb ? "Web" : "Mobile"})',
       );
     }
-
     return url;
   }
 
@@ -269,6 +277,7 @@ class ApiClient {
   // ENHANCED PROFILE MANAGEMENT - EMAIL/PASSWORD AUTHENTICATION
   // =============================================================================  // Enhanced profile registration with password-based authentication
   Future<Map<String, dynamic>> createEnhancedProfile({
+    required String id,
     required String name,
     required String profileType,
     required String pin,
@@ -281,6 +290,7 @@ class ApiClient {
         Uri.parse('$_baseUrl/enhanced/register/'),
         headers: _commonHeaders,
         body: jsonEncode({
+          'id': id,
           'name': name,
           'profile_type': profileType,
           'pin': pin,
