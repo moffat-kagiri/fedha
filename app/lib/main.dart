@@ -78,6 +78,8 @@ Future<void> initializeHive() async {
 
 void main() async {
   await initializeHive();
+  // Set API base URL for real device testing
+  ApiClient.configureApiForRealDevice();
 
   // Initialize services
   final apiClient = ApiClient();

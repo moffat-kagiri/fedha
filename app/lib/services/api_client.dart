@@ -51,6 +51,11 @@ class ApiClient {
     return url;
   }
 
+  // Set the API base URL for real device testing
+  static void configureApiForRealDevice() {
+    ApiClient.setCustomBaseUrl('http://192.168.100.6:8000/api');
+  }
+
   // Sync Transactions
   Future<Map<String, dynamic>> syncTransactions(
     String profileId,
