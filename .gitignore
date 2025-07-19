@@ -43,7 +43,6 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
 lib64/
 parts/
 sdist/
@@ -210,12 +209,12 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
-# Generated files
+# Generated files (be specific - don't exclude essential Hive adapters)
 *.freezed.dart
-*.g.dart
+# *.g.dart  # COMMENTED OUT - We need Hive adapter .g.dart files
 *.gr.dart
 *.config.dart
-*.gen.dart
+# *.gen.dart  # COMMENTED OUT - May contain essential generated code
 
 # Flutter build artifacts
 **/build/

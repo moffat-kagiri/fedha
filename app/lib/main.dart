@@ -6,166 +6,146 @@ import 'package:provider/provider.dart';
 
 // Models
 import 'models/profile.dart';
-import 'models/enhanced_profile.dart';
 import 'models/transaction.dart';
-import 'models/transaction_candidate.dart'; // Re-enabled with fixed typeId
+import 'models/transaction_candidate.dart';
 import 'models/category.dart';
-import 'models/client.dart';
-import 'models/invoice.dart';
 import 'models/goal.dart';
 import 'models/budget.dart';
+import 'models/client.dart';
+import 'models/invoice.dart';
 import 'models/sync_queue_item.dart';
-
-// Enum Adapters
-import 'adapters/enum_adapters.dart' as enum_adapters;
+import 'models/enums.dart';
 
 // Services
-import 'services/auth_service.dart';
-// import 'services/google_drive_service.dart';
-import 'services/api_client.dart';
 import 'services/offline_data_service.dart';
-import 'services/enhanced_sync_service.dart';
-import 'services/goal_transaction_service.dart';
-import 'services/text_recognition_service.dart';
-import 'services/csv_upload_service.dart';
-import 'services/background_transaction_monitor.dart'; // Background service
-import 'services/sms_transaction_extractor.dart';
-import 'services/sms_listener_service.dart';
-import 'services/notification_service.dart';
-import 'services/theme_service.dart';
-import 'services/offline_manager.dart'; // Offline functionality
-import 'services/navigation_service.dart';
-import 'services/sender_management_service.dart';
+import 'services/auth_service.dart';
+import 'services/api_client.dart';
+import 'services/theme_service.dart' as theme_svc;
+import 'services/currency_service.dart';
 import 'services/biometric_auth_service.dart';
+import 'services/service_stubs.dart' as stubs;
+import 'services/enhanced_sync_service.dart';
+import 'utils/enum_adapters.dart' as enum_adapters;
 
 // Screens
-import 'screens/onboarding_screen.dart';
-import 'screens/signin_screen.dart';
-import 'screens/main_navigation.dart';
 import 'screens/auth_wrapper.dart';
-import 'screens/profile_screen.dart';
-import 'screens/permission_setup_screen.dart';
-import 'screens/text_recognition_setup_screen.dart';
-import 'screens/transaction_candidates_screen.dart';
-import 'screens/csv_upload_screen.dart';
-import 'screens/test_transaction_ingestion_screen.dart';
-// Utils
-// import 'utils/theme.dart'; // Using ThemeService instead
+import 'screens/main_navigation.dart';
+import 'screens/loan_calculator_screen.dart';
+import 'screens/progressive_goal_wizard_screen.dart';
+import 'screens/add_goal_screen.dart';
+import 'screens/create_budget_screen.dart';
+import 'screens/goals_screen.dart';
+import 'screens/sms_review_screen.dart';
+import 'screens/add_transaction_screen.dart';
+import 'screens/transaction_entry_screen.dart';
+import 'screens/detailed_transaction_entry_screen.dart';
 
-// Debug utilities
-import 'debug_sms_senders.dart';
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
 
-Future<void> initializeHive() async {
-  await Hive.initFlutter(); // Register adapters (using their built-in typeIds from @HiveType annotations)
-  // Generated adapters from .g.dart files
+  // Initialize Hive
+  await Hive.initFlutter();
+
+  // Register adapters
   Hive.registerAdapter(TransactionAdapter());
-  Hive.registerAdapter(
-    TransactionCandidateAdapter(),
-  ); // Re-enabled with typeId 8
+  Hive.registerAdapter(TransactionCandidateAdapter());
   Hive.registerAdapter(CategoryAdapter());
   Hive.registerAdapter(ProfileAdapter());
-  Hive.registerAdapter(EnhancedProfileAdapter());
   Hive.registerAdapter(GoalAdapter());
   Hive.registerAdapter(BudgetAdapter());
   Hive.registerAdapter(ClientAdapter());
   Hive.registerAdapter(InvoiceAdapter());
   Hive.registerAdapter(SyncQueueItemAdapter());
+  // Generated enum adapters
   Hive.registerAdapter(ProfileTypeAdapter());
-  Hive.registerAdapter(InvoiceLineItemAdapter());
-  Hive.registerAdapter(InvoiceStatusAdapter());
   Hive.registerAdapter(GoalTypeAdapter());
   Hive.registerAdapter(GoalStatusAdapter());
-  Hive.registerAdapter(BudgetLineItemAdapter()); // Manual enum adapters
-  Hive.registerAdapter(enum_adapters.TransactionTypeAdapter());
-  Hive.registerAdapter(enum_adapters.TransactionCategoryAdapter());
+  Hive.registerAdapter(TransactionTypeAdapter());
+  Hive.registerAdapter(TransactionCategoryAdapter());
   Hive.registerAdapter(enum_adapters.BudgetPeriodAdapter());
   Hive.registerAdapter(enum_adapters.BudgetStatusAdapter());
 
   // Open boxes
   await Hive.openBox<Profile>('profiles');
-  await Hive.openBox<EnhancedProfile>('enhanced_profiles');
   await Hive.openBox<Transaction>('transactions');
-  await Hive.openBox<TransactionCandidate>(
-    'transaction_candidates',
-  ); // Re-enabled with fixed typeId
+  await Hive.openBox<Goal>('goals');
+  await Hive.openBox<Budget>('budgets');
   await Hive.openBox<Category>('categories');
   await Hive.openBox<Client>('clients');
   await Hive.openBox<Invoice>('invoices');
-  await Hive.openBox<Goal>('goals');
-  await Hive.openBox<Budget>('budgets');
   await Hive.openBox<SyncQueueItem>('sync_queue');
-  await Hive.openBox('settings');
-}
 
-void main() async {
-  await initializeHive();
+  try {
+    final apiClient = ApiClient();
+    final offlineDataService = OfflineDataService();
+    final goalTransactionService = stubs.GoalTransactionService(offlineDataService);
+    final textRecognitionService = stubs.TextRecognitionService(offlineDataService);
+    final csvUploadService = stubs.CSVUploadService(offlineDataService);
+    final smsTransactionExtractor = stubs.SmsTransactionExtractor(offlineDataService);
+    final notificationService = stubs.NotificationService.instance;
+    final smsListenerService = stubs.SmsListenerService(
+      offlineDataService,
+      smsTransactionExtractor,
+    );
+    final syncService = EnhancedSyncService(
+      offlineDataService,
+      apiClient,
+    );
+    final authService = AuthService();
+    final themeService = theme_svc.ThemeService.instance;
+    final currencyService = CurrencyService();
+    await currencyService.loadCurrency(); // Initialize currency service
+    final navigationService = stubs.NavigationService.instance;
+    final senderManagementService = stubs.SenderManagementService.instance;
+    final biometricAuthService = BiometricAuthService.instance;
 
-  // Debug: Print SMS sender status on app start
-  if (kDebugMode) {
-    await DebugSmsSenders.printSenderStatus();
+    // Initialize offline manager for local calculations and parsing
+    final offlineManager = stubs.OfflineManager();
+    await offlineManager.initialize();
+
+    // Initialize background transaction monitor (will be started after app loads)
+    final backgroundTransactionMonitor = stubs.BackgroundTransactionMonitor(
+      offlineDataService,
+      smsTransactionExtractor,
+    );
+
+    runApp(
+      MultiProvider(
+        providers: [
+          Provider<ApiClient>.value(value: apiClient),
+          ChangeNotifierProvider<OfflineDataService>.value(value: offlineDataService),
+          Provider<stubs.GoalTransactionService>.value(value: goalTransactionService),
+          Provider<stubs.TextRecognitionService>.value(value: textRecognitionService),
+          Provider<stubs.CSVUploadService>.value(value: csvUploadService),
+          Provider<stubs.SmsTransactionExtractor>.value(value: smsTransactionExtractor),
+          Provider<stubs.NotificationService>.value(value: notificationService),
+          Provider<stubs.SmsListenerService>.value(value: smsListenerService),
+          Provider<EnhancedSyncService>.value(value: syncService),
+          Provider<stubs.NavigationService>.value(value: navigationService),
+          Provider<stubs.SenderManagementService>.value(value: senderManagementService),
+          Provider<stubs.BackgroundTransactionMonitor>.value(value: backgroundTransactionMonitor),
+          Provider<BiometricAuthService>.value(value: biometricAuthService),
+          ChangeNotifierProvider(create: (_) => authService),
+          ChangeNotifierProvider(create: (_) => themeService),
+          ChangeNotifierProvider<CurrencyService>.value(value: currencyService),
+        ],
+        child: const MyApp(),
+      ),
+    );
+  } catch (e) {
+    if (kDebugMode) {
+      print('Error initializing app: $e');
+    }
+    runApp(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: Text('Error initializing app: $e'),
+          ),
+        ),
+      ),
+    );
   }
-
-  // Initialize services
-  final apiClient = ApiClient();
-  final offlineDataService = OfflineDataService();
-  final goalTransactionService = GoalTransactionService(offlineDataService);
-  final textRecognitionService = TextRecognitionService(offlineDataService);
-  final csvUploadService = CSVUploadService(offlineDataService);
-  final smsTransactionExtractor = SmsTransactionExtractor(offlineDataService);
-  final notificationService = NotificationService.instance;
-  final smsListenerService = SmsListenerService(
-    smsTransactionExtractor,
-    notificationService,
-  );
-  final syncService = EnhancedSyncService(
-    apiClient: apiClient,
-    offlineDataService: offlineDataService,
-  );
-  final authService = AuthService();
-  final themeService = ThemeService();
-  final navigationService = NavigationService.instance;
-  final senderManagementService = SenderManagementService.instance;
-  final biometricAuthService = BiometricAuthService.instance;
-
-  // Initialize offline manager for local calculations and parsing
-  final offlineManager = OfflineManager();
-  await offlineManager.initialize();
-
-  // Initialize background transaction monitor (will be started after app loads)
-  final backgroundTransactionMonitor = BackgroundTransactionMonitor(
-    offlineDataService,
-    smsTransactionExtractor,
-  );
-
-  // Temporarily disable Google Drive to focus on core functionality
-  // final googleDriveService = GoogleDriveService();
-  runApp(
-    MultiProvider(
-      providers: [
-        Provider<ApiClient>.value(value: apiClient),
-        ChangeNotifierProvider<OfflineDataService>.value(
-          value: offlineDataService,
-        ),
-        Provider<GoalTransactionService>.value(value: goalTransactionService),
-        Provider<TextRecognitionService>.value(value: textRecognitionService),
-        Provider<CSVUploadService>.value(value: csvUploadService),
-        Provider<SmsTransactionExtractor>.value(value: smsTransactionExtractor),
-        Provider<NotificationService>.value(value: notificationService),
-        Provider<SmsListenerService>.value(value: smsListenerService),
-        Provider<EnhancedSyncService>.value(value: syncService),
-        Provider<BackgroundTransactionMonitor>.value(
-          value: backgroundTransactionMonitor,
-        ),
-        Provider<NavigationService>.value(value: navigationService),
-        Provider<SenderManagementService>.value(value: senderManagementService),
-        Provider<BiometricAuthService>.value(value: biometricAuthService),
-        ChangeNotifierProvider(create: (_) => authService),
-        ChangeNotifierProvider(create: (_) => themeService),
-        // Provider<GoogleDriveService>.value(value: googleDriveService),
-      ],
-      child: const MyApp(),
-    ),
-  );
 }
 
 class MyApp extends StatefulWidget {
@@ -183,8 +163,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    // Start initialization immediately and cache the future
-    _initializationFuture = _initializeServicesOnce();
+    _initializationFuture = _initializeServices();
   }
 
   @override
@@ -193,157 +172,111 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     super.dispose();
   }
 
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    super.didChangeAppLifecycleState(state);
-
-    // Only trigger sync when app goes to background - biometric handling is done in AuthWrapper
-    if (state == AppLifecycleState.paused ||
-        state == AppLifecycleState.detached ||
-        state == AppLifecycleState.inactive) {
-      _syncProfileOnAppBackground();
-    }
-  }
-
-  Future<void> _syncProfileOnAppBackground() async {
+  Future<void> _initializeServices() async {
     try {
+      final offlineService = Provider.of<OfflineDataService>(context, listen: false);
+      await offlineService.initialize();
+
       final authService = Provider.of<AuthService>(context, listen: false);
-      if (authService.isLoggedIn) {
-        if (kDebugMode) {
-          print('App going to background, syncing profile...');
+      await authService.initialize();
+
+      // Check if user is logged in and set current profile
+      if (authService.isLoggedIn && authService.currentProfile != null) {
+        final currentProfile = authService.currentProfile!;
+        
+        // Set current profile for SMS listener
+        final smsListenerService = Provider.of<stubs.SmsListenerService>(context, listen: false);
+        smsListenerService.setCurrentProfile(currentProfile.id);
+
+        // Initialize background monitor if needed
+        final backgroundMonitor = Provider.of<stubs.BackgroundTransactionMonitor>(context, listen: false);
+        try {
+          await backgroundMonitor.initialize();
+        } catch (e) {
+          if (kDebugMode) {
+            print('Background monitor initialization failed: $e');
+          }
         }
-        await authService.syncProfileWithServer();
       }
+
+      setState(() {
+        _isInitialized = true;
+      });
     } catch (e) {
       if (kDebugMode) {
-        print('Background sync failed: $e');
+        print('Service initialization error: $e');
       }
+      setState(() {
+        _isInitialized = true;
+      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<ThemeService>(
+    return Consumer<theme_svc.ThemeService>(
       builder: (context, themeService, child) {
         return MaterialApp(
           title: 'Fedha',
-          theme: themeService.getLightTheme(),
-          darkTheme: themeService.getDarkTheme(),
+          theme: ThemeData(
+            colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+            useMaterial3: true,
+          ),
+          darkTheme: ThemeData.dark(
+            useMaterial3: true,
+          ),
           themeMode: themeService.themeMode,
-          navigatorKey: NavigationService.navigatorKey,
+          routes: {
+            '/loan_calculator': (context) => const LoanCalculatorScreen(),
+            '/progressive_goal_wizard': (context) => const ProgressiveGoalWizardScreen(),
+            '/add_goal': (context) => const AddGoalScreen(),
+            '/create_budget': (context) => const CreateBudgetScreen(),
+            '/goals': (context) => const GoalsScreen(),
+            '/sms_review': (context) => const SmsReviewScreen(),
+            '/add_transaction': (context) => const AddTransactionScreen(),
+            '/transaction_entry': (context) => const TransactionEntryScreen(),
+            '/detailed_transaction_entry': (context) => const DetailedTransactionEntryScreen(),
+          },
           home: FutureBuilder<void>(
             future: _initializationFuture,
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Scaffold(
-                  backgroundColor: Color(0xFF007A39),
+                  body: Center(
+                    child: CircularProgressIndicator(),
+                  ),
+                );
+              }
+
+              if (snapshot.hasError) {
+                return Scaffold(
                   body: Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(
-                          Icons.account_balance_wallet,
-                          size: 100,
-                          color: Colors.white,
-                        ),
-                        SizedBox(height: 24),
-                        Text(
-                          'Fedha',
-                          style: TextStyle(
-                            fontSize: 32,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                        SizedBox(height: 16),
-                        CircularProgressIndicator(color: Colors.white),
-                        SizedBox(height: 16),
-                        Text(
-                          'Loading...',
-                          style: TextStyle(fontSize: 16, color: Colors.white70),
+                        const Icon(Icons.error, size: 64, color: Colors.red),
+                        const SizedBox(height: 16),
+                        Text('Error: ${snapshot.error}'),
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: () {
+                            setState(() {
+                              _initializationFuture = _initializeServices();
+                            });
+                          },
+                          child: const Text('Retry'),
                         ),
                       ],
                     ),
                   ),
                 );
               }
+
               return const AuthWrapper();
             },
           ),
-          routes: {
-            '/onboarding': (context) => const OnboardingScreen(),
-            '/signin': (context) => const SignInScreen(),
-            '/dashboard': (context) => const MainNavigation(),
-            '/profile': (context) => const ProfileScreen(),
-            '/permission_setup': (context) => const PermissionSetupScreen(),
-            '/text_recognition_setup':
-                (context) => const TextRecognitionSetupScreen(),
-            '/transaction_candidates':
-                (context) => const TransactionCandidatesScreen(),
-            '/csv_upload': (context) => const CSVUploadScreen(),
-            '/test_ingestion':
-                (context) => const TestTransactionIngestionScreen(),
-          },
-          onGenerateRoute: (settings) {
-            // Handle unknown routes gracefully
-            if (settings.name?.startsWith('/edit_transaction_candidate') ==
-                true) {
-              // This route is obsolete - transaction editing now uses modal bottom sheets
-              return null; // Let the router handle this gracefully
-            }
-            return null;
-          },
         );
       },
     );
-  }
-
-  Future<void> _initializeServicesOnce() async {
-    if (_isInitialized) return;
-    _isInitialized = true;
-
-    final authService = Provider.of<AuthService>(context, listen: false);
-    final themeService = Provider.of<ThemeService>(context, listen: false);
-    try {
-      // Initialize core services sequentially to avoid blocking the UI
-      await Future.wait(
-        [authService.initialize(), themeService.initialize()],
-      ); // Only try regular auto-login - biometric auth will be handled by AuthWrapper
-      await authService.tryAutoLogin();
-
-      // Update SMS listener with current profile ID after auto-login
-      final currentProfile = authService.currentProfile;
-      if (currentProfile != null && mounted) {
-        final smsListenerService = Provider.of<SmsListenerService>(
-          context,
-          listen: false,
-        );
-        smsListenerService.setCurrentProfile(currentProfile.id);
-      }
-
-      // Initialize background services with a longer delay to avoid blocking UI
-      Future.delayed(const Duration(seconds: 10), () async {
-        if (mounted) {
-          try {
-            final backgroundMonitor = Provider.of<BackgroundTransactionMonitor>(
-              context,
-              listen: false,
-            );
-            await backgroundMonitor.initialize();
-            if (kDebugMode) {
-              print('Background monitor initialized successfully');
-            }
-          } catch (e) {
-            if (kDebugMode) {
-              print('Background monitor initialization deferred: $e');
-            }
-          }
-        }
-      });
-    } catch (e) {
-      if (kDebugMode) {
-        print('Service initialization error: $e');
-      }
-    }
   }
 }

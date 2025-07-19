@@ -2,25 +2,27 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
-import '../models/enhanced_profile.dart';
+import '../models/enums.dart';
 import '../services/auth_service.dart';
 import '../services/sms_listener_service.dart';
 import '../services/biometric_auth_service.dart';
+import '../utils/password_validator.dart';
 
 class LoginScreen extends StatefulWidget {
-  final ProfileType profileType;
+  final ProfileType? profileType;
 
-  const LoginScreen({super.key, required this.profileType});
+  const LoginScreen({super.key, this.profileType});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _pinController = TextEditingController();
+  final _passwordController = TextEditingController();
   bool _isLoading = false;
   String? _errorMessage;
   bool _showBiometricOption = false;
+  bool _obscurePassword = true;
 
   @override
   void initState() {
@@ -64,35 +66,37 @@ class _LoginScreenState extends State<LoginScreen> {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(32.0),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            const SizedBox(height: 100), // Add top padding for visual centering
             // Profile Type Indicator
             Chip(
               label: Text(
-                widget.profileType.toString().split('.').last,
+                (widget.profileType ?? ProfileType.personal).toString().split('.').last,
                 style: const TextStyle(fontSize: 16),
               ),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               backgroundColor:
-                  widget.profileType == ProfileType.business
+                  (widget.profileType ?? ProfileType.personal) == ProfileType.business
                       ? Colors.blue.withOpacity(0.2)
                       : Colors.green.withOpacity(0.2),
             ),
             const SizedBox(height: 40),
 
-            // PIN Input
+            // Password Input
             TextField(
-              controller: _pinController,
-              keyboardType: TextInputType.number,
-              obscureText: true,
-              maxLength: 4,
-              decoration: const InputDecoration(
-                labelText: 'Enter 4-Digit PIN',
-                border: OutlineInputBorder(),
-                counterText: '',
+              controller: _passwordController,
+              obscureText: _obscurePassword,
+              decoration: InputDecoration(
+                labelText: 'Enter Password',
+                border: const OutlineInputBorder(),
+                prefixIcon: const Icon(Icons.lock),
+                suffixIcon: IconButton(
+                  icon: Icon(_obscurePassword ? Icons.visibility : Icons.visibility_off),
+                  onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                ),
               ),
               onChanged: (_) => setState(() => _errorMessage = null),
             ),
@@ -168,8 +172,11 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _handleLogin() async {
-    if (_pinController.text.length != 4) {
-      setState(() => _errorMessage = 'Please enter a 4-digit PIN');
+    final password = _passwordController.text.trim();
+    final passwordError = PasswordValidator.getErrorMessage(password);
+    
+    if (passwordError != null) {
+      setState(() => _errorMessage = passwordError);
       return;
     }
 
@@ -180,8 +187,8 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       final authService = Provider.of<AuthService>(context, listen: false);
       final success = await authService.loginByType(
-        widget.profileType,
-        _pinController.text,
+        widget.profileType ?? ProfileType.personal,
+        password,
       );
 
       if (!mounted) return;
@@ -199,7 +206,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
         Navigator.pushReplacementNamed(context, '/dashboard');
       } else {
-        setState(() => _errorMessage = 'Invalid PIN for selected profile');
+        setState(() => _errorMessage = 'Invalid password for selected profile');
       }
     } catch (e) {
       setState(() => _errorMessage = 'Login failed. Please try again.');
@@ -251,7 +258,7 @@ class _LoginScreenState extends State<LoginScreen> {
           (_) => AlertDialog(
             title: const Text('Profile Help'),
             content: const Text(
-              'Contact support at support@fedha.app if you\'ve forgotten your PIN.',
+              'Contact support at support@fedha.app if you\'ve forgotten your password.',
             ),
             actions: [
               TextButton(
@@ -265,7 +272,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   void dispose() {
-    _pinController.dispose();
+    _passwordController.dispose();
     super.dispose();
   }
 }

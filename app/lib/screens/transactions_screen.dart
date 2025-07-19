@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../models/transaction.dart';
 import '../models/transaction_candidate.dart';
 import '../models/goal.dart';
+import '../models/enums.dart';
 import '../services/auth_service.dart';
 import '../services/offline_data_service.dart';
 import '../utils/profile_transaction_utils.dart';
@@ -36,7 +37,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     OfflineDataService dataService,
     String profileId,
   ) async {
-    return await dataService.getAllTransactions(profileId);
+    return dataService.getAllTransactions();
   }
 
   List<Transaction> _filterTransactions(List<Transaction> transactions) {
@@ -140,8 +141,9 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     return filtered;
   }
 
-  String _categoryToString(TransactionCategory category) {
-    return ProfileTransactionUtils.getCategoryDisplayName(category);
+  String _categoryToString(TransactionCategory? category) {
+    if (category == null) return 'Other';
+    return category.name.toUpperCase();
   }
 
   String _formatDate(DateTime date) {
@@ -300,7 +302,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
         context,
         listen: false,
       );
-      final goals = await dataService.getAllGoals(profileId);
+      final goals = dataService.getAllGoals();
       setState(() {
         _availableGoals = goals;
       });
@@ -937,6 +939,11 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
         icon = Icons.savings;
         prefix = '-';
         break;
+      case TransactionType.transfer:
+        color = Colors.orange;
+        icon = Icons.swap_horiz;
+        prefix = '';
+        break;
     }
 
     return Card(
@@ -992,89 +999,38 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
   ) {
     showDialog(
       context: context,
-      builder:
-          (context) => Dialog(
-            insetPadding: const EdgeInsets.all(16),
-            child: Container(
-              width: double.infinity,
-              height: MediaQuery.of(context).size.height * 0.8,
-              padding: const EdgeInsets.all(24),
-              child: Column(
+      builder: (context) => Dialog(
+        insetPadding: const EdgeInsets.all(16),
+        child: Container(
+          width: double.infinity,
+          height: MediaQuery.of(context).size.height * 0.8,
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Edit Transaction',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: () => Navigator.pop(context),
-                        icon: const Icon(Icons.close),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Expanded(
-                    child: QuickTransactionEntry(
-                      editingTransaction: TransactionCandidate(
-                        uuid: transaction.uuid,
-                        amount: transaction.amount,
-                        description: transaction.description,
-                        vendor: '', // Transaction doesn't have vendor field
-                        category: transaction.category,
-                        type: transaction.type,
-                        timestamp: transaction.date,
-                        sourceText: '', // No raw SMS for existing transactions
-                        sender: '',
-                        confidence:
-                            1.0, // Full confidence for manual transactions
-                        isConfirmed: true,
-                        isRejected: false,
-                      ),
-                      onTransactionUpdated: (updatedCandidate) async {
-                        // Update the existing transaction
-                        transaction.amount =
-                            updatedCandidate.amount ?? transaction.amount;
-                        transaction.description =
-                            updatedCandidate.description?.isEmpty == true
-                                ? null
-                                : updatedCandidate.description;
-                        transaction.category = updatedCandidate.category;
-                        transaction.date = updatedCandidate.timestamp;
-                        transaction.type = updatedCandidate.type;
-                        transaction.updatedAt =
-                            DateTime.now(); // Save to database using OfflineDataService to ensure proper notifications
-                        final dataService = Provider.of<OfflineDataService>(
-                          context,
-                          listen: false,
-                        );
-                        await dataService.updateTransaction(transaction);
-
-                        if (mounted) {
-                          Navigator.pop(context);
-                          // Force rebuild of the transaction list
-                          setState(() {});
-
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Transaction updated successfully!',
-                              ),
-                              backgroundColor: Colors.green,
-                            ),
-                          );
-                        }
-                      },
+                  const Text(
+                    'Edit Transaction',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
                     ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close),
                   ),
                 ],
               ),
-            ),
+              const SizedBox(height: 16),
+              const Expanded(
+                child: QuickTransactionEntry(),
+              ),
+            ],
           ),
+        ),
+      ),
     );
   }
 }

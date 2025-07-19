@@ -18,41 +18,47 @@ class ProfileAdapter extends TypeAdapter<Profile> {
     };
     return Profile(
       id: fields[0] as String,
-      name: fields[1] as String?,
-      type: fields[2] as ProfileType,
-      pinHash: fields[3] as String,
-      createdAt: fields[4] as DateTime?,
-      updatedAt: fields[5] as DateTime?,
-      email: fields[6] as String?,
-      baseCurrency: fields[7] as String?,
-      timezone: fields[8] as String?,
-      lastLogin: fields[9] as DateTime?,
+      name: fields[1] as String,
+      email: fields[2] as String?,
+      type: fields[3] as ProfileType,
+      pin: fields[4] as String,
+      baseCurrency: fields[5] as String,
+      timezone: fields[6] as String,
+      createdAt: fields[7] as DateTime?,
+      updatedAt: fields[8] as DateTime?,
+      isActive: fields[9] as bool,
+      passwordHash: fields[10] as String?,
+      lastLogin: fields[11] as DateTime?,
     );
   }
 
   @override
   void write(BinaryWriter writer, Profile obj) {
     writer
-      ..writeByte(10)
+      ..writeByte(12)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
       ..write(obj.name)
       ..writeByte(2)
-      ..write(obj.type)
-      ..writeByte(3)
-      ..write(obj.pinHash)
-      ..writeByte(4)
-      ..write(obj.createdAt)
-      ..writeByte(5)
-      ..write(obj.updatedAt)
-      ..writeByte(6)
       ..write(obj.email)
-      ..writeByte(7)
+      ..writeByte(3)
+      ..write(obj.type)
+      ..writeByte(4)
+      ..write(obj.pin)
+      ..writeByte(5)
       ..write(obj.baseCurrency)
-      ..writeByte(8)
+      ..writeByte(6)
       ..write(obj.timezone)
+      ..writeByte(7)
+      ..write(obj.createdAt)
+      ..writeByte(8)
+      ..write(obj.updatedAt)
       ..writeByte(9)
+      ..write(obj.isActive)
+      ..writeByte(10)
+      ..write(obj.passwordHash)
+      ..writeByte(11)
       ..write(obj.lastLogin);
   }
 
@@ -66,44 +72,3 @@ class ProfileAdapter extends TypeAdapter<Profile> {
           runtimeType == other.runtimeType &&
           typeId == other.typeId;
 }
-
-// **************************************************************************
-// JsonSerializableGenerator
-// **************************************************************************
-
-Profile _$ProfileFromJson(Map<String, dynamic> json) => Profile(
-      id: json['id'] as String,
-      name: json['name'] as String?,
-      type: $enumDecode(_$ProfileTypeEnumMap, json['type']),
-      pinHash: json['pinHash'] as String,
-      createdAt: json['createdAt'] == null
-          ? null
-          : DateTime.parse(json['createdAt'] as String),
-      updatedAt: json['updatedAt'] == null
-          ? null
-          : DateTime.parse(json['updatedAt'] as String),
-      email: json['email'] as String?,
-      baseCurrency: json['baseCurrency'] as String?,
-      timezone: json['timezone'] as String?,
-      lastLogin: json['lastLogin'] == null
-          ? null
-          : DateTime.parse(json['lastLogin'] as String),
-    );
-
-Map<String, dynamic> _$ProfileToJson(Profile instance) => <String, dynamic>{
-      'id': instance.id,
-      'name': instance.name,
-      'type': _$ProfileTypeEnumMap[instance.type]!,
-      'pinHash': instance.pinHash,
-      'createdAt': instance.createdAt.toIso8601String(),
-      'updatedAt': instance.updatedAt.toIso8601String(),
-      'email': instance.email,
-      'baseCurrency': instance.baseCurrency,
-      'timezone': instance.timezone,
-      'lastLogin': instance.lastLogin?.toIso8601String(),
-    };
-
-const _$ProfileTypeEnumMap = {
-  ProfileType.personal: 'personal',
-  ProfileType.business: 'business',
-};

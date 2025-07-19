@@ -2,7 +2,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:hive/hive.dart';
 import 'package:uuid/uuid.dart';
-import '../models/enhanced_profile.dart';
+import '../models/profile.dart';
+import '../models/enums.dart';
 import '../services/api_client.dart';
 import '../services/biometric_auth_service.dart';
 import '../services/google_auth_service.dart';
@@ -24,7 +25,7 @@ class ProfileExistenceResult {
 class LoginResult {
   final bool success;
   final String message;
-  final EnhancedProfile? profile;
+  final Profile? profile;
 
   LoginResult.success({this.profile})
     : success = true,
@@ -71,11 +72,11 @@ class AuthService extends ChangeNotifier {
   final Uuid _uuid = const Uuid();
   final ApiClient _apiClient = ApiClient();
 
-  EnhancedProfile? _currentProfile;
+  Profile? _currentProfile;
   bool _isInitialized = false;
-  Box<EnhancedProfile>? _profileBox;
+  Box<Profile>? _profileBox;
 
-  EnhancedProfile? get currentProfile => _currentProfile;
+  Profile? get currentProfile => _currentProfile;
   bool get isLoggedIn => _currentProfile != null;
   bool get isInitialized => _isInitialized;
 
@@ -85,10 +86,10 @@ class AuthService extends ChangeNotifier {
 
     try {
       // Check if boxes are already open, if not open them
-      if (!Hive.isBoxOpen('enhanced_profiles')) {
-        _profileBox = await Hive.openBox<EnhancedProfile>('enhanced_profiles');
+      if (!Hive.isBoxOpen('profiles')) {
+        _profileBox = await Hive.openBox<Profile>('profiles');
       } else {
-        _profileBox = Hive.box<EnhancedProfile>('enhanced_profiles');
+        _profileBox = Hive.box<Profile>('profiles');
       }
 
       // Open other necessary boxes
@@ -192,7 +193,7 @@ class AuthService extends ChangeNotifier {
   // Create test profiles for development/testing if none exist
   Future<void> _createTestProfilesIfNeeded() async {
     try {
-      _profileBox ??= await Hive.openBox<EnhancedProfile>('enhanced_profiles');
+      _profileBox ??= await Hive.openBox<Profile>('profiles');
 
       if (_profileBox!.isEmpty) {
         if (kDebugMode) {
@@ -200,17 +201,21 @@ class AuthService extends ChangeNotifier {
         }
 
         // Create test business profile
-        final businessProfile = EnhancedProfile(
+        final businessProfile = Profile(
+          id: const Uuid().v4(),
           type: ProfileType.business,
-          passwordHash: EnhancedProfile.hashPassword('password123'),
+          pin: 'password123',
+          passwordHash: Profile.hashPassword('password123'),
           name: 'Test Business',
           email: 'business@test.com',
         );
 
         // Create test personal profile
-        final personalProfile = EnhancedProfile(
+        final personalProfile = Profile(
+          id: const Uuid().v4(),
           type: ProfileType.personal,
-          passwordHash: EnhancedProfile.hashPassword('password456'),
+          pin: 'password456',
+          passwordHash: Profile.hashPassword('password456'),
           name: 'Test Personal',
           email: 'personal@test.com',
         );
@@ -245,8 +250,8 @@ class AuthService extends ChangeNotifier {
     }
   }
 
-  // Create enhanced profile with additional metadata
-  Future<bool> createEnhancedProfile(Map<String, dynamic> profileData) async {
+  // Create profile with additional metadata
+  Future<bool> createProfile(Map<String, dynamic> profileData) async {
     try {
       if (kDebugMode) {
         print('Creating enhanced profile with data: $profileData');
@@ -299,17 +304,18 @@ class AuthService extends ChangeNotifier {
             serverResponse['user_id'] ??
             serverResponse['profile_id'] ??
             _uuid.v4();
-        final profile = EnhancedProfile(
+        final profile = Profile(
           id: userId, // Use server-provided user_id
           type: profileData['profile_type'],
-          passwordHash: EnhancedProfile.hashPassword(pin),
+          pin: pin,
+          passwordHash: Profile.hashPassword(pin),
           name: profileData['name'],
           email: email,
           baseCurrency: profileData['base_currency'] ?? 'KES',
           timezone: profileData['timezone'] ?? 'GMT+3',
         );
-        _profileBox ??= await Hive.openBox<EnhancedProfile>(
-          'enhanced_profiles',
+        _profileBox ??= await Hive.openBox<Profile>(
+          'profiles',
         );
         await _profileBox!.put(userId, profile);
 
@@ -363,7 +369,7 @@ class AuthService extends ChangeNotifier {
     try {
       // TODO: Fix login to use userId instead of email
       // For now, try to find local profile by email
-      _profileBox ??= await Hive.openBox<EnhancedProfile>('enhanced_profiles');
+      _profileBox ??= await Hive.openBox<Profile>('profiles');
 
       for (final profile in _profileBox!.values) {
         if (profile.email == email && profile.verifyPassword(pin)) {
@@ -393,7 +399,7 @@ class AuthService extends ChangeNotifier {
       return LoginResult.error('Invalid email or PIN');
 
       /* TODO: Restore server login with userId
-      final serverProfileData = await _apiClient.loginEnhancedProfile(
+      final serverProfileData = await _apiClient.loginProfile(
         userId: userId,  // Need to get userId from email somehow
         pin: pin,
       );
@@ -404,21 +410,21 @@ class AuthService extends ChangeNotifier {
 
       // Create profile from server data
       final String serverId = serverProfileData['id']?.toString() ?? email;
-      final profileToSave = EnhancedProfile(
+      final profileToSave = Profile(
         id: serverId,
         type: ProfileType.values.firstWhere(
           (e) =>
               e.toString().split('.').last == serverProfileData['profile_type'],
           orElse: () => ProfileType.personal,
         ),
-        passwordHash: EnhancedProfile.hashPassword(pin),
+        passwordHash: Profile.hashPassword(pin),
         name: serverProfileData['name'] ?? 'Default Name',
         email: email,
         baseCurrency: serverProfileData['base_currency'] ?? 'KES',
         timezone: serverProfileData['timezone'] ?? 'GMT+3',
       );
 
-      _profileBox ??= await Hive.openBox<EnhancedProfile>('enhanced_profiles');
+      _profileBox ??= await Hive.openBox<Profile>('profiles');
       await _profileBox!.put(serverId, profileToSave);
 
       final settingsBox = Hive.box('settings');
@@ -449,6 +455,55 @@ class AuthService extends ChangeNotifier {
   }) async {
     final result = await enhancedLogin(email, pin, saveToGoogle: saveToGoogle);
     return result.success;
+  }
+
+  // Signup with email and password
+  Future<bool> signup({
+    required String firstName,
+    required String lastName,
+    required String email,
+    required String password,
+  }) async {
+    try {
+      if (_profileBox == null) {
+        await initialize();
+      }
+
+      // Check if email already exists
+      final existingProfiles = _profileBox!.values
+          .where((p) => p.email?.toLowerCase() == email.toLowerCase())
+          .toList();
+      
+      if (existingProfiles.isNotEmpty) {
+        return false; // Email already exists
+      }
+
+      // Create new profile
+      final newProfile = Profile(
+        id: const Uuid().v4(),
+        name: '$firstName $lastName',
+        email: email,
+        type: ProfileType.personal,
+        pin: password, // Using password as pin for now
+      );
+
+      // Save profile
+      await _profileBox!.put(newProfile.id, newProfile);
+
+      // Set as current profile
+      _currentProfile = newProfile;
+      
+      final settingsBox = Hive.box('settings');
+      await settingsBox.put('current_profile_id', newProfile.id);
+
+      notifyListeners();
+      return true;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Signup failed: $e');
+      }
+      return false;
+    }
   }
 
   // Login by profile type (for backward compatibility)
@@ -504,14 +559,14 @@ class AuthService extends ChangeNotifier {
 
     try {
       // Update password hash
-      final newPasswordHash = EnhancedProfile.hashPassword(newPassword);
+      final newPasswordHash = Profile.hashPassword(newPassword);
 
       _currentProfile = _currentProfile!.copyWith(
         passwordHash: newPasswordHash,
       );
 
       // Save locally
-      _profileBox ??= await Hive.openBox<EnhancedProfile>('enhanced_profiles');
+      _profileBox ??= await Hive.openBox<Profile>('profiles');
       await _profileBox!.put(_currentProfile!.id, _currentProfile!);
 
       notifyListeners();
@@ -554,7 +609,7 @@ class AuthService extends ChangeNotifier {
       try {
         await _apiClient.updateEnhancedProfile(
           email: _currentProfile!.email!,
-          passwordHash: EnhancedProfile.hashPassword(newPassword),
+          passwordHash: Profile.hashPassword(newPassword),
           name: _currentProfile!.name!,
           baseCurrency: _currentProfile!.baseCurrency,
           timezone: _currentProfile!.timezone,
@@ -573,14 +628,14 @@ class AuthService extends ChangeNotifier {
       }
 
       // Update password hash locally
-      final newPasswordHash = EnhancedProfile.hashPassword(newPassword);
+      final newPasswordHash = Profile.hashPassword(newPassword);
 
       _currentProfile = _currentProfile!.copyWith(
         passwordHash: newPasswordHash,
       );
 
       // Save locally
-      _profileBox ??= await Hive.openBox<EnhancedProfile>('enhanced_profiles');
+      _profileBox ??= await Hive.openBox<Profile>('profiles');
       await _profileBox!.put(_currentProfile!.id, _currentProfile!);
 
       notifyListeners();
@@ -624,7 +679,7 @@ class AuthService extends ChangeNotifier {
           // Authenticate with biometric
           final bool authenticated = await biometricService
               .authenticateWithBiometric(
-                reason: 'Please verify your identity to access your account',
+                'Please verify your identity to access your account',
               );
 
           if (authenticated) {
@@ -668,7 +723,7 @@ class AuthService extends ChangeNotifier {
       // Authenticate with biometric
       final bool authenticated = await biometricService
           .authenticateWithBiometric(
-            reason: 'Please verify your identity to access your account',
+            'Please verify your identity to access your account',
           );
 
       if (!authenticated) {
@@ -719,7 +774,7 @@ class AuthService extends ChangeNotifier {
   // Check if a profile exists with the given email
   Future<ProfileExistenceResult> checkProfileExists(String email) async {
     try {
-      _profileBox ??= await Hive.openBox<EnhancedProfile>('enhanced_profiles');
+      _profileBox ??= await Hive.openBox<Profile>('profiles');
 
       // Check local storage
       bool isLocal = false;
@@ -845,7 +900,7 @@ class AuthService extends ChangeNotifier {
   }
 
   // Get all profiles (for profile selection)
-  List<EnhancedProfile> getAllProfiles() {
+  List<Profile> getAllProfiles() {
     try {
       if (_profileBox == null) return [];
       return _profileBox!.values.toList();
@@ -860,7 +915,7 @@ class AuthService extends ChangeNotifier {
   // Delete profile
   Future<bool> deleteProfile(String profileId) async {
     try {
-      _profileBox ??= await Hive.openBox<EnhancedProfile>('enhanced_profiles');
+      _profileBox ??= await Hive.openBox<Profile>('profiles');
 
       final profile = _profileBox!.get(profileId);
       if (profile == null) {

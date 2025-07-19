@@ -2,8 +2,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
-import '../services/theme_service.dart';
-import '../models/enhanced_profile.dart';
+import '../services/currency_service.dart';
+import '../services/theme_service.dart' as theme_svc;
+import '../models/profile.dart';
+import '../utils/password_validator.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -16,7 +18,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final authService = Provider.of<AuthService>(context);
-    final themeService = Provider.of<ThemeService>(context);
     final currentProfile = authService.currentProfile;
 
     if (currentProfile == null) {
@@ -97,7 +98,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       Text(
                         currentProfile.name!,
                         style: const TextStyle(
-                          fontSize: 24,
                           fontWeight: FontWeight.bold,
                           color: Colors.white,
                         ),
@@ -127,7 +127,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             currentProfile.email ?? 'No email set',
                             style: const TextStyle(
                               color: Colors.white,
-                              fontSize: 14,
                             ),
                           ),
                         ],
@@ -190,42 +189,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
             // App Settings Section
             _buildSectionHeader('App Settings'),
-            Card(
-              child: Column(
-                children: [
-                  _buildProfileTile(
-                    icon: Icons.palette_outlined,
-                    title: 'Theme',
-                    subtitle: themeService.getThemeModeDisplayName(),
-                    trailing: Switch(
-                      value: themeService.themeMode == ThemeMode.dark,
-                      onChanged: (value) async {
-                        if (value) {
-                          await themeService.setThemeMode(ThemeMode.dark);
-                        } else {
-                          await themeService.setThemeMode(ThemeMode.light);
-                        }
-                        _showThemeChangeDialog(context, value);
-                      },
-                      activeColor: const Color(0xFF007A39),
-                    ),
+            Consumer<CurrencyService>(
+              builder: (context, currencyService, child) {
+                return Card(
+                  child: Column(
+                    children: [
+                      _buildProfileTile(
+                        icon: Icons.language_outlined,
+                        title: 'Language',
+                        subtitle: 'English (Kenya)',
+                        onTap: () => _showLanguageDialog(context),
+                      ),
+                      const Divider(height: 1),
+                      _buildProfileTile(
+                        icon: Icons.currency_exchange_outlined,
+                        title: 'Currency',
+                        subtitle: '${CurrencyService.availableCurrencies[currencyService.currentCurrency]} (${currencyService.currentSymbol})',
+                        onTap: () => _showCurrencyDialog(context),
+                      ),
+                    ],
                   ),
-                  const Divider(height: 1),
-                  _buildProfileTile(
-                    icon: Icons.language_outlined,
-                    title: 'Language',
-                    subtitle: 'English (Kenya)',
-                    onTap: () => _showLanguageDialog(context),
-                  ),
-                  const Divider(height: 1),
-                  _buildProfileTile(
-                    icon: Icons.currency_exchange_outlined,
-                    title: 'Currency',
-                    subtitle: 'Kenyan Shilling (Ksh)',
-                    onTap: () => _showCurrencyDialog(context),
-                  ),
-                ],
-              ),
+                );
+              },
             ),
 
             const SizedBox(height: 24), // Security Section
@@ -310,7 +295,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       child: Text(
         title.toUpperCase(),
         style: TextStyle(
-          fontSize: 12,
           fontWeight: FontWeight.w600,
           color: Colors.grey.shade600,
           letterSpacing: 1,
@@ -337,11 +321,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
       title: Text(
         title,
-        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+        style: const TextStyle(fontWeight: FontWeight.w600),
       ),
       subtitle: Text(
         subtitle,
-        style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+        style: TextStyle(color: Colors.grey.shade600),
       ),
       trailing: trailing ?? const Icon(Icons.chevron_right, color: Colors.grey),
       onTap: onTap,
@@ -368,7 +352,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  void _showEditNameDialog(BuildContext context, EnhancedProfile profile) {
+  void _showEditNameDialog(BuildContext context, Profile profile) {
     final nameController = TextEditingController(text: profile.name);
 
     showDialog(
@@ -447,7 +431,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  void _showEditEmailDialog(BuildContext context, EnhancedProfile profile) {
+  void _showEditEmailDialog(BuildContext context, Profile profile) {
     final emailController = TextEditingController(text: profile.email);
 
     showDialog(
@@ -467,9 +451,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   keyboardType: TextInputType.emailAddress,
                 ),
                 const SizedBox(height: 8),
-                const Text(
+                Text(
                   'We\'ll send a verification email to confirm the change.',
-                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey),
                 ),
               ],
             ),
@@ -560,9 +544,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   keyboardType: TextInputType.phone,
                 ),
                 const SizedBox(height: 8),
-                const Text(
+                Text(
                   'We may use this for account security and SMS notifications.',
-                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey),
                 ),
               ],
             ),
@@ -618,7 +602,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _showThemeModeSelector(BuildContext context) {
-    final themeService = Provider.of<ThemeService>(context, listen: false);
+    final themeService = Provider.of<theme_svc.ThemeService>(context, listen: false);
     showDialog(
       context: context,
       builder:
@@ -632,7 +616,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   title: const Text('System Default'),
                   subtitle: const Text('Follow device settings'),
                   onTap: () async {
-                    await themeService.setThemeMode(ThemeMode.system);
+                    themeService.setThemeMode(ThemeMode.system);
                     Navigator.pop(context);
                   },
                 ),
@@ -640,8 +624,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   leading: const Icon(Icons.light_mode),
                   title: const Text('Light Mode'),
                   subtitle: const Text('Always use light theme'),
-                  onTap: () async {
-                    await themeService.setThemeMode(ThemeMode.light);
+                  onTap: () {
+                    themeService.setThemeMode(ThemeMode.light);
                     Navigator.pop(context);
                   },
                 ),
@@ -649,8 +633,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   leading: const Icon(Icons.dark_mode),
                   title: const Text('Dark Mode'),
                   subtitle: const Text('Always use dark theme'),
-                  onTap: () async {
-                    await themeService.setThemeMode(ThemeMode.dark);
+                  onTap: () {
+                    themeService.setThemeMode(ThemeMode.dark);
                     Navigator.pop(context);
                   },
                 ),
@@ -686,21 +670,50 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _showCurrencyDialog(BuildContext context) {
+    final currencyService = Provider.of<CurrencyService>(context, listen: false);
+    
     showDialog(
       context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Currency Settings'),
-            content: const Text(
-              'Multi-currency support coming soon!\n\nSupported currencies:\n• Kenyan Shilling (Ksh) - Current\n• US Dollar (USD) - Coming Soon\n• Euro (EUR) - Coming Soon\n• British Pound (GBP) - Coming Soon',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('OK'),
-              ),
-            ],
+      builder: (context) => AlertDialog(
+        title: const Text('Select Currency'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: CurrencyService.availableCurrencies.length,
+            itemBuilder: (context, index) {
+              final entry = CurrencyService.availableCurrencies.entries.elementAt(index);
+              final currencyCode = entry.key;
+              final currencyName = entry.value;
+              final isSelected = currencyService.currentCurrency == currencyCode;
+              
+              return ListTile(
+                title: Text(currencyName),
+                subtitle: Text(currencyCode),
+                trailing: isSelected ? const Icon(Icons.check, color: Color(0xFF007A39)) : null,
+                onTap: () async {
+                  await currencyService.setCurrency(currencyCode);
+                  if (context.mounted) {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Currency changed to $currencyName'),
+                        backgroundColor: const Color(0xFF007A39),
+                      ),
+                    );
+                  }
+                },
+              );
+            },
           ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -987,7 +1000,7 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
                   });
                 },
               ),
-              helperText: 'Minimum 6 characters',
+              helperText: 'At least 6 characters with letters and numbers',
             ),
             obscureText: !showNewPassword,
             enabled: !isLoading,
@@ -1047,11 +1060,11 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
       return;
     }
 
-    if (newPassword.length < 6) {
+    // Use standardized password validation
+    final passwordError = PasswordValidatorStatic.getErrorMessage(newPassword);
+    if (passwordError != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Password must be at least 6 characters long'),
-        ),
+        SnackBar(content: Text(passwordError)),
       );
       return;
     }
@@ -1069,19 +1082,6 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('New password must be different from current password'),
-        ),
-      );
-      return;
-    }
-
-    // Check password strength
-    if (!_isPasswordStrong(newPassword)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Password should contain letters, numbers, and be at least 6 characters',
-          ),
-          duration: Duration(seconds: 3),
         ),
       );
       return;
@@ -1151,15 +1151,6 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
         );
       }
     }
-  }
-
-  bool _isPasswordStrong(String password) {
-    // Basic password strength check
-    if (password.length < 6) return false;
-    bool hasLetter = password.contains(RegExp(r'[a-zA-Z]'));
-    bool hasNumber = password.contains(RegExp(r'[0-9]'));
-
-    return hasLetter && hasNumber;
   }
 
   void _performReLogin(BuildContext context) {

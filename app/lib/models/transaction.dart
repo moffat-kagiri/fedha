@@ -2,6 +2,7 @@
 import 'package:hive/hive.dart';
 import 'package:json_annotation/json_annotation.dart';
 import 'package:uuid/uuid.dart';
+import 'enums.dart';
 
 part 'transaction.g.dart';
 
@@ -12,38 +13,48 @@ class Transaction extends HiveObject {
   String uuid;
 
   @HiveField(1)
-  double amount;
+  String id;
 
   @HiveField(2)
-  TransactionType type;
+  double amount;
 
   @HiveField(3)
-  TransactionCategory category;
+  TransactionType type;
 
   @HiveField(4)
-  DateTime date;
+  String categoryId;
+
   @HiveField(5)
-  String? notes;
+  TransactionCategory? category;
 
   @HiveField(6)
-  String? description;
-
+  DateTime date;
+  
   @HiveField(7)
-  bool isSynced;
+  String? notes;
 
   @HiveField(8)
-  String profileId;
+  String? description;
+
   @HiveField(9)
-  DateTime updatedAt;
+  bool isSynced;
 
   @HiveField(10)
+  String profileId;
+  
+  @HiveField(11)
+  DateTime updatedAt;
+
+  @HiveField(12)
   String? goalId; // For linking savings to goals
 
   Transaction({
     String? uuid,
+    String? id,
     required this.amount,
     required this.type,
-    required this.category,
+    required this.categoryId,
+    this.category,
     required this.date,
     this.notes,
     this.description,
@@ -52,6 +63,7 @@ class Transaction extends HiveObject {
     DateTime? updatedAt,
     this.goalId,
   }) : uuid = uuid ?? const Uuid().v4(),
+       id = id ?? const Uuid().v4(),
        updatedAt = updatedAt ?? DateTime.now();
   // Constructor for creating a transaction from JSON
   // JSON Serialization
@@ -62,43 +74,6 @@ class Transaction extends HiveObject {
   @override
   String toString() {
     return 'Transaction(uuid: $uuid, amount: $amount, type: $type, '
-        'category: $category, date: $date, updatedAt: $updatedAt, profileId: $profileId)';
+        'categoryId: $categoryId, date: $date, updatedAt: $updatedAt, profileId: $profileId)';
   }
-}
-
-// Enums with matching values to Django choices
-enum TransactionType {
-  income, // Maps to Django's 'IN'
-  expense, // Maps to Django's 'EX'
-  savings, // Maps to Django's 'SAV' - money transferred to savings
-}
-
-enum TransactionCategory {
-  // Business Income Categories
-  sales, // Maps to Django's 'SALE'
-  services, // Maps to Django's 'SERV'
-  // Personal Income Categories
-  salary, // Maps to Django's 'SALY'
-  freelance, // Maps to Django's 'FREE'
-  gifts, // Maps to Django's 'GIFT'
-  // Common Income Categories
-  investments, // Maps to Django's 'INVT'
-  // Business Expense Categories
-  marketing, // Maps to Django's 'MRKT'
-  equipment, // Maps to Django's 'EQUP'
-  supplies, // Maps to Django's 'SUPL'
-  professional_services, // Maps to Django's 'PROF'
-  travel, // Maps to Django's 'TRVL'
-  // Personal Expense Categories
-  groceries, // Maps to Django's 'GROC'
-  transportation, // Maps to Django's 'TRNS'
-  healthcare, // Maps to Django's 'HLTH'
-  entertainment, // Maps to Django's 'ENTR'
-  education, // Maps to Django's 'EDUC'
-  clothing, // Maps to Django's 'CLTH'
-  dining, // Maps to Django's 'DINE'
-  // Common Expense Categories
-  rent, // Maps to Django's 'RENT'
-  utilities, // Maps to Django's 'UTIL'
-  other, // Maps to Django's 'OTHR'
 }

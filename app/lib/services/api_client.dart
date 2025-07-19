@@ -1,6 +1,7 @@
 // Backend communication
 
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/foundation.dart' hide Category;
 import 'package:http/http.dart' as http;
 import '../models/transaction.dart';
@@ -11,26 +12,37 @@ import '../models/goal.dart';
 import '../models/budget.dart';
 
 class ApiClient {
-  // Unified base URL configuration for all platforms
-  // Using ngrok tunnel for real device testing
+  // Enhanced base URL configuration for all platforms with USB debugging support
   static String get _baseUrl {
     final String url;
+    
     if (kIsWeb) {
       // Web platform uses localhost directly
       url = "http://127.0.0.1:8000/api";
     } else {
-      // Mobile platforms - using ngrok tunnel for real device access
-      // ngrok URL: https://7a9a-41-209-9-54.ngrok-free.app
-      url = "https://7a9a-41-209-9-54.ngrok-free.app/api";
-
-      // For emulator testing (if needed), use:
-      // url = "http://10.0.2.2:8000/api";
+      // Mobile platforms - Dynamic configuration for development
+      if (kDebugMode) {
+        // Check if running on physical device vs emulator
+        if (Platform.isAndroid) {
+          // For physical device via USB debugging
+          url = "http://192.168.100.6:8002/api";
+        } else {
+          // For Android emulator
+          url = "http://10.0.2.2:8000/api";
+        }
+      } else {
+        // Production - using ngrok tunnel for real device access
+        // ngrok URL: https://7a9a-41-209-9-54.ngrok-free.app
+        url = "https://7a9a-41-209-9-54.ngrok-free.app/api";
+      }
     }
 
     if (kDebugMode) {
-      print(
-        '🔗 API_CLIENT: Using base URL: $url (Platform: ${kIsWeb ? "Web" : "Mobile"})',
-      );
+      final platform = kIsWeb ? "Web" : (Platform.isAndroid ? "Android" : "iOS");
+      final deviceType = kDebugMode && !kIsWeb ? 
+        (Platform.isAndroid ? "Physical Device (USB)" : "Simulator") : "Production";
+      print('🔗 API_CLIENT: Using base URL: $url');
+      print('🔗 API_CLIENT: Platform: $platform, Mode: $deviceType');
     }
 
     return url;
@@ -43,6 +55,45 @@ class ApiClient {
       print('ApiClient: Current base URL: $url');
     }
     return url;
+  }
+
+  // Development helper: Get different server URLs for testing
+  static Map<String, String> getServerOptions() {
+    return {
+      'usb_debug': 'http://192.168.100.6:8002/api',
+      'emulator': 'http://10.0.2.2:8000/api',
+      'localhost': 'http://127.0.0.1:8000/api',
+      'ngrok': 'https://7a9a-41-209-9-54.ngrok-free.app/api',
+    };
+  }
+
+  // Test connection to server
+  static Future<bool> testConnection({String? customUrl}) async {
+    try {
+      final testUrl = customUrl ?? _baseUrl;
+      final healthUrl = testUrl.replaceAll('/api', '/api/health/');
+      
+      if (kDebugMode) {
+        print('🧪 API_CLIENT: Testing connection to: $healthUrl');
+      }
+      
+      final response = await http.get(
+        Uri.parse(healthUrl), 
+        headers: _commonHeaders,
+      ).timeout(const Duration(seconds: 5));
+      
+      final success = response.statusCode == 200;
+      if (kDebugMode) {
+        print('🧪 API_CLIENT: Connection test ${success ? "✅ SUCCESS" : "❌ FAILED"} - Status: ${response.statusCode}');
+      }
+      
+      return success;
+    } catch (e) {
+      if (kDebugMode) {
+        print('🧪 API_CLIENT: Connection test ❌ FAILED - Error: $e');
+      }
+      return false;
+    }
   }
 
   // Sync Transactions
@@ -78,20 +129,24 @@ class ApiClient {
     return jsonDecode(response.body)['total_repayment'];
   }
 
-  // Common headers for all requests (especially for ngrok)
+  // Common headers for all requests
   static Map<String, String> get _commonHeaders {
-    return {
+    final headers = {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
-      // ngrok requires this header to avoid browser warning pages
-      'ngrok-skip-browser-warning': 'true',
-      // Additional headers that might help with ngrok
       'User-Agent': 'Flutter-App/1.0',
       'Cache-Control': 'no-cache',
     };
+    
+    // Add ngrok-specific headers only when using ngrok in production
+    if (!kDebugMode) {
+      headers['ngrok-skip-browser-warning'] = 'true';
+    }
+    
+    return headers;
   }
 
-  // Health check for connectivity
+  // Enhanced health check for connectivity with timeout and better error handling
   Future<bool> healthCheck() async {
     try {
       final url = '$_baseUrl/health/';
@@ -100,12 +155,13 @@ class ApiClient {
         print('🌐 API_CLIENT: Headers: $_commonHeaders');
       }
 
-      final response = await http.get(Uri.parse(url), headers: _commonHeaders);
+      final response = await http.get(
+        Uri.parse(url), 
+        headers: _commonHeaders,
+      ).timeout(const Duration(seconds: 10)); // Increased timeout for USB debugging
 
       if (kDebugMode) {
-        print(
-          '🌐 API_CLIENT: Health check response - Status: ${response.statusCode}, Body: ${response.body}',
-        );
+        print('🌐 API_CLIENT: Health check response - Status: ${response.statusCode}, Body: ${response.body}');
         print('🌐 API_CLIENT: Response Headers: ${response.headers}');
       }
 
@@ -113,6 +169,8 @@ class ApiClient {
     } catch (e) {
       if (kDebugMode) {
         print('🌐 API_CLIENT: Health check error: $e');
+        // Suggest alternative configurations on failure
+        print('🌐 API_CLIENT: Available server options: ${getServerOptions()}');
       }
       return false;
     }
