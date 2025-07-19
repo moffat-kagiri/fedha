@@ -66,12 +66,16 @@ class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
                 children: [
                   Text(
                     'Step ${_currentPage + 1} of $_totalPages',
-                    style: const TextStyle(color: Colors.white70, fontSize: 14),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Colors.white70,
+                    ),
                   ),
                   const Spacer(),
                   Text(
                     '${((_currentPage + 1) / _totalPages * 100).round()}%',
-                    style: const TextStyle(color: Colors.white70, fontSize: 14),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Colors.white70,
+                    ),
                   ),
                 ],
               ),
@@ -170,7 +174,7 @@ class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
   }
 
   Widget _buildWelcomePage() {
-    return Container(
+    return SingleChildScrollView(
       padding: const EdgeInsets.all(32),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -189,20 +193,18 @@ class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
             ),
           ),
           const SizedBox(height: 40),
-          const Text(
+          Text(
             'Welcome to Fedha! 💰',
-            style: TextStyle(
-              fontSize: 32,
+            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
               fontWeight: FontWeight.bold,
               color: Colors.white,
             ),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 20),
-          const Text(
+          Text(
             'Your Smart Financial Companion',
-            style: TextStyle(
-              fontSize: 20,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
               color: Colors.white70,
               fontWeight: FontWeight.w500,
             ),
@@ -248,7 +250,7 @@ class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
   }
 
   Widget _buildFinancialPositionPage() {
-    return Container(
+    return SingleChildScrollView(
       padding: const EdgeInsets.all(32),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -301,7 +303,7 @@ class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
   }
 
   Widget _buildMentalClarityPage() {
-    return Container(
+    return SingleChildScrollView(
       padding: const EdgeInsets.all(32),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -354,7 +356,7 @@ class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
   }
 
   Widget _buildPrivacyPage() {
-    return Container(
+    return SingleChildScrollView(
       padding: const EdgeInsets.all(32),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,

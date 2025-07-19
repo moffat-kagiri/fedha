@@ -8,11 +8,11 @@ class ToolsScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           'Financial Tools',
-          style: TextStyle(
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
             fontWeight: FontWeight.bold,
-            color: Color(0xFF007A39),
+            color: const Color(0xFF007A39),
           ),
         ),
         backgroundColor: Colors.white,
@@ -39,19 +39,17 @@ class ToolsScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Your Financial Toolkit 🛠️',
-                    style: TextStyle(
-                      fontSize: 24,
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                       fontWeight: FontWeight.bold,
                       color: Colors.white,
                     ),
                   ),
                   const SizedBox(height: 8),
-                  const Text(
+                  Text(
                     'Comprehensive tools to manage, analyze, and grow your finances',
-                    style: TextStyle(
-                      fontSize: 16,
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                       color: Colors.white70,
                     ),
                   ),
@@ -73,6 +71,7 @@ class ToolsScreen extends StatelessWidget {
             _buildSection(
               title: 'Core Features',
               subtitle: 'Essential financial management tools',
+              context: context,
               features: [
                 _FeatureItem(
                   title: 'SMS Transaction Import',
@@ -86,7 +85,7 @@ class ToolsScreen extends StatelessWidget {
                   description: 'Fast manual transaction logging',
                   icon: Icons.add_card,
                   isAvailable: true,
-                  route: '/add_transaction',
+                  route: '/detailed_transaction_entry',
                 ),
                 _FeatureItem(
                   title: 'Budget Creation',
@@ -111,6 +110,7 @@ class ToolsScreen extends StatelessWidget {
             _buildSection(
               title: 'Planning & Analysis',
               subtitle: 'Advanced financial planning tools',
+              context: context,
               features: [
                 _FeatureItem(
                   title: 'Progressive Goal Wizard',
@@ -147,6 +147,7 @@ class ToolsScreen extends StatelessWidget {
             _buildSection(
               title: 'Financial Calculators',
               subtitle: 'Professional calculation tools',
+              context: context,
               features: [
                 _FeatureItem(
                   title: 'Loan Calculator',
@@ -182,6 +183,7 @@ class ToolsScreen extends StatelessWidget {
             _buildSection(
               title: 'Business Tools',
               subtitle: 'Professional business management',
+              context: context,
               features: [
                 _FeatureItem(
                   title: 'Invoice Generator',
@@ -216,6 +218,7 @@ class ToolsScreen extends StatelessWidget {
             _buildSection(
               title: 'AI & Automation',
               subtitle: 'Intelligent financial assistance',
+              context: context,
               features: [
                 _FeatureItem(
                   title: 'Smart SMS Parsing',
@@ -264,8 +267,7 @@ class ToolsScreen extends StatelessWidget {
                       const SizedBox(width: 8),
                       Text(
                         'Development Roadmap',
-                        style: TextStyle(
-                          fontSize: 16,
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.bold,
                           color: Colors.blue.shade600,
                         ),
@@ -275,8 +277,7 @@ class ToolsScreen extends StatelessWidget {
                   const SizedBox(height: 8),
                   Text(
                     'We\'re actively developing new features! Coming soon features are planned for the next major releases. Check our roadmap for detailed timelines.',
-                    style: TextStyle(
-                      fontSize: 14,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: Colors.blue.shade800,
                     ),
                   ),
@@ -306,7 +307,6 @@ class ToolsScreen extends StatelessWidget {
           label,
           style: TextStyle(
             color: color,
-            fontSize: 14,
             fontWeight: FontWeight.w500,
           ),
         ),
@@ -318,23 +318,22 @@ class ToolsScreen extends StatelessWidget {
     required String title,
     required String subtitle,
     required List<_FeatureItem> features,
+    required BuildContext context,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           title,
-          style: const TextStyle(
-            fontSize: 20,
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
             fontWeight: FontWeight.bold,
-            color: Color(0xFF007A39),
+            color: const Color(0xFF007A39),
           ),
         ),
         const SizedBox(height: 4),
         Text(
           subtitle,
-          style: TextStyle(
-            fontSize: 14,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
             color: Colors.grey.shade600,
           ),
         ),

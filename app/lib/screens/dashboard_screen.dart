@@ -164,17 +164,19 @@ class DashboardContent extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Financial Overview',
-              style: TextStyle(fontWeight: FontWeight.bold),
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
             ),
             const SizedBox(height: 16),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _buildBalanceItem('Total Savings', currencyService.formatCurrency(0), Colors.green),
-                _buildBalanceItem('Monthly Budget', currencyService.formatCurrency(0), Colors.blue),
-                _buildBalanceItem('Goals Progress', '0%', Colors.orange),
+                _buildBalanceItem('Total Savings', currencyService.formatCurrency(0), Colors.green, context),
+                _buildBalanceItem('Monthly Budget', currencyService.formatCurrency(0), Colors.blue, context),
+                _buildBalanceItem('Goals Progress', '0%', Colors.orange, context),
               ],
             ),
           ],
@@ -183,14 +185,19 @@ class DashboardContent extends StatelessWidget {
     );
   }
 
-  Widget _buildBalanceItem(String label, String value, Color color) {
+  Widget _buildBalanceItem(String label, String value, Color color, BuildContext context) {
     return Column(
       children: [
-        Text(label, style: TextStyle(color: color)),
+        Text(
+          label, 
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(color: color),
+        ),
         const SizedBox(height: 4),
         Text(
           value,
-          style: const TextStyle(fontWeight: FontWeight.bold),
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
         ),
       ],
     );
@@ -199,7 +206,7 @@ class DashboardContent extends StatelessWidget {
   Widget _buildQuickActions(BuildContext context) {
     final actions = [
       QuickAction('Add Transaction', Icons.add, Colors.green, () {
-        Navigator.of(context).pushNamed('/transaction_entry');
+        Navigator.of(context).pushNamed('/detailed_transaction_entry');
       }),
       QuickAction('View Goals', Icons.flag, Colors.blue, () {
         Navigator.of(context).pushNamed('/goals');
@@ -215,9 +222,11 @@ class DashboardContent extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Quick Actions',
-          style: TextStyle(fontWeight: FontWeight.bold),
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
         ),
         const SizedBox(height: 16),
         GridView.builder(
@@ -230,13 +239,13 @@ class DashboardContent extends StatelessWidget {
             mainAxisSpacing: 12,
           ),
           itemCount: actions.length,
-          itemBuilder: (context, index) => _buildQuickActionCard(actions[index]),
+          itemBuilder: (context, index) => _buildQuickActionCard(actions[index], context),
         ),
       ],
     );
   }
 
-  Widget _buildQuickActionCard(QuickAction action) {
+  Widget _buildQuickActionCard(QuickAction action, BuildContext context) {
     return Card(
       child: InkWell(
         onTap: action.onTap,
@@ -250,7 +259,9 @@ class DashboardContent extends StatelessWidget {
               Expanded(
                 child: Text(
                   action.title,
-                  style: const TextStyle(fontWeight: FontWeight.w500),
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
             ],
@@ -267,9 +278,11 @@ class DashboardContent extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
+            Text(
               'Your Goals',
-              style: TextStyle(fontWeight: FontWeight.bold),
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
             ),
             TextButton(
               onPressed: () => Navigator.of(context).pushNamed('/goals'),
@@ -288,7 +301,9 @@ class DashboardContent extends StatelessWidget {
                   const SizedBox(height: 12),
                   Text(
                     'No goals yet',
-                    style: TextStyle(color: Colors.grey.shade600),
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Colors.grey.shade600,
+                    ),
                   ),
                   const SizedBox(height: 8),
                   ElevatedButton(
@@ -300,12 +315,12 @@ class DashboardContent extends StatelessWidget {
             ),
           )
         else
-          ...goals.take(3).map((goal) => _buildGoalCard(goal, currencyService)),
+          ...goals.take(3).map((goal) => _buildGoalCard(goal, currencyService, context)),
       ],
     );
   }
 
-  Widget _buildGoalCard(Goal goal, CurrencyService currencyService) {
+  Widget _buildGoalCard(Goal goal, CurrencyService currencyService, BuildContext context) {
     final progress = goal.targetAmount > 0 ? goal.currentAmount / goal.targetAmount : 0.0;
     
     return Card(
@@ -322,7 +337,9 @@ class DashboardContent extends StatelessWidget {
                 Expanded(
                   child: Text(
                     goal.name,
-                    style: const TextStyle(fontWeight: FontWeight.w600),
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ],
@@ -341,11 +358,15 @@ class DashboardContent extends StatelessWidget {
               children: [
                 Text(
                   currencyService.formatCurrency(goal.currentAmount),
-                  style: const TextStyle(fontWeight: FontWeight.w600),
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 Text(
                   currencyService.formatCurrency(goal.targetAmount),
-                  style: TextStyle(color: Colors.grey.shade600),
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Colors.grey.shade600,
+                  ),
                 ),
               ],
             ),
@@ -383,9 +404,11 @@ class DashboardContent extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
+            Text(
               'Recent Transactions',
-              style: TextStyle(fontWeight: FontWeight.bold),
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
             ),
             TextButton(
               onPressed: () {
@@ -406,11 +429,13 @@ class DashboardContent extends StatelessWidget {
                   const SizedBox(height: 12),
                   Text(
                     'No transactions yet',
-                    style: TextStyle(color: Colors.grey.shade600),
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Colors.grey.shade600,
+                    ),
                   ),
                   const SizedBox(height: 8),
                   ElevatedButton(
-                    onPressed: () => Navigator.of(context).pushNamed('/transaction_entry'),
+                    onPressed: () => Navigator.of(context).pushNamed('/detailed_transaction_entry'),
                     child: const Text('Add Your First Transaction'),
                   ),
                 ],
@@ -418,12 +443,12 @@ class DashboardContent extends StatelessWidget {
             ),
           )
         else
-          ...transactions.map((transaction) => _buildTransactionItem(transaction, currencyService)),
+          ...transactions.map((transaction) => _buildTransactionItem(transaction, currencyService, context)),
       ],
     );
   }
 
-  Widget _buildTransactionItem(Transaction transaction, CurrencyService currencyService) {
+  Widget _buildTransactionItem(Transaction transaction, CurrencyService currencyService, BuildContext context) {
     IconData icon;
     Color color;
     
@@ -454,7 +479,7 @@ class DashboardContent extends StatelessWidget {
         subtitle: Text(transaction.categoryId.isNotEmpty ? transaction.categoryId : 'No category'),
         trailing: Text(
           currencyService.formatCurrency(transaction.amount),
-          style: TextStyle(
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
             fontWeight: FontWeight.w600,
             color: color,
           ),
