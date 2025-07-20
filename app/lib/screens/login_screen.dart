@@ -204,6 +204,9 @@ class _LoginScreenState extends State<LoginScreen> {
           smsListenerService.setCurrentProfile(currentProfile.id);
         }
 
+        // Check if biometric setup is needed
+        await _promptBiometricSetupIfNeeded();
+
         Navigator.pushReplacementNamed(context, '/dashboard');
       } else {
         setState(() => _errorMessage = 'Invalid password for selected profile');
@@ -248,6 +251,92 @@ class _LoginScreenState extends State<LoginScreen> {
       );
     } finally {
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _promptBiometricSetupIfNeeded() async {
+    final biometricService = BiometricAuthService.instance;
+    final shouldPrompt = await biometricService.shouldPromptBiometricSetup();
+    
+    print('DEBUG: Should prompt biometric setup: $shouldPrompt');
+    
+    if (!shouldPrompt || !mounted) return;
+
+    // Always show the dialog for testing
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false, // Force user to make a choice
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.fingerprint, color: Theme.of(context).primaryColor),
+            const SizedBox(width: 8),
+            const Text('Enable Biometric Security'),
+          ],
+        ),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Would you like to enable fingerprint/face unlock for secure and convenient access to your account?',
+            ),
+            SizedBox(height: 16),
+            Row(
+              children: [
+                Icon(Icons.security, color: Colors.green),
+                SizedBox(width: 8),
+                Expanded(child: Text('Enhanced Security', style: TextStyle(fontWeight: FontWeight.bold))),
+              ],
+            ),
+            SizedBox(height: 8),
+            Row(
+              children: [
+                Icon(Icons.speed, color: Colors.blue),
+                SizedBox(width: 8),
+                Expanded(child: Text('Quick Access', style: TextStyle(fontWeight: FontWeight.bold))),
+              ],
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Skip'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF007A39),
+            ),
+            child: const Text('Enable'),
+          ),
+        ],
+      ),
+    );
+
+    if (result == true && mounted) {
+      print('DEBUG: User chose to enable biometric');
+      final success = await biometricService.authenticate(
+        reason: 'Set up biometric authentication for Fedha',
+      );
+      
+      if (success) {
+        await biometricService.setBiometricEnabled(true);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Biometric security enabled successfully!'),
+            backgroundColor: Color(0xFF007A39),
+          ),
+        );
+        print('DEBUG: Biometric setup completed successfully');
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Biometric setup failed. You can enable it later in settings.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
     }
   }
 

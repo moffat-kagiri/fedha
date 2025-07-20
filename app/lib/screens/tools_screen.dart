@@ -66,26 +66,25 @@ class ToolsScreen extends StatelessWidget {
             ),
             
             const SizedBox(height: 24),
-            
-            // Core Features Section
+            // Primary Tools (6 items)
             _buildSection(
-              title: 'Core Features',
-              subtitle: 'Essential financial management tools',
+              title: 'Primary Tools',
+              subtitle: 'Essential financial tools',
               context: context,
               features: [
-                _FeatureItem(
-                  title: 'SMS Transaction Import',
-                  description: 'Real-time M-PESA & bank SMS parsing',
-                  icon: Icons.sms,
-                  isAvailable: true,
-                  route: '/sms_review',
-                ),
                 _FeatureItem(
                   title: 'Quick Transaction Entry',
                   description: 'Fast manual transaction logging',
                   icon: Icons.add_card,
                   isAvailable: true,
                   route: '/detailed_transaction_entry',
+                ),
+                _FeatureItem(
+                  title: 'Loans Tracker',
+                  description: 'View and manage your loans',
+                  icon: Icons.account_balance_wallet,
+                  isAvailable: true,
+                  route: '/loans_tracker',
                 ),
                 _FeatureItem(
                   title: 'Budget Creation',
@@ -101,30 +100,35 @@ class ToolsScreen extends StatelessWidget {
                   isAvailable: true,
                   route: '/goals',
                 ),
+                _FeatureItem(
+                  title: 'Loan Calculator',
+                  description: 'Newton-Raphson loan calculations',
+                  icon: Icons.calculate,
+                  isAvailable: true,
+                  route: '/loan_calculator',
+                ),
+                _FeatureItem(
+                  title: 'Spending Overview',
+                  description: 'Analytics of your spending patterns',
+                  icon: Icons.bar_chart,
+                  isAvailable: true,
+                  route: '/spending_overview',
+                ),
               ],
             ),
-            
             const SizedBox(height: 24),
-            
-            // Planning & Analysis Section
+            // More Tools (4 items)
             _buildSection(
-              title: 'Planning & Analysis',
-              subtitle: 'Advanced financial planning tools',
+              title: 'More Tools',
+              subtitle: 'Additional financial utilities',
               context: context,
               features: [
                 _FeatureItem(
-                  title: 'Progressive Goal Wizard',
-                  description: '6-step SMART goal creation process',
-                  icon: Icons.auto_awesome,
+                  title: 'SMS Transaction Import',
+                  description: 'Real-time M-PESA & bank SMS parsing',
+                  icon: Icons.sms,
                   isAvailable: true,
-                  route: '/progressive_goal_wizard',
-                ),
-                _FeatureItem(
-                  title: 'Quick Goals',
-                  description: 'Fast 1-9 month goal creation',
-                  icon: Icons.speed,
-                  isAvailable: true,
-                  route: '/add_goal',
+                  route: '/sms_review',
                 ),
                 _FeatureItem(
                   title: 'Expense Analytics',
@@ -138,110 +142,10 @@ class ToolsScreen extends StatelessWidget {
                   icon: Icons.trending_up,
                   isAvailable: false,
                 ),
-              ],
-            ),
-            
-            const SizedBox(height: 24),
-            
-            // Calculators Section
-            _buildSection(
-              title: 'Financial Calculators',
-              subtitle: 'Professional calculation tools',
-              context: context,
-              features: [
-                _FeatureItem(
-                  title: 'Loan Calculator',
-                  description: 'Newton-Raphson loan calculations',
-                  icon: Icons.calculate,
-                  isAvailable: true,
-                  route: '/loan_calculator',
-                ),
                 _FeatureItem(
                   title: 'Investment Calculator',
                   description: 'Compound interest & ROI analysis',
                   icon: Icons.trending_up,
-                  isAvailable: false,
-                ),
-                _FeatureItem(
-                  title: 'Retirement Planner',
-                  description: 'Long-term retirement projections',
-                  icon: Icons.elderly,
-                  isAvailable: false,
-                ),
-                _FeatureItem(
-                  title: 'Tax Calculator',
-                  description: 'KRA tax estimation & planning',
-                  icon: Icons.receipt_long,
-                  isAvailable: false,
-                ),
-              ],
-            ),
-            
-            const SizedBox(height: 24),
-            
-            // Business Tools Section
-            _buildSection(
-              title: 'Business Tools',
-              subtitle: 'Professional business management',
-              context: context,
-              features: [
-                _FeatureItem(
-                  title: 'Invoice Generator',
-                  description: 'Professional invoice creation & tracking',
-                  icon: Icons.description,
-                  isAvailable: false,
-                ),
-                _FeatureItem(
-                  title: 'Revenue Analytics',
-                  description: 'Business intelligence & KPI tracking',
-                  icon: Icons.business_center,
-                  isAvailable: false,
-                ),
-                _FeatureItem(
-                  title: 'P&L Reports',
-                  description: 'Automated profit & loss statements',
-                  icon: Icons.assessment,
-                  isAvailable: false,
-                ),
-                _FeatureItem(
-                  title: 'Tax Compliance',
-                  description: 'KRA-ready tax reports',
-                  icon: Icons.gavel,
-                  isAvailable: false,
-                ),
-              ],
-            ),
-            
-            const SizedBox(height: 24),
-            
-            // AI & Automation Section
-            _buildSection(
-              title: 'AI & Automation',
-              subtitle: 'Intelligent financial assistance',
-              context: context,
-              features: [
-                _FeatureItem(
-                  title: 'Smart SMS Parsing',
-                  description: 'LLM-powered transaction extraction',
-                  icon: Icons.psychology,
-                  isAvailable: false,
-                ),
-                _FeatureItem(
-                  title: 'Expense Prediction',
-                  description: 'ML-based spending forecasts',
-                  icon: Icons.auto_graph,
-                  isAvailable: false,
-                ),
-                _FeatureItem(
-                  title: 'Budget Optimization',
-                  description: 'AI-driven budget recommendations',
-                  icon: Icons.lightbulb,
-                  isAvailable: false,
-                ),
-                _FeatureItem(
-                  title: 'Fraud Detection',
-                  description: 'Anomaly detection & alerts',
-                  icon: Icons.security,
                   isAvailable: false,
                 ),
               ],

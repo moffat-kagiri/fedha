@@ -1,4 +1,3 @@
-// lib/screens/transactions_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/transaction.dart';
@@ -10,6 +9,8 @@ import '../services/offline_data_service.dart';
 import '../utils/profile_transaction_utils.dart';
 import 'add_transaction_screen.dart';
 import '../widgets/quick_transaction_entry.dart';
+import '../widgets/transaction_dialog.dart';
+import '../widgets/transaction_card.dart';
 
 class TransactionsScreen extends StatefulWidget {
   const TransactionsScreen({super.key});
@@ -997,40 +998,22 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     BuildContext context,
     Transaction transaction,
   ) {
-    showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        insetPadding: const EdgeInsets.all(16),
-        child: Container(
-          width: double.infinity,
-          height: MediaQuery.of(context).size.height * 0.8,
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Edit Transaction',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.close),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              const Expanded(
-                child: QuickTransactionEntry(),
-              ),
-            ],
+    TransactionDialog.showEditDialog(
+      context,
+      transaction: transaction,
+      onTransactionSaved: (updatedTransaction) {
+        // Refresh the transactions list
+        setState(() {
+          // This will trigger a rebuild and reload the transactions
+        });
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Transaction updated successfully'),
+            backgroundColor: Color(0xFF007A39),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }

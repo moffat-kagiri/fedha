@@ -3,10 +3,15 @@ import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 import '../services/offline_data_service.dart';
 import '../services/currency_service.dart';
+import '../services/sms_listener_service.dart';
 import '../models/goal.dart';
 import '../models/budget.dart';
 import '../models/transaction.dart';
 import '../models/enums.dart';
+import '../widgets/transaction_dialog.dart';
+import '../widgets/transaction_card.dart';
+import '../widgets/quick_actions_grid.dart';
+import '../widgets/financial_summary_card.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -158,30 +163,33 @@ class DashboardContent extends StatelessWidget {
   }
 
   Widget _buildFinancialPositionCard(BuildContext context, CurrencyService currencyService, DashboardData data) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Financial Overview',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildBalanceItem('Total Savings', currencyService.formatCurrency(0), Colors.green, context),
-                _buildBalanceItem('Monthly Budget', currencyService.formatCurrency(0), Colors.blue, context),
-                _buildBalanceItem('Goals Progress', '0%', Colors.orange, context),
-              ],
-            ),
-          ],
-        ),
+    final summaryItems = [
+      FinancialSummaryItem(
+        label: 'Total Savings',
+        value: currencyService.formatCurrency(0),
+        color: Colors.green,
+        icon: Icons.savings,
       ),
+      FinancialSummaryItem(
+        label: 'Monthly Budget',
+        value: currencyService.formatCurrency(0),
+        color: Colors.blue,
+        icon: Icons.account_balance_wallet,
+      ),
+      FinancialSummaryItem(
+        label: 'Goals Progress',
+        value: '0%',
+        color: Colors.orange,
+        icon: Icons.flag,
+      ),
+    ];
+
+    return FinancialSummaryCard(
+      title: 'Financial Overview',
+      items: summaryItems,
+      onTap: () {
+        // Navigate to detailed financial overview
+      },
     );
   }
 
@@ -205,44 +213,53 @@ class DashboardContent extends StatelessWidget {
 
   Widget _buildQuickActions(BuildContext context) {
     final actions = [
-      QuickAction('Add Transaction', Icons.add, Colors.green, () {
-        Navigator.of(context).pushNamed('/detailed_transaction_entry');
-      }),
-      QuickAction('View Goals', Icons.flag, Colors.blue, () {
-        Navigator.of(context).pushNamed('/goals');
-      }),
-      QuickAction('Loan Calculator', Icons.calculate, Colors.orange, () {
-        Navigator.of(context).pushNamed('/loan_calculator');
-      }),
-      QuickAction('Budget Planner', Icons.pie_chart, Colors.purple, () {
-        Navigator.of(context).pushNamed('/create_budget');
-      }),
+      QuickActionItem(
+        title: 'Add Transaction',
+        icon: Icons.add,
+        color: Colors.green,
+        onTap: () {
+          TransactionDialog.showAddDialog(
+            context,
+            onTransactionSaved: (transaction) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Transaction added successfully'),
+                  backgroundColor: Color(0xFF007A39),
+                ),
+              );
+            },
+          );
+        },
+      ),
+      QuickActionItem(
+        title: 'SMS Review',
+        icon: Icons.sms,
+        color: Colors.blue,
+        onTap: () async {
+          // Initialize SMS listener if not already running
+          final smsService = SmsListenerService.instance;
+          if (!smsService.isListening) {
+            await smsService.initialize();
+            await smsService.startListening();
+          }
+          Navigator.of(context).pushNamed('/sms_review');
+        },
+      ),
+      QuickActionItem(
+        title: 'View Goals',
+        icon: Icons.flag,
+        color: Colors.purple,
+        onTap: () => Navigator.of(context).pushNamed('/goals'),
+      ),
+      QuickActionItem(
+        title: 'Loan Calculator',
+        icon: Icons.calculate,
+        color: Colors.orange,
+        onTap: () => Navigator.of(context).pushNamed('/loan_calculator'),
+      ),
     ];
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Quick Actions',
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 16),
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            childAspectRatio: 2.5,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-          ),
-          itemCount: actions.length,
-          itemBuilder: (context, index) => _buildQuickActionCard(actions[index], context),
-        ),
-      ],
-    );
+    return QuickActionsGrid(actions: actions);
   }
 
   Widget _buildQuickActionCard(QuickAction action, BuildContext context) {
@@ -435,7 +452,17 @@ class DashboardContent extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   ElevatedButton(
-                    onPressed: () => Navigator.of(context).pushNamed('/detailed_transaction_entry'),
+                    onPressed: () => TransactionDialog.showAddDialog(
+                      context,
+                      onTransactionSaved: (transaction) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Transaction added successfully'),
+                            backgroundColor: Color(0xFF007A39),
+                          ),
+                        );
+                      },
+                    ),
                     child: const Text('Add Your First Transaction'),
                   ),
                 ],
@@ -443,7 +470,13 @@ class DashboardContent extends StatelessWidget {
             ),
           )
         else
-          ...transactions.map((transaction) => _buildTransactionItem(transaction, currencyService, context)),
+          ...transactions.map((transaction) => TransactionCard(
+            transaction: transaction,
+            showEditOptions: false, // Don't show edit options on dashboard
+            onTap: () {
+              // Navigate to full transactions screen or show details
+            },
+          )),
       ],
     );
   }

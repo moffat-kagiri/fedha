@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
+import '../services/biometric_auth_service.dart';
 import 'welcome_onboarding_screen.dart';
 import 'login_welcome_screen.dart';
 import 'main_navigation.dart';
+import 'biometric_lock_screen.dart';
 
 class AuthWrapper extends StatefulWidget {
   const AuthWrapper({Key? key}) : super(key: key);
@@ -17,6 +19,8 @@ class _AuthWrapperState extends State<AuthWrapper> {
   bool _isLoading = true;
   bool _onboardingCompleted = false;
   bool _isLoggedIn = false;
+  bool _needsBiometricAuth = false;
+  bool _biometricEnabled = false;
 
   @override
   void initState() {
@@ -33,9 +37,21 @@ class _AuthWrapperState extends State<AuthWrapper> {
         final authService = Provider.of<AuthService>(context, listen: false);
         await authService.initialize();
         
+        final biometricService = BiometricAuthService.instance;
+        final biometricEnabled = await biometricService.isBiometricEnabled();
+        final hasValidSession = await biometricService.hasValidBiometricSession();
+        
+        // Check if user is logged in and biometric is enabled
+        bool needsBiometric = false;
+        if (authService.isLoggedIn && biometricEnabled && !hasValidSession) {
+          needsBiometric = true;
+        }
+        
         setState(() {
           _onboardingCompleted = onboardingCompleted;
           _isLoggedIn = authService.isLoggedIn;
+          _biometricEnabled = biometricEnabled;
+          _needsBiometricAuth = needsBiometric;
           _isLoading = false;
         });
       }
@@ -44,6 +60,8 @@ class _AuthWrapperState extends State<AuthWrapper> {
         setState(() {
           _onboardingCompleted = false;
           _isLoggedIn = false;
+          _biometricEnabled = false;
+          _needsBiometricAuth = false;
           _isLoading = false;
         });
       }
@@ -85,6 +103,23 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
     if (!_onboardingCompleted) {
       return const WelcomeOnboardingScreen();
+    }
+
+    // Show biometric lock if needed
+    if (_needsBiometricAuth) {
+      return BiometricLockScreen(
+        onAuthSuccess: () {
+          setState(() {
+            _needsBiometricAuth = false;
+          });
+        },
+        onSkip: () {
+          // Optional: allow skip in development
+          setState(() {
+            _needsBiometricAuth = false;
+          });
+        },
+      );
     }
 
     return Consumer<AuthService>(

@@ -1,9 +1,13 @@
 import 'dart:math' as Math;
+import 'dart:math' show pow;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../services/api_client.dart';
 import '../services/currency_service.dart';
+
+// Add interest models enum
+enum InterestModel { simple, reducingBalance, compound }
 
 class LoanCalculatorScreen extends StatefulWidget {
   const LoanCalculatorScreen({super.key});
@@ -42,7 +46,7 @@ class _LoanCalculatorScreenState extends State<LoanCalculatorScreen> with Ticker
           tabs: const [
             Tab(text: 'Payment Calculator', icon: Icon(Icons.calculate)),
             Tab(text: 'Interest Solver', icon: Icon(Icons.trending_up)),
-            Tab(text: 'Affordability', icon: Icon(Icons.account_balance_wallet)),
+            Tab(text: 'Loans Tracker', icon: Icon(Icons.account_balance_wallet)),
           ],
         ),
       ),
@@ -51,7 +55,7 @@ class _LoanCalculatorScreenState extends State<LoanCalculatorScreen> with Ticker
         children: const [
           PaymentCalculatorTab(),
           InterestSolverTab(),
-          AffordabilityTab(),
+          LoansTrackerTab(),
         ],
       ),
     );
@@ -71,7 +75,23 @@ class _PaymentCalculatorTabState extends State<PaymentCalculatorTab> {
   final _annualRateController = TextEditingController();
   final _termYearsController = TextEditingController();
   
-  String _interestType = 'REDUCING';
+  // Interest model selection
+  InterestModel _interestModel = InterestModel.reducingBalance;
+  final List<DropdownMenuItem<InterestModel>> _interestModelItems = InterestModel.values.map((model) {
+    String text;
+    switch (model) {
+      case InterestModel.simple:
+        text = 'Simple Interest';
+        break;
+      case InterestModel.reducingBalance:
+        text = 'Reducing-Balance';
+        break;
+      case InterestModel.compound:
+        text = 'Compound Interest';
+        break;
+    }
+    return DropdownMenuItem(value: model, child: Text(text));
+  }).toList();
   String _paymentFrequency = 'MONTHLY';
   bool _isCalculating = false;
   Map<String, dynamic>? _result;
@@ -100,15 +120,29 @@ class _PaymentCalculatorTabState extends State<PaymentCalculatorTab> {
       final annualRate = double.parse(_annualRateController.text) / 100;
       final termYears = int.parse(_termYearsController.text);
       
-      // Simple loan calculation
-      final monthlyRate = annualRate / 12;
+      // Calculate loan payment based on selected interest model
       final numberOfPayments = termYears * 12;
-      final monthlyPayment = principal * 
-          (monthlyRate * Math.pow(1 + monthlyRate, numberOfPayments)) /
-          (Math.pow(1 + monthlyRate, numberOfPayments) - 1);
-      
-      final totalAmount = monthlyPayment * numberOfPayments;
-      final totalInterest = totalAmount - principal;
+      double monthlyPayment;
+      double totalAmount;
+      double totalInterest;
+      switch (_interestModel) {
+        case InterestModel.simple:
+          // Total amount = principal + simple interest
+          totalAmount = principal * (1 + annualRate * termYears);
+          monthlyPayment = totalAmount / numberOfPayments;
+          totalInterest = totalAmount - principal;
+          break;
+        case InterestModel.compound:
+        case InterestModel.reducingBalance:
+          // Amortized payment formula for compound/reducing-balance
+          final monthlyRate = annualRate / 12;
+          monthlyPayment = principal * 
+              (monthlyRate * Math.pow(1 + monthlyRate, numberOfPayments)) /
+              (Math.pow(1 + monthlyRate, numberOfPayments) - 1);
+          totalAmount = monthlyPayment * numberOfPayments;
+          totalInterest = totalAmount - principal;
+          break;
+      }
       
       setState(() {
         _result = {
@@ -219,6 +253,22 @@ class _PaymentCalculatorTabState extends State<PaymentCalculatorTab> {
                 return null;
               },
             ),
+            const SizedBox(height: 16),
+            // Interest Model selection
+            DropdownButtonFormField<InterestModel>(
+              value: _interestModel,
+              decoration: const InputDecoration(
+                labelText: 'Interest Model',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.swap_vert),
+              ),
+              items: _interestModelItems,
+              onChanged: (model) {
+                setState(() {
+                  _interestModel = model!;
+                });
+              },
+            ),
             const SizedBox(height: 24),
             
             // Calculate Button
@@ -317,6 +367,24 @@ class _InterestSolverTabState extends State<InterestSolverTab> {
   String _paymentFrequency = 'Monthly';
   double? _calculatedAPR;
   bool _isCalculating = false;
+
+  // Add interest model state
+  InterestModel _interestModel = InterestModel.simple;
+  final List<DropdownMenuItem<InterestModel>> _interestModelItems = InterestModel.values.map((model) {
+    String text;
+    switch (model) {
+      case InterestModel.simple:
+        text = 'Simple Interest';
+        break;
+      case InterestModel.reducingBalance:
+        text = 'Reducing-Balance';
+        break;
+      case InterestModel.compound:
+        text = 'Compound Interest';
+        break;
+    }
+    return DropdownMenuItem(value: model, child: Text(text));
+  }).toList();
 
   final List<String> _frequencies = ['Monthly', 'Quarterly', 'Semi-annually', 'Annually'];
 
@@ -440,6 +508,22 @@ class _InterestSolverTabState extends State<InterestSolverTab> {
                       onChanged: (value) {
                         setState(() {
                           _paymentFrequency = value!;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    
+                    // Interest Model
+                    DropdownButtonFormField<InterestModel>(
+                      value: _interestModel,
+                      decoration: const InputDecoration(
+                        labelText: 'Interest Model',
+                        prefixIcon: Icon(Icons.swap_vert),
+                      ),
+                      items: _interestModelItems,
+                      onChanged: (model) {
+                        setState(() {
+                          _interestModel = model!;
                         });
                       },
                     ),
@@ -595,9 +679,20 @@ class _InterestSolverTabState extends State<InterestSolverTab> {
       final years = double.parse(_termController.text);
       final paymentsPerYear = _getPaymentsPerYear(_paymentFrequency);
       final totalPayments = years * paymentsPerYear;
-      
-      // Use Newton-Raphson method to solve for interest rate
-      final apr = _solveForInterestRate(principal, payment, totalPayments, paymentsPerYear);
+      double apr;
+      if (_interestModel == InterestModel.simple) {
+        // Simple interest APR = (TotalInterest / Principal) / years * 100
+        final totalAmount = payment * totalPayments;
+        final totalInterest = totalAmount - principal;
+        apr = (totalInterest / principal) / years * 100;
+      } else if (_interestModel == InterestModel.compound) {
+        // Compound APR: ( (payment*totalPayments / principal) ^ (1/years) - 1 ) * 100
+        final totalAmount = payment * totalPayments;
+        apr = (pow(totalAmount / principal, 1 / years) - 1) * 100;
+      } else {
+        // Reducing balance via Newton-Raphson
+        apr = _solveForInterestRate(principal, payment, totalPayments, paymentsPerYear);
+      }
       
       setState(() {
         _calculatedAPR = apr;
@@ -653,7 +748,6 @@ class _InterestSolverTabState extends State<InterestSolverTab> {
   }
 
   double _calculatePresentValue(double payment, double rate, double periods) {
-    if (rate == 0) return payment * periods;
     return payment * (1 - Math.pow(1 + rate, -periods)) / rate;
   }
 
@@ -665,444 +759,386 @@ class _InterestSolverTabState extends State<InterestSolverTab> {
   }
 }
 
-class AffordabilityTab extends StatefulWidget {
-  const AffordabilityTab({super.key});
+class LoansTrackerTab extends StatefulWidget {
+  const LoansTrackerTab({super.key});
 
   @override
-  State<AffordabilityTab> createState() => _AffordabilityTabState();
+  State<LoansTrackerTab> createState() => _LoansTrackerTabState();
 }
 
-class _AffordabilityTabState extends State<AffordabilityTab> {
-  final _formKey = GlobalKey<FormState>();
-  final _monthlyIncomeController = TextEditingController();
-  final _monthlyExpensesController = TextEditingController();
-  final _existingDebtController = TextEditingController();
-  final _downPaymentController = TextEditingController();
-  final _loanAmountController = TextEditingController();
-  final _interestRateController = TextEditingController();
-  final _loanTermController = TextEditingController();
-  
-  double? _monthlyPayment;
-  double? _debtToIncomeRatio;
-  bool? _canAfford;
-  String _recommendation = '';
-  bool _isCalculating = false;
-
-  @override
-  void dispose() {
-    _monthlyIncomeController.dispose();
-    _monthlyExpensesController.dispose();
-    _existingDebtController.dispose();
-    _downPaymentController.dispose();
-    _loanAmountController.dispose();
-    _interestRateController.dispose();
-    _loanTermController.dispose();
-    super.dispose();
-  }
+class _LoansTrackerTabState extends State<LoansTrackerTab> {
+  final List<Loan> _loans = [];
 
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
-      child: Form(
-        key: _formKey,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Loans Tracker',
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: const Color(0xFF007A39),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Track and manage all your loans in one place.',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          
+          const SizedBox(height: 16),
+          
+          // Add Loan Button
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _showAddLoanDialog,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF007A39),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+              ),
+              icon: const Icon(Icons.add),
+              label: const Text('Add New Loan'),
+            ),
+          ),
+          
+          const SizedBox(height: 20),
+          
+          // Loans List
+          if (_loans.isEmpty)
             Card(
               child: Padding(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(40),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    Icon(
+                      Icons.account_balance_wallet_outlined,
+                      size: 64,
+                      color: Colors.grey.shade400,
+                    ),
+                    const SizedBox(height: 16),
                     Text(
-                      'Loan Affordability Calculator',
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: const Color(0xFF007A39),
+                      'No loans tracked yet',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: Colors.grey.shade600,
                       ),
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Determine if you can afford the loan based on your financial situation.',
+                      'Add your first loan to start tracking payments and balances',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Colors.grey.shade600,
+                        color: Colors.grey.shade500,
                       ),
+                      textAlign: TextAlign.center,
                     ),
                   ],
                 ),
               ),
-            ),
-            
-            const SizedBox(height: 16),
-            
-            // Financial Information
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Your Financial Information',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    
-                    Consumer<CurrencyService>(
-                      builder: (context, currencyService, child) {
-                        return Column(
+            )
+          else
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _loans.length,
+              itemBuilder: (context, index) {
+                final loan = _loans[index];
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            TextFormField(
-                              controller: _monthlyIncomeController,
-                              decoration: InputDecoration(
-                                labelText: 'Monthly Gross Income',
-                                prefixText: '${currencyService.currentSymbol} ',
-                                prefixIcon: const Icon(Icons.account_balance_wallet),
+                            Text(
+                              loan.name,
+                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
                               ),
-                              keyboardType: TextInputType.number,
-                              inputFormatters: [
-                                FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
-                              ],
-                              validator: (value) {
-                                if (value == null || value.isEmpty) {
-                                  return 'Please enter your monthly income';
-                                }
-                                final income = double.tryParse(value);
-                                if (income == null || income <= 0) {
-                                  return 'Please enter a valid income';
-                                }
-                                return null;
-                              },
                             ),
-                            const SizedBox(height: 16),
-                            
-                            TextFormField(
-                              controller: _monthlyExpensesController,
-                              decoration: InputDecoration(
-                                labelText: 'Monthly Expenses',
-                                prefixText: '${currencyService.currentSymbol} ',
-                                prefixIcon: const Icon(Icons.shopping_cart),
-                              ),
-                              keyboardType: TextInputType.number,
-                              inputFormatters: [
-                                FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
+                            PopupMenuButton(
+                              itemBuilder: (context) => [
+                                const PopupMenuItem(
+                                  value: 'edit',
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.edit),
+                                      SizedBox(width: 8),
+                                      Text('Edit'),
+                                    ],
+                                  ),
+                                ),
+                                const PopupMenuItem(
+                                  value: 'delete',
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.delete, color: Colors.red),
+                                      SizedBox(width: 8),
+                                      Text('Delete', style: TextStyle(color: Colors.red)),
+                                    ],
+                                  ),
+                                ),
                               ],
-                              validator: (value) {
-                                if (value == null || value.isEmpty) {
-                                  return 'Please enter your monthly expenses';
+                              onSelected: (value) {
+                                if (value == 'edit') {
+                                  _showEditLoanDialog(loan, index);
+                                } else if (value == 'delete') {
+                                  _deleteLoan(index);
                                 }
-                                final expenses = double.tryParse(value);
-                                if (expenses == null || expenses < 0) {
-                                  return 'Please enter valid expenses';
-                                }
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 16),
-                            
-                            TextFormField(
-                              controller: _existingDebtController,
-                              decoration: InputDecoration(
-                                labelText: 'Existing Monthly Debt Payments',
-                                prefixText: '${currencyService.currentSymbol} ',
-                                prefixIcon: const Icon(Icons.credit_card),
-                              ),
-                              keyboardType: TextInputType.number,
-                              inputFormatters: [
-                                FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
-                              ],
-                              validator: (value) {
-                                if (value == null || value.isEmpty) return null;
-                                final debt = double.tryParse(value);
-                                if (debt == null || debt < 0) {
-                                  return 'Please enter valid debt payments';
-                                }
-                                return null;
                               },
                             ),
                           ],
-                        );
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            
-            const SizedBox(height: 16),
-            
-            // Loan Information
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Loan Information',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    
-                    Consumer<CurrencyService>(
-                      builder: (context, currencyService, child) {
-                        return Column(
-                          children: [
-                            TextFormField(
-                              controller: _loanAmountController,
-                              decoration: InputDecoration(
-                                labelText: 'Loan Amount',
-                                prefixText: '${currencyService.currentSymbol} ',
-                                prefixIcon: const Icon(Icons.account_balance),
-                              ),
-                              keyboardType: TextInputType.number,
-                              inputFormatters: [
-                                FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
-                              ],
-                              validator: (value) {
-                                if (value == null || value.isEmpty) {
-                                  return 'Please enter loan amount';
-                                }
-                                final amount = double.tryParse(value);
-                                if (amount == null || amount <= 0) {
-                                  return 'Please enter a valid loan amount';
-                                }
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 16),
-                            
-                            TextFormField(
-                              controller: _interestRateController,
-                              decoration: const InputDecoration(
-                                labelText: 'Annual Interest Rate (%)',
-                                prefixIcon: Icon(Icons.percent),
-                              ),
-                              keyboardType: TextInputType.number,
-                              inputFormatters: [
-                                FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,3}')),
-                              ],
-                              validator: (value) {
-                                if (value == null || value.isEmpty) {
-                                  return 'Please enter interest rate';
-                                }
-                                final rate = double.tryParse(value);
-                                if (rate == null || rate < 0 || rate > 100) {
-                                  return 'Please enter a valid rate (0-100%)';
-                                }
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 16),
-                            
-                            TextFormField(
-                              controller: _loanTermController,
-                              decoration: const InputDecoration(
-                                labelText: 'Loan Term (Years)',
-                                prefixIcon: Icon(Icons.schedule),
-                              ),
-                              keyboardType: TextInputType.number,
-                              inputFormatters: [
-                                FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,1}')),
-                              ],
-                              validator: (value) {
-                                if (value == null || value.isEmpty) {
-                                  return 'Please enter loan term';
-                                }
-                                final years = double.tryParse(value);
-                                if (years == null || years <= 0) {
-                                  return 'Please enter a valid term';
-                                }
-                                return null;
-                              },
-                            ),
-                          ],
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 24),
-                    
-                    // Calculate Button
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: _isCalculating ? null : _calculateAffordability,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF007A39),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
                         ),
-                        child: _isCalculating
-                            ? const CircularProgressIndicator(
-                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                              )
-                            : const Text('Check Affordability'),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            
-            if (_canAfford != null) ...[
-              const SizedBox(height: 16),
-              _buildAffordabilityResult(),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAffordabilityResult() {
-    final color = _canAfford! ? Colors.green : Colors.red;
-    final icon = _canAfford! ? Icons.check_circle : Icons.warning;
-    
-    return Card(
-      color: color.withValues(alpha: 0.1),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                Icon(icon, color: color, size: 32),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    _canAfford! ? 'Loan Appears Affordable' : 'Loan May Not Be Affordable',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: color,
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildLoanInfo('Principal', 'KES ${loan.principal.toStringAsFixed(0)}'),
+                            ),
+                            Expanded(
+                              child: _buildLoanInfo('Rate', '${loan.interestRate.toStringAsFixed(1)}%'),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildLoanInfo('Monthly Payment', 'KES ${loan.monthlyPayment.toStringAsFixed(0)}'),
+                            ),
+                            Expanded(
+                              child: _buildLoanInfo('Remaining', '${loan.remainingMonths} months'),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        LinearProgressIndicator(
+                          value: (loan.totalMonths - loan.remainingMonths) / loan.totalMonths,
+                          backgroundColor: Colors.grey.shade300,
+                          valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF007A39)),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Progress: ${((loan.totalMonths - loan.remainingMonths) / loan.totalMonths * 100).toStringAsFixed(1)}% completed',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            
-            Consumer<CurrencyService>(
-              builder: (context, currencyService, child) {
-                return Column(
-                  children: [
-                    _buildResultRow('Monthly Payment:', currencyService.formatCurrency(_monthlyPayment!)),
-                    _buildResultRow('Debt-to-Income Ratio:', '${_debtToIncomeRatio!.toStringAsFixed(1)}%'),
-                    const SizedBox(height: 16),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Recommendation:',
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            _recommendation,
-                            style: Theme.of(context).textTheme.bodyMedium,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
                 );
               },
             ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildResultRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: const TextStyle(fontWeight: FontWeight.w500)),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
         ],
       ),
     );
   }
 
-  void _calculateAffordability() {
-    if (!_formKey.currentState!.validate()) return;
-
-    setState(() {
-      _isCalculating = true;
-    });
-
-    try {
-      final monthlyIncome = double.parse(_monthlyIncomeController.text);
-      final monthlyExpenses = double.parse(_monthlyExpensesController.text);
-      final existingDebt = double.tryParse(_existingDebtController.text) ?? 0;
-      final loanAmount = double.parse(_loanAmountController.text);
-      final annualRate = double.parse(_interestRateController.text);
-      final years = double.parse(_loanTermController.text);
-      
-      // Calculate monthly payment
-      final monthlyRate = annualRate / 100 / 12;
-      final numPayments = years * 12;
-      
-      double monthlyPayment;
-      if (monthlyRate == 0) {
-        monthlyPayment = loanAmount / numPayments;
-      } else {
-        monthlyPayment = loanAmount * 
-            (monthlyRate * Math.pow(1 + monthlyRate, numPayments)) /
-            (Math.pow(1 + monthlyRate, numPayments) - 1);
-      }
-      
-      // Calculate debt-to-income ratio
-      final totalMonthlyDebt = existingDebt + monthlyPayment;
-      final debtToIncome = (totalMonthlyDebt / monthlyIncome) * 100;
-      
-      // Determine affordability
-      final disposableIncome = monthlyIncome - monthlyExpenses - existingDebt;
-      final canAfford = debtToIncome <= 36 && monthlyPayment <= disposableIncome * 0.8;
-      
-      // Generate recommendation
-      String recommendation;
-      if (canAfford) {
-        recommendation = 'Based on your financial profile, this loan appears affordable. Your debt-to-income ratio is within acceptable limits, and you have sufficient disposable income to cover the payments comfortably.';
-      } else if (debtToIncome > 36) {
-        recommendation = 'Your debt-to-income ratio would be ${debtToIncome.toStringAsFixed(1)}%, which exceeds the recommended 36% limit. Consider reducing existing debt or choosing a smaller loan amount.';
-      } else {
-        recommendation = 'While your debt-to-income ratio is acceptable, the monthly payment would consume a large portion of your disposable income. Consider a longer loan term or larger down payment to reduce monthly payments.';
-      }
-      
-      setState(() {
-        _monthlyPayment = monthlyPayment;
-        _debtToIncomeRatio = debtToIncome;
-        _canAfford = canAfford;
-        _recommendation = recommendation;
-        _isCalculating = false;
-      });
-    } catch (e) {
-      setState(() {
-        _isCalculating = false;
-      });
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error calculating affordability: ${e.toString()}'),
-          backgroundColor: Colors.red,
+  Widget _buildLoanInfo(String label, String value) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 12,
+            color: Colors.grey,
+          ),
         ),
-      );
-    }
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
+    );
   }
+
+  void _showAddLoanDialog() {
+    _showLoanDialog();
+  }
+
+  void _showEditLoanDialog(Loan loan, int index) {
+    _showLoanDialog(loan: loan, index: index);
+  }
+
+  void _showLoanDialog({Loan? loan, int? index}) {
+    final nameController = TextEditingController(text: loan?.name ?? '');
+    final principalController = TextEditingController(text: loan?.principal.toString() ?? '');
+    final rateController = TextEditingController(text: loan?.interestRate.toString() ?? '');
+    final termController = TextEditingController(text: loan?.totalMonths.toString() ?? '');
+    final remainingController = TextEditingController(text: loan?.remainingMonths.toString() ?? '');
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(loan == null ? 'Add New Loan' : 'Edit Loan'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(
+                  labelText: 'Loan Name',
+                  hintText: 'e.g., Car Loan, Mortgage',
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: principalController,
+                decoration: const InputDecoration(
+                  labelText: 'Principal Amount (KES)',
+                ),
+                keyboardType: TextInputType.number,
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: rateController,
+                decoration: const InputDecoration(
+                  labelText: 'Interest Rate (%)',
+                ),
+                keyboardType: TextInputType.number,
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: termController,
+                decoration: const InputDecoration(
+                  labelText: 'Total Term (months)',
+                ),
+                keyboardType: TextInputType.number,
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: remainingController,
+                decoration: const InputDecoration(
+                  labelText: 'Remaining Months',
+                ),
+                keyboardType: TextInputType.number,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final name = nameController.text.trim();
+              final principal = double.tryParse(principalController.text) ?? 0;
+              final rate = double.tryParse(rateController.text) ?? 0;
+              final totalMonths = int.tryParse(termController.text) ?? 0;
+              final remainingMonths = int.tryParse(remainingController.text) ?? 0;
+
+              if (name.isNotEmpty && principal > 0 && rate > 0 && totalMonths > 0) {
+                final monthlyRate = rate / 100 / 12;
+                final monthlyPayment = principal * 
+                    (monthlyRate * pow(1 + monthlyRate, totalMonths)) /
+                    (pow(1 + monthlyRate, totalMonths) - 1);
+
+                final newLoan = Loan(
+                  name: name,
+                  principal: principal,
+                  interestRate: rate,
+                  totalMonths: totalMonths,
+                  remainingMonths: remainingMonths,
+                  monthlyPayment: monthlyPayment,
+                );
+
+                setState(() {
+                  if (index != null) {
+                    _loans[index] = newLoan;
+                  } else {
+                    _loans.add(newLoan);
+                  }
+                });
+
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(loan == null ? 'Loan added successfully!' : 'Loan updated successfully!'),
+                    backgroundColor: const Color(0xFF007A39),
+                  ),
+                );
+              }
+            },
+            child: Text(loan == null ? 'Add' : 'Update'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _deleteLoan(int index) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Loan'),
+        content: const Text('Are you sure you want to delete this loan?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              setState(() {
+                _loans.removeAt(index);
+              });
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Loan deleted successfully!'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class Loan {
+  final String name;
+  final double principal;
+  final double interestRate;
+  final int totalMonths;
+  final int remainingMonths;
+  final double monthlyPayment;
+
+  Loan({
+    required this.name,
+    required this.principal,
+    required this.interestRate,
+    required this.totalMonths,
+    required this.remainingMonths,
+    required this.monthlyPayment,
+  });
 }

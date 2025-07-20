@@ -223,21 +223,11 @@ class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
                 Icon(Icons.rocket_launch, color: Colors.white, size: 32),
                 SizedBox(height: 12),
                 Text(
-                  'Transform Your Financial Life',
+                  'Smart financial management made simple',
                   style: TextStyle(
-                    fontSize: 18,
+                    fontSize: 16,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                SizedBox(height: 8),
-                Text(
-                  'Discover how Fedha revolutionizes personal finance management with intelligent automation, privacy-first design, and powerful planning tools.',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.white70,
-                    height: 1.5,
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -282,20 +272,20 @@ class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
           
           _buildBenefitCard(
             Icons.sms,
-            'Smart SMS Transaction Tracking',
-            'Automatically capture M-PESA and bank transactions from SMS messages. No more manual entry!',
+            'Smart SMS Tracking',
+            'Auto-capture M-PESA transactions from SMS',
           ),
           const SizedBox(height: 16),
           _buildBenefitCard(
             Icons.savings,
-            'Intelligent Goal Planning',
-            'Set SMART financial goals with realistic timelines based on your income and spending patterns.',
+            'SMART Goal Planning',
+            'Set realistic financial goals with timelines',
           ),
           const SizedBox(height: 16),
           _buildBenefitCard(
             Icons.analytics,
-            'Real-Time Budget Tracking',
-            'Track your spending with the 50/30/20 rule and get instant insights into your financial health.',
+            'Real-Time Budgets',
+            'Track spending with 50/30/20 rule insights',
           ),
         ],
       ),
@@ -336,19 +326,19 @@ class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
           _buildBenefitCard(
             Icons.visibility,
             'Complete Financial Visibility',
-            'See exactly where your money goes with automatic categorization and clear spending breakdowns.',
+            'See exactly where your money goes',
           ),
           const SizedBox(height: 16),
           _buildBenefitCard(
             Icons.schedule,
             'Stress-Free Planning',
-            'Plan your financial future with confidence using AI-powered insights and realistic projections.',
+            'Plan your future with AI-powered insights',
           ),
           const SizedBox(height: 16),
           _buildBenefitCard(
             Icons.celebration,
-            'Positive Reinforcement',
-            'Celebrate your financial wins with encouraging messages and milestone achievements.',
+            'Celebrate Your Wins',
+            'Track milestones and achievements',
           ),
         ],
       ),
@@ -389,19 +379,19 @@ class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
           _buildBenefitCard(
             Icons.phone_android,
             'Offline-First Design',
-            'Your data stays on your device. All core features work without internet connectivity.',
+            'Your data stays on your device',
           ),
           const SizedBox(height: 16),
           _buildBenefitCard(
             Icons.fingerprint,
             'Biometric Security',
-            'Secure your app with fingerprint or face unlock. Your financial data is protected.',
+            'Secure with fingerprint or face unlock',
           ),
           const SizedBox(height: 16),
           _buildBenefitCard(
             Icons.no_accounts,
             'No Data Mining',
-            'We don\'t sell your data or track your spending habits. Your privacy is completely protected.',
+            'We don\'t sell or track your data',
           ),
           const SizedBox(height: 32),
           
@@ -417,21 +407,11 @@ class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
                 Icon(Icons.verified_user, color: Colors.white, size: 32),
                 SizedBox(height: 12),
                 Text(
-                  'Ready to take control?',
+                  'Ready to take control of your finances?',
                   style: TextStyle(
-                    fontSize: 18,
+                    fontSize: 16,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                SizedBox(height: 8),
-                Text(
-                  'Join thousands of Kenyans who have transformed their financial lives with Fedha.',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.white70,
-                    height: 1.5,
                   ),
                   textAlign: TextAlign.center,
                 ),
