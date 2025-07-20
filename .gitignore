@@ -358,9 +358,9 @@ secrets.json
 # ==============================================================================
 # MICROSERVICES
 # ==============================================================================
-# Calculator microservice specific
-calculators-microservice/__pycache__/
-calculators-microservice/*.pyc
+# Calculator microservice was removed during cleanup
+# calculators-microservice/__pycache__/
+# calculators-microservice/*.pyc
 
 # ==============================================================================
 # DOCUMENTATION & OUTPUT
@@ -387,13 +387,49 @@ htmlcov/
 .pytest_cache/
 .tox/
 
+# Test files and directories (cleaned up)
+test_*/
+*_test.*
+*/test/
+debug_*/
+verify_*/
+
 # CI/CD
 .github/workflows/secrets/
 
 # ==============================================================================
+# STABILITY & COMPILATION ESSENTIALS
+# ==============================================================================
+# INCLUDE essential generated files for compilation stability
+# Hive adapter files (.g.dart) are REQUIRED for Hive to work
+# !**/*.g.dart  # This ensures .g.dart files are included
+
+# Configuration examples (include templates, exclude actual config)
+!.env.example
+!config.example.json
+!settings.example.py
+
+# Essential build files for multi-machine compilation
+!pubspec.yaml
+!pubspec.lock
+!analysis_options.yaml
+!requirements.txt
+!package.json
+!package-lock.json
+!pyproject.toml
+!manage.py
+
+# ==============================================================================
 # CUSTOM PROJECT FILES
 # ==============================================================================
-# Add any project-specific files or patterns here
-# Example:
-# custom-config.json
-# local-development-settings/
+# Development tools and setup scripts
+start.bat
+start.ps1
+setup_*.py
+setup_*.sh
+
+# Temporary development files
+temp_*
+tmp_*
+local_*
+scratch_*
