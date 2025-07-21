@@ -433,3 +433,22 @@ temp_*
 tmp_*
 local_*
 scratch_*
+
+# Prevent reappearing deleted files
+LOGIN_SYSTEM_IMPLEMENTATION.md
+app/LOGIN_SYSTEM_IMPLEMENTATION.md
+app/lib/debug_sms_senders.dart
+app/lib/models/budget_period.dart
+app/lib/models/enhanced_profile.dart
+app/lib/models/goal_type.dart
+app/lib/screens/dashboard_screen_fixed.dart
+app/lib/screens/dashboard_screen_new.dart
+app/lib/widgets/api_debug_widget.dart
+app/test_compile.dart
+docs/archive/
+
+# Backup files from development
+*_backup.dart
+*_old.dart
+*_new.dart
+*_fixed.dart
