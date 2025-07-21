@@ -8,6 +8,133 @@ import '../services/api_client.dart';
 import '../services/biometric_auth_service.dart';
 import '../services/google_auth_service.dart';
 
+// Auth session for persistent login
+class AuthSession {
+  final String userId;
+  final DateTime createdAt;
+  final DateTime expiresAt;
+  final String sessionToken;
+  final String? deviceId;
+  
+  bool get isValid => DateTime.now().isBefore(expiresAt);
+  
+  AuthSession({
+    required this.userId,
+    required this.sessionToken,
+    this.deviceId,
+    DateTime? createdAt,
+    DateTime? expiresAt,
+  }) : 
+    this.createdAt = createdAt ?? DateTime.now(),
+    this.expiresAt = expiresAt ?? DateTime.now().add(const Duration(days: 30));
+    
+  Map<String, dynamic> toJson() => {
+    'userId': userId,
+    'sessionToken': sessionToken,
+    'createdAt': createdAt.toIso8601String(),
+    'expiresAt': expiresAt.toIso8601String(),
+    'deviceId': deviceId,
+  };
+  
+  factory AuthSession.fromJson(Map<String, dynamic> json) => AuthSession(
+    userId: json['userId'],
+    sessionToken: json['sessionToken'],
+    createdAt: DateTime.parse(json['createdAt']),
+    expiresAt: DateTime.parse(json['expiresAt']),
+    deviceId: json['deviceId'],
+  );
+}
+
+// Result class for sync operations
+class SyncResult {
+  final bool success;
+  final String message;
+  final int syncedEntities;
+  
+  SyncResult({
+    required this.success,
+    required this.message,
+    required this.syncedEntities,
+  });
+  
+  static SyncResult failed(String message) => SyncResult(
+    success: false,
+    message: message,
+    syncedEntities: 0,
+  );
+  
+  static SyncResult success({int syncedEntities = 0, String? message}) => SyncResult(
+    success: true,
+    message: message ?? 'Sync completed successfully',
+    syncedEntities: syncedEntities,
+  );
+}
+
+// User-controlled sync settings
+class SyncSettings {
+  bool syncTransactions;
+  bool syncBudgets;
+  bool syncGoals;
+  TransactionSyncLevel transactionSyncLevel;
+  
+  SyncSettings({
+    this.syncTransactions = false, // Default to privacy-first
+    this.syncBudgets = true,
+    this.syncGoals = true,
+    this.transactionSyncLevel = TransactionSyncLevel.metadataOnly,
+  });
+  
+  Map<String, dynamic> toJson() => {
+    'syncTransactions': syncTransactions,
+    'syncBudgets': syncBudgets,
+    'syncGoals': syncGoals,
+    'transactionSyncLevel': transactionSyncLevel.index,
+  };
+  
+  factory SyncSettings.fromJson(Map<String, dynamic> json) => SyncSettings(
+    syncTransactions: json['syncTransactions'] ?? false,
+    syncBudgets: json['syncBudgets'] ?? true,
+    syncGoals: json['syncGoals'] ?? true,
+    transactionSyncLevel: TransactionSyncLevel.values[json['transactionSyncLevel'] ?? 1],
+  );
+  
+  SyncSettings copyWith({
+    bool? syncTransactions,
+    bool? syncBudgets,
+    bool? syncGoals,
+    TransactionSyncLevel? transactionSyncLevel,
+  }) => SyncSettings(
+    syncTransactions: syncTransactions ?? this.syncTransactions,
+    syncBudgets: syncBudgets ?? this.syncBudgets,
+    syncGoals: syncGoals ?? this.syncGoals,
+    transactionSyncLevel: transactionSyncLevel ?? this.transactionSyncLevel,
+  );
+}
+
+enum TransactionSyncLevel {
+  none,           // No transaction sync
+  metadataOnly,   // Only amount, date, category (no descriptions/memos)
+  fullWithoutPII, // Everything except personally identifiable info
+  complete        // Complete transaction details
+}
+
+enum SyncStrategy {
+  manual,     // User-triggered sync
+  scheduled,  // Scheduled periodic sync
+  background, // Background sync (e.g. after login)
+  startup     // Sync when app starts
+}
+
+// TimeoutException class for sync operations
+class TimeoutException implements Exception {
+  final String message;
+  
+  TimeoutException(this.message);
+  
+  @override
+  String toString() => message;
+}
+
 // Result class for profile existence checks
 class ProfileExistenceResult {
   final bool exists;
@@ -26,11 +153,18 @@ class LoginResult {
   final bool success;
   final String message;
   final Profile? profile;
+  final bool isFirstLogin;
 
-  LoginResult.success({this.profile})
-    : success = true,
-      message = 'Login successful';
-  LoginResult.error(this.message) : success = false, profile = null;
+  LoginResult.success({
+    this.profile, 
+    this.isFirstLogin = false,
+  }) : success = true,
+       message = 'Login successful';
+       
+  LoginResult.error(this.message) 
+    : success = false, 
+      profile = null,
+      isFirstLogin = false;
 
   static LoginResult empty() => LoginResult.error('No profile found');
 }
@@ -118,40 +252,167 @@ class AuthService extends ChangeNotifier {
     }
   }
 
-  // Auto login - check for stored session
-  Future<void> tryAutoLogin() async {
+  // Auto login - check for stored session and restore if valid
+  Future<LoginResult> tryAutoLogin() async {
     try {
       if (_profileBox == null) {
         await initialize();
       }
 
       final settingsBox = Hive.box('settings');
-      final currentProfileId = settingsBox.get('current_profile_id');
+      
+      // Check if persistent login is enabled globally
       final persistentLoginEnabled = settingsBox.get(
         'persistent_login_enabled',
         defaultValue: true,
       );
-
-      if (currentProfileId != null && persistentLoginEnabled) {
-        final profile = _profileBox!.get(currentProfileId);
-        if (profile != null) {
-          _currentProfile = profile;
-
-          // Update last login timestamp
-          final updatedProfile = profile.copyWith(lastLogin: DateTime.now());
-          await _profileBox!.put(currentProfileId, updatedProfile);
-          _currentProfile = updatedProfile;
-
-          notifyListeners();
-
-          if (kDebugMode) {
-            print('Auto login successful for profile: ${profile.email}');
+      
+      if (!persistentLoginEnabled) {
+        return LoginResult.error('Persistent login is disabled');
+      }
+      
+      // Try to get saved session
+      final sessionJson = settingsBox.get('auth_session');
+      if (sessionJson == null) {
+        return LoginResult.error('No saved session found');
+      }
+      
+      // Parse and validate session
+      final session = AuthSession.fromJson(Map<String, dynamic>.from(sessionJson));
+      if (!session.isValid) {
+        // Clear expired session
+        await settingsBox.delete('auth_session');
+        return LoginResult.error('Session expired');
+      }
+      
+      // Get profile from local storage
+      final profile = _profileBox!.get(session.userId);
+      if (profile == null) {
+        // Profile not found locally, try to fetch from server if online
+        final isConnected = await _apiClient.checkServerConnection();
+        if (isConnected) {
+          try {
+            final serverProfile = await _apiClient.getProfile(
+              userId: session.userId,
+              sessionToken: session.sessionToken,
+            );
+            
+            if (serverProfile != null) {
+              // Save profile locally
+              await _profileBox!.put(session.userId, serverProfile);
+              _currentProfile = serverProfile;
+              
+              // Update session's expiry date to extend it
+              _refreshSession(session);
+              
+              notifyListeners();
+              return LoginResult.success(profile: serverProfile);
+            }
+          } catch (e) {
+            if (kDebugMode) {
+              print('Failed to fetch profile from server: $e');
+            }
           }
         }
+        
+        return LoginResult.error('Profile not found');
       }
+      
+      // Successfully found local profile
+      _currentProfile = profile;
+      
+      // Update last login timestamp
+      final updatedProfile = profile.copyWith(lastLogin: DateTime.now());
+      await _profileBox!.put(session.userId, updatedProfile);
+      _currentProfile = updatedProfile;
+      
+      // Refresh the session
+      _refreshSession(session);
+      
+      // Try background sync if online
+      _syncInBackground();
+      
+      // Since this is auto-login, it's not a first login
+      // but we'll still check the status for consistent UI behavior
+      final isFirstTimeLogin = await isFirstLogin();
+      
+      notifyListeners();
+      
+      if (kDebugMode) {
+        print('Auto login successful for profile: ${profile.email}');
+      }
+      
+      return LoginResult.success(
+        profile: updatedProfile,
+        isFirstLogin: isFirstTimeLogin,
+      );
     } catch (e) {
       if (kDebugMode) {
         print('Auto login failed: $e');
+      }
+      return LoginResult.error('Auto login failed: ${e.toString()}');
+    }
+  }
+  
+  // Refresh an auth session to extend its validity
+  Future<void> _refreshSession(AuthSession session) async {
+    try {
+      final settingsBox = Hive.box('settings');
+      final newSession = AuthSession(
+        userId: session.userId,
+        sessionToken: session.sessionToken,
+        deviceId: session.deviceId,
+        // Create a new expiration date 30 days from now
+        expiresAt: DateTime.now().add(const Duration(days: 30)),
+      );
+      
+      await settingsBox.put('auth_session', newSession.toJson());
+    } catch (e) {
+      if (kDebugMode) {
+        print('Failed to refresh session: $e');
+      }
+    }
+  }
+  
+  // Perform background synchronization
+  Future<void> _syncInBackground() async {
+    try {
+      final isConnected = await _apiClient.checkServerConnection();
+      if (isConnected && _currentProfile != null) {
+        // Get sync settings
+        final settingsBox = Hive.box('settings');
+        final syncSettingsJson = settingsBox.get(
+          'sync_settings_${_currentProfile!.id}',
+          defaultValue: SyncSettings().toJson(),
+        );
+        
+        final syncSettings = SyncSettings.fromJson(
+          Map<String, dynamic>.from(syncSettingsJson),
+        );
+        
+        // Create sync manager and perform sync based on settings
+        final syncManager = SyncManager(apiClient: _apiClient, profile: _currentProfile!);
+        await syncManager.syncEssentialData(); // Always sync essential data
+        
+        // Conditional syncing based on user preferences
+        if (syncSettings.syncGoals) {
+          syncManager.syncGoals(); // Fire and forget
+        }
+        
+        if (syncSettings.syncBudgets) {
+          syncManager.syncBudgets(); // Fire and forget
+        }
+        
+        if (syncSettings.syncTransactions) {
+          syncManager.syncTransactions(
+            level: syncSettings.transactionSyncLevel,
+          ); // Fire and forget
+        }
+      }
+    } catch (e) {
+      // Silent fail for background sync
+      if (kDebugMode) {
+        print('Background sync failed: $e');
       }
     }
   }
@@ -361,6 +622,7 @@ class AuthService extends ChangeNotifier {
     String email,
     String pin, {
     bool saveToGoogle = false,
+    bool createPersistentSession = true,
   }) async {
     if (kDebugMode) {
       print('Attempting enhanced login for email: $email');
@@ -378,13 +640,40 @@ class AuthService extends ChangeNotifier {
           // Save updated profile with last login time
           await _profileBox!.put(profile.id, _currentProfile!);
 
-          // Save current profile ID for persistent login
+          // Save current profile ID and create persistent session if enabled
           final settingsBox = Hive.box('settings');
           await settingsBox.put('current_profile_id', profile.id);
+          
+          // Create and save auth session for persistent login
+          if (createPersistentSession) {
+            final deviceId = await _getOrCreateDeviceId();
+            final authSession = AuthSession(
+              userId: profile.id,
+              sessionToken: _createSessionToken(),
+              deviceId: deviceId,
+            );
+            
+            await settingsBox.put('auth_session', authSession.toJson());
+            if (kDebugMode) {
+              print('Created persistent auth session until: ${authSession.expiresAt}');
+            }
+          }
 
           // Save to Google if requested
           if (saveToGoogle) {
             await saveCredentialsToGoogle();
+          }
+          
+          // Try to sync in background if online
+          _startBackgroundSync();
+          
+          // Check if this is the first login for the profile
+          final isFirstTimeLogin = await isFirstLogin();
+          if (isFirstTimeLogin) {
+            // This information will be available to the UI layer to show prompts
+            if (kDebugMode) {
+              print('First login detected for: ${_currentProfile!.id}');
+            }
           }
 
           notifyListeners();
@@ -393,7 +682,187 @@ class AuthService extends ChangeNotifier {
             print('Local login successful for email: $email');
           }
 
-          return LoginResult.success(profile: _currentProfile!);
+          // Return success with first login status to inform UI about prompts
+          return LoginResult.success(
+            profile: _currentProfile!,
+            isFirstLogin: isFirstTimeLogin,
+          );
+        }
+      }
+      return LoginResult.error('Invalid email or PIN');
+    }
+      
+  // Helper method to get or create a device ID
+  Future<String> _getOrCreateDeviceId() async {
+    final settingsBox = Hive.box('settings');
+    String? deviceId = settingsBox.get('device_id');
+    
+    if (deviceId == null) {
+      deviceId = _uuid.v4(); // Generate a new UUID for this device
+      await settingsBox.put('device_id', deviceId);
+    }
+    
+    return deviceId;
+  }
+  
+  // Helper method to create a secure session token
+  String _createSessionToken() {
+    // Combine UUID with timestamp for uniqueness
+    return '${_uuid.v4()}_${DateTime.now().millisecondsSinceEpoch}';
+  }
+  
+  // Start background sync process
+  void _startBackgroundSync() {
+    if (_currentProfile == null) return;
+    
+    // Use Future.delayed to run sync in background without blocking UI
+    Future.delayed(const Duration(seconds: 1), () async {
+      try {
+        final syncManager = SyncManager(
+          apiClient: _apiClient,
+          profile: _currentProfile!,
+        );
+        
+        // Try to sync essential data first
+        await syncManager.syncEssentialData();
+        
+  // Check if this is the user's first login
+  Future<bool> isFirstLogin() async {
+    if (_currentProfile == null) return false;
+    
+    final settingsBox = Hive.box('settings');
+    final String profileFirstLoginKey = 'first_login_completed_${_currentProfile!.id}';
+    final bool firstLoginCompleted = settingsBox.get(profileFirstLoginKey, defaultValue: false);
+    
+    return !firstLoginCompleted;
+  }
+  
+  // Mark first login as completed
+  Future<void> markFirstLoginCompleted() async {
+    if (_currentProfile == null) return;
+    
+    final settingsBox = Hive.box('settings');
+    final String profileFirstLoginKey = 'first_login_completed_${_currentProfile!.id}';
+    await settingsBox.put(profileFirstLoginKey, true);
+  }
+  
+  // Check if biometric prompt has been shown
+  Future<bool> shouldShowBiometricPrompt() async {
+    if (_currentProfile == null) return false;
+    
+    final settingsBox = Hive.box('settings');
+    final String biometricPromptKey = 'biometric_prompt_shown_${_currentProfile!.id}';
+    final bool biometricPromptShown = settingsBox.get(biometricPromptKey, defaultValue: false);
+    
+    // Only show if the device supports biometrics
+    final BiometricAuthService biometricService = BiometricAuthService.instance;
+    final bool deviceSupportsBiometrics = await biometricService.canUseBiometrics();
+    
+    return !biometricPromptShown && deviceSupportsBiometrics;
+  }
+  
+  // Mark biometric prompt as shown
+  Future<void> markBiometricPromptShown() async {
+    if (_currentProfile == null) return;
+    
+    final settingsBox = Hive.box('settings');
+    final String biometricPromptKey = 'biometric_prompt_shown_${_currentProfile!.id}';
+    await settingsBox.put(biometricPromptKey, true);
+  }
+  
+  // Check if permissions prompt has been shown
+  Future<bool> shouldShowPermissionsPrompt() async {
+    if (_currentProfile == null) return false;
+    
+    final settingsBox = Hive.box('settings');
+    final String permissionsPromptKey = 'permissions_prompt_shown_${_currentProfile!.id}';
+    final bool permissionsPromptShown = settingsBox.get(permissionsPromptKey, defaultValue: false);
+    
+    return !permissionsPromptShown;
+  }
+  
+  // Mark permissions prompt as shown
+  Future<void> markPermissionsPromptShown() async {
+    if (_currentProfile == null) return;
+    
+    final settingsBox = Hive.box('settings');
+    final String permissionsPromptKey = 'permissions_prompt_shown_${_currentProfile!.id}';
+    await settingsBox.put(permissionsPromptKey, true);
+  }
+  
+  // Enable biometric authentication for the current user
+  Future<bool> enableBiometricAuth() async {
+    if (_currentProfile == null) return false;
+    
+    try {
+      final BiometricAuthService biometricService = BiometricAuthService.instance;
+      
+      // Check if biometrics can be used on this device
+      if (!await biometricService.canUseBiometrics()) {
+        return false;
+      }
+      
+      // Authenticate with biometric to confirm user identity
+      final bool authenticated = await biometricService.authenticateWithBiometric(
+        'Please verify your identity to enable biometric authentication'
+      );
+      
+      if (!authenticated) {
+        return false;
+      }
+      
+      // Create biometric session
+      await biometricService.createBiometricSession(_currentProfile!.id);
+      
+      // Mark biometric auth as enabled for this profile
+      final settingsBox = Hive.box('settings');
+      await settingsBox.put('biometric_enabled_${_currentProfile!.id}', true);
+      
+      if (kDebugMode) {
+        print('Biometric authentication enabled for profile: ${_currentProfile!.email}');
+      }
+      
+      return true;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Failed to enable biometric authentication: $e');
+      }
+      return false;
+    }
+  }
+        
+        // Get sync settings and perform other syncs
+        final settingsBox = Hive.box('settings');
+        final syncSettingsJson = settingsBox.get(
+          'sync_settings_${_currentProfile!.id}',
+          defaultValue: SyncSettings().toJson(),
+        );
+        
+        final syncSettings = SyncSettings.fromJson(
+          Map<String, dynamic>.from(syncSettingsJson),
+        );
+        
+        // Start background syncs that can run in parallel
+        if (syncSettings.syncGoals) {
+          syncManager.syncGoals(); // Fire and forget
+        }
+        
+        if (syncSettings.syncBudgets) {
+          syncManager.syncBudgets(); // Fire and forget
+        }
+        
+        if (syncSettings.syncTransactions) {
+          syncManager.syncTransactions(
+            level: syncSettings.transactionSyncLevel,
+          ); // Fire and forget
+        }
+      } catch (e) {
+        if (kDebugMode) {
+          print('Background sync after login failed: $e');
+        }
+      }
+    });
+  }
         }
       }
       return LoginResult.error('Invalid email or PIN');
@@ -879,13 +1348,35 @@ class AuthService extends ChangeNotifier {
       // Clear current profile
       _currentProfile = null;
 
-      // Clear stored session
+      // Clear stored sessions
       final settingsBox = Hive.box('settings');
       await settingsBox.delete('current_profile_id');
+      await settingsBox.delete('auth_session');
 
       // Clear biometric session
       final biometricService = BiometricAuthService.instance;
       await biometricService.clearBiometricSession();
+      
+      // Perform any server-side logout if needed and we're online
+      try {
+        final isConnected = await _apiClient.checkServerConnection();
+        if (isConnected) {
+          // Invalidate session on server
+          final authSession = settingsBox.get('auth_session');
+          if (authSession != null) {
+            final session = AuthSession.fromJson(Map<String, dynamic>.from(authSession));
+            await _apiClient.invalidateSession(
+              userId: session.userId,
+              sessionToken: session.sessionToken,
+            );
+          }
+        }
+      } catch (serverError) {
+        // Silently fail server logout - local logout succeeded
+        if (kDebugMode) {
+          print('Server logout failed, but local logout succeeded: $serverError');
+        }
+      }
 
       if (kDebugMode) {
         print('AuthService: User logged out successfully');
@@ -1146,8 +1637,876 @@ class AuthService extends ChangeNotifier {
     }
   }
 
-  // ...existing code...
+  // Session Management Methods
+
+  /// Create a new auth session
+  Future<AuthSession?> createSession(String userId) async {
+    try {
+      final sessionToken = _uuid.v4(); // Generate a new session token
+      final newSession = AuthSession(
+        userId: userId,
+        sessionToken: sessionToken,
+      );
+
+      // Save session to secure storage or database
+      // TODO: Implement secure storage
+      // await _secureStorage.write(key: 'auth_session', value: newSession.toJson());
+
+      if (kDebugMode) {
+        print('AuthService: Session created for user: $userId');
+      }
+
+      return newSession;
+    } catch (e) {
+      if (kDebugMode) {
+        print('AuthService: Error creating session: $e');
+      }
+      return null;
+    }
+  }
+
+  /// Validate the current auth session
+  Future<bool> validateSession(AuthSession session) async {
+    try {
+      // Check if session is still valid
+      if (!session.isValid) {
+        if (kDebugMode) {
+          print('AuthService: Session is expired for user: ${session.userId}');
+        }
+        return false;
+      }
+
+      // Optionally, you can add more validation logic here
+      // e.g., check if the user still exists on the server
+
+      return true;
+    } catch (e) {
+      if (kDebugMode) {
+        print('AuthService: Error validating session: $e');
+      }
+      return false;
+    }
+  }
+
+  /// End the current auth session
+  Future<void> endSession(AuthSession session) async {
+    try {
+      // Remove session from secure storage or database
+      // TODO: Implement secure storage
+      // await _secureStorage.delete(key: 'auth_session');
+
+      if (kDebugMode) {
+        print('AuthService: Session ended for user: ${session.userId}');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('AuthService: Error ending session: $e');
+      }
+    }
+  }
+
+  // Sync Manager Methods
+
+  enum SyncStrategy { 
+    immediate,  // Sync right away (profile changes)
+    scheduled,  // Daily/weekly sync
+    background, // Low-priority background sync
+    manual      // User-initiated sync
+  }
+
+  class SyncManager {
+    final ApiClient apiClient;
+    final Profile profile;
+    DateTime? _lastFullSync;
+    bool _isSyncing = false;
+    
+    SyncManager({required this.apiClient, required this.profile}) {
+      _lastFullSync = _loadLastSyncTime();
+    }
+    
+    DateTime? _loadLastSyncTime() {
+      try {
+        final settingsBox = Hive.box('settings');
+        final lastSyncString = settingsBox.get('last_full_sync_${profile.id}');
+        if (lastSyncString != null) {
+          return DateTime.parse(lastSyncString);
+        }
+        return null;
+      } catch (e) {
+        if (kDebugMode) {
+          print('Error loading last sync time: $e');
+        }
+        return null;
+      }
+    }
+    
+    Future<void> _saveLastSyncTime(DateTime time) async {
+      final settingsBox = Hive.box('settings');
+      await settingsBox.put('last_full_sync_${profile.id}', time.toIso8601String());
+      _lastFullSync = time;
+    }
+    
+    Future<bool> _hasNetworkConnection() async {
+      try {
+        return await apiClient.checkServerConnection();
+      } catch (e) {
+        return false;
+      }
+    }
+    
+    Future<SyncSettings> _getSyncSettings() async {
+      try {
+        final settingsBox = Hive.box('settings');
+        final rawSettings = settingsBox.get('sync_settings_${profile.id}');
+        if (rawSettings != null) {
+          return SyncSettings.fromJson(Map<String, dynamic>.from(rawSettings));
+        }
+        return SyncSettings(); // Default settings
+      } catch (e) {
+        if (kDebugMode) {
+          print('Error getting sync settings: $e');
+        }
+        return SyncSettings(); // Default settings
+      }
+    }
+
+    Future<void> updateSyncSettings(SyncSettings settings) async {
+      final settingsBox = Hive.box('settings');
+      await settingsBox.put('sync_settings_${profile.id}', settings.toJson());
+    }
+    
+    // Sync essential data that should always be synced
+    Future<SyncResult> syncEssentialData() async {
+      if (!await _hasNetworkConnection()) {
+        return SyncResult.failed('No network connection');
+      }
+      
+      try {
+        // Sync profile data
+        final profileResult = await syncProfile();
+        
+        // Sync categories (they are essential for app functioning)
+        final categoriesResult = await syncCategories();
+        
+        return SyncResult.success(
+          syncedEntities: profileResult.syncedEntities + categoriesResult.syncedEntities,
+          message: 'Essential data synced successfully',
+        );
+      } catch (e) {
+        return SyncResult.failed('Failed to sync essential data: ${e.toString()}');
+      }
+    }
+    
+    Future<SyncResult> syncProfile() async {
+      if (!await _hasNetworkConnection()) {
+        return SyncResult.failed('No network connection');
+      }
+      
+      try {
+        // Push local profile changes to server
+        await apiClient.updateProfile(profile);
+        
+        // Get latest profile from server
+        final serverProfile = await apiClient.getProfile(
+          userId: profile.id,
+          sessionToken: profile.sessionToken,
+        );
+        
+        if (serverProfile != null) {
+          // Merge changes
+          final mergedProfile = _mergeProfiles(profile, serverProfile);
+          
+          // Save merged profile locally
+          final profileBox = Hive.box<Profile>('profiles');
+          await profileBox.put(profile.id, mergedProfile);
+          
+          return SyncResult.success(
+            syncedEntities: 1,
+            message: 'Profile synced successfully',
+          );
+        }
+        
+        return SyncResult.success(
+          syncedEntities: 0,
+          message: 'No profile changes to sync',
+        );
+      } catch (e) {
+        return SyncResult.failed('Failed to sync profile: ${e.toString()}');
+      }
+    }
+    
+    // Helper method to intelligently merge profiles
+    Profile _mergeProfiles(Profile local, Profile server) {
+      // Take the most recently updated profile as the base
+      final baseProfile = local.lastUpdated.isAfter(server.lastUpdated) 
+          ? local 
+          : server;
+      
+      // Merge specific fields that might have been updated independently
+      return baseProfile.copyWith(
+        // Use most recent settings for each field
+        email: server.lastUpdated.isAfter(local.lastUpdated) ? server.email : local.email,
+        displayName: server.lastUpdated.isAfter(local.lastUpdated) ? server.displayName : local.displayName,
+        preferences: _mergePreferences(local.preferences, server.preferences),
+        lastSyncDate: DateTime.now(),
+      );
+    }
+    
+    Map<String, dynamic> _mergePreferences(Map<String, dynamic>? local, Map<String, dynamic>? server) {
+      if (local == null) return server ?? {};
+      if (server == null) return local;
+      
+      // Start with all local preferences
+      final merged = Map<String, dynamic>.from(local);
+      
+      // Add/override with server preferences
+      server.forEach((key, value) {
+        merged[key] = value;
+      });
+      
+      return merged;
+    }
+    
+    Future<void> scheduleSyncs() async {
+      // Daily background sync at 2 AM
+      // This is just a placeholder - actual implementation would use platform-specific background tasks
+      
+      if (kDebugMode) {
+        print('Scheduling daily background sync');
+      }
+      
+      // Check if we need to sync based on time since last sync
+      if (_lastFullSync == null || 
+          DateTime.now().difference(_lastFullSync!).inHours > 24) {
+        // It's been more than 24 hours since last sync
+        syncAll(strategy: SyncStrategy.background);
+      }
+    }
+
+    Future<SyncResult> syncCategories() async {
+      if (!await _hasNetworkConnection()) {
+        return SyncResult.failed('No network connection');
+      }
+      
+      try {
+        // Get categories box
+        final categoriesBox = Hive.box('categories');
+        
+        // Get server categories
+        final serverCategories = await apiClient.getCategories(
+          userId: profile.id,
+          sessionToken: profile.sessionToken,
+        );
+        
+        if (serverCategories == null || serverCategories.isEmpty) {
+          // No categories on server, push local categories
+          final localCategories = categoriesBox.values.toList();
+          if (localCategories.isNotEmpty) {
+            await apiClient.updateCategories(
+              userId: profile.id,
+              sessionToken: profile.sessionToken,
+              categories: localCategories,
+            );
+            return SyncResult.success(
+              syncedEntities: localCategories.length,
+              message: 'Local categories pushed to server',
+            );
+          }
+          return SyncResult.success(
+            syncedEntities: 0,
+            message: 'No categories to sync',
+          );
+        }
+        
+        // We have server categories, merge with local
+        final localCategories = categoriesBox.values.toList();
+        final mergedCategories = _mergeCategories(localCategories, serverCategories);
+        
+        // Update local categories
+        await categoriesBox.clear();
+        for (final category in mergedCategories) {
+          await categoriesBox.put(category['id'], category);
+        }
+        
+        // Push merged categories back to server if needed
+        if (_hasLocalChanges(localCategories, serverCategories)) {
+          await apiClient.updateCategories(
+            userId: profile.id,
+            sessionToken: profile.sessionToken,
+            categories: mergedCategories,
+          );
+        }
+        
+        return SyncResult.success(
+          syncedEntities: mergedCategories.length,
+          message: 'Categories synced successfully',
+        );
+      } catch (e) {
+        return SyncResult.failed('Failed to sync categories: ${e.toString()}');
+      }
+    }
+    
+    bool _hasLocalChanges(List localItems, List serverItems) {
+      if (localItems.length != serverItems.length) return true;
+      
+      // Compare last updated timestamps
+      for (final localItem in localItems) {
+        final serverItem = serverItems.firstWhere(
+          (item) => item['id'] == localItem['id'],
+          orElse: () => null,
+        );
+        
+        if (serverItem == null) return true;
+        
+        final localTimestamp = DateTime.parse(localItem['lastUpdated']);
+        final serverTimestamp = DateTime.parse(serverItem['lastUpdated']);
+        
+        if (localTimestamp.isAfter(serverTimestamp)) return true;
+      }
+      
+      return false;
+    }
+    
+    List _mergeCategories(List local, List server) {
+      final mergedMap = <String, dynamic>{};
+      
+      // Add all server categories
+      for (final item in server) {
+        mergedMap[item['id']] = item;
+      }
+      
+      // Add or update with local categories if they're newer
+      for (final item in local) {
+        final id = item['id'];
+        if (!mergedMap.containsKey(id)) {
+          mergedMap[id] = item;
+        } else {
+          final localTimestamp = DateTime.parse(item['lastUpdated']);
+          final serverTimestamp = DateTime.parse(mergedMap[id]['lastUpdated']);
+          
+          if (localTimestamp.isAfter(serverTimestamp)) {
+            mergedMap[id] = item;
+          }
+        }
+      }
+      
+      return mergedMap.values.toList();
+    }
+    
+    Future<SyncResult> syncBudgets() async {
+      if (!await _hasNetworkConnection()) {
+        return SyncResult.failed('No network connection');
+      }
+      
+      try {
+        // Get budgets box
+        final budgetsBox = Hive.box('budgets');
+        
+        // Get server budgets
+        final serverBudgets = await apiClient.getBudgets(
+          userId: profile.id,
+          sessionToken: profile.sessionToken,
+        );
+        
+        if (serverBudgets == null || serverBudgets.isEmpty) {
+          // No budgets on server, push local budgets
+          final localBudgets = budgetsBox.values.toList();
+          if (localBudgets.isNotEmpty) {
+            await apiClient.updateBudgets(
+              userId: profile.id,
+              sessionToken: profile.sessionToken,
+              budgets: localBudgets,
+            );
+            return SyncResult.success(
+              syncedEntities: localBudgets.length,
+              message: 'Local budgets pushed to server',
+            );
+          }
+          return SyncResult.success(
+            syncedEntities: 0,
+            message: 'No budgets to sync',
+          );
+        }
+        
+        // We have server budgets, merge with local
+        final localBudgets = budgetsBox.values.toList();
+        final mergedBudgets = _mergeBudgets(localBudgets, serverBudgets);
+        
+        // Update local budgets
+        await budgetsBox.clear();
+        for (final budget in mergedBudgets) {
+          await budgetsBox.put(budget['id'], budget);
+        }
+        
+        // Push merged budgets back to server if needed
+        if (_hasLocalChanges(localBudgets, serverBudgets)) {
+          await apiClient.updateBudgets(
+            userId: profile.id,
+            sessionToken: profile.sessionToken,
+            budgets: mergedBudgets,
+          );
+        }
+        
+        return SyncResult.success(
+          syncedEntities: mergedBudgets.length,
+          message: 'Budgets synced successfully',
+        );
+      } catch (e) {
+        return SyncResult.failed('Failed to sync budgets: ${e.toString()}');
+      }
+    }
+    
+    List _mergeBudgets(List local, List server) {
+      // Similar to merge categories but with budget-specific logic
+      return _mergeGenericEntities(local, server);
+    }
+    
+    List _mergeGenericEntities(List local, List server) {
+      final mergedMap = <String, dynamic>{};
+      
+      // Add all server entities
+      for (final item in server) {
+        mergedMap[item['id']] = item;
+      }
+      
+      // Add or update with local entities if they're newer
+      for (final item in local) {
+        final id = item['id'];
+        if (!mergedMap.containsKey(id)) {
+          mergedMap[id] = item;
+        } else {
+          final localTimestamp = DateTime.parse(item['lastUpdated']);
+          final serverTimestamp = DateTime.parse(mergedMap[id]['lastUpdated']);
+          
+          if (localTimestamp.isAfter(serverTimestamp)) {
+            mergedMap[id] = item;
+          }
+        }
+      }
+      
+      return mergedMap.values.toList();
+    }
+    
+    Future<SyncResult> syncGoals() async {
+      if (!await _hasNetworkConnection()) {
+        return SyncResult.failed('No network connection');
+      }
+      
+      try {
+        // Get goals box
+        final goalsBox = Hive.box('goals');
+        
+        // Get server goals
+        final serverGoals = await apiClient.getGoals(
+          userId: profile.id,
+          sessionToken: profile.sessionToken,
+        );
+        
+        // Merge and sync following the same pattern as budgets
+        final localGoals = goalsBox.values.toList();
+        final mergedGoals = _mergeGoals(localGoals, serverGoals ?? []);
+        
+        // Update local goals
+        await goalsBox.clear();
+        for (final goal in mergedGoals) {
+          await goalsBox.put(goal['id'], goal);
+        }
+        
+        // Push to server if we have local changes
+        if (serverGoals == null || _hasLocalChanges(localGoals, serverGoals)) {
+          await apiClient.updateGoals(
+            userId: profile.id,
+            sessionToken: profile.sessionToken,
+            goals: mergedGoals,
+          );
+        }
+        
+        return SyncResult.success(
+          syncedEntities: mergedGoals.length,
+          message: 'Goals synced successfully',
+        );
+      } catch (e) {
+        return SyncResult.failed('Failed to sync goals: ${e.toString()}');
+      }
+    }
+    
+    List _mergeGoals(List local, List server) {
+      return _mergeGenericEntities(local, server);
+    }
+    
+    Future<SyncResult> syncTransactions({TransactionSyncLevel level = TransactionSyncLevel.metadataOnly}) async {
+      if (!await _hasNetworkConnection() || level == TransactionSyncLevel.none) {
+        return SyncResult.failed('No network connection or transaction sync disabled');
+      }
+      
+      try {
+        // Get transactions box
+        final transactionsBox = Hive.box('transactions');
+        
+        // Get server transactions
+        final serverTransactions = await apiClient.getTransactions(
+          userId: profile.id,
+          sessionToken: profile.sessionToken,
+          syncLevel: level.index,
+        );
+        
+        // Handle transaction sync based on sync level
+        final localTransactions = transactionsBox.values.toList();
+        final filteredLocalTransactions = _filterTransactionsForSync(localTransactions, level);
+        final mergedTransactions = _mergeTransactions(filteredLocalTransactions, serverTransactions ?? [], level);
+        
+        // Update local transactions
+        // Note: We don't clear the box because we might have local transactions that we're not syncing
+        // Instead we update or add the merged transactions
+        for (final transaction in mergedTransactions) {
+          await transactionsBox.put(transaction['id'], transaction);
+        }
+        
+        // Push to server if we have local changes and user has opted to sync
+        if (level != TransactionSyncLevel.metadataOnly && 
+            (serverTransactions == null || _hasLocalTransactionChanges(filteredLocalTransactions, serverTransactions))) {
+          await apiClient.updateTransactions(
+            userId: profile.id,
+            sessionToken: profile.sessionToken,
+            transactions: mergedTransactions,
+            syncLevel: level.index,
+          );
+        }
+        
+        return SyncResult.success(
+          syncedEntities: mergedTransactions.length,
+          message: 'Transactions synced successfully',
+        );
+      } catch (e) {
+        return SyncResult.failed('Failed to sync transactions: ${e.toString()}');
+      }
+    }
+    
+    List _filterTransactionsForSync(List transactions, TransactionSyncLevel level) {
+      if (level == TransactionSyncLevel.none) {
+        return [];
+      }
+      
+      if (level == TransactionSyncLevel.metadataOnly) {
+        return transactions.map((tx) => {
+          'id': tx['id'],
+          'amount': tx['amount'],
+          'date': tx['date'],
+          'categoryId': tx['categoryId'],
+          'type': tx['type'],
+          'lastUpdated': tx['lastUpdated'],
+        }).toList();
+      }
+      
+      if (level == TransactionSyncLevel.fullWithoutPII) {
+        return transactions.map((tx) {
+          final result = Map<String, dynamic>.from(tx);
+          // Remove PII fields
+          result.remove('memo');
+          result.remove('personalNotes');
+          result.remove('location');
+          result.remove('contactInfo');
+          return result;
+        }).toList();
+      }
+      
+      // Complete sync
+      return transactions;
+    }
+    
+    bool _hasLocalTransactionChanges(List localItems, List serverItems) {
+      return _hasLocalChanges(localItems, serverItems);
+    }
+    
+    List _mergeTransactions(List local, List server, TransactionSyncLevel level) {
+      if (level == TransactionSyncLevel.none) {
+        return [];
+      }
+      
+      return _mergeGenericEntities(local, server);
+    }
+    
+    Future<SyncResult> syncAll({SyncStrategy strategy = SyncStrategy.scheduled}) async {
+      // Prevent multiple simultaneous syncs
+      if (_isSyncing) {
+        return SyncResult(
+          success: false,
+          message: 'Sync already in progress',
+          syncedEntities: 0,
+        );
+      }
+      
+      _isSyncing = true;
+      
+      try {
+        if (!await _hasNetworkConnection()) {
+          _isSyncing = false;
+          return SyncResult(
+            success: false,
+            message: 'No network connection',
+            syncedEntities: 0,
+          );
+        }
+        
+        final settings = await _getSyncSettings();
+        int syncedEntities = 0;
+        
+        // Always sync profile and categories
+        final profileResults = await syncProfile();
+        syncedEntities += profileResults.syncedEntities;
+        
+        final categoriesResults = await syncCategories();
+        syncedEntities += categoriesResults.syncedEntities;
+        
+        // Conditional syncs based on settings
+        if (settings.syncBudgets) {
+          final budgetResults = await syncBudgets();
+          syncedEntities += budgetResults.syncedEntities;
+        }
+        
+        if (settings.syncGoals) {
+          final goalResults = await syncGoals();
+          syncedEntities += goalResults.syncedEntities;
+        }
+        
+        if (settings.syncTransactions) {
+          final transactionResults = await syncTransactions(
+            level: settings.transactionSyncLevel,
+          );
+          syncedEntities += transactionResults.syncedEntities;
+        }
+        
+        // Record successful sync time
+        await _saveLastSyncTime(DateTime.now());
+        
+        _isSyncing = false;
+        return SyncResult(
+          success: true,
+          message: 'Sync completed successfully',
+          syncedEntities: syncedEntities,
+        );
+      } catch (e) {
+        _isSyncing = false;
+        if (kDebugMode) {
+          print('Sync failed: $e');
+        }
+        return SyncResult(
+          success: false,
+          message: 'Sync failed: $e',
+          syncedEntities: 0,
+        );
+      }
+    }
+
+    Future<SyncResult> syncProfile(Profile profile, {SyncStrategy strategy = SyncStrategy.immediate}) async {
+      try {
+        if (!await _hasNetworkConnection()) {
+          return SyncResult(
+            success: false,
+            message: 'No network connection',
+            syncedEntities: 0,
+          );
+        }
+        
+        if (kDebugMode) {
+          print('Syncing profile: ${profile.id}');
+        }
+        
+        // Try to sync with server
+        await _apiClient.updateEnhancedProfile(
+          email: profile.email ?? '',
+          name: profile.name ?? '',
+          baseCurrency: profile.baseCurrency,
+          timezone: profile.timezone,
+          // Add other fields as needed
+        );
+        
+        return SyncResult(
+          success: true,
+          message: 'Profile synced successfully',
+          syncedEntities: 1,
+        );
+      } catch (e) {
+        if (kDebugMode) {
+          print('Profile sync failed: $e');
+        }
+        return SyncResult(
+          success: false,
+          message: 'Profile sync failed: $e',
+          syncedEntities: 0,
+        );
+      }
+    }
+    
+    Future<SyncResult> _syncProfiles() async {
+      try {
+        final profileBox = await Hive.openBox<Profile>('profiles');
+        int syncedCount = 0;
+        
+        for (final profile in profileBox.values) {
+          try {
+            // Check if this profile has changed since last sync
+            if (profile.lastModified == null || 
+                profile.lastSynced == null || 
+                profile.lastModified!.isAfter(profile.lastSynced!)) {
+              
+              // Profile needs sync
+              await _apiClient.updateEnhancedProfile(
+                email: profile.email ?? '',
+                name: profile.name ?? '',
+                baseCurrency: profile.baseCurrency,
+                timezone: profile.timezone,
+                // Add other fields as needed
+              );
+              
+              // Update lastSynced
+              final updatedProfile = profile.copyWith(lastSynced: DateTime.now());
+              await profileBox.put(profile.id, updatedProfile);
+              syncedCount++;
+            }
+          } catch (e) {
+            if (kDebugMode) {
+              print('Failed to sync profile ${profile.id}: $e');
+            }
+            // Continue with next profile
+          }
+        }
+        
+        return SyncResult(
+          success: true,
+          message: 'Synced $syncedCount profiles',
+          syncedEntities: syncedCount,
+        );
+      } catch (e) {
+        if (kDebugMode) {
+          print('Profile sync failed: $e');
+        }
+        return SyncResult(
+          success: false,
+          message: 'Profile sync failed: $e',
+          syncedEntities: 0,
+        );
+      }
+    }
+    
+    Future<SyncResult> _syncBudgets() async {
+      try {
+        final budgetBox = await Hive.openBox('budgets');
+        int syncedCount = 0;
+        
+        // Implementation will depend on your Budget model
+        // This is a placeholder implementation
+        
+        return SyncResult(
+          success: true,
+          message: 'Synced $syncedCount budgets',
+          syncedEntities: syncedCount,
+        );
+      } catch (e) {
+        if (kDebugMode) {
+          print('Budget sync failed: $e');
+        }
+        return SyncResult(
+          success: false,
+          message: 'Budget sync failed: $e',
+          syncedEntities: 0,
+        );
+      }
+    }
+    
+    Future<SyncResult> _syncGoals() async {
+      try {
+        final goalBox = await Hive.openBox('goals');
+        int syncedCount = 0;
+        
+        // Implementation will depend on your Goal model
+        // This is a placeholder implementation
+        
+        return SyncResult(
+          success: true,
+          message: 'Synced $syncedCount goals',
+          syncedEntities: syncedCount,
+        );
+      } catch (e) {
+        if (kDebugMode) {
+          print('Goal sync failed: $e');
+        }
+        return SyncResult(
+          success: false,
+          message: 'Goal sync failed: $e',
+          syncedEntities: 0,
+        );
+      }
+    }
+    
+    Future<SyncResult> _syncTransactions([TransactionSyncLevel level = TransactionSyncLevel.metadataOnly]) async {
+      try {
+        final transactionBox = await Hive.openBox('transactions');
+        int syncedCount = 0;
+        
+        // Skip if user doesn't want to sync transactions
+        if (level == TransactionSyncLevel.none) {
+          return SyncResult(
+            success: true,
+            message: 'Transactions sync disabled by user',
+            syncedEntities: 0,
+          );
+        }
+        
+        // Implementation will depend on your Transaction model and sync level
+        // This is a placeholder implementation
+        
+        return SyncResult(
+          success: true,
+          message: 'Synced $syncedCount transactions',
+          syncedEntities: syncedCount,
+        );
+      } catch (e) {
+        if (kDebugMode) {
+          print('Transaction sync failed: $e');
+        }
+        return SyncResult(
+          success: false,
+          message: 'Transaction sync failed: $e',
+          syncedEntities: 0,
+        );
+      }
+    }
+  }
 }
 
 // Alias for backward compatibility with EnhancedAuthService
 typedef EnhancedAuthService = AuthService;
+
+// Session class for managing authentication sessions
+class AuthSession {
+  final String userId;
+  final DateTime createdAt;
+  final DateTime expiresAt;
+  final String sessionToken;
+  
+  bool get isValid => DateTime.now().isBefore(expiresAt);
+  
+  AuthSession({
+    required this.userId,
+    required this.sessionToken,
+    DateTime? createdAt,
+    DateTime? expiresAt,
+  }) : 
+    this.createdAt = createdAt ?? DateTime.now(),
+    this.expiresAt = expiresAt ?? DateTime.now().add(const Duration(days: 30));
+    
+  Map<String, dynamic> toJson() => {
+    'userId': userId,
+    'sessionToken': sessionToken,
+    'createdAt': createdAt.toIso8601String(),
+    'expiresAt': expiresAt.toIso8601String(),
+  };
+  
+  factory AuthSession.fromJson(Map<String, dynamic> json) => AuthSession(
+    userId: json['userId'],
+    sessionToken: json['sessionToken'],
+    createdAt: DateTime.parse(json['createdAt']),
+    expiresAt: DateTime.parse(json['expiresAt']),
+  );
+}

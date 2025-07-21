@@ -13,6 +13,84 @@ import '../models/budget.dart';
 
 class ApiClient {
   // Enhanced base URL configuration for all platforms with USB debugging support
+  // Server health check result
+  static Future<Map<String, dynamic>> checkServerHealth() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/health'),
+      ).timeout(
+        const Duration(seconds: 5),
+        onTimeout: () => throw TimeoutException('Server health check timed out'),
+      );
+
+      if (response.statusCode == 200) {
+        return {
+          'isConnected': true,
+          'canCreateProfile': true,
+          'message': 'Server is healthy'
+        };
+      } else {
+        return {
+          'isConnected': true,
+          'canCreateProfile': false,
+          'message': 'Server is experiencing issues'
+        };
+      }
+    } on SocketException catch (_) {
+      return {
+        'isConnected': false,
+        'canCreateProfile': false,
+        'message': 'No internet connection'
+      };
+    } on TimeoutException catch (_) {
+      return {
+        'isConnected': false,
+        'canCreateProfile': false,
+        'message': 'Server is not responding'
+      };
+    } catch (e) {
+      return {
+        'isConnected': false,
+        'canCreateProfile': false,
+        'message': 'Unable to reach server'
+      };
+    }
+  }
+
+  // Profile creation pre-check
+  static Future<Map<String, dynamic>> validateProfileCreation({
+    required String email,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/profiles/validate'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'email': email}),
+      ).timeout(
+        const Duration(seconds: 5),
+        onTimeout: () => throw TimeoutException('Profile validation timed out'),
+      );
+
+      if (response.statusCode == 200) {
+        return {
+          'canCreate': true,
+          'message': 'Profile can be created'
+        };
+      } else {
+        final data = json.decode(response.body);
+        return {
+          'canCreate': false,
+          'message': data['message'] ?? 'Unable to create profile'
+        };
+      }
+    } catch (e) {
+      return {
+        'canCreate': false,
+        'message': 'Server error: Unable to validate profile creation'
+      };
+    }
+  }
+
   static String get _baseUrl {
     final String url;
     

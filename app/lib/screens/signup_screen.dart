@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
+import '../services/api_client.dart';
 import '../utils/password_validator.dart';
 
 class SignupScreen extends StatefulWidget {
@@ -52,6 +53,38 @@ class _SignupScreenState extends State<SignupScreen> {
       _isLoading = true;
       _errorMessage = null;
     });
+
+    // Check server health first
+    final healthCheck = await ApiClient.checkServerHealth();
+    
+    if (!healthCheck['isConnected']) {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = '${healthCheck['message']}. Please try again later.';
+      });
+      return;
+    }
+
+    if (!healthCheck['canCreateProfile']) {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Service temporarily unavailable. Please try again later.';
+      });
+      return;
+    }
+
+    // Validate if profile can be created
+    final validationResult = await ApiClient.validateProfileCreation(
+      email: _emailController.text.trim(),
+    );
+
+    if (!validationResult['canCreate']) {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = validationResult['message'];
+      });
+      return;
+    }
 
     try {
       final authService = Provider.of<AuthService>(context, listen: false);
