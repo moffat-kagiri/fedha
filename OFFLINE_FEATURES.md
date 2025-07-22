@@ -6,7 +6,7 @@ Fedha now works **90% offline** with only selective features requiring internet 
 
 ### ✅ What Works Offline
 
-#### 🔍 **SMS Transaction Detection**
+#### 🔍 **SMS Transaction Detection & Review**
 - **Real-time SMS parsing** using local pattern matching
 - Supports major Kenyan financial institutions:
   - M-Pesa (Safaricom)
@@ -16,7 +16,8 @@ Fedha now works **90% offline** with only selective features requiring internet 
   - Co-operative Bank
   - Generic patterns for other providers
 - **Intelligent categorization** based on transaction description
-- **No internet required** for SMS extraction
+- **Pending transaction review** for user verification
+- **No internet required** for SMS extraction or review process
 
 #### 💰 **Loan Calculator**
 - **Complete loan calculations** without internet:

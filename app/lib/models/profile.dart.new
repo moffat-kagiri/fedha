@@ -8,55 +8,55 @@ part 'profile.g.dart';
 @HiveType(typeId: 1)
 class Profile extends HiveObject {
   @HiveField(0)
-  final String id;
+  String id;
 
   @HiveField(1)
-  final String name;
+  String name;
 
   @HiveField(2)
-  final String? email;
+  String? email;
 
   @HiveField(3)
-  final ProfileType type;
+  ProfileType type;
 
   @HiveField(4)
-  final String pin;
+  String pin;
 
   @HiveField(5)
-  final String baseCurrency;
+  String baseCurrency;
 
   @HiveField(6)
-  final String timezone;
+  String timezone;
 
   @HiveField(7)
-  final DateTime createdAt;
+  DateTime createdAt;
 
   @HiveField(8)
-  final DateTime updatedAt;
+  DateTime updatedAt;
 
   @HiveField(9)
-  final bool isActive;
+  bool isActive;
 
   @HiveField(10)
-  final String? passwordHash;
+  String? passwordHash;
 
   @HiveField(11)
-  final DateTime? lastLogin;
-
+  DateTime? lastLogin;
+  
   @HiveField(12)
-  final DateTime? lastSynced;
-
+  DateTime? lastSynced;
+  
   @HiveField(13)
-  final DateTime? lastModified;
-
+  DateTime? lastModified;
+  
   @HiveField(14)
-  final String? sessionToken;
-
+  String? sessionToken;
+  
   @HiveField(15)
-  final Map<String, dynamic>? preferences;
-
+  Map<String, dynamic>? preferences;
+  
   @HiveField(16)
-  final String? displayName;
+  String? displayName;
 
   Profile({
     required this.id,
@@ -77,8 +77,8 @@ class Profile extends HiveObject {
     this.preferences,
     this.displayName,
   }) : 
-    this.createdAt = createdAt ?? DateTime.now(),
-    this.updatedAt = updatedAt ?? DateTime.now();
+    createdAt = createdAt ?? DateTime.now(),
+    updatedAt = updatedAt ?? DateTime.now();
 
   // Password hashing utility
   static String hashPassword(String password) {
@@ -90,8 +90,7 @@ class Profile extends HiveObject {
   // Password verification
   bool verifyPassword(String password) {
     if (passwordHash == null) return false;
-    final hashedInput = hashPassword(password);
-    return passwordHash == hashedInput;
+    return passwordHash == hashPassword(password);
   }
 
   Map<String, dynamic> toJson() {
@@ -105,9 +104,12 @@ class Profile extends HiveObject {
       'timezone': timezone,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
-      'is_active': isActive,
       'password_hash': passwordHash,
-      'last_login': lastLogin?.toIso8601String(),
+      'is_active': isActive,
+      'last_synced': lastSynced?.toIso8601String(),
+      'last_modified': lastModified?.toIso8601String(),
+      'session_token': sessionToken,
+      'display_name': displayName,
     };
   }
 
@@ -125,18 +127,26 @@ class Profile extends HiveObject {
       timezone: json['timezone'] ?? 'GMT+3',
       createdAt: json['created_at'] != null
         ? DateTime.parse(json['created_at'])
-        : DateTime.now(),
+        : null,
       updatedAt: json['updated_at'] != null
         ? DateTime.parse(json['updated_at'])
-        : DateTime.now(),
+        : null,
       isActive: json['is_active'] ?? json['isActive'] ?? true,
       passwordHash: json['password_hash'],
       lastLogin: json['last_login'] != null
         ? DateTime.parse(json['last_login'])
         : null,
+      lastSynced: json['last_synced'] != null
+        ? DateTime.parse(json['last_synced'])
+        : null,
+      lastModified: json['last_modified'] != null
+        ? DateTime.parse(json['last_modified'])
+        : null,
+      sessionToken: json['session_token'] ?? json['sessionToken'],
+      displayName: json['display_name'] ?? json['displayName'],
     );
   }
-
+  
   Profile copyWith({
     String? id,
     String? name,
@@ -165,7 +175,7 @@ class Profile extends HiveObject {
       baseCurrency: baseCurrency ?? this.baseCurrency,
       timezone: timezone ?? this.timezone,
       createdAt: createdAt ?? this.createdAt,
-      updatedAt: updatedAt ?? this.updatedAt,
+      updatedAt: updatedAt ?? DateTime.now(),
       isActive: isActive ?? this.isActive,
       passwordHash: passwordHash ?? this.passwordHash,
       lastLogin: lastLogin ?? this.lastLogin,

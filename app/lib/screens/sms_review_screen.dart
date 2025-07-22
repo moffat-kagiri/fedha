@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:hive/hive.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import '../models/transaction_candidate.dart';
 import '../models/transaction.dart';
 import '../models/category.dart' as models;
 import '../models/enums.dart';
 import '../services/offline_data_service.dart';
+import '../services/sms_listener_service.dart';
 
 class SmsReviewScreen extends StatefulWidget {
   const SmsReviewScreen({Key? key}) : super(key: key);
@@ -39,14 +42,32 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
     });
 
     try {
-      // For demo purposes, create some sample transaction candidates
-      _pendingCandidates = _createSampleCandidates();
-      _reviewedCandidates = [];
+      // Load pending transactions from Hive
+      final pendingBox = await Hive.openBox<Transaction>('pending_transactions');
       
-      // In a real implementation, you would load from Hive or backend
-      // final dataService = Provider.of<OfflineDataService>(context, listen: false);
-      // _pendingCandidates = await dataService.getPendingTransactionCandidates();
-      // _reviewedCandidates = await dataService.getReviewedTransactionCandidates();
+      // Convert transactions to candidates for review UI
+      _pendingCandidates = pendingBox.values.map((transaction) {
+        return TransactionCandidate(
+          id: transaction.id,
+          rawText: transaction.smsSource ?? 'No SMS source available',
+          amount: transaction.amount,
+          description: transaction.description,
+          date: transaction.date,
+          type: transaction.isExpense ? 'expense' : 'income',
+          confidence: 0.9, // Default confidence
+          metadata: {
+            'recipient': transaction.recipient,
+            'reference': transaction.reference,
+            'category_id': transaction.categoryId,
+          },
+        );
+      }).toList();
+      
+      // Sort by date (newest first)
+      _pendingCandidates.sort((a, b) => b.date.compareTo(a.date));
+      
+      // Load reviewed transactions (keep this sample data for now)
+      _reviewedCandidates = [];
       
     } catch (e) {
       if (mounted) {
@@ -145,23 +166,26 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
     try {
       final dataService = Provider.of<OfflineDataService>(context, listen: false);
       
-      // Create a transaction from the candidate
-      final transaction = Transaction(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        amount: candidate.amount,
-        description: candidate.description ?? 'SMS Transaction',
-        categoryId: candidate.categoryId ?? 'default_category',
-        profileId: 'default', // Default profile ID
-        date: candidate.date,
-        type: candidate.type == 'income' ? TransactionType.income : TransactionType.expense,
+      // Get the pending transaction
+      final pendingBox = await Hive.openBox<Transaction>('pending_transactions');
+      final pendingTx = pendingBox.values.firstWhere((tx) => tx.id == candidate.id);
+      
+      // Move pending transaction to regular transactions box
+      pendingTx.isPending = false;
+      
+      // Save to regular transactions
+      await dataService.saveTransaction(pendingTx);
+      
+      // Remove from pending box
+      final pendingKey = pendingBox.keys.firstWhere(
+        (key) => pendingBox.get(key)?.id == candidate.id
       );
-
-      await dataService.saveTransaction(transaction);
-
-      // Update candidate status
+      await pendingBox.delete(pendingKey);
+      
+      // Update candidate status for UI
       final updatedCandidate = candidate.copyWith(
         status: 'approved',
-        transactionId: transaction.id,
+        transactionId: pendingTx.id,
       );
 
       setState(() {
@@ -186,19 +210,36 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
   }
 
   Future<void> _rejectCandidate(TransactionCandidate candidate) async {
-    final updatedCandidate = candidate.copyWith(status: 'rejected');
-    
-    setState(() {
-      _pendingCandidates.removeWhere((c) => c.id == candidate.id);
-      _reviewedCandidates.add(updatedCandidate);
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('❌ Transaction rejected'),
-        backgroundColor: Colors.orange,
-      ),
-    );
+    try {
+      // Remove from pending transactions
+      final pendingBox = await Hive.openBox<Transaction>('pending_transactions');
+      final pendingKey = pendingBox.keys.firstWhere(
+        (key) => pendingBox.get(key)?.id == candidate.id
+      );
+      await pendingBox.delete(pendingKey);
+      
+      // Update UI
+      final updatedCandidate = candidate.copyWith(status: 'rejected');
+      
+      setState(() {
+        _pendingCandidates.removeWhere((c) => c.id == candidate.id);
+        _reviewedCandidates.add(updatedCandidate);
+      });
+  
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('❌ Transaction rejected'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error rejecting transaction: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   Future<void> _editAndApprove(TransactionCandidate candidate) async {

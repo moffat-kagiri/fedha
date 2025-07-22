@@ -47,6 +47,21 @@ class Transaction extends HiveObject {
 
   @HiveField(12)
   String? goalId; // For linking savings to goals
+  
+  @HiveField(13)
+  String? smsSource;
+  
+  @HiveField(14)
+  String? reference;
+  
+  @HiveField(15)
+  String? recipient;
+  
+  @HiveField(16)
+  bool isPending;
+  
+  @HiveField(17)
+  bool isExpense;
 
   Transaction({
     String? uuid,
@@ -62,6 +77,11 @@ class Transaction extends HiveObject {
     required this.profileId,
     DateTime? updatedAt,
     this.goalId,
+    this.smsSource,
+    this.reference,
+    this.recipient,
+    this.isPending = false,
+    this.isExpense = true,
   }) : uuid = uuid ?? const Uuid().v4(),
        id = id ?? const Uuid().v4(),
        updatedAt = updatedAt ?? DateTime.now();

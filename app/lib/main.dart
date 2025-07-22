@@ -25,6 +25,7 @@ import 'services/currency_service.dart';
 import 'services/biometric_auth_service.dart';
 import 'services/service_stubs.dart' as stubs;
 import 'services/enhanced_sync_service.dart';
+import 'services/sms_listener_service.dart';
 import 'utils/enum_adapters.dart' as enum_adapters;
 
 // Screens
@@ -83,10 +84,11 @@ void main() async {
     final csvUploadService = stubs.CSVUploadService(offlineDataService);
     final smsTransactionExtractor = stubs.SmsTransactionExtractor(offlineDataService);
     final notificationService = stubs.NotificationService.instance;
-    final smsListenerService = stubs.SmsListenerService(
-      offlineDataService,
-      smsTransactionExtractor,
-    );
+    
+    // Initialize SMS listener service
+    final smsListenerService = SmsListenerService.instance;
+    await smsListenerService.initialize();
+    
     final syncService = EnhancedSyncService(
       offlineDataService,
       apiClient,

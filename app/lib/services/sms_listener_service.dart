@@ -1,6 +1,10 @@
 import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:hive/hive.dart';
+import 'package:uuid/uuid.dart';
+import '../models/transaction.dart';
 
 class SmsListenerService extends ChangeNotifier {
   static SmsListenerService? _instance;
@@ -9,7 +13,9 @@ class SmsListenerService extends ChangeNotifier {
   SmsListenerService._();
   
   static const MethodChannel _channel = MethodChannel('sms_listener');
+  static const EventChannel _eventChannel = EventChannel('sms_listener_events');
   StreamController<SmsMessage>? _messageController;
+  StreamSubscription? _eventChannelSubscription;
   
   bool _isListening = false;
   List<SmsMessage> _recentMessages = [];
@@ -23,17 +29,58 @@ class SmsListenerService extends ChangeNotifier {
   List<SmsMessage> get recentMessages => List.unmodifiable(_recentMessages);
   bool get isListening => _isListening;
   
+  /// Check for SMS permission and request it if needed
+  Future<bool> checkAndRequestPermissions() async {
+    try {
+      // Check if SMS permission is granted
+      var status = await Permission.sms.status;
+      
+      // If not granted, request permission
+      if (!status.isGranted) {
+        status = await Permission.sms.request();
+      }
+      
+      if (kDebugMode) {
+        print('SMS permission status: ${status.name}');
+      }
+      
+      // Return whether permission is granted
+      return status.isGranted;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error checking SMS permissions: $e');
+      }
+      return false;
+    }
+  }
+  
   /// Initialize the SMS listener service
   Future<bool> initialize() async {
     try {
       if (kIsWeb) {
         // Web doesn't support SMS
-        print('SMS listener not supported on web');
+        if (kDebugMode) {
+          print('SMS listener not supported on web');
+        }
         return false;
       }
       
       // Set up method channel handler
       _channel.setMethodCallHandler(_handleMethodCall);
+      
+      // Set up event channel listener
+      _eventChannelSubscription = _eventChannel.receiveBroadcastStream().listen(
+        (dynamic event) {
+          if (event is Map<Object?, Object?>) {
+            _handleSmsReceived(Map<String, dynamic>.from(event as Map));
+          }
+        },
+        onError: (dynamic error) {
+          if (kDebugMode) {
+            print('SMS event channel error: $error');
+          }
+        }
+      );
       
       // For development, simulate initialization success
       if (kDebugMode) {
@@ -41,11 +88,13 @@ class SmsListenerService extends ChangeNotifier {
         return true;
       }
       
-      // In production, this would initialize native SMS listener
+      // In production, initialize native SMS listener
       final result = await _channel.invokeMethod('initialize');
       return result == true;
     } catch (e) {
-      print('Error initializing SMS listener: $e');
+      if (kDebugMode) {
+        print('Error initializing SMS listener: $e');
+      }
       return false;
     }
   }
@@ -128,15 +177,131 @@ class SmsListenerService extends ChangeNotifier {
           _recentMessages = _recentMessages.take(50).toList();
         }
         
-        // Notify listeners
-        _messageController?.add(message);
-        notifyListeners();
+        // Parse transaction
+        final transaction = parseTransaction(message);
+        if (transaction != null) {
+          // Save to pending transactions for review
+          _savePendingTransaction(transaction);
+          
+          // Notify listeners
+          _messageController?.add(message);
+          notifyListeners();
+          
+          if (kDebugMode) {
+            print('Financial transaction parsed: ${transaction.type} - ${transaction.amount} ${transaction.currency}');
+          }
+        }
         
-        print('Financial SMS detected: ${message.sender} - ${message.body}');
+        if (kDebugMode) {
+          print('Financial SMS detected: ${message.sender} - ${message.body}');
+        }
       }
     } catch (e) {
-      print('Error processing SMS: $e');
+      if (kDebugMode) {
+        print('Error processing SMS: $e');
+      }
     }
+  }
+  
+  /// Save a pending transaction to be reviewed
+  Future<void> _savePendingTransaction(TransactionData transactionData) async {
+    try {
+      if (_currentProfileId == null) {
+        if (kDebugMode) {
+          print('No current profile set, cannot save transaction');
+        }
+        return;
+      }
+      
+      // Create a transaction entry
+      final transaction = Transaction(
+        type: TransactionType.expense, // Add the required type parameter
+        id: const Uuid().v4(),
+        amount: transactionData.amount,
+        date: transactionData.timestamp,
+        description: 'SMS: ${transactionData.type} via ${transactionData.source}',
+        categoryId: await _guessCategory(transactionData),
+        // Keep any other existing parameters
+      );
+      
+      // Save to pending transactions box
+      final pendingBox = await Hive.openBox<Transaction>('pending_transactions');
+      await pendingBox.add(transaction);
+      
+      if (kDebugMode) {
+        print('Saved pending transaction: ${transaction.id}');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error saving pending transaction: $e');
+      }
+    }
+  }
+  
+  /// Guess transaction category based on content
+  Future<String?> _guessCategory(TransactionData data) async {
+    // Default categories
+    const defaultIncomeCategory = 'income';
+    const defaultExpenseCategory = 'expense';
+    
+    try {
+      // Load categories
+      final categoriesBox = await Hive.openBox('categories');
+      
+      // Keywords for common categories
+      final Map<String, List<String>> categoryKeywords = {
+        'food': ['restaurant', 'food', 'cafe', 'coffee', 'grocery', 'supermarket'],
+        'transport': ['uber', 'taxi', 'fare', 'transport', 'travel', 'car', 'petrol', 'fuel'],
+        'shopping': ['shop', 'store', 'mall', 'market', 'buy', 'purchase'],
+        'entertainment': ['movie', 'cinema', 'theatre', 'event', 'ticket', 'concert'],
+        'utility': ['bill', 'water', 'electricity', 'internet', 'wifi', 'utility'],
+        'rent': ['rent', 'house', 'apartment', 'accommodation'],
+        'salary': ['salary', 'payment', 'wage', 'income', 'payday'],
+      };
+      
+      // Check transaction description and recipient for keywords
+      final String searchText = [
+        data.rawMessage.toLowerCase(),
+        data.recipient?.toLowerCase() ?? '',
+      ].join(' ');
+      
+      for (final entry in categoryKeywords.entries) {
+        for (final keyword in entry.value) {
+          if (searchText.contains(keyword)) {
+            // Find matching category ID
+            for (final key in categoriesBox.keys) {
+              final category = categoriesBox.get(key);
+              if (category['name']?.toLowerCase() == entry.key) {
+                return key.toString();
+              }
+            }
+          }
+        }
+      }
+      
+      // Fall back to default categories
+      if (data.type == 'received' || data.type == 'credit') {
+        for (final key in categoriesBox.keys) {
+          final category = categoriesBox.get(key);
+          if (category['name']?.toLowerCase() == defaultIncomeCategory) {
+            return key.toString();
+          }
+        }
+      } else {
+        for (final key in categoriesBox.keys) {
+          final category = categoriesBox.get(key);
+          if (category['name']?.toLowerCase() == defaultExpenseCategory) {
+            return key.toString();
+          }
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error guessing category: $e');
+      }
+    }
+    
+    return null;
   }
   
   /// Simulate incoming messages for development

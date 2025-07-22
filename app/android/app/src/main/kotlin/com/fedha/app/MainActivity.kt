@@ -15,6 +15,9 @@ class MainActivity : FlutterFragmentActivity() {
         
         // Initialize SMS and notification handler
         smsAndNotificationHandler = SmsAndNotificationHandler(this, flutterEngine)
+        
+        // Register SmsReaderPlugin
+        flutterEngine.plugins.add(SmsReaderPlugin())
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {

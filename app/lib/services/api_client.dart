@@ -2,6 +2,7 @@
 
 import 'dart:convert';
 import 'dart:io';
+import 'dart:async';
 import 'package:flutter/foundation.dart' hide Category;
 import 'package:http/http.dart' as http;
 import '../models/transaction.dart';
@@ -13,6 +14,51 @@ import '../models/budget.dart';
 
 class ApiClient {
   // Enhanced base URL configuration for all platforms with USB debugging support
+  
+  // Instance method to test connection
+  Future<bool> testConnection() async {
+    return await ApiClient.checkStaticConnection();
+  }
+  
+  // Delete profile
+  Future<bool> deleteProfile({required String email}) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('$_baseUrl/profiles'),
+        headers: _commonHeaders,
+        body: jsonEncode({'email': email}),
+      );
+      
+      return response.statusCode == 200;
+    } catch (e) {
+      return false;
+    }
+  }
+  
+  // Invalidate session
+  Future<bool> invalidateSession({
+    required String userId,
+    required String sessionToken,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/auth/logout'),
+        headers: {
+          ...(_commonHeaders),
+          'Authorization': 'Bearer $sessionToken',
+        },
+        body: jsonEncode({
+          'userId': userId,
+          'sessionToken': sessionToken,
+        }),
+      );
+      
+      return response.statusCode == 200;
+    } catch (e) {
+      return false;
+    }
+  }
+  
   // Server health check result
   static Future<Map<String, dynamic>> checkServerHealth() async {
     try {
@@ -145,10 +191,15 @@ class ApiClient {
     };
   }
 
-  // Test connection to server
-  static Future<bool> testConnection({String? customUrl}) async {
+  // Instance method to check server connection
+  Future<bool> checkServerConnection() async {
+    return await testConnection();
+  }
+  
+  // Test connection to server (static)
+  static Future<bool> checkStaticConnection() async {
     try {
-      final testUrl = customUrl ?? _baseUrl;
+      final testUrl = _baseUrl;
       final healthUrl = testUrl.replaceAll('/api', '/api/health/');
       
       if (kDebugMode) {
@@ -156,7 +207,7 @@ class ApiClient {
       }
       
       final response = await http.get(
-        Uri.parse(healthUrl), 
+        Uri.parse(healthUrl),
         headers: _commonHeaders,
       ).timeout(const Duration(seconds: 5));
       
@@ -670,7 +721,7 @@ class ApiClient {
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       } else {
-        throw Exception('Failed to calculate loan payment: ${response.body}');
+        throw Exception('Failed to calculate loan payment: \\${response.body}');
       }
     } catch (e) {
       throw Exception('Network error calculating loan payment: $e');
@@ -703,7 +754,7 @@ class ApiClient {
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       } else {
-        throw Exception('Failed to solve interest rate: ${response.body}');
+        throw Exception('Failed to solve interest rate: \\${response.body}');
       }
     } catch (e) {
       throw Exception('Network error solving interest rate: $e');
@@ -800,7 +851,7 @@ class ApiClient {
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       } else {
-        throw Exception('Failed to calculate ROI: ${response.body}');
+        throw Exception('Failed to calculate ROI: \\${response.body}');
       }
     } catch (e) {
       throw Exception('Network error calculating ROI: $e');
@@ -867,24 +918,353 @@ class ApiClient {
 
   /// Assess investment risk profile
   Future<Map<String, dynamic>> assessRiskProfile({
-    required List<int> answers,
+    required String userId,
+    required int age,
+    required String incomeLevel,
+    required String investmentExperience,
+    required String riskTolerance,
+    required int investmentHorizon,
+    required String financialGoals,
+  }) async {
+    try {
+      final response = await _dio.post('/risk-profile/assess', data: {
+        'user_id': userId,
+        'age': age,
+        'income_level': incomeLevel,
+        'investment_experience': investmentExperience,
+        'risk_tolerance': riskTolerance,
+        'investment_horizon': investmentHorizon,
+        'financial_goals': financialGoals,
+      });
+      
+      return response.data;
+    } catch (e) {
+      _logger.severe('Failed to assess risk profile: $e');
+      return {
+        'risk_score': 0,
+        'risk_category': 'Unknown',
+        'error': e.toString(),
+      };
+    }
+  }
+      
+  // Profile sync methods
+  Future<Map<String, dynamic>> getProfile({
+    required String userId, 
+    required String sessionToken,
+  }) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/profiles/$userId'),
+        headers: {
+          ...(_commonHeaders), 
+          'Authorization': 'Bearer $sessionToken',
+        },
+      );
+      
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        throw Exception('Failed to get profile: ${response.statusCode}');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error getting profile: $e');
+      }
+      rethrow;
+    }
+  }
+  
+  Future<bool> updateProfile(dynamic profile) async {
+    try {
+      final response = await http.put(
+        Uri.parse('$_baseUrl/profiles/${profile.id}'),
+        headers: {
+          ...(_commonHeaders), 
+          'Authorization': 'Bearer ${profile.sessionToken}',
+        },
+        body: jsonEncode(profile.toJson()),
+      );
+      
+      return response.statusCode == 200;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error updating profile: $e');
+      }
+      return false;
+    }
+  }
+  
+  // Categories sync
+  Future<List<dynamic>> getCategories({
+    required String profileId, 
+    required String sessionToken,
+  }) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/categories?profileId=$profileId'),
+        headers: {
+          ...(_commonHeaders), 
+          'Authorization': 'Bearer $sessionToken',
+        },
+      );
+      
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        return [];
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error getting categories: $e');
+      }
+      return [];
+    }
+  }
+  
+  Future<bool> updateCategories({
+    required String profileId, 
+    required String sessionToken,
+    required List<dynamic> categories,
+  }) async {
+    try {
+      final response = await http.put(
+        Uri.parse('$_baseUrl/categories/batch?profileId=$profileId'),
+        headers: {
+          ...(_commonHeaders), 
+          'Authorization': 'Bearer $sessionToken',
+        },
+        body: jsonEncode(categories),
+      );
+      
+      return response.statusCode == 200;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error updating categories: $e');
+      }
+      return false;
+    }
+  }
+  
+  // Budget sync
+  Future<List<dynamic>> getBudgets({
+    required String profileId, 
+    required String sessionToken,
+  }) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/budgets?profileId=$profileId'),
+        headers: {
+          ...(_commonHeaders), 
+          'Authorization': 'Bearer $sessionToken',
+        },
+      );
+      
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        return [];
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error getting budgets: $e');
+      }
+      return [];
+    }
+  }
+  
+  Future<bool> updateBudgets({
+    required String profileId, 
+    required String sessionToken,
+    required List<dynamic> budgets,
+  }) async {
+    try {
+      final response = await http.put(
+        Uri.parse('$_baseUrl/budgets/batch?profileId=$profileId'),
+        headers: {
+          ...(_commonHeaders), 
+          'Authorization': 'Bearer $sessionToken',
+        },
+        body: jsonEncode(budgets),
+      );
+      
+      return response.statusCode == 200;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error updating budgets: $e');
+      }
+      return false;
+    }
+  }
+  
+  // Goals sync
+  Future<List<dynamic>> getGoals({
+    required String profileId, 
+    required String sessionToken,
+  }) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/goals?profileId=$profileId'),
+        headers: {
+          ...(_commonHeaders), 
+          'Authorization': 'Bearer $sessionToken',
+        },
+      );
+      
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        return [];
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error getting goals: $e');
+      }
+      return [];
+    }
+  }
+  
+  Future<bool> updateGoals({
+    required String profileId, 
+    required String sessionToken,
+    required List<dynamic> goals,
+  }) async {
+    try {
+      final response = await http.put(
+        Uri.parse('$_baseUrl/goals/batch?profileId=$profileId'),
+        headers: {
+          ...(_commonHeaders), 
+          'Authorization': 'Bearer $sessionToken',
+        },
+        body: jsonEncode(goals),
+      );
+      
+      return response.statusCode == 200;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error updating goals: $e');
+      }
+      return false;
+    }
+  }
+  
+  // Transactions sync
+  Future<bool> updateTransactions({
+    required String profileId, 
+    required String sessionToken,
+    required List<dynamic> transactions,
+  }) async {
+    try {
+      final response = await http.put(
+        Uri.parse('$_baseUrl/transactions/batch?profileId=$profileId'),
+        headers: {
+          ...(_commonHeaders), 
+          'Authorization': 'Bearer $sessionToken',
+        },
+        body: jsonEncode(transactions),
+      );
+      
+      return response.statusCode == 200;
+    } catch (e) {
+    required dynamic profile,
+    required List<dynamic> transactions,ns: $e');
+    required List<dynamic> categories,
+    required List<dynamic> budgets,
+    required List<dynamic> goals,
   }) async {
     try {
       final response = await http.post(
+        Uri.parse('$_baseUrl/sync/all'),
+        headers: {g profileId,
+          ...(_commonHeaders), n,
+          'Authorization': 'Bearer $sessionToken',
+        },ed List<dynamic> transactions,
+        body: jsonEncode({ categories,
+          'profileId': profileId,s,
+          'profile': profile,als,
+          'transactions': transactions,
+          'categories': categories,
+          'budgets': budgets,http.post(
+          'goals': goals,Url/sync/all'),
+        }),ders: {
+      );  ...(_commonHeaders), 
+          'Authorization': 'Bearer $sessionToken',
+      return response.statusCode == 200;
+    } catch (e) {nEncode({
+      if (kDebugMode) {profileId,
+        print('Error syncing profile data: $e');
+      }   'transactions': transactions,
+      return false;es': categories,
+    }     'budgets': budgets,
+  }       'goals': goals,
+        }),
+  // Get transactions for a profile
+  Future<List<dynamic>> getTransactions({
+    required String profileId, e == 200;
+    required String sessionToken,
+  }) async {ebugMode) {
+    try {rint('Error syncing profile data: $e');
+      final response = await http.get(
+        Uri.parse('$_baseUrl/transactions?profileId=$profileId'),
+        headers: {
+          ...(_commonHeaders), 
+          'Authorization': 'Bearer $sessionToken',
+        },ransactions for a profile
+      );<List<dynamic>> getTransactions({
+      quired String profileId, 
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        return [];se = await http.get(
+      } Uri.parse('$_baseUrl/transactions?profileId=$profileId'),
+    } catch (e) {{
+      if (kDebugMode) {aders), 
+        print('Error getting transactions: $e');',
+      } },
+      return [];
+    } 
+  }   if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+  /// Assess investment risk profile
+  Future<Map<String, dynamic>> assessRiskProfile({
+    required List<int> answers,
+  }) async {(e) {
+    try {(kDebugMode) {
+      final response = await http.post(ns: $e');
         Uri.parse('$_baseUrl/calculators/risk-assessment/'),
         headers: _commonHeaders,
         body: jsonEncode({'answers': answers}),
       );
 
       if (response.statusCode == 200) {
-        return jsonDecode(response.body);
-      } else {
+        return jsonDecode(response.body);Profile({
+      } else {tring userId,
         throw Exception('Failed to assess risk profile: ${response.body}');
-      }
-    } catch (e) {
+      }uired String incomeLevel,
+    } catch (e) {ng investmentExperience,
       throw Exception('Network error assessing risk profile: $e');
+    }equired int investmentHorizon,
+  } required String financialGoals,
+  }) async {
+  // =============================================================================
+}     final response = await _dio.post('/risk-profile/assess', data: {
+        'user_id': userId,
+        'age': age,
+        'income_level': incomeLevel,
+        'investment_experience': investmentExperience,
+        'risk_tolerance': riskTolerance,
+        'investment_horizon': investmentHorizon,
+        'financial_goals': financialGoals,
+      });
+      
+      return response.data;
+    } catch (e) {
+      _logger.severe('Failed to assess risk profile: $e');
+      return {
+        'risk_score': 0,
+        'risk_category': 'Unknown',
+        'error': e.toString(),
+      };
     }
   }
-
-  // =============================================================================
 }
