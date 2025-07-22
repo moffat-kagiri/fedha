@@ -77,8 +77,8 @@ class Profile extends HiveObject {
     this.preferences,
     this.displayName,
   }) : 
-    this.createdAt = createdAt ?? DateTime.now(),
-    this.updatedAt = updatedAt ?? DateTime.now();
+    createdAt = createdAt ?? DateTime.now(),
+    updatedAt = updatedAt ?? DateTime.now();
 
   // Password hashing utility
   static String hashPassword(String password) {

@@ -62,8 +62,25 @@ enum TransactionType {
   savings
 }
 
-// Transaction Categories
+// Payment Methods
 @HiveType(typeId: 24)
+enum PaymentMethod {
+  @HiveField(0)
+  cash,
+  @HiveField(1)
+  card,
+  @HiveField(2)
+  bank,
+  @HiveField(3)
+  mobile,
+  @HiveField(4)
+  online,
+  @HiveField(5)
+  cheque
+}
+
+// Transaction Categories
+@HiveType(typeId: 25)
 enum TransactionCategory {
   @HiveField(0)
   food,

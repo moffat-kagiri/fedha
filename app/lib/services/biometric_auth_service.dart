@@ -1,37 +1,79 @@
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-// import 'package:local_auth/local_auth.dart'; // Uncomment when adding local_auth dependency
+import 'package:local_auth/local_auth.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-// Enhanced biometric authentication service with persistent login
+/// Enhanced biometric authentication service with persistent login
 class BiometricAuthService {
   static BiometricAuthService? _instance;
   static BiometricAuthService get instance => _instance ??= BiometricAuthService._();
   
   BiometricAuthService._();
 
-  // final LocalAuthentication _localAuth = LocalAuthentication(); // Uncomment when adding dependency
+  final LocalAuthentication _localAuth = LocalAuthentication();
+  final _secureStorage = const FlutterSecureStorage();
   static const String _biometricEnabledKey = 'biometric_enabled';
   static const String _lastAuthTimeKey = 'last_auth_time';
   static const String _sessionTokenKey = 'session_token';
   static const int _sessionDurationHours = 24; // 24 hour session
 
-  Future<bool> isAvailable() async {
+  /// Check if device supports biometric authentication
+  Future<bool> canAuthenticate() async {
     try {
-      // For development: return true to test biometric setup
-      // In production, this would check actual device capabilities
-      return true;
+      // Check if hardware is capable
+      final isSupported = await _localAuth.isDeviceSupported();
+      if (!isSupported) return false;
+      
+      // Check if biometrics are available
+      final canCheckBiometrics = await _localAuth.canCheckBiometrics;
+      return canCheckBiometrics;
     } catch (e) {
+      if (kDebugMode) {
+        print('Error checking biometric capability: $e');
+      }
       return false;
     }
   }
+  
+  /// Alias for canAuthenticate() for backward compatibility
+  Future<bool> isAvailable() async {
+    return canAuthenticate();
+  }
 
+  /// Authenticate the user with biometrics
   Future<bool> authenticate({
-    required String reason,
+    required String localizedReason,
     bool useErrorDialogs = true,
     bool stickyAuth = false,
   }) async {
     try {
-      // For development: simulate successful authentication
+      if (!await canAuthenticate()) {
+        return false;
+      }
+      
+      // Try to authenticate
+      final authenticated = await _localAuth.authenticate(
+        localizedReason: localizedReason,
+        options: AuthenticationOptions(
+          stickyAuth: stickyAuth,
+          useErrorDialogs: useErrorDialogs,
+        ),
+      );
+      
+      if (authenticated) {
+        // Update last authentication time
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setInt(_lastAuthTimeKey, DateTime.now().millisecondsSinceEpoch);
+      }
+      
+      return authenticated;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error during authentication: $e');
+      }
+      return false;
+    }
       // In production: would use actual biometric authentication
       await Future.delayed(const Duration(seconds: 1)); // Simulate auth delay
       final result = true; // Simulate success
@@ -92,7 +134,7 @@ class BiometricAuthService {
     }
     
     // Otherwise, require new authentication
-    return await authenticate(reason: reason);
+    return await authenticate(localizedReason: reason);
   }
 
   Future<bool> isBiometricEnabled() async {

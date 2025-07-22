@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 import '../utils/responsive_utils.dart';
 
@@ -7,7 +8,7 @@ class LoginWelcomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final authService = AuthService.instance;
+    final authService = Provider.of<AuthService>(context);
     final screenSize = MediaQuery.of(context).size;
     final isTablet = ResponsiveUtils.isTablet(context);
     

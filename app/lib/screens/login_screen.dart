@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../services/auth_service.dart';
 import '../services/biometric_auth_service.dart';
+import '../services/biometric_auth_extension.dart'; // Add this import for the extension
 import '../utils/first_login_handler.dart';
 import 'signup_screen.dart';
 
@@ -112,7 +113,7 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       final biometricService = BiometricAuthService.instance;
       final success = await biometricService.authenticate(
-        reason: 'Please authenticate to sign in',
+        localizedReason: 'Please authenticate to sign in',
       );
       
       if (success) {

@@ -215,13 +215,16 @@ class SmsListenerService extends ChangeNotifier {
       
       // Create a transaction entry
       final transaction = Transaction(
-        type: TransactionType.expense, // Add the required type parameter
+        type: TransactionType.expense, // Default to expense for SMS transactions
+        profileId: _currentProfileId!,
         id: const Uuid().v4(),
         amount: transactionData.amount,
         date: transactionData.timestamp,
         description: 'SMS: ${transactionData.type} via ${transactionData.source}',
         categoryId: await _guessCategory(transactionData),
-        // Keep any other existing parameters
+        isRecurring: false,
+        notes: 'Auto-detected from SMS',
+        paymentMethod: PaymentMethod.mobile
       );
       
       // Save to pending transactions box

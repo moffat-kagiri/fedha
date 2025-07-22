@@ -77,6 +77,10 @@ void main() async {
   await Hive.openBox<SyncQueueItem>('sync_queue');
 
   try {
+    // Initialize services
+    final authService = AuthService();
+    await authService.initialize();
+    
     final apiClient = ApiClient();
     final offlineDataService = OfflineDataService();
     final goalTransactionService = stubs.GoalTransactionService(offlineDataService);
@@ -84,22 +88,25 @@ void main() async {
     final csvUploadService = stubs.CSVUploadService(offlineDataService);
     final smsTransactionExtractor = stubs.SmsTransactionExtractor(offlineDataService);
     final notificationService = stubs.NotificationService.instance;
+    final biometricAuthService = BiometricAuthService.instance;
+    
+    // Create SMS transaction extractor
+    final smsTransactionExtractor = stubs.SmsTransactionExtractor(offlineDataService);
     
     // Initialize SMS listener service
-    final smsListenerService = SmsListenerService.instance;
-    await smsListenerService.initialize();
+    final smsListenerService = stubs.SmsListenerService(offlineDataService, smsTransactionExtractor);
+    // await smsListenerService.initialize();  // Uncomment when service is fully implemented
     
     final syncService = EnhancedSyncService(
       offlineDataService,
       apiClient,
     );
-    final authService = AuthService();
+    // Services already initialized above
     final themeService = theme_svc.ThemeService.instance;
     final currencyService = CurrencyService();
     await currencyService.loadCurrency(); // Initialize currency service
     final navigationService = stubs.NavigationService.instance;
     final senderManagementService = stubs.SenderManagementService.instance;
-    final biometricAuthService = BiometricAuthService.instance;
 
     // Initialize offline manager for local calculations and parsing
     final offlineManager = stubs.OfflineManager();
@@ -127,7 +134,7 @@ void main() async {
           Provider<stubs.SenderManagementService>.value(value: senderManagementService),
           Provider<stubs.BackgroundTransactionMonitor>.value(value: backgroundTransactionMonitor),
           Provider<BiometricAuthService>.value(value: biometricAuthService),
-          ChangeNotifierProvider(create: (_) => authService),
+          ChangeNotifierProvider<AuthService>.value(value: authService),
           ChangeNotifierProvider(create: (_) => themeService),
           ChangeNotifierProvider<CurrencyService>.value(value: currencyService),
         ],
