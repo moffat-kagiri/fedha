@@ -359,3 +359,396 @@ class TransactionCategoryAdapter extends TypeAdapter<TransactionCategory> {
           runtimeType == other.runtimeType &&
           typeId == other.typeId;
 }
+
+class BudgetPeriodAdapter extends TypeAdapter<BudgetPeriod> {
+  @override
+  final int typeId = 31;
+
+  @override
+  BudgetPeriod read(BinaryReader reader) {
+    switch (reader.readByte()) {
+      case 0:
+        return BudgetPeriod.daily;
+      case 1:
+        return BudgetPeriod.weekly;
+      case 2:
+        return BudgetPeriod.monthly;
+      case 3:
+        return BudgetPeriod.quarterly;
+      case 4:
+        return BudgetPeriod.yearly;
+      default:
+        return BudgetPeriod.daily;
+    }
+  }
+
+  @override
+  void write(BinaryWriter writer, BudgetPeriod obj) {
+    switch (obj) {
+      case BudgetPeriod.daily:
+        writer.writeByte(0);
+        break;
+      case BudgetPeriod.weekly:
+        writer.writeByte(1);
+        break;
+      case BudgetPeriod.monthly:
+        writer.writeByte(2);
+        break;
+      case BudgetPeriod.quarterly:
+        writer.writeByte(3);
+        break;
+      case BudgetPeriod.yearly:
+        writer.writeByte(4);
+        break;
+    }
+  }
+
+  @override
+  int get hashCode => typeId.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is BudgetPeriodAdapter &&
+          runtimeType == other.runtimeType &&
+          typeId == other.typeId;
+}
+
+class BudgetStatusAdapter extends TypeAdapter<BudgetStatus> {
+  @override
+  final int typeId = 32;
+
+  @override
+  BudgetStatus read(BinaryReader reader) {
+    switch (reader.readByte()) {
+      case 0:
+        return BudgetStatus.active;
+      case 1:
+        return BudgetStatus.inactive;
+      case 2:
+        return BudgetStatus.exceeded;
+      case 3:
+        return BudgetStatus.completed;
+      default:
+        return BudgetStatus.active;
+    }
+  }
+
+  @override
+  void write(BinaryWriter writer, BudgetStatus obj) {
+    switch (obj) {
+      case BudgetStatus.active:
+        writer.writeByte(0);
+        break;
+      case BudgetStatus.inactive:
+        writer.writeByte(1);
+        break;
+      case BudgetStatus.exceeded:
+        writer.writeByte(2);
+        break;
+      case BudgetStatus.completed:
+        writer.writeByte(3);
+        break;
+    }
+  }
+
+  @override
+  int get hashCode => typeId.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is BudgetStatusAdapter &&
+          runtimeType == other.runtimeType &&
+          typeId == other.typeId;
+}
+
+class InvoiceStatusAdapter extends TypeAdapter<InvoiceStatus> {
+  @override
+  final int typeId = 26;
+
+  @override
+  InvoiceStatus read(BinaryReader reader) {
+    switch (reader.readByte()) {
+      case 0:
+        return InvoiceStatus.draft;
+      case 1:
+        return InvoiceStatus.sent;
+      case 2:
+        return InvoiceStatus.paid;
+      case 3:
+        return InvoiceStatus.overdue;
+      case 4:
+        return InvoiceStatus.cancelled;
+      default:
+        return InvoiceStatus.draft;
+    }
+  }
+
+  @override
+  void write(BinaryWriter writer, InvoiceStatus obj) {
+    switch (obj) {
+      case InvoiceStatus.draft:
+        writer.writeByte(0);
+        break;
+      case InvoiceStatus.sent:
+        writer.writeByte(1);
+        break;
+      case InvoiceStatus.paid:
+        writer.writeByte(2);
+        break;
+      case InvoiceStatus.overdue:
+        writer.writeByte(3);
+        break;
+      case InvoiceStatus.cancelled:
+        writer.writeByte(4);
+        break;
+    }
+  }
+
+  @override
+  int get hashCode => typeId.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is InvoiceStatusAdapter &&
+          runtimeType == other.runtimeType &&
+          typeId == other.typeId;
+}
+
+class TransactionStatusAdapter extends TypeAdapter<TransactionStatus> {
+  @override
+  final int typeId = 27;
+
+  @override
+  TransactionStatus read(BinaryReader reader) {
+    switch (reader.readByte()) {
+      case 0:
+        return TransactionStatus.pending;
+      case 1:
+        return TransactionStatus.completed;
+      case 2:
+        return TransactionStatus.failed;
+      case 3:
+        return TransactionStatus.cancelled;
+      case 4:
+        return TransactionStatus.refunded;
+      default:
+        return TransactionStatus.pending;
+    }
+  }
+
+  @override
+  void write(BinaryWriter writer, TransactionStatus obj) {
+    switch (obj) {
+      case TransactionStatus.pending:
+        writer.writeByte(0);
+        break;
+      case TransactionStatus.completed:
+        writer.writeByte(1);
+        break;
+      case TransactionStatus.failed:
+        writer.writeByte(2);
+        break;
+      case TransactionStatus.cancelled:
+        writer.writeByte(3);
+        break;
+      case TransactionStatus.refunded:
+        writer.writeByte(4);
+        break;
+    }
+  }
+
+  @override
+  int get hashCode => typeId.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is TransactionStatusAdapter &&
+          runtimeType == other.runtimeType &&
+          typeId == other.typeId;
+}
+
+class RecurringTypeAdapter extends TypeAdapter<RecurringType> {
+  @override
+  final int typeId = 28;
+
+  @override
+  RecurringType read(BinaryReader reader) {
+    switch (reader.readByte()) {
+      case 0:
+        return RecurringType.daily;
+      case 1:
+        return RecurringType.weekly;
+      case 2:
+        return RecurringType.biweekly;
+      case 3:
+        return RecurringType.monthly;
+      case 4:
+        return RecurringType.quarterly;
+      case 5:
+        return RecurringType.yearly;
+      default:
+        return RecurringType.daily;
+    }
+  }
+
+  @override
+  void write(BinaryWriter writer, RecurringType obj) {
+    switch (obj) {
+      case RecurringType.daily:
+        writer.writeByte(0);
+        break;
+      case RecurringType.weekly:
+        writer.writeByte(1);
+        break;
+      case RecurringType.biweekly:
+        writer.writeByte(2);
+        break;
+      case RecurringType.monthly:
+        writer.writeByte(3);
+        break;
+      case RecurringType.quarterly:
+        writer.writeByte(4);
+        break;
+      case RecurringType.yearly:
+        writer.writeByte(5);
+        break;
+    }
+  }
+
+  @override
+  int get hashCode => typeId.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is RecurringTypeAdapter &&
+          runtimeType == other.runtimeType &&
+          typeId == other.typeId;
+}
+
+class NotificationTypeAdapter extends TypeAdapter<NotificationType> {
+  @override
+  final int typeId = 29;
+
+  @override
+  NotificationType read(BinaryReader reader) {
+    switch (reader.readByte()) {
+      case 0:
+        return NotificationType.transactionAlert;
+      case 1:
+        return NotificationType.budgetWarning;
+      case 2:
+        return NotificationType.goalProgress;
+      case 3:
+        return NotificationType.billReminder;
+      case 4:
+        return NotificationType.accountUpdate;
+      case 5:
+        return NotificationType.securityAlert;
+      default:
+        return NotificationType.transactionAlert;
+    }
+  }
+
+  @override
+  void write(BinaryWriter writer, NotificationType obj) {
+    switch (obj) {
+      case NotificationType.transactionAlert:
+        writer.writeByte(0);
+        break;
+      case NotificationType.budgetWarning:
+        writer.writeByte(1);
+        break;
+      case NotificationType.goalProgress:
+        writer.writeByte(2);
+        break;
+      case NotificationType.billReminder:
+        writer.writeByte(3);
+        break;
+      case NotificationType.accountUpdate:
+        writer.writeByte(4);
+        break;
+      case NotificationType.securityAlert:
+        writer.writeByte(5);
+        break;
+    }
+  }
+
+  @override
+  int get hashCode => typeId.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is NotificationTypeAdapter &&
+          runtimeType == other.runtimeType &&
+          typeId == other.typeId;
+}
+
+class AccountTypeAdapter extends TypeAdapter<AccountType> {
+  @override
+  final int typeId = 30;
+
+  @override
+  AccountType read(BinaryReader reader) {
+    switch (reader.readByte()) {
+      case 0:
+        return AccountType.cash;
+      case 1:
+        return AccountType.bankAccount;
+      case 2:
+        return AccountType.creditCard;
+      case 3:
+        return AccountType.investment;
+      case 4:
+        return AccountType.loan;
+      case 5:
+        return AccountType.savings;
+      case 6:
+        return AccountType.mobile;
+      default:
+        return AccountType.cash;
+    }
+  }
+
+  @override
+  void write(BinaryWriter writer, AccountType obj) {
+    switch (obj) {
+      case AccountType.cash:
+        writer.writeByte(0);
+        break;
+      case AccountType.bankAccount:
+        writer.writeByte(1);
+        break;
+      case AccountType.creditCard:
+        writer.writeByte(2);
+        break;
+      case AccountType.investment:
+        writer.writeByte(3);
+        break;
+      case AccountType.loan:
+        writer.writeByte(4);
+        break;
+      case AccountType.savings:
+        writer.writeByte(5);
+        break;
+      case AccountType.mobile:
+        writer.writeByte(6);
+        break;
+    }
+  }
+
+  @override
+  int get hashCode => typeId.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is AccountTypeAdapter &&
+          runtimeType == other.runtimeType &&
+          typeId == other.typeId;
+}

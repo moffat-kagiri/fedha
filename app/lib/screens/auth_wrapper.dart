@@ -38,18 +38,18 @@ class _AuthWrapperState extends State<AuthWrapper> {
         await authService.initialize();
         
         final biometricService = BiometricAuthService.instance;
-        final biometricEnabled = await biometricService.isBiometricEnabled();
-        final hasValidSession = await biometricService.hasValidBiometricSession();
+        final biometricEnabled = await biometricService?.isBiometricEnabled() ?? false;
+        final hasValidSession = await biometricService?.hasValidBiometricSession() ?? false;
         
         // Check if user is logged in and biometric is enabled
         bool needsBiometric = false;
-        if (authService.isLoggedIn && biometricEnabled && !hasValidSession) {
+        if (authService.isLoggedIn() && biometricEnabled && !hasValidSession) {
           needsBiometric = true;
         }
         
         setState(() {
           _onboardingCompleted = onboardingCompleted;
-          _isLoggedIn = authService.isLoggedIn;
+          _isLoggedIn = authService.isLoggedIn();
           _biometricEnabled = biometricEnabled;
           _needsBiometricAuth = needsBiometric;
           _isLoading = false;
@@ -124,7 +124,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
     return Consumer<AuthService>(
       builder: (context, authService, child) {
-        if (authService.isLoggedIn) {
+        if (authService.isLoggedIn()) {
           return const MainNavigation();
         } else {
           return const LoginWelcomeScreen();

@@ -1,67 +1,147 @@
 // lib/services/auth_service.dart
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:hive/hive.dart';
-import 'package:uuid/uuid.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:uuid/uuid.dart';
 
 import '../models/profile.dart';
+import '../services/api_client.dart';
+import '../services/biometric_auth_service.dart';
+import '../services/biometric_auth_extension.dart';
 import '../utils/app_logger.dart';
-import './api_client.dart';
-import './biometric_auth_service.dart';
-import './sync_manager.dart';
 
+// Auth session for persistent login
+class AuthSession {
+  final String userId;
+  final DateTime createdAt;
+  final DateTime expiresAt;
+  final String sessionToken;
+  final String? deviceId;
+  
+  bool get isValid => DateTime.now().isBefore(expiresAt);
+  
+  AuthSession({
+    required this.userId,
+    required this.sessionToken,
+    this.deviceId,
+    DateTime? createdAt,
+    DateTime? expiresAt,
+  }) : 
+    createdAt = createdAt ?? DateTime.now(),
+    expiresAt = expiresAt ?? DateTime.now().add(const Duration(days: 30));
+    
+  Map<String, dynamic> toJson() => {
+    'userId': userId,
+    'sessionToken': sessionToken,
+    'createdAt': createdAt.toIso8601String(),
+    'expiresAt': expiresAt.toIso8601String(),
+    'deviceId': deviceId,
+  };
+  
+  factory AuthSession.fromJson(Map<String, dynamic> json) => AuthSession(
+    userId: json['userId'],
+    sessionToken: json['sessionToken'],
+    createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt']) : null,
+    expiresAt: json['expiresAt'] != null ? DateTime.parse(json['expiresAt']) : null,
+    deviceId: json['deviceId'],
+  );
+}
+
+// Profile existence check result
+class ProfileExistenceResult {
+  final bool exists;
+  final bool isLocal;
+  final bool isOnServer;
+  
+  ProfileExistenceResult({
+    required this.exists,
+    required this.isLocal,
+    required this.isOnServer,
+  });
+}
+
+// Login result class
 class LoginResult {
   final bool success;
   final String message;
   final Profile? profile;
+  final bool isFirstLogin;
   final String? sessionToken;
-  final String? errorCode;
 
-  LoginResult({
-    required this.success,
-    required this.message,
-    this.profile,
+  LoginResult.success({
+    this.profile, 
     this.sessionToken,
-    this.errorCode,
-  });
-  
-  // Factory constructors
-  factory LoginResult.success({Profile? profile, String? sessionToken, String message = 'Login successful'}) {
-    return LoginResult(
-      success: true,
-      message: message,
-      profile: profile,
-      sessionToken: sessionToken,
-    );
-  }
+    this.isFirstLogin = false,
+    String? message,
+  }) : success = true,
+       message = message ?? 'Login successful';
+       
+  LoginResult.error({required this.message})
+    : success = false, 
+      profile = null,
+      sessionToken = null,
+      isFirstLogin = false;
 
-  factory LoginResult.error({String message = 'Login failed', String? errorCode}) {
-    return LoginResult(
-      success: false,
-      message: message,
-      errorCode: errorCode,
-    );
-  }
+  static LoginResult empty() => LoginResult.error(message: 'No profile found');
 }
 
+// Profile stats class
+class ProfileStats {
+  final double totalIncome;
+  final double totalExpense;
+  final double netBalance;
+  final int transactionCount;
+  final int activeBudgets;
+  final int activeGoals;
+  final DateTime? lastLogin;
+  final int accountAge;
+
+  ProfileStats({
+    required this.totalIncome,
+    required this.totalExpense,
+    required this.netBalance,
+    required this.transactionCount,
+    required this.activeBudgets,
+    required this.activeGoals,
+    this.lastLogin,
+    required this.accountAge,
+  });
+
+  static ProfileStats empty() => ProfileStats(
+    totalIncome: 0.0,
+    totalExpense: 0.0,
+    netBalance: 0.0,
+    transactionCount: 0,
+    activeBudgets: 0,
+    activeGoals: 0,
+    accountAge: 0,
+  );
+}
+
+// Result class for sync operations
 class SyncResult {
   final bool success;
-  final String? message;
+  final String message;
   final int syncedEntities;
   final List<String>? errors;
-
+  
   SyncResult({
     required this.success,
-    this.message,
-    this.syncedEntities = 0,
+    required this.message,
+    required this.syncedEntities,
     this.errors,
   });
   
-  // Factory constructors instead of static methods
+  factory SyncResult.failed(String message) => SyncResult(
+    success: false,
+    message: message,
+    syncedEntities: 0,
+  );
+  
   factory SyncResult.success({int syncedEntities = 0, String? message}) {
     return SyncResult(
       success: true,
@@ -74,27 +154,30 @@ class SyncResult {
     return SyncResult(
       success: false,
       message: message ?? 'Sync failed',
+      syncedEntities: 0,
       errors: errors,
     );
   }
 }
 
 class AuthService extends ChangeNotifier {
-  final ApiClient _apiClient;
+  late final ApiClient _apiClient;
   final _secureStorage = const FlutterSecureStorage();
-  final _logger = AppLogger('AuthService');
+  final _logger = AppLogger.getLogger('AuthService');
   final _uuid = Uuid();
   
   Box<Profile>? _profileBox;
   Profile? _currentProfile;
   BiometricAuthService? _biometricService;
 
-  AuthService(this._apiClient) {
+  AuthService([ApiClient? apiClient]) {
+    _apiClient = apiClient ?? ApiClient();
     initialize();
   }
   
   // Getters
   Profile? get profile => _currentProfile;
+  Profile? get currentProfile => _currentProfile;
   BiometricAuthService? get biometricService => _biometricService;
   
   // Initialize the service
@@ -114,7 +197,7 @@ class AuthService extends ChangeNotifier {
       
       _logger.info('AuthService initialized');
     } catch (e) {
-      _logger.error('Failed to initialize AuthService: $e');
+      _logger.severe('Failed to initialize AuthService: $e');
     }
   }
   
@@ -129,7 +212,7 @@ class AuthService extends ChangeNotifier {
         }
       }
     } catch (e) {
-      _logger.error('Failed to restore last profile: $e');
+      _logger.severe('Failed to restore last profile: $e');
     }
   }
   
@@ -152,6 +235,8 @@ class AuthService extends ChangeNotifier {
       // Update the profile with the session token
       final updatedProfile = matchingProfile.copyWith(
         lastLogin: DateTime.now(),
+        authToken: sessionToken,
+        sessionToken: sessionToken,
       );
       
       await _profileBox!.put(updatedProfile.id, updatedProfile);
@@ -166,7 +251,7 @@ class AuthService extends ChangeNotifier {
         sessionToken: sessionToken,
       );
     } catch (e) {
-      _logger.error('Login failed: $e');
+      _logger.severe('Login failed: $e');
       return LoginResult.error(message: e.toString());
     }
   }
@@ -205,6 +290,8 @@ class AuthService extends ChangeNotifier {
       // Update the profile with the new session token
       final updatedProfile = _currentProfile!.copyWith(
         lastLogin: DateTime.now(),
+        authToken: sessionToken,
+        sessionToken: sessionToken,
       );
       
       await _profileBox!.put(updatedProfile.id, updatedProfile);
@@ -218,7 +305,7 @@ class AuthService extends ChangeNotifier {
         sessionToken: sessionToken,
       );
     } catch (e) {
-      _logger.error('Biometric login failed: $e');
+      _logger.severe('Biometric login failed: $e');
       return LoginResult.error(message: 'Biometric login failed: ${e.toString()}');
     }
   }
@@ -248,16 +335,16 @@ class AuthService extends ChangeNotifier {
       final userId = _uuid.v4();
       
       // Create new profile
-      final newProfile = Profile(
+      final newProfile = Profile.defaultProfile(
         id: userId,
-        email: email.trim(),
         name: name.trim(),
-        createdAt: DateTime.now(),
-        lastLogin: DateTime.now(),
+        email: email.trim(),
         pin: '0000', // Default PIN
+      ).copyWith(
+        authToken: sessionToken,
+        sessionToken: sessionToken,
         phoneNumber: '',
         photoUrl: '',
-        authToken: sessionToken,
       );
       
       // Save locally
@@ -275,14 +362,14 @@ class AuthService extends ChangeNotifier {
         if (isConnected) {
           await _apiClient.createAccount(
             email: email,
-            name: name,
+            password: password,
+            firstName: name.split(' ').first,
+            lastName: name.split(' ').length > 1 ? name.split(' ').last : '',
             deviceId: deviceId,
-            sessionToken: sessionToken,
-            userId: userId,
           );
         }
       } catch (e) {
-        _logger.warn('Could not sync new account to server: $e');
+        _logger.warning('Could not sync new account to server: $e');
         // Continue anyway as we've created the local account
       }
       
@@ -294,7 +381,7 @@ class AuthService extends ChangeNotifier {
         message: 'Account created successfully',
       );
     } catch (e) {
-      _logger.error('Signup failed: $e');
+      _logger.severe('Signup failed: $e');
       return LoginResult.error(message: 'Failed to create account: ${e.toString()}');
     }
   }
@@ -303,18 +390,18 @@ class AuthService extends ChangeNotifier {
   Future<void> logout() async {
     try {
       if (_biometricService != null) {
-        await _biometricService.clearBiometricSession();
+        await _biometricService!.clearBiometricSession();
       }
       
       // Invalidate session on server if possible
-      if (_currentProfile != null && _apiClient != null) {
+      if (_currentProfile != null) {
         try {
           await _apiClient.invalidateSession(
             userId: _currentProfile!.id,
             sessionToken: _currentProfile!.authToken ?? '',
           );
         } catch (e) {
-          _logger.warn('Failed to invalidate server session: $e');
+          _logger.severe('Failed to invalidate server session: $e');
           // Continue with local logout
         }
       }
@@ -327,7 +414,7 @@ class AuthService extends ChangeNotifier {
       notifyListeners();
       _logger.info('User logged out');
     } catch (e) {
-      _logger.error('Logout failed: $e');
+      _logger.severe('Logout failed: $e');
     }
   }
   
@@ -347,7 +434,7 @@ class AuthService extends ChangeNotifier {
       
       return true;
     } catch (e) {
-      _logger.error('Failed to update profile name: $e');
+      _logger.severe('Failed to update profile name: $e');
       return false;
     }
   }
@@ -369,7 +456,7 @@ class AuthService extends ChangeNotifier {
       
       return true;
     } catch (e) {
-      _logger.error('Failed to update profile email: $e');
+      _logger.severe('Failed to update profile email: $e');
       return false;
     }
   }
@@ -402,5 +489,142 @@ class AuthService extends ChangeNotifier {
   void setCurrentProfile(Profile profile) {
     _currentProfile = profile;
     notifyListeners();
+  }
+  
+  // Change user password
+  Future<bool> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    if (_currentProfile == null) {
+      return false;
+    }
+    
+    try {
+      // In a real app, you would verify the current password with the server
+      // Here we'll simulate a successful password change
+      
+      // Try to update password on server if online
+      final isConnected = await _apiClient.checkServerConnection();
+      
+      if (isConnected) {
+        try {
+          // This would typically call the API to update the password
+          // Since we don't have actual password validation here, we'll just
+          // simulate a successful password change
+        } catch (e) {
+          _logger.warning('Failed to update password on server: $e');
+          return false;
+        }
+      }
+      
+      // Return success
+      return true;
+    } catch (e) {
+      _logger.severe('Failed to change password: $e');
+      return false;
+    }
+  }
+  
+  // Check if the user is currently logged in
+  bool isLoggedIn() {
+    return _currentProfile != null;
+  }
+  
+  // Enhanced login with additional options
+  Future<LoginResult> enhancedLogin({
+    required String email,
+    required String password,
+    bool rememberMe = false,
+    bool useBiometric = false,
+  }) async {
+    try {
+      // First try regular login
+      final loginResult = await login(email: email, password: password);
+      
+      if (!loginResult.success) {
+        return loginResult;
+      }
+      
+      // If login was successful and user wants to use biometrics, set it up
+      if (loginResult.success && useBiometric && _biometricService != null) {
+        final biometricAvailable = await _biometricService!.canAuthenticate();
+        
+        if (biometricAvailable) {
+          // Save credentials for biometric auth
+          final biometricExtension = BiometricAuthExtension(this);
+          await biometricExtension.saveBiometricCredentials(email, password);
+        }
+      }
+      
+      // If remember me is set, extend the session duration
+      if (rememberMe && loginResult.sessionToken != null) {
+        // In a real app, you would extend session on server
+        // Here we'll just update local storage with extended expiration
+        final extendedSession = AuthSession(
+          userId: _currentProfile!.id,
+          sessionToken: loginResult.sessionToken!,
+          expiresAt: DateTime.now().add(const Duration(days: 90)),
+        );
+        
+        await _secureStorage.write(
+          key: 'auth_session',
+          value: jsonEncode(extendedSession.toJson()),
+        );
+      }
+      
+      return loginResult;
+    } catch (e) {
+      _logger.severe('Enhanced login failed: $e');
+      return LoginResult.error(message: e.toString());
+    }
+  }
+  
+  // Create a new profile from profile data
+  Future<bool> createProfile(Map<String, dynamic> profileData) async {
+    try {
+      if (_profileBox == null) await initialize();
+      
+      // Generate unique ID
+      final userId = _uuid.v4();
+      final sessionToken = _createSessionToken();
+      
+      // Extract basic data
+      final name = profileData['name'] as String;
+      final email = profileData['email'] as String;
+      
+      // Create profile with default values first
+      final newProfile = Profile.defaultProfile(
+        id: userId,
+        name: name.trim(),
+        email: email.trim(),
+        pin: profileData['pin'] as String? ?? '0000',
+      );
+      
+      // Apply any additional data from profileData
+      final updatedProfile = newProfile.copyWith(
+        authToken: sessionToken,
+        sessionToken: sessionToken,
+        phoneNumber: profileData['phoneNumber'] as String? ?? '',
+        photoUrl: profileData['photoUrl'] as String? ?? '',
+        baseCurrency: profileData['baseCurrency'] as String? ?? 'USD',
+        timezone: profileData['timezone'] as String? ?? 'UTC',
+      );
+      
+      // Save locally
+      await _profileBox!.put(userId, updatedProfile);
+      await _secureStorage.write(key: 'current_profile_id', value: userId);
+      await _secureStorage.write(key: 'session_token', value: sessionToken);
+      
+      // Set as current profile
+      _currentProfile = updatedProfile;
+      notifyListeners();
+      
+      _logger.info('Created new profile: ${updatedProfile.name}');
+      return true;
+    } catch (e) {
+      _logger.severe('Failed to create profile: $e');
+      return false;
+    }
   }
 }

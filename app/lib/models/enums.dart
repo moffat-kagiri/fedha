@@ -105,29 +105,114 @@ enum TransactionCategory {
 }
 
 // Budget Periods
+@HiveType(typeId: 31)
 enum BudgetPeriod {
+  @HiveField(0)
   daily,
+  @HiveField(1)
   weekly,
+  @HiveField(2)
   monthly,
+  @HiveField(3)
   quarterly,
+  @HiveField(4)
   yearly
 }
 
 // Budget Status
+@HiveType(typeId: 32)
 enum BudgetStatus {
+  @HiveField(0)
   active,
+  @HiveField(1)
   inactive,
+  @HiveField(2)
   exceeded,
+  @HiveField(3)
   completed
 }
 
 // Invoice Status
+@HiveType(typeId: 26)
 enum InvoiceStatus {
+  @HiveField(0)
   draft,
+  @HiveField(1)
   sent,
+  @HiveField(2)
   paid,
+  @HiveField(3)
   overdue,
+  @HiveField(4)
   cancelled
+}
+
+// Transaction Status
+@HiveType(typeId: 27)
+enum TransactionStatus {
+  @HiveField(0)
+  pending,
+  @HiveField(1)
+  completed,
+  @HiveField(2)
+  failed,
+  @HiveField(3)
+  cancelled,
+  @HiveField(4)
+  refunded
+}
+
+// Recurring Type
+@HiveType(typeId: 28)
+enum RecurringType {
+  @HiveField(0)
+  daily,
+  @HiveField(1)
+  weekly,
+  @HiveField(2)
+  biweekly,
+  @HiveField(3)
+  monthly,
+  @HiveField(4)
+  quarterly,
+  @HiveField(5)
+  yearly
+}
+
+// Notification Type
+@HiveType(typeId: 29)
+enum NotificationType {
+  @HiveField(0)
+  transactionAlert,
+  @HiveField(1)
+  budgetWarning,
+  @HiveField(2)
+  goalProgress,
+  @HiveField(3)
+  billReminder,
+  @HiveField(4)
+  accountUpdate,
+  @HiveField(5)
+  securityAlert
+}
+
+// Account Type
+@HiveType(typeId: 30)
+enum AccountType {
+  @HiveField(0)
+  cash,
+  @HiveField(1)
+  bankAccount,
+  @HiveField(2)
+  creditCard,
+  @HiveField(3)
+  investment,
+  @HiveField(4)
+  loan,
+  @HiveField(5)
+  savings,
+  @HiveField(6)
+  mobile
 }
 
 // Invoice Line Item

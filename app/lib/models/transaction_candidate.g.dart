@@ -23,8 +23,8 @@ class TransactionCandidateAdapter extends TypeAdapter<TransactionCandidate> {
       description: fields[3] as String?,
       categoryId: fields[4] as String?,
       date: fields[5] as DateTime,
-      type: fields[6] as String,
-      status: fields[7] as String,
+      type: TransactionType.values.firstWhere((e) => e.toString().split('.').last == (fields[6] as String)),
+      status: TransactionStatus.values.firstWhere((e) => e.toString().split('.').last == (fields[7] as String)),
       confidence: fields[8] as double,
       transactionId: fields[9] as String?,
       metadata: (fields[10] as Map?)?.cast<String, dynamic>(),
@@ -50,7 +50,7 @@ class TransactionCandidateAdapter extends TypeAdapter<TransactionCandidate> {
       ..writeByte(5)
       ..write(obj.date)
       ..writeByte(6)
-      ..write(obj.type)
+      ..write(obj.type.toString().split('.').last)
       ..writeByte(7)
       ..write(obj.status)
       ..writeByte(8)

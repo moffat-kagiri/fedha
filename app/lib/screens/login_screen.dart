@@ -40,6 +40,8 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _checkBiometricAvailability() async {
     try {
       final biometricService = BiometricAuthService.instance;
+      if (biometricService == null) return;
+      
       final isSupported = await biometricService.isDeviceSupported();
       final isFingerprintAvailable = await biometricService.isFingerPrintAvailable();
       final isEnabled = await biometricService.isBiometricEnabled();
@@ -61,11 +63,11 @@ class _LoginScreenState extends State<LoginScreen> {
       _isLoading = true;
       _errorMessage = null;
     });
-
-    try {
       final authService = Provider.of<AuthService>(context, listen: false);
       final result = await authService.enhancedLogin(
-        _emailController.text.trim(),
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+      );
         _passwordController.text,
       );
 
@@ -107,22 +109,24 @@ class _LoginScreenState extends State<LoginScreen> {
     
     // Show prompts in sequence
     await firstLoginHandler.handleFirstLogin();
-  }
-
   Future<void> _biometricLogin() async {
     try {
       final biometricService = BiometricAuthService.instance;
+      if (biometricService == null) return;
+      
       final success = await biometricService.authenticate(
+        localizedReason: 'Please authenticate to sign in',
+      );
         localizedReason: 'Please authenticate to sign in',
       );
       
       if (success) {
         final authService = Provider.of<AuthService>(context, listen: false);
-        final loginSuccess = await authService.loginWithBiometric();
+        final result = await authService.loginWithBiometric();
         
         if (!mounted) return;
 
-        if (!loginSuccess) {
+        if (!result.success) {
           setState(() {
             _errorMessage = 'Biometric login failed';
           });

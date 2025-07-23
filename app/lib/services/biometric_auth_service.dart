@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -6,6 +5,18 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/app_logger.dart';
 
 class BiometricAuthService {
+  // Singleton instance
+  static BiometricAuthService? _instance;
+  
+  // Get singleton instance
+  static BiometricAuthService? get instance {
+    if (_instance == null) {
+      _instance = BiometricAuthService();
+      _instance!.initialize();
+    }
+    return _instance;
+  }
+  
   final LocalAuthentication _localAuth = LocalAuthentication();
   final _secureStorage = const FlutterSecureStorage();
   final _logger = AppLogger('BiometricAuthService');
@@ -42,7 +53,7 @@ class BiometricAuthService {
   Future<bool> authenticateWithBiometric(String reason) async {
     try {
       if (!await isAvailable()) {
-        _logger.warn('Biometric authentication not available');
+        _logger.warning('Biometric authentication not available');
         return false;
       }
       
@@ -130,6 +141,11 @@ class BiometricAuthService {
     } catch (e) {
       _logger.error('Error saving authentication session: $e');
     }
+  }
+  
+  // Alias for authenticateWithBiometric to maintain compatibility with extension methods
+  Future<bool> authenticate({required String localizedReason}) async {
+    return authenticateWithBiometric(localizedReason);
   }
   
   Future<void> clearBiometricSession() async {

@@ -167,13 +167,13 @@ The `tryAutoLogin` method attempts to restore a session:
 Future<LoginResult> tryAutoLogin() async {
   // Check if persistent login is enabled
   if (!persistentLoginEnabled) {
-    return LoginResult.error('Persistent login is disabled');
+    return LoginResult.error(message: 'Persistent login is disabled');
   }
   
   // Get and validate saved session
   final session = AuthSession.fromJson(Map<String, dynamic>.from(sessionJson));
   if (!session.isValid) {
-    return LoginResult.error('Session expired');
+    return LoginResult.error(message: 'Session expired');
   }
   
   // Get profile and restore session

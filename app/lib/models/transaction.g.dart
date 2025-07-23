@@ -35,13 +35,14 @@ class TransactionAdapter extends TypeAdapter<Transaction> {
       recipient: fields[15] as String?,
       isPending: fields[16] as bool,
       isExpense: fields[17] as bool,
+      isRecurring: fields[18] as bool,
     );
   }
 
   @override
   void write(BinaryWriter writer, Transaction obj) {
     writer
-      ..writeByte(18)
+      ..writeByte(19)
       ..writeByte(0)
       ..write(obj.uuid)
       ..writeByte(1)
@@ -77,7 +78,9 @@ class TransactionAdapter extends TypeAdapter<Transaction> {
       ..writeByte(16)
       ..write(obj.isPending)
       ..writeByte(17)
-      ..write(obj.isExpense);
+      ..write(obj.isExpense)
+      ..writeByte(18)
+      ..write(obj.isRecurring);
   }
 
   @override
@@ -117,6 +120,7 @@ Transaction _$TransactionFromJson(Map<String, dynamic> json) => Transaction(
       recipient: json['recipient'] as String?,
       isPending: json['isPending'] as bool? ?? false,
       isExpense: json['isExpense'] as bool? ?? true,
+      isRecurring: json['isRecurring'] as bool? ?? false,
     );
 
 Map<String, dynamic> _$TransactionToJson(Transaction instance) =>
@@ -139,6 +143,7 @@ Map<String, dynamic> _$TransactionToJson(Transaction instance) =>
       'recipient': instance.recipient,
       'isPending': instance.isPending,
       'isExpense': instance.isExpense,
+      'isRecurring': instance.isRecurring,
     };
 
 const _$TransactionTypeEnumMap = {

@@ -56,6 +56,13 @@ class _BiometricLockScreenState extends State<BiometricLockScreen> with TickerPr
 
     try {
       final biometricService = BiometricAuthService.instance;
+      if (biometricService == null) {
+        setState(() {
+          _errorMessage = 'Biometric authentication is not available on this device.';
+        });
+        return;
+      }
+      
       final result = await biometricService.authenticateWithBiometric(
         'Please verify your identity to access Fedha',
       );

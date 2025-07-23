@@ -49,7 +49,8 @@ void main() async {
 
   // Register adapters
   Hive.registerAdapter(TransactionAdapter());
-  Hive.registerAdapter(TransactionCandidateAdapter());
+  // Use custom adapter instead of generated one to ensure enum compatibility
+  Hive.registerAdapter(CustomTransactionCandidateAdapter());
   Hive.registerAdapter(CategoryAdapter());
   Hive.registerAdapter(ProfileAdapter());
   Hive.registerAdapter(GoalAdapter());
@@ -62,7 +63,13 @@ void main() async {
   Hive.registerAdapter(GoalTypeAdapter());
   Hive.registerAdapter(GoalStatusAdapter());
   Hive.registerAdapter(TransactionTypeAdapter());
+  Hive.registerAdapter(PaymentMethodAdapter());
   Hive.registerAdapter(TransactionCategoryAdapter());
+  Hive.registerAdapter(TransactionStatusAdapter());
+  Hive.registerAdapter(RecurringTypeAdapter());
+  Hive.registerAdapter(NotificationTypeAdapter());
+  Hive.registerAdapter(AccountTypeAdapter());
+  Hive.registerAdapter(InvoiceStatusAdapter());
   Hive.registerAdapter(enum_adapters.BudgetPeriodAdapter());
   Hive.registerAdapter(enum_adapters.BudgetStatusAdapter());
 
@@ -88,7 +95,8 @@ void main() async {
     final csvUploadService = stubs.CSVUploadService(offlineDataService);
     final smsTransactionExtractor = stubs.SmsTransactionExtractor(offlineDataService);
     final notificationService = stubs.NotificationService.instance;
-    final biometricAuthService = BiometricAuthService.instance;
+    // Make sure we have a non-nullable instance
+    final biometricAuthService = BiometricAuthService.instance!;
     
     // Initialize SMS listener service
     final smsListenerService = stubs.SmsListenerService(offlineDataService, smsTransactionExtractor);
@@ -187,7 +195,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       await authService.initialize();
 
       // Check if user is logged in and set current profile
-      if (authService.isLoggedIn && authService.currentProfile != null) {
+      if (authService.isLoggedIn() && authService.currentProfile != null) {
         final currentProfile = authService.currentProfile!;
         
         // Set current profile for SMS listener

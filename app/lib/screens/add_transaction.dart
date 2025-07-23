@@ -68,10 +68,17 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     final profileId = authService.currentProfile?.id;
 
     if (profileId != null) {
-      final suggested = await _goalService.getSuggestedGoals(
-        profileId,
-        _descriptionController.text,
+      // Create a temporary transaction object to find suggested goals
+      final tempTransaction = Transaction(
+        amount: double.tryParse(_amountController.text) ?? 0.0,
+        type: _selectedType,
+        categoryId: _selectedCategory.toString().split('.').last,
+        profileId: profileId,
+        description: _descriptionController.text,
+        date: _selectedDate,
       );
+      
+      final suggested = await _goalService.getSuggestedGoals(tempTransaction);
       setState(() {
         _suggestedGoals = suggested;
       });
@@ -312,19 +319,13 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       }
 
       try {
-        if (_selectedType == TransactionType.savings) {
+        if (_selectedType == TransactionType.savings && _selectedGoal?.id != null) {
           // Use the goal transaction service for savings
           final transaction = await _goalService.createSavingsTransaction(
-            profileId: profileId,
             amount: double.parse(_amountController.text),
-            category: _selectedCategory,
-            date: _selectedDate,
-            description:
-                _descriptionController.text.isEmpty
-                    ? null
-                    : _descriptionController.text,
-            notes: _notesController.text.isEmpty ? null : _notesController.text,
-            goalId: _selectedGoal?.id,
+            goalId: _selectedGoal!.id,
+            description: _descriptionController.text.isEmpty ? null : _descriptionController.text,
+            categoryId: _selectedCategory.toString().split('.').last,
           );
           Navigator.pop(context, transaction);
         } else {
@@ -332,6 +333,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
           final transaction = Transaction(
             amount: double.parse(_amountController.text),
             type: _selectedType,
+            categoryId: _selectedCategory.toString().split('.').last,
             category: _selectedCategory,
             date: _selectedDate,
             description:

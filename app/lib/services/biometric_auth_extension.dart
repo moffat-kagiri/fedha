@@ -8,7 +8,7 @@ import '../utils/app_logger.dart';
 /// Extension to add biometric authentication methods to AuthService
 extension BiometricAuthExtension on AuthService {
   static final _logger = AppLogger('BiometricAuthExtension');
-  static final _secureStorage = FlutterSecureStorage();
+  static final _secureStorage = const FlutterSecureStorage();
   static const _biometricAuthKey = 'biometric_auth_key';
 
   /// Check if biometric authentication is available on the device
@@ -34,7 +34,7 @@ extension BiometricAuthExtension on AuthService {
       // Check if biometrics are available on the device
       final isAvailable = await biometricService.canAuthenticate();
       if (!isAvailable) {
-        _logger.warn('Biometric authentication not available on this device');
+        _logger.warning('Biometric authentication not available on this device');
         return false;
       }
 
@@ -94,7 +94,7 @@ extension BiometricAuthExtension on AuthService {
     try {
       // Check if biometric auth is available
       final biometricService = BiometricAuthService.instance;
-      if (!await biometricService.canAuthenticate()) {
+      if (biometricService == null || !await biometricService.canAuthenticate()) {
         return false;
       }
       
@@ -122,9 +122,12 @@ extension BiometricAuthExtension on AuthService {
   /// Save credentials for biometric auth
   Future<bool> saveBiometricCredentials(String email, String password) async {
     try {
-      if (await BiometricAuthService.instance.canAuthenticate()) {
+      final biometricService = BiometricAuthService.instance;
+      if (biometricService == null) return false;
+      
+      if (await biometricService.canAuthenticate()) {
         // Get biometric authentication
-        final isAuthenticated = await BiometricAuthService.instance.authenticate(
+        final isAuthenticated = await biometricService.authenticate(
           localizedReason: 'Authenticate to save login credentials',
         );
         
