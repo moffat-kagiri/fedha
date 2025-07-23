@@ -4,8 +4,8 @@ import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 import '../services/currency_service.dart';
 import '../services/theme_service.dart' as theme_svc;
-import '../services/profile_management_extension.dart'; // Add this import for extension methods
-import '../services/biometric_auth_extension.dart'; // Add this import for biometric auth methods
+import '../services/profile_management_extension.dart';
+import '../services/biometric_auth_extension.dart';
 import '../models/profile.dart';
 import '../utils/password_validator.dart';
 

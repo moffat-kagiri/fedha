@@ -90,9 +90,6 @@ void main() async {
     final notificationService = stubs.NotificationService.instance;
     final biometricAuthService = BiometricAuthService.instance;
     
-    // Create SMS transaction extractor
-    final smsTransactionExtractor = stubs.SmsTransactionExtractor(offlineDataService);
-    
     // Initialize SMS listener service
     final smsListenerService = stubs.SmsListenerService(offlineDataService, smsTransactionExtractor);
     // await smsListenerService.initialize();  // Uncomment when service is fully implemented

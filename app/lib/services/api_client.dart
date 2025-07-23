@@ -41,6 +41,44 @@ class ApiClient {
     }
   }
   
+  // Create an enhanced profile with more options
+  Future<Map<String, dynamic>> createEnhancedProfile({
+    required String email,
+    required String name,
+    required String pin,
+    String? phoneNumber,
+    String profileType = 'personal',
+    String? deviceId,
+    Map<String, dynamic>? preferences,
+  }) async {
+    try {
+      final body = jsonEncode({
+        'email': email,
+        'name': name,
+        'pin': pin,
+        'phone_number': phoneNumber,
+        'profile_type': profileType,
+        'device_id': deviceId,
+        'preferences': preferences ?? {},
+      });
+      
+      final response = await _httpClient.post(
+        Uri.parse('$_baseUrl/profiles/enhanced'),
+        headers: _commonHeaders,
+        body: body,
+      );
+      
+      if (response.statusCode == 201) {
+        return jsonDecode(response.body);
+      } else {
+        throw HttpException('Failed to create profile: ${response.statusCode}');
+      }
+    } catch (e) {
+      logger.severe('Enhanced profile creation failed: $e');
+      return false;
+    }
+  }
+  
   // Check server connection
   Future<bool> checkServerConnection() async {
     try {
@@ -51,6 +89,32 @@ class ApiClient {
       return response.statusCode == 200;
     } catch (e) {
       logger.warning('Server connection check failed: $e');
+      return false;
+    }
+  }
+  
+  // Invalidate a session token on the server
+  Future<bool> invalidateSession({
+    required String userId,
+    required String sessionToken,
+    String? deviceId,
+  }) async {
+    try {
+      final body = jsonEncode({
+        'user_id': userId,
+        'session_token': sessionToken,
+        'device_id': deviceId,
+      });
+      
+      final response = await _httpClient.post(
+        Uri.parse('$_baseUrl/auth/logout'),
+        headers: _commonHeaders,
+        body: body,
+      );
+      
+      return response.statusCode == 200;
+    } catch (e) {
+      logger.warning('Failed to invalidate session: $e');
       return false;
     }
   }

@@ -1,112 +1,70 @@
-import 'package:flutter/services.dart';
-import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/material.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-/// Enhanced biometric authentication service with persistent login
+import '../utils/app_logger.dart';
+
 class BiometricAuthService {
-  static BiometricAuthService? _instance;
-  static BiometricAuthService get instance => _instance ??= BiometricAuthService._();
-  
-  BiometricAuthService._();
-
   final LocalAuthentication _localAuth = LocalAuthentication();
   final _secureStorage = const FlutterSecureStorage();
-  static const String _biometricEnabledKey = 'biometric_enabled';
-  static const String _lastAuthTimeKey = 'last_auth_time';
-  static const String _sessionTokenKey = 'session_token';
-  static const int _sessionDurationHours = 24; // 24 hour session
+  final _logger = AppLogger('BiometricAuthService');
+  
+  // Constants for storage keys
+  final _biometricEnabledKey = 'biometric_enabled';
+  final _lastAuthTimeKey = 'last_biometric_auth_time';
+  final _sessionTokenKey = 'biometric_session_token';
+  final _biometricAuthKey = 'biometric_auth_key';
+  
+  // Session duration (in hours)
+  final _sessionDurationHours = 24;
 
-  /// Check if device supports biometric authentication
+  Future<void> initialize() async {
+    _logger.info('Initializing BiometricAuthService');
+    // No initialization needed currently
+  }
+
   Future<bool> canAuthenticate() async {
     try {
-      // Check if hardware is capable
-      final isSupported = await _localAuth.isDeviceSupported();
-      if (!isSupported) return false;
+      final canAuthenticateWithBiometrics = await _localAuth.canCheckBiometrics;
+      final canAuthenticate = canAuthenticateWithBiometrics || 
+          await _localAuth.isDeviceSupported();
       
-      // Check if biometrics are available
-      final canCheckBiometrics = await _localAuth.canCheckBiometrics;
-      return canCheckBiometrics;
+      _logger.info('Can authenticate with biometrics: $canAuthenticate');
+      return canAuthenticate;
     } catch (e) {
-      if (kDebugMode) {
-        print('Error checking biometric capability: $e');
-      }
+      _logger.error('Error checking biometric availability: $e');
       return false;
     }
   }
   
-  /// Alias for canAuthenticate() for backward compatibility
-  Future<bool> isAvailable() async {
-    return canAuthenticate();
-  }
-
-  /// Authenticate the user with biometrics
-  Future<bool> authenticate({
-    required String localizedReason,
-    bool useErrorDialogs = true,
-    bool stickyAuth = false,
-  }) async {
+  // This is the actual authentication method
+  Future<bool> authenticateWithBiometric(String reason) async {
     try {
-      if (!await canAuthenticate()) {
+      if (!await isAvailable()) {
+        _logger.warn('Biometric authentication not available');
         return false;
       }
       
-      // Try to authenticate
       final authenticated = await _localAuth.authenticate(
-        localizedReason: localizedReason,
-        options: AuthenticationOptions(
-          stickyAuth: stickyAuth,
-          useErrorDialogs: useErrorDialogs,
+        localizedReason: reason,
+        options: const AuthenticationOptions(
+          stickyAuth: true,
+          biometricOnly: true,
         ),
       );
       
       if (authenticated) {
-        // Update last authentication time
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setInt(_lastAuthTimeKey, DateTime.now().millisecondsSinceEpoch);
+        await _saveAuthenticationSession();
       }
       
       return authenticated;
     } catch (e) {
-      if (kDebugMode) {
-        print('Error during authentication: $e');
-      }
-      return false;
-    }
-      // In production: would use actual biometric authentication
-      await Future.delayed(const Duration(seconds: 1)); // Simulate auth delay
-      final result = true; // Simulate success
-      
-      if (result) {
-        await _saveSuccessfulAuth();
-      }
-      
-      return result;
-    } catch (e) {
+      _logger.error('Biometric authentication error: $e');
       return false;
     }
   }
-
-  Future<List<String>> getAvailableBiometrics() async {
-    try {
-      // return await _localAuth.getAvailableBiometrics().then((list) => 
-      //   list.map((e) => e.toString()).toList());
-      return ['fingerprint']; // Stub
-    } catch (e) {
-      return [];
-    }
-  }
-
-  Future<bool> canCheckBiometrics() async {
-    try {
-      // return await _localAuth.canCheckBiometrics;
-      return true; // Stub
-    } catch (e) {
-      return false;
-    }
-  }
-
+  
   Future<bool> hasValidBiometricSession() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -119,90 +77,72 @@ class BiometricAuthService {
       
       final authTime = DateTime.fromMillisecondsSinceEpoch(lastAuthTime);
       final now = DateTime.now();
+      
       final sessionExpiry = authTime.add(Duration(hours: _sessionDurationHours));
       
       return now.isBefore(sessionExpiry);
     } catch (e) {
+      _logger.error('Error checking biometric session: $e');
       return false;
     }
   }
-
-  Future<bool> authenticateWithBiometric(String reason) async {
-    // Check if we have a valid session first
-    if (await hasValidBiometricSession()) {
-      return true;
-    }
+  
+  Future<bool> isAvailable() async {
+    final canAuth = await canAuthenticate();
+    if (!canAuth) return false;
     
-    // Otherwise, require new authentication
-    return await authenticate(localizedReason: reason);
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_biometricEnabledKey) ?? false;
   }
-
-  Future<bool> isBiometricEnabled() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      return prefs.getBool(_biometricEnabledKey) ?? false;
-    } catch (e) {
-      return false;
-    }
-  }
-
+  
   Future<void> setBiometricEnabled(bool enabled) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool(_biometricEnabledKey, enabled);
+      _logger.info('Biometric auth set to: $enabled');
     } catch (e) {
-      // Handle error
+      _logger.error('Error setting biometric enabled: $e');
     }
   }
-
-  Future<bool> shouldPromptBiometricSetup() async {
-    final isAvailable = await this.isAvailable();
-    final isEnabled = await isBiometricEnabled();
-    return isAvailable && !isEnabled;
+  
+  Future<bool> isBiometricEnabled() async {
+    try {
+      final isAvail = await isAvailable();
+      return isAvail;
+    } catch (e) {
+      _logger.error('Error checking if biometric is enabled: $e');
+      return false;
+    }
   }
-
-  Future<void> _saveSuccessfulAuth() async {
+  
+  Future<void> _saveAuthenticationSession() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final now = DateTime.now().millisecondsSinceEpoch;
-      final sessionToken = _generateSessionToken();
+      
+      // Generate a session token - in a real app, this would be more secure
+      final sessionToken = DateTime.now().toIso8601String();
       
       await prefs.setInt(_lastAuthTimeKey, now);
       await prefs.setString(_sessionTokenKey, sessionToken);
+      
+      _logger.info('Saved authentication session');
     } catch (e) {
-      // Handle error
+      _logger.error('Error saving authentication session: $e');
     }
   }
-
-  String _generateSessionToken() {
-    final now = DateTime.now().millisecondsSinceEpoch;
-    return 'session_${now}_${(now * 31) % 1000000}';
-  }
-
-  Future<void> clearSession() async {
+  
+  Future<void> clearBiometricSession() async {
     try {
       final prefs = await SharedPreferences.getInstance();
+      
       await prefs.remove(_lastAuthTimeKey);
       await prefs.remove(_sessionTokenKey);
+      await _secureStorage.delete(key: _biometricAuthKey);
+      
+      _logger.info('Cleared biometric session');
     } catch (e) {
-      // Handle error
+      _logger.error('Error clearing biometric session: $e');
     }
-  }
-
-  Future<void> clearBiometricSession() async {
-    await clearSession();
-  }
-
-  Future<void> logout() async {
-    await clearSession();
-  }
-
-  Future<bool> isDeviceSupported() async {
-    return await isAvailable();
-  }
-
-  Future<bool> isFingerPrintAvailable() async {
-    final biometrics = await getAvailableBiometrics();
-    return biometrics.contains('fingerprint');
   }
 }

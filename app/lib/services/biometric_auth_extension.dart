@@ -3,15 +3,79 @@ import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../services/auth_service.dart';
 import '../services/biometric_auth_service.dart';
+import '../utils/app_logger.dart';
 
 /// Extension to add biometric authentication methods to AuthService
 extension BiometricAuthExtension on AuthService {
-  /// Key for storing encrypted credentials
-  static const String _biometricAuthKey = 'biometric_auth_credentials';
+  static final _logger = AppLogger('BiometricAuthExtension');
+  static final _secureStorage = FlutterSecureStorage();
+  static const _biometricAuthKey = 'biometric_auth_key';
+
+  /// Check if biometric authentication is available on the device
+  Future<bool> isBiometricAvailable() async {
+    final biometricService = BiometricAuthService.instance;
+    if (biometricService == null) return false;
+    return await biometricService.canAuthenticate();
+  }
+
+  /// Check if biometric authentication is enabled for the user
+  Future<bool> isBiometricEnabled() async {
+    final biometricService = BiometricAuthService.instance;
+    if (biometricService == null) return false;
+    return await biometricService.isBiometricEnabled();
+  }
+
+  /// Enable biometric authentication for the user
+  Future<bool> enableBiometricAuth() async {
+    try {
+      final biometricService = BiometricAuthService.instance;
+      if (biometricService == null) return false;
+      
+      // Check if biometrics are available on the device
+      final isAvailable = await biometricService.canAuthenticate();
+      if (!isAvailable) {
+        _logger.warn('Biometric authentication not available on this device');
+        return false;
+      }
+
+      // Enable biometric authentication
+      await biometricService.setBiometricEnabled(true);
+      
+      _logger.info('Biometric authentication enabled');
+      return true;
+    } catch (e) {
+      _logger.error('Failed to enable biometric authentication: $e');
+      return false;
+    }
+  }
+
+  /// Disable biometric authentication for the user
+  Future<bool> disableBiometricAuth() async {
+    try {
+      final biometricService = BiometricAuthService.instance;
+      if (biometricService == null) return false;
+      
+      await biometricService.setBiometricEnabled(false);
+      await biometricService.clearBiometricSession();
+      await _secureStorage.delete(key: _biometricAuthKey);
+      
+      _logger.info('Biometric authentication disabled');
+      return true;
+    } catch (e) {
+      _logger.error('Failed to disable biometric authentication: $e');
+      return false;
+    }
+  }
   
-  /// Get secure storage instance
-  FlutterSecureStorage get _secureStorage => const FlutterSecureStorage();
-  
+  /// Authenticate user with biometric authentication
+  Future<bool> authenticateWithBiometric() async {
+    final biometricService = BiometricAuthService.instance;
+    if (biometricService == null) return false;
+    return await biometricService.authenticateWithBiometric(
+      'Authenticate to continue',
+    );
+  }
+
   /// Check if biometric credentials exist
   Future<bool> hasBiometricCredentials() async {
     try {
@@ -45,7 +109,8 @@ extension BiometricAuthExtension on AuthService {
       final password = credentials['password'] as String;
       
       // Login with email and password
-      return await login(email: email, password: password);
+      final result = await login(email: email, password: password);
+      return result.success;
     } catch (e) {
       if (kDebugMode) {
         print('Biometric login failed: $e');
@@ -82,43 +147,6 @@ extension BiometricAuthExtension on AuthService {
     } catch (e) {
       if (kDebugMode) {
         print('Error saving biometric credentials: $e');
-      }
-      return false;
-    }
-  }
-  
-  /// Log in using biometric authentication
-  Future<bool> loginWithBiometric() async {
-    try {
-      if (!await BiometricAuthService.instance.canAuthenticate()) {
-        return false;
-      }
-      
-      // Get biometric authentication
-      final isAuthenticated = await BiometricAuthService.instance.authenticate(
-        localizedReason: 'Login with biometric authentication',
-      );
-      
-      if (isAuthenticated) {
-        // Read encrypted credentials
-        final credentialsJson = await _secureStorage.read(key: _biometricAuthKey);
-        if (credentialsJson == null) {
-          return false;
-        }
-        
-        final credentials = jsonDecode(credentialsJson);
-        final email = credentials['email'] as String;
-        final password = credentials['password'] as String;
-        
-        // Login with credentials
-        final result = await enhancedLogin(email, password);
-        return result.success;
-      }
-      
-      return false;
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error during biometric login: $e');
       }
       return false;
     }
