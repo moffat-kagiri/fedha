@@ -6,7 +6,7 @@ enum BudgetPeriod { weekly, monthly, yearly }
 
 class BudgetPeriodAdapter extends TypeAdapter<BudgetPeriod> {
   @override
-  final int typeId = 25;
+  final int typeId = 40; // Changed from 25 to avoid conflict with TransactionCategory
 
   @override
   BudgetPeriod read(BinaryReader reader) {
@@ -53,7 +53,7 @@ enum BudgetStatus { active, completed, overBudget, paused }
 
 class BudgetStatusAdapter extends TypeAdapter<BudgetStatus> {
   @override
-  final int typeId = 26;
+  final int typeId = 41; // Changed from 26 to avoid conflict with InvoiceStatus
 
   @override
   BudgetStatus read(BinaryReader reader) {

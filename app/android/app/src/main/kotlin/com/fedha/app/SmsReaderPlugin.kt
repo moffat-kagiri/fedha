@@ -1,128 +1,120 @@
-package com.fedha.app;
+package com.fedha.app
 
-import android.content.BroadcastReceiver;
-import android.content.Context;
-import android.content.Intent;
-import android.content.IntentFilter;
-import android.os.Handler;
-import android.os.Looper;
-import android.telephony.SmsMessage;
-import androidx.annotation.NonNull;
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.os.Handler
+import android.os.Looper
+import android.provider.Telephony
+import android.telephony.SmsMessage
+import androidx.annotation.NonNull
+import io.flutter.embedding.engine.plugins.FlutterPlugin
+import io.flutter.plugin.common.MethodCall
+import io.flutter.plugin.common.MethodChannel
+import io.flutter.plugin.common.MethodChannel.MethodCallHandler
+import io.flutter.plugin.common.MethodChannel.Result
+import io.flutter.plugin.common.EventChannel
+import io.flutter.plugin.common.EventChannel.StreamHandler
+import io.flutter.plugin.common.EventChannel.EventSink
+import java.util.HashMap
 
-import io.flutter.embedding.engine.plugins.FlutterPlugin;
-import io.flutter.plugin.common.MethodCall;
-import io.flutter.plugin.common.MethodChannel;
-import io.flutter.plugin.common.MethodChannel.MethodCallHandler;
-import io.flutter.plugin.common.MethodChannel.Result;
-import io.flutter.plugin.common.EventChannel;
+class SmsReaderPlugin: FlutterPlugin, MethodCallHandler, StreamHandler {
+    private lateinit var methodChannel: MethodChannel
+    private lateinit var eventChannel: EventChannel
+    private var eventSink: EventSink? = null
+    private lateinit var context: Context
+    private var smsReceiver: BroadcastReceiver? = null
 
-import java.util.HashMap;
-import java.util.Map;
-
-public class SmsReaderPlugin implements FlutterPlugin, MethodCallHandler, EventChannel.StreamHandler {
-    private MethodChannel methodChannel;
-    private EventChannel eventChannel;
-    private EventChannel.EventSink eventSink;
-    private Context context;
-    private BroadcastReceiver smsReceiver;
-
-    @Override
-    public void onAttachedToEngine(@NonNull FlutterPlugin.FlutterPluginBinding binding) {
-        context = binding.getApplicationContext();
+    override fun onAttachedToEngine(@NonNull binding: FlutterPlugin.FlutterPluginBinding) {
+        context = binding.applicationContext
         
-        methodChannel = new MethodChannel(binding.getBinaryMessenger(), "sms_listener");
-        methodChannel.setMethodCallHandler(this);
+        methodChannel = MethodChannel(binding.binaryMessenger, "sms_listener")
+        methodChannel.setMethodCallHandler(this)
         
-        eventChannel = new EventChannel(binding.getBinaryMessenger(), "sms_listener_events");
-        eventChannel.setStreamHandler(this);
+        eventChannel = EventChannel(binding.binaryMessenger, "sms_listener_events")
+        eventChannel.setStreamHandler(this)
     }
 
-    @Override
-    public void onMethodCall(@NonNull MethodCall call, @NonNull Result result) {
-        switch (call.method) {
-            case "initialize":
-                result.success(true);
-                break;
-            case "startListening":
-                registerSmsReceiver();
-                result.success(true);
-                break;
-            case "stopListening":
-                unregisterSmsReceiver();
-                result.success(true);
-                break;
-            default:
-                result.notImplemented();
-                break;
+    override fun onMethodCall(@NonNull call: MethodCall, @NonNull result: Result) {
+        when (call.method) {
+            "initialize" -> {
+                result.success(true)
+            }
+            "startListening" -> {
+                registerSmsReceiver()
+                result.success(true)
+            }
+            "stopListening" -> {
+                unregisterSmsReceiver()
+                result.success(true)
+            }
+            else -> {
+                result.notImplemented()
+            }
         }
     }
 
-    private void registerSmsReceiver() {
+    private fun registerSmsReceiver() {
         // Register a broadcast receiver for incoming SMS
-        if (smsReceiver == null && context != null) {
-            smsReceiver = new BroadcastReceiver() {
-                @Override
-                public void onReceive(Context context, Intent intent) {
-                    if (intent.getAction() != null && intent.getAction().equals("android.provider.Telephony.SMS_RECEIVED")) {
-                        Object[] pdus = (Object[]) intent.getExtras().get("pdus");
-                        if (pdus != null) {
-                            for (Object pdu : pdus) {
-                                SmsMessage smsMessage = SmsMessage.createFromPdu((byte[]) pdu);
-                                String sender = smsMessage.getDisplayOriginatingAddress();
-                                String body = smsMessage.getMessageBody();
-                                long timestamp = System.currentTimeMillis();
-                                
-                                // Send to Flutter
-                                Map<String, Object> messageMap = new HashMap<>();
-                                messageMap.put("sender", sender);
-                                messageMap.put("body", body);
-                                messageMap.put("timestamp", timestamp);
-                                messageMap.put("address", sender);
-                                
-                                Handler handler = new Handler(Looper.getMainLooper());
-                                handler.post(() -> {
-                                    if (eventSink != null) {
-                                        eventSink.success(messageMap);
+        if (smsReceiver == null && ::context.isInitialized) {
+            smsReceiver = object : BroadcastReceiver() {
+                override fun onReceive(context: Context, intent: Intent) {
+                    if (intent.action != null && intent.action == Telephony.Sms.Intents.SMS_RECEIVED_ACTION) {
+                        val bundle = intent.extras
+                        if (bundle != null) {
+                            val pdus = bundle["pdus"] as Array<*>?
+                            if (pdus != null) {
+                                for (pdu in pdus) {
+                                    val smsMessage = SmsMessage.createFromPdu(pdu as ByteArray)
+                                    val sender = smsMessage.displayOriginatingAddress
+                                    val body = smsMessage.messageBody
+                                    val timestamp = System.currentTimeMillis()
+                                    
+                                    // Send to Flutter
+                                    val messageMap = HashMap<String, Any>()
+                                    messageMap["sender"] = sender
+                                    messageMap["body"] = body
+                                    messageMap["timestamp"] = timestamp
+                                    messageMap["address"] = sender
+                                    
+                                    val handler = Handler(Looper.getMainLooper())
+                                    handler.post {
+                                        eventSink?.success(messageMap)
+                                        methodChannel.invokeMethod("onSmsReceived", messageMap)
                                     }
-                                    methodChannel.invokeMethod("onSmsReceived", messageMap);
-                                });
+                                }
                             }
                         }
                     }
                 }
-            };
+            }
             
-            IntentFilter filter = new IntentFilter("android.provider.Telephony.SMS_RECEIVED");
-            filter.setPriority(IntentFilter.SYSTEM_HIGH_PRIORITY);
-            context.registerReceiver(smsReceiver, filter);
+            val filter = IntentFilter(Telephony.Sms.Intents.SMS_RECEIVED_ACTION)
+            filter.priority = 999
+            context.registerReceiver(smsReceiver, filter)
         }
     }
 
-    private void unregisterSmsReceiver() {
-        if (smsReceiver != null && context != null) {
-            context.unregisterReceiver(smsReceiver);
-            smsReceiver = null;
+    private fun unregisterSmsReceiver() {
+        if (smsReceiver != null && ::context.isInitialized) {
+            context.unregisterReceiver(smsReceiver)
+            smsReceiver = null
         }
     }
     
     // EventChannel implementation
-    @Override
-    public void onListen(Object arguments, EventChannel.EventSink events) {
-        eventSink = events;
+    override fun onListen(arguments: Any?, events: EventSink) {
+        eventSink = events
     }
 
-    @Override
-    public void onCancel(Object arguments) {
-        eventSink = null;
+    override fun onCancel(arguments: Any?) {
+        eventSink = null
     }
 
-    @Override
-    public void onDetachedFromEngine(@NonNull FlutterPlugin.FlutterPluginBinding binding) {
-        unregisterSmsReceiver();
-        methodChannel.setMethodCallHandler(null);
-        eventChannel.setStreamHandler(null);
-        methodChannel = null;
-        eventChannel = null;
-        context = null;
+    override fun onDetachedFromEngine(@NonNull binding: FlutterPlugin.FlutterPluginBinding) {
+        unregisterSmsReceiver()
+        methodChannel.setMethodCallHandler(null)
+        eventChannel.setStreamHandler(null)
     }
 }

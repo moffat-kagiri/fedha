@@ -180,6 +180,9 @@ class AuthService extends ChangeNotifier {
   Profile? get currentProfile => _currentProfile;
   BiometricAuthService? get biometricService => _biometricService;
   
+  // Check if user is logged in
+  bool isLoggedIn() => _currentProfile != null;
+  
   // Initialize the service
   Future<void> initialize() async {
     try {
@@ -525,11 +528,6 @@ class AuthService extends ChangeNotifier {
       _logger.severe('Failed to change password: $e');
       return false;
     }
-  }
-  
-  // Check if the user is currently logged in
-  bool isLoggedIn() {
-    return _currentProfile != null;
   }
   
   // Enhanced login with additional options

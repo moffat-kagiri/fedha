@@ -16,7 +16,7 @@ class MainActivity : FlutterFragmentActivity() {
         // Initialize SMS and notification handler
         smsAndNotificationHandler = SmsAndNotificationHandler(this, flutterEngine)
         
-        // Register SmsReaderPlugin
+        // Register SmsReaderPlugin - fixed to properly add the plugin
         flutterEngine.plugins.add(SmsReaderPlugin())
     }
 

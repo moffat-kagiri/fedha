@@ -302,7 +302,7 @@ class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
             width: 120,
             height: 120,
             decoration: BoxDecoration(
-              color: Colors.white.withValues(red: 255, green: 255, blue: 255, alpha: ),
+              color: Colors.white.withValues(red: 255, green: 255, blue: 255, alpha: 0.2),
               borderRadius: BorderRadius.circular(60),
             ),
             child: const Icon(
@@ -355,7 +355,7 @@ class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
             width: 120,
             height: 120,
             decoration: BoxDecoration(
-              color: Colors.white.withValues(red: 255, green: 255, blue: 255, alpha: ),
+              color: Colors.white.withValues(red: 255, green: 255, blue: 255, alpha: 0.2),
               borderRadius: BorderRadius.circular(60),
             ),
             child: const Icon(
@@ -476,4 +476,5 @@ class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
     );
   }
 }
+
 

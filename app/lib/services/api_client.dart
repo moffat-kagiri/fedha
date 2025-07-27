@@ -8,30 +8,135 @@ import '../models/transaction.dart';
 import '../models/goal.dart';
 import '../models/profile.dart';
 import '../utils/logger.dart';
+import '../config/api_config.dart';
 
 /// API Client for handling all server communication
 class ApiClient {
-  final String _baseUrl;
   final http.Client _httpClient = http.Client();
-  final Map<String, String> _commonHeaders = {
-    'Content-Type': 'application/json',
-    'Accept': 'application/json',
-  };
+  final Map<String, String> _commonHeaders;
   final logger = AppLogger.getLogger('ApiClient');
   
-  // Constructor with configurable base URL
-  ApiClient({String? baseUrl}) : _baseUrl = baseUrl ?? 'https://api.fedha.app/v1';
+  // API configuration
+  final ApiConfig _config;
+  String? _currentBaseUrl;
+  bool _usingFallbackUrl = false;
+  int _failedAttempts = 0;
+  
+  // Constructor with configurable API configuration
+  ApiClient({ApiConfig? config}) 
+    : _config = config ?? ApiConfig.production(),
+      _commonHeaders = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      } {
+    // Initialize the base URL
+    _currentBaseUrl = _config.primaryBaseUrl;
+    
+    // Add any default headers from config
+    _commonHeaders.addAll(_config.defaultHeaders);
+    
+    if (_config.enableDebugLogging) {
+      logger.info('ApiClient initialized with baseUrl: $_currentBaseUrl');
+    }
+  }
+  
+  // Get the current base URL (could be primary or fallback)
+  String get _baseUrl => _currentBaseUrl ?? _config.primaryBaseUrl;
+  
+  // Get the current base URL (could be primary or fallback)
+  String get baseUrl => _currentBaseUrl ?? _config.primaryBaseUrl;
+  
+  // Check if using fallback server
+  bool get isUsingFallbackServer => _usingFallbackUrl;
+  
+  // Reset to primary server
+  void resetToPrimaryServer() {
+    if (_usingFallbackUrl) {
+      _currentBaseUrl = _config.primaryBaseUrl;
+      _usingFallbackUrl = false;
+      _failedAttempts = 0;
+      logger.info('Reset to primary server: $_currentBaseUrl');
+    }
+  }
+  
+  // Switch to fallback server if available
+  bool switchToFallbackServer() {
+    if (!_usingFallbackUrl && _config.fallbackBaseUrl != null) {
+      _currentBaseUrl = _config.fallbackBaseUrl;
+      _usingFallbackUrl = true;
+      _failedAttempts = 0;
+      logger.info('Switched to fallback server: $_currentBaseUrl');
+      return true;
+    }
+    return false;
+  }
   
   // Test connection to server
   Future<bool> testConnection() async {
     try {
-      final response = await _httpClient.get(
-        Uri.parse('$_baseUrl/health'),
-        headers: _commonHeaders,
-      );
+      // Add timeout to prevent hanging
+      final response = await _httpClient
+          .get(
+            Uri.parse('$baseUrl/health'),
+            headers: _commonHeaders,
+          )
+          .timeout(
+            Duration(seconds: _config.connectionTimeout),
+            onTimeout: () => throw TimeoutException('Server connection timed out'),
+          );
+          
+      // More detailed logging for connection issues
+      if (response.statusCode != 200) {
+        logger.warning('Server health check failed: Status ${response.statusCode}, Body: ${response.body}');
+        
+        // Increment failed attempts and try fallback if needed
+        _failedAttempts++;
+        if (_failedAttempts >= 3 && !_usingFallbackUrl && _config.fallbackBaseUrl != null) {
+          switchToFallbackServer();
+          return testConnection(); // Retry with fallback server
+        }
+      } else {
+        logger.info('Server connection successful');
+        
+        // If we were using fallback and primary works now, reset to primary
+        if (_usingFallbackUrl) {
+          resetToPrimaryServer();
+          logger.info('Restored connection to primary server');
+        }
+        
+        _failedAttempts = 0;
+      }
+      
       return response.statusCode == 200;
+    } on TimeoutException {
+      logger.warning('Server connection timed out');
+      
+      // Try fallback server on timeout
+      if (!_usingFallbackUrl && _config.fallbackBaseUrl != null) {
+        switchToFallbackServer();
+        return testConnection(); // Retry with fallback server
+      }
+      
+      return false;
+    } on SocketException catch (e) {
+      logger.warning('Network error during connection test: $e');
+      
+      // Try fallback server on socket exception
+      if (!_usingFallbackUrl && _config.fallbackBaseUrl != null) {
+        switchToFallbackServer();
+        return testConnection(); // Retry with fallback server
+      }
+      
+      return false;
     } catch (e) {
       logger.warning('Connection test failed: $e');
+      
+      // Try fallback server on other exceptions
+      if (!_usingFallbackUrl && _config.fallbackBaseUrl != null) {
+        switchToFallbackServer();
+        return testConnection(); // Retry with fallback server
+      }
+      
       return false;
     }
   }

@@ -3,10 +3,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 import '../services/biometric_auth_service.dart';
+import '../services/permissions_service.dart';
 import 'welcome_onboarding_screen.dart';
 import 'login_welcome_screen.dart';
 import 'main_navigation.dart';
 import 'biometric_lock_screen.dart';
+import 'permissions_screen.dart';
 
 class AuthWrapper extends StatefulWidget {
   const AuthWrapper({super.key});
@@ -19,6 +21,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
   bool _isLoading = true;
   bool _onboardingCompleted = false;
   bool _needsBiometricAuth = false;
+  bool _needsPermissions = false;
 
   @override
   void initState() {
@@ -35,6 +38,10 @@ class _AuthWrapperState extends State<AuthWrapper> {
         final authService = Provider.of<AuthService>(context, listen: false);
         await authService.initialize();
         
+        // Initialize permissions service and check if we need to show permissions prompt
+        final permissionsService = PermissionsService.instance;
+        final needsPermissions = await permissionsService.shouldShowPermissionsPrompt();
+        
         final biometricService = BiometricAuthService.instance;
         final biometricEnabled = await biometricService?.isBiometricEnabled() ?? false;
         final hasValidSession = await biometricService?.hasValidBiometricSession() ?? false;
@@ -48,6 +55,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
         setState(() {
           _onboardingCompleted = onboardingCompleted;
           _needsBiometricAuth = needsBiometric;
+          _needsPermissions = needsPermissions;
           _isLoading = false;
         });
       }
@@ -97,6 +105,17 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
     if (!_onboardingCompleted) {
       return const WelcomeOnboardingScreen();
+    }
+    
+    // Show permissions screen if needed
+    if (_needsPermissions) {
+      return PermissionsScreen(
+        onPermissionsSet: () {
+          setState(() {
+            _needsPermissions = false;
+          });
+        },
+      );
     }
 
     // Show biometric lock if needed

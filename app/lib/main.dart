@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
+import 'utils/logger.dart';
 
 // Models
 import 'models/profile.dart';
@@ -21,10 +22,16 @@ import 'services/offline_data_service.dart';
 import 'services/auth_service.dart';
 import 'services/api_client.dart';
 import 'services/theme_service.dart' as theme_svc;
+import 'config/api_config.dart';
+import 'config/environment_config.dart';
+import 'config/local_server_config.dart';
 import 'services/currency_service.dart';
 import 'services/biometric_auth_service.dart';
 import 'services/service_stubs.dart' as stubs;
 import 'services/enhanced_sync_service.dart';
+import 'services/connectivity_service.dart';
+import 'services/sms_listener_service.dart';
+import 'services/permissions_service.dart';
 import 'utils/enum_adapters.dart' as enum_adapters;
 
 // Screens
@@ -38,9 +45,15 @@ import 'screens/sms_review_screen.dart';
 import 'screens/add_transaction_screen.dart';
 import 'screens/transaction_entry_screen.dart';
 import 'screens/detailed_transaction_entry_screen.dart';
+import 'screens/login_screen.dart';
+import 'screens/signup_screen.dart';
+import 'screens/test_profiles_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize logging
+  AppLogger.init();
 
   // Initialize Hive
   await Hive.initFlutter();
@@ -82,23 +95,45 @@ void main() async {
   await Hive.openBox<SyncQueueItem>('sync_queue');
 
   try {
+    // Initialize environment configuration
+    final envConfig = EnvironmentConfig.current();
+    
     // Initialize services
     final authService = AuthService();
     await authService.initialize();
     
-    final apiClient = ApiClient();
+    // Initialize permissions service
+    final permissionsService = PermissionsService.instance;
+    await permissionsService.initialize();
+    
+    // Initialize API configuration based on environment
+    // Check for local server flag in arguments or preferences
+    final useLocalServer = false; // Set to true to use local development server
+    
+    final apiConfig = useLocalServer
+        ? getLocalApiConfig()
+        : (envConfig.isProduction
+            ? ApiConfig.production()
+            : (envConfig.environment == EnvironmentConfig.ENV_STAGING
+                ? ApiConfig.production().copyWith(enableDebugLogging: true)
+                : ApiConfig.development()));
+    
+    // Create API client with config
+    final apiClient = ApiClient(config: apiConfig);
     final offlineDataService = OfflineDataService();
     final goalTransactionService = stubs.GoalTransactionService(offlineDataService);
     final textRecognitionService = stubs.TextRecognitionService(offlineDataService);
     final csvUploadService = stubs.CSVUploadService(offlineDataService);
     final smsTransactionExtractor = stubs.SmsTransactionExtractor(offlineDataService);
     final notificationService = stubs.NotificationService.instance;
+    
     // Make sure we have a non-nullable instance
     final biometricAuthService = BiometricAuthService.instance!;
+    await biometricAuthService.initialize();
     
     // Initialize SMS listener service
-    final smsListenerService = stubs.SmsListenerService(offlineDataService, smsTransactionExtractor);
-    // await smsListenerService.initialize();  // Uncomment when service is fully implemented
+    final smsListenerService = SmsListenerService.instance;
+    // Initialize will be called as needed
     
     final syncService = EnhancedSyncService(
       offlineDataService,
@@ -121,22 +156,27 @@ void main() async {
       smsTransactionExtractor,
     );
 
+    // Create connectivity service
+    final connectivityService = ConnectivityService(apiClient);
+    
     runApp(
       MultiProvider(
         providers: [
           Provider<ApiClient>.value(value: apiClient),
           ChangeNotifierProvider<OfflineDataService>.value(value: offlineDataService),
+          Provider<ConnectivityService>.value(value: connectivityService),
           Provider<stubs.GoalTransactionService>.value(value: goalTransactionService),
           Provider<stubs.TextRecognitionService>.value(value: textRecognitionService),
           Provider<stubs.CSVUploadService>.value(value: csvUploadService),
           Provider<stubs.SmsTransactionExtractor>.value(value: smsTransactionExtractor),
           Provider<stubs.NotificationService>.value(value: notificationService),
-          Provider<stubs.SmsListenerService>.value(value: smsListenerService),
+          ChangeNotifierProvider<SmsListenerService>.value(value: SmsListenerService.instance),
           Provider<EnhancedSyncService>.value(value: syncService),
           Provider<stubs.NavigationService>.value(value: navigationService),
           Provider<stubs.SenderManagementService>.value(value: senderManagementService),
           Provider<stubs.BackgroundTransactionMonitor>.value(value: backgroundTransactionMonitor),
           Provider<BiometricAuthService>.value(value: biometricAuthService),
+          ChangeNotifierProvider<PermissionsService>.value(value: permissionsService),
           ChangeNotifierProvider<AuthService>.value(value: authService),
           ChangeNotifierProvider(create: (_) => themeService),
           ChangeNotifierProvider<CurrencyService>.value(value: currencyService),
@@ -228,8 +268,14 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         return MaterialApp(
           title: 'Fedha',
           theme: ThemeData(
-            colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+            colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF007A39)), // Fedha green
             useMaterial3: true,
+            elevatedButtonTheme: ElevatedButtonThemeData(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF007A39),
+                foregroundColor: Colors.white,
+              ),
+            ),
           ),
           darkTheme: ThemeData.dark(
             useMaterial3: true,
@@ -245,6 +291,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             '/add_transaction': (context) => const AddTransactionScreen(),
             '/transaction_entry': (context) => const TransactionEntryScreen(),
             '/detailed_transaction_entry': (context) => const DetailedTransactionEntryScreen(),
+            '/login': (context) => const LoginScreen(),
+            '/signup': (context) => const SignupScreen(),
+            '/test_profiles': (context) => const TestProfilesScreen(),
           },
           home: FutureBuilder<void>(
             future: _initializationFuture,

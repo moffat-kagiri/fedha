@@ -409,12 +409,7 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: _getConfidenceColor(candidate.confidence).withValues(
-                red: (_getConfidenceColor(candidate.confidence).red * 255.0).round() & 0xff,
-                green: (_getConfidenceColor(candidate.confidence).green * 255.0).round() & 0xff,
-                blue: (_getConfidenceColor(candidate.confidence).blue * 255.0).round() & 0xff,
-                alpha: 0.1
-              ),
+              color: _getConfidenceColor(candidate.confidence).withAlpha(26), // 0.1 opacity = ~26 alpha
               borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
             ),
             child: Row(
@@ -536,7 +531,7 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
                       return Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          color: const Color.fromRGBO(0, 122, 57, 0.1),
+                          color: const Color(0xFF007A39).withAlpha(26), // 0.1 opacity = ~26 alpha
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(

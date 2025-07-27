@@ -548,7 +548,7 @@ class _SignupScreenState extends State<SignupScreen> {
                 Center(
                   child: TextButton(
                     onPressed: () {
-                      Navigator.pop(context);
+                      Navigator.pushReplacementNamed(context, '/login');
                     },
                     child: const Text(
                       'Already have an account? Sign In',
