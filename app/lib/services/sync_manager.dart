@@ -5,6 +5,18 @@ import '../models/profile.dart';
 import '../models/transaction.dart';
 import '../utils/logger.dart';
 
+/// Enum defining sync level for transactions
+enum TransactionSyncLevel {
+  /// Basic sync with minimal data
+  basic,
+  
+  /// Full sync with all data
+  full,
+  
+  /// Sync with dependencies (e.g., related entities)
+  withDependencies
+}
+
 /// A class for managing synchronization between local and remote data
 class SyncManager {
   final AuthService _authService;
@@ -130,11 +142,9 @@ class SyncManager {
       final year = now.year.toString();
       
       // Fetch budget summary from server
-      final budgetSummary = await _apiClient.fetchBudgetSummary(
+      await _apiClient.fetchBudgetSummary(
         userId: profile.id,
         sessionToken: profile.authToken ?? '',
-        month: month,
-        year: year,
       );
       
       // Here you would merge with local budgets

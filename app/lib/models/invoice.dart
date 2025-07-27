@@ -42,6 +42,9 @@ class Invoice extends HiveObject {
 
   @HiveField(12)
   DateTime updatedAt;
+  
+  @HiveField(13)
+  bool isSynced;
 
   Invoice({
     required this.id,
@@ -55,6 +58,7 @@ class Invoice extends HiveObject {
     this.description,
     this.notes,
     this.isActive = true,
+    this.isSynced = false,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) : 
@@ -77,6 +81,7 @@ class Invoice extends HiveObject {
       'description': description,
       'notes': notes,
       'is_active': isActive,
+      'is_synced': isSynced,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };
@@ -99,6 +104,7 @@ class Invoice extends HiveObject {
       description: json['description'],
       notes: json['notes'],
       isActive: json['is_active'] ?? json['isActive'] ?? true,
+      isSynced: json['is_synced'] ?? json['isSynced'] ?? true,
       createdAt: json['created_at'] != null 
         ? DateTime.parse(json['created_at']) 
         : DateTime.now(),

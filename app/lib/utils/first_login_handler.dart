@@ -61,7 +61,7 @@ class FirstLoginHandler {
     
     // Setup biometric if user agreed
     if (setupBiometric == true) {
-      await _authService.enableBiometricAuth();
+      await _authService.enableBiometricAuth(true);  // Passing true to enable biometric auth
     }
   }
   

@@ -285,13 +285,13 @@ class ToolsScreen extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: feature.isAvailable 
-                ? const Color(0xFF007A39).withOpacity(0.2)
+                ? const Color(0xFF007A39).withValues(red: 0, green: 122, blue: 57, alpha: 0.2)
                 : Colors.grey.shade300,
           ),
           boxShadow: feature.isAvailable 
               ? [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
+                    color: Colors.black.withValues(red: 0, green: 0, blue: 0, alpha: 0.05),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
@@ -310,7 +310,7 @@ class ToolsScreen extends StatelessWidget {
                     height: 48,
                     decoration: BoxDecoration(
                       color: feature.isAvailable 
-                          ? const Color(0xFF007A39).withOpacity(0.1)
+                          ? const Color(0xFF007A39).withValues(red: 0, green: 122, blue: 57, alpha: 0.1)
                           : Colors.grey.shade200,
                       borderRadius: BorderRadius.circular(12),
                     ),

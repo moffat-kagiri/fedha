@@ -6,6 +6,8 @@ import '../models/goal.dart';
 import '../models/budget.dart';
 import '../models/profile.dart';
 import '../models/enums.dart';
+import '../models/client.dart';
+import '../models/invoice.dart';
 
 class OfflineDataService extends ChangeNotifier {
   static OfflineDataService? _instance;
@@ -21,6 +23,8 @@ class OfflineDataService extends ChangeNotifier {
   Box<Goal>? _goalBox;
   Box<Budget>? _budgetBox;
   Box<Profile>? _profileBox;
+  Box<Client>? _clientBox;
+  Box<Invoice>? _invoiceBox;
 
   bool _isInitialized = false;
   bool get isInitialized => _isInitialized;
@@ -34,6 +38,8 @@ class OfflineDataService extends ChangeNotifier {
       _goalBox = await Hive.openBox<Goal>('goals');
       _budgetBox = await Hive.openBox<Budget>('budgets');
       _profileBox = await Hive.openBox<Profile>('profiles');
+      _clientBox = await Hive.openBox<Client>('clients');
+      _invoiceBox = await Hive.openBox<Invoice>('invoices');
       
       _isInitialized = true;
       notifyListeners();
@@ -47,13 +53,25 @@ class OfflineDataService extends ChangeNotifier {
     await _transactionBox?.put(transaction.id, transaction);
     notifyListeners();
   }
-
+  
   List<Transaction> getAllTransactions() {
     return _transactionBox?.values.toList() ?? [];
   }
 
   Transaction? getTransaction(String id) {
     return _transactionBox?.get(id);
+  }
+  
+  Future<List<Transaction>> fetchUnsyncedTransactions(String profileId) async {
+    final allTransactions = getAllTransactions();
+    return allTransactions
+        .where((t) => t.profileId == profileId && !t.isSynced)
+        .toList();
+  }
+  
+  // Alias for fetchUnsyncedTransactions to maintain compatibility with existing code
+  Future<List<Transaction>> getUnsyncedTransactions(String profileId) async {
+    return fetchUnsyncedTransactions(profileId);
   }
 
   Future<void> deleteTransaction(String id) async {
@@ -75,6 +93,11 @@ class OfflineDataService extends ChangeNotifier {
   List<models.Category> getAllCategories() {
     return _categoryBox?.values.toList() ?? [];
   }
+  
+  // Overloaded method with profileId parameter
+  List<models.Category> getCategoriesForProfile(String profileId) {
+    return _categoryBox?.values.where((cat) => true).toList() ?? [];
+  }
 
   models.Category? getCategory(String id) {
     return _categoryBox?.get(id);
@@ -93,9 +116,18 @@ class OfflineDataService extends ChangeNotifier {
   List<Goal> getAllGoals() {
     return _goalBox?.values.toList() ?? [];
   }
+  
+  // Overloaded method with profileId parameter
+  List<Goal> getGoalsForProfile(String profileId) {
+    return _goalBox?.values.where((goal) => goal.profileId == profileId).toList() ?? [];
+  }
 
-  List<Goal> getActiveGoals() {
-    return getAllGoals().where((goal) => goal.status == 'active').toList();
+  List<Goal> getActiveGoals([String? profileId]) {
+    final goals = getAllGoals().where((goal) => goal.status == 'active');
+    if (profileId != null) {
+      return goals.where((goal) => goal.profileId == profileId).toList();
+    }
+    return goals.toList();
   }
 
   Goal? getGoal(String id) {
@@ -118,6 +150,11 @@ class OfflineDataService extends ChangeNotifier {
   }
 
   List<Budget> getAllBudgets() {
+    return _budgetBox?.values.toList() ?? [];
+  }
+  
+  // Overloaded method with profileId parameter
+  List<Budget> getBudgetsForProfile(String profileId) {
     return _budgetBox?.values.toList() ?? [];
   }
 
@@ -178,12 +215,53 @@ class OfflineDataService extends ChangeNotifier {
     return categoryTotals;
   }
 
+  // Client methods
+  Future<void> saveClient(Client client) async {
+    await _clientBox?.put(client.id, client);
+    notifyListeners();
+  }
+
+  List<Client> getAllClients() {
+    return _clientBox?.values.toList() ?? [];
+  }
+  
+  // Overloaded method with profileId parameter
+  List<Client> getClientsForProfile(String profileId) {
+    return _clientBox?.values.toList() ?? [];
+  }
+
+  Client? getClient(String id) {
+    return _clientBox?.get(id);
+  }
+  
+  // Invoice methods
+  Future<void> saveInvoice(Invoice invoice) async {
+    await _invoiceBox?.put(invoice.id, invoice);
+    notifyListeners();
+  }
+
+  List<Invoice> getAllInvoices() {
+    return _invoiceBox?.values.toList() ?? [];
+  }
+  
+  // Overloaded method with profileId parameter
+  List<Invoice> getInvoicesForProfile(String profileId) {
+    return _invoiceBox?.values.toList() ?? [];
+  }
+
+  Invoice? getInvoice(String id) {
+    return _invoiceBox?.get(id);
+  }
+
+  @override
   void dispose() {
     _transactionBox?.close();
     _categoryBox?.close();
     _goalBox?.close();
     _budgetBox?.close();
     _profileBox?.close();
+    _clientBox?.close();
+    _invoiceBox?.close();
     super.dispose();
   }
 }

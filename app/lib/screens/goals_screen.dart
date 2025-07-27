@@ -137,7 +137,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
               width: 120,
               height: 120,
               decoration: BoxDecoration(
-                color: const Color(0xFF007A39).withOpacity(0.1),
+                color: const Color(0xFF007A39).withValues(red: 0, green: 122, blue: 57, alpha: 0.1),
                 borderRadius: BorderRadius.circular(60),
               ),
               child: const Icon(
@@ -267,7 +267,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(red: 0, green: 0, blue: 0, alpha: 0.05),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -313,7 +313,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
-            color: const Color(0xFF007A39).withOpacity(0.1),
+            color: const Color(0xFF007A39).withValues(red: 0, green: 122, blue: 57, alpha: 0.1),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Text(
@@ -343,14 +343,14 @@ class _GoalsScreenState extends State<GoalsScreen> {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: isCompleted 
-              ? Colors.green.withOpacity(0.3)
+              ? Colors.green.withValues(red: 76, green: 175, blue: 80, alpha: 0.3)
               : isPaused 
-                  ? Colors.orange.withOpacity(0.3)
-                  : const Color(0xFF007A39).withOpacity(0.2),
+                  ? Colors.orange.withValues(red: 255, green: 152, blue: 0, alpha: 0.3)
+                  : const Color(0xFF007A39).withValues(red: 0, green: 122, blue: 57, alpha: 0.2),
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(red: 0, green: 0, blue: 0, alpha: 0.05),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -390,10 +390,10 @@ class _GoalsScreenState extends State<GoalsScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   color: isCompleted 
-                      ? Colors.green.withOpacity(0.1)
+                      ? Colors.green.withValues(red: 76, green: 175, blue: 80, alpha: 0.1)
                       : isPaused 
-                          ? Colors.orange.withOpacity(0.1)
-                          : const Color(0xFF007A39).withOpacity(0.1),
+                          ? Colors.orange.withValues(red: 255, green: 152, blue: 0, alpha: 0.1)
+                          : const Color(0xFF007A39).withValues(red: 0, green: 122, blue: 57, alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(

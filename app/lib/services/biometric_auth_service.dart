@@ -2,7 +2,7 @@ import 'package:local_auth/local_auth.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../utils/app_logger.dart';
+import '../utils/logger.dart';
 
 class BiometricAuthService {
   // Singleton instance
@@ -19,7 +19,7 @@ class BiometricAuthService {
   
   final LocalAuthentication _localAuth = LocalAuthentication();
   final _secureStorage = const FlutterSecureStorage();
-  final _logger = AppLogger('BiometricAuthService');
+  final _logger = AppLogger.getLogger('BiometricAuthService');
   
   // Constants for storage keys
   final _biometricEnabledKey = 'biometric_enabled';
@@ -44,7 +44,7 @@ class BiometricAuthService {
       _logger.info('Can authenticate with biometrics: $canAuthenticate');
       return canAuthenticate;
     } catch (e) {
-      _logger.error('Error checking biometric availability: $e');
+      _logger.severe('Error checking biometric availability: $e');
       return false;
     }
   }
@@ -71,7 +71,7 @@ class BiometricAuthService {
       
       return authenticated;
     } catch (e) {
-      _logger.error('Biometric authentication error: $e');
+      _logger.severe('Biometric authentication error: $e');
       return false;
     }
   }
@@ -93,7 +93,7 @@ class BiometricAuthService {
       
       return now.isBefore(sessionExpiry);
     } catch (e) {
-      _logger.error('Error checking biometric session: $e');
+      _logger.severe('Error checking biometric session: $e');
       return false;
     }
   }
@@ -112,7 +112,7 @@ class BiometricAuthService {
       await prefs.setBool(_biometricEnabledKey, enabled);
       _logger.info('Biometric auth set to: $enabled');
     } catch (e) {
-      _logger.error('Error setting biometric enabled: $e');
+      _logger.severe('Error setting biometric enabled: $e');
     }
   }
   
@@ -121,7 +121,7 @@ class BiometricAuthService {
       final isAvail = await isAvailable();
       return isAvail;
     } catch (e) {
-      _logger.error('Error checking if biometric is enabled: $e');
+      _logger.severe('Error checking if biometric is enabled: $e');
       return false;
     }
   }
@@ -139,7 +139,7 @@ class BiometricAuthService {
       
       _logger.info('Saved authentication session');
     } catch (e) {
-      _logger.error('Error saving authentication session: $e');
+      _logger.severe('Error saving authentication session: $e');
     }
   }
   
@@ -158,7 +158,34 @@ class BiometricAuthService {
       
       _logger.info('Cleared biometric session');
     } catch (e) {
-      _logger.error('Error clearing biometric session: $e');
+      _logger.severe('Error clearing biometric session: $e');
+    }
+  }
+  
+  /// Save credentials for biometric authentication
+  Future<void> saveCredentials({
+    required String userId,
+    required String email,
+    required String sessionToken,
+  }) async {
+    try {
+      // Store the credentials securely
+      final credentialsJson = {
+        'userId': userId,
+        'email': email,
+        'sessionToken': sessionToken,
+        'timestamp': DateTime.now().toIso8601String(),
+      };
+      
+      await _secureStorage.write(
+        key: _biometricAuthKey,
+        value: credentialsJson.toString(),
+      );
+      
+      _logger.info('Saved credentials for biometric authentication');
+    } catch (e) {
+      _logger.severe('Error saving credentials for biometric authentication: $e');
+      rethrow;
     }
   }
 }

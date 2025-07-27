@@ -7,12 +7,12 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:hive/hive.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
+import '../utils/logger.dart';
 
 import '../models/profile.dart';
 import '../services/api_client.dart';
 import '../services/biometric_auth_service.dart';
-import '../services/biometric_auth_extension.dart';
-import '../utils/app_logger.dart';
+// import '../services/biometric_auth_extension.dart'; // Removed unused import
 
 // Auth session for persistent login
 class AuthSession {
@@ -311,10 +311,11 @@ class AuthService extends ChangeNotifier {
   }
   
   // Signup with email and password
-  Future<LoginResult> signup({
+  Future<bool> signup({
+    required String firstName,
+    required String lastName,
     required String email,
     required String password,
-    required String name,
   }) async {
     try {
       if (_profileBox == null) await initialize();
@@ -326,7 +327,8 @@ class AuthService extends ChangeNotifier {
       );
       
       if (emailExists) {
-        return LoginResult.error(message: 'Email already registered');
+        _logger.warning('Email already registered: $email');
+        return false;
       }
       
       // Generate unique IDs and tokens
@@ -334,10 +336,13 @@ class AuthService extends ChangeNotifier {
       final sessionToken = _createSessionToken();
       final userId = _uuid.v4();
       
+      // Create full name from first and last name
+      final fullName = '$firstName $lastName'.trim();
+      
       // Create new profile
       final newProfile = Profile.defaultProfile(
         id: userId,
-        name: name.trim(),
+        name: fullName,
         email: email.trim(),
         pin: '0000', // Default PIN
       ).copyWith(
@@ -363,8 +368,8 @@ class AuthService extends ChangeNotifier {
           await _apiClient.createAccount(
             email: email,
             password: password,
-            firstName: name.split(' ').first,
-            lastName: name.split(' ').length > 1 ? name.split(' ').last : '',
+            firstName: firstName,
+            lastName: lastName,
             deviceId: deviceId,
           );
         }
@@ -375,14 +380,10 @@ class AuthService extends ChangeNotifier {
       
       notifyListeners();
       
-      return LoginResult.success(
-        profile: newProfile,
-        sessionToken: sessionToken,
-        message: 'Account created successfully',
-      );
+      return true;
     } catch (e) {
       _logger.severe('Signup failed: $e');
-      return LoginResult.error(message: 'Failed to create account: ${e.toString()}');
+      return false;
     }
   }
   
@@ -551,9 +552,23 @@ class AuthService extends ChangeNotifier {
         final biometricAvailable = await _biometricService!.canAuthenticate();
         
         if (biometricAvailable) {
-          // Save credentials for biometric auth
-          final biometricExtension = BiometricAuthExtension(this);
-          await biometricExtension.saveBiometricCredentials(email, password);
+          // Save credentials for biometric authentication
+          try {
+            // Store user credentials for biometric login
+            await _biometricService!.saveCredentials(
+              userId: _currentProfile!.id,
+              email: email,
+              sessionToken: loginResult.sessionToken!,
+            );
+            
+            // Enable biometric authentication
+            await enableBiometricAuth(true);
+            
+            _logger.info('Biometric authentication enabled for user: ${_currentProfile!.email}');
+          } catch (e) {
+            _logger.warning('Failed to set up biometric authentication: $e');
+            // Continue with login process even if biometric setup fails
+          }
         }
       }
       
@@ -626,5 +641,52 @@ class AuthService extends ChangeNotifier {
       _logger.severe('Failed to create profile: $e');
       return false;
     }
+  }
+  
+  // First login methods
+  Future<bool> isFirstLogin() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('is_first_login') ?? true;
+  }
+  
+  Future<bool> shouldShowBiometricPrompt() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('show_biometric_prompt') ?? true;
+  }
+  
+  Future<bool> shouldShowPermissionsPrompt() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('show_permissions_prompt') ?? true;
+  }
+  
+  Future<void> markFirstLoginCompleted() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('is_first_login', false);
+  }
+  
+  Future<void> markBiometricPromptShown() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('show_biometric_prompt', false);
+  }
+  
+  Future<bool> enableBiometricAuth(bool enable) async {
+    try {
+      if (enable && _biometricService != null) {
+        await _biometricService!.initialize();
+      }
+      
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('biometric_auth_enabled', enable);
+      
+      return true;
+    } catch (e) {
+      _logger.severe('Error enabling biometric auth: $e');
+      return false;
+    }
+  }
+  
+  Future<void> markPermissionsPromptShown() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('show_permissions_prompt', false);
   }
 }

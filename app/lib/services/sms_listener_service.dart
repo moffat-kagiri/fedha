@@ -5,6 +5,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:hive/hive.dart';
 import 'package:uuid/uuid.dart';
 import '../models/transaction.dart';
+import '../models/enums.dart';
 
 class SmsListenerService extends ChangeNotifier {
   static SmsListenerService? _instance;
@@ -216,15 +217,14 @@ class SmsListenerService extends ChangeNotifier {
       // Create a transaction entry
       final transaction = Transaction(
         type: TransactionType.expense, // Default to expense for SMS transactions
-        profileId: _currentProfileId!,
+        profileId: _currentProfileId ?? '',
         id: const Uuid().v4(),
         amount: transactionData.amount,
         date: transactionData.timestamp,
-        description: 'SMS: ${transactionData.type} via ${transactionData.source}',
-        categoryId: await _guessCategory(transactionData),
+        description: 'SMS: ${transactionData.type ?? ""} via ${transactionData.source}',
+        categoryId: (await _guessCategory(transactionData)) ?? 'uncategorized',
         isRecurring: false,
-        notes: 'Auto-detected from SMS',
-        paymentMethod: PaymentMethod.mobile
+        notes: 'Auto-detected from SMS'
       );
       
       // Save to pending transactions box

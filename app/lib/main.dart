@@ -25,12 +25,10 @@ import 'services/currency_service.dart';
 import 'services/biometric_auth_service.dart';
 import 'services/service_stubs.dart' as stubs;
 import 'services/enhanced_sync_service.dart';
-import 'services/sms_listener_service.dart';
 import 'utils/enum_adapters.dart' as enum_adapters;
 
 // Screens
 import 'screens/auth_wrapper.dart';
-import 'screens/main_navigation.dart';
 import 'screens/loan_calculator_screen.dart';
 import 'screens/progressive_goal_wizard_screen.dart';
 import 'screens/add_goal_screen.dart';
@@ -170,7 +168,6 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
-  bool _isInitialized = false;
   Future<void>? _initializationFuture;
 
   @override
@@ -188,10 +185,14 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   Future<void> _initializeServices() async {
     try {
+      // Store references to providers before any awaits to avoid context usage across async gaps
       final offlineService = Provider.of<OfflineDataService>(context, listen: false);
-      await offlineService.initialize();
-
       final authService = Provider.of<AuthService>(context, listen: false);
+      final smsListenerService = Provider.of<stubs.SmsListenerService>(context, listen: false);
+      final backgroundMonitor = Provider.of<stubs.BackgroundTransactionMonitor>(context, listen: false);
+      
+      // Now we can use awaits safely
+      await offlineService.initialize();
       await authService.initialize();
 
       // Check if user is logged in and set current profile
@@ -199,11 +200,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         final currentProfile = authService.currentProfile!;
         
         // Set current profile for SMS listener
-        final smsListenerService = Provider.of<stubs.SmsListenerService>(context, listen: false);
         smsListenerService.setCurrentProfile(currentProfile.id);
 
         // Initialize background monitor if needed
-        final backgroundMonitor = Provider.of<stubs.BackgroundTransactionMonitor>(context, listen: false);
         try {
           await backgroundMonitor.initialize();
         } catch (e) {
@@ -212,17 +211,13 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           }
         }
       }
-
-      setState(() {
-        _isInitialized = true;
-      });
+      
+      // Services initialized successfully
     } catch (e) {
       if (kDebugMode) {
         print('Service initialization error: $e');
       }
-      setState(() {
-        _isInitialized = true;
-      });
+      // Continue even if there are errors
     }
   }
 

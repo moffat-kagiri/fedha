@@ -30,6 +30,9 @@ class Category extends HiveObject {
 
   @HiveField(8)
   DateTime updatedAt;
+  
+  @HiveField(9)
+  bool isSynced;
 
   Category({
     required this.id,
@@ -39,6 +42,7 @@ class Category extends HiveObject {
     this.icon = 'category',
     this.type = 'expense',
     this.isActive = true,
+    this.isSynced = false,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) : 

@@ -53,7 +53,7 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
           amount: transaction.amount,
           description: transaction.description,
           date: transaction.date,
-          type: transaction.isExpense ? 'expense' : 'income',
+          type: transaction.isExpense ? TransactionType.expense : TransactionType.income,
           confidence: 0.9, // Default confidence
           metadata: {
             'recipient': transaction.recipient,
@@ -94,7 +94,7 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
         amount: 1205.00, // Including transaction cost
         description: 'MPESA to John Doe',
         date: now.subtract(const Duration(hours: 2)),
-        type: 'expense',
+        type: TransactionType.expense,
         confidence: 0.95,
         metadata: {
           'recipient': 'John Doe',
@@ -109,7 +109,7 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
         amount: 5000.00,
         description: 'Payment from Jane Smith',
         date: now.subtract(const Duration(hours: 5)),
-        type: 'income',
+        type: TransactionType.income,
         confidence: 0.88,
         metadata: {
           'sender': 'Jane Smith',
@@ -123,7 +123,7 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
         amount: 850.00,
         description: 'Grocery shopping at Nakumatt',
         date: now.subtract(const Duration(hours: 8)),
-        type: 'expense',
+        type: TransactionType.expense,
         confidence: 0.92,
         metadata: {
           'merchant': 'Nakumatt',
@@ -137,7 +137,7 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
         amount: 100.00,
         description: 'Airtime purchase',
         date: now.subtract(const Duration(hours: 12)),
-        type: 'expense',
+        type: TransactionType.expense,
         confidence: 0.90,
         metadata: {
           'phone_number': '0722123456',
@@ -151,7 +151,7 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
         amount: 45000.00,
         description: 'Salary payment',
         date: now.subtract(const Duration(days: 1)),
-        type: 'income',
+        type: TransactionType.income,
         confidence: 0.98,
         metadata: {
           'balance_after': 58500.00,
@@ -184,7 +184,7 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
       
       // Update candidate status for UI
       final updatedCandidate = candidate.copyWith(
-        status: 'approved',
+        status: TransactionStatus.completed,
         transactionId: pendingTx.id,
       );
 
@@ -219,7 +219,7 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
       await pendingBox.delete(pendingKey);
       
       // Update UI
-      final updatedCandidate = candidate.copyWith(status: 'rejected');
+      final updatedCandidate = candidate.copyWith(status: TransactionStatus.cancelled);
       
       setState(() {
         _pendingCandidates.removeWhere((c) => c.id == candidate.id);
@@ -397,7 +397,7 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
+            color: Colors.grey.withValues(red: 158, green: 158, blue: 158, alpha: 0.1),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -409,14 +409,19 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: _getConfidenceColor(candidate.confidence).withOpacity(0.1),
+              color: _getConfidenceColor(candidate.confidence).withValues(
+                red: (_getConfidenceColor(candidate.confidence).red * 255.0).round() & 0xff,
+                green: (_getConfidenceColor(candidate.confidence).green * 255.0).round() & 0xff,
+                blue: (_getConfidenceColor(candidate.confidence).blue * 255.0).round() & 0xff,
+                alpha: 0.1
+              ),
               borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
             ),
             child: Row(
               children: [
                 Icon(
-                  candidate.type == 'income' ? Icons.trending_up : Icons.trending_down,
-                  color: candidate.type == 'income' ? Colors.green : Colors.red,
+                  candidate.type == TransactionType.income ? Icons.trending_up : Icons.trending_down,
+                  color: candidate.type == TransactionType.income ? Colors.green : Colors.red,
                   size: 24,
                 ),
                 const SizedBox(width: 8),
@@ -449,7 +454,7 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
-                        color: candidate.type == 'income' ? Colors.green : Colors.red,
+                        color: candidate.type == TransactionType.income ? Colors.green : Colors.red,
                       ),
                     ),
                     Container(
@@ -531,7 +536,7 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
                       return Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF007A39).withOpacity(0.1),
+                          color: const Color.fromRGBO(0, 122, 57, 0.1),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
@@ -663,7 +668,7 @@ class _EditCandidateDialogState extends State<_EditCandidateDialog> {
     _descriptionController = TextEditingController(
       text: widget.candidate.description ?? '',
     );
-    _selectedType = widget.candidate.type;
+    _selectedType = widget.candidate.type == TransactionType.income ? 'income' : 'expense';
     _selectedDate = widget.candidate.date;
   }
 
@@ -702,19 +707,19 @@ class _EditCandidateDialogState extends State<_EditCandidateDialog> {
               ],
             ),
             const SizedBox(height: 16),
-            DropdownButtonFormField<String>(
-              value: _selectedType,
+            DropdownButtonFormField<TransactionType>(
+              value: _selectedType == 'income' ? TransactionType.income : TransactionType.expense,
               decoration: const InputDecoration(
                 labelText: 'Type',
                 border: OutlineInputBorder(),
               ),
-              items: const [
-                DropdownMenuItem(value: 'income', child: Text('Income')),
-                DropdownMenuItem(value: 'expense', child: Text('Expense')),
+              items: [
+                DropdownMenuItem(value: TransactionType.income, child: const Text('Income')),
+                DropdownMenuItem(value: TransactionType.expense, child: const Text('Expense')),
               ],
               onChanged: (value) {
                 setState(() {
-                  _selectedType = value!;
+                  _selectedType = value == TransactionType.income ? 'income' : 'expense';
                 });
               },
             ),
@@ -763,7 +768,7 @@ class _EditCandidateDialogState extends State<_EditCandidateDialog> {
             final updatedCandidate = widget.candidate.copyWith(
               amount: double.tryParse(_amountController.text) ?? widget.candidate.amount,
               description: _descriptionController.text.trim(),
-              type: _selectedType,
+              type: _selectedType == 'income' ? TransactionType.income : TransactionType.expense,
               date: _selectedDate,
             );
             Navigator.pop(context, updatedCandidate);

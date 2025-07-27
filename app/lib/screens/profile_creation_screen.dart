@@ -65,7 +65,7 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
                       onPressed: () => Navigator.pop(context),
                       icon: const Icon(Icons.arrow_back, color: Colors.white),
                       style: IconButton.styleFrom(
-                        backgroundColor: Colors.white.withOpacity(0.2),
+                        backgroundColor: Colors.white.withValues(red: 255, green: 255, blue: 255, alpha: 0.2),
                       ),
                     ),
                     const SizedBox(width: 16),
@@ -105,7 +105,7 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
                     borderRadius: BorderRadius.circular(24),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
+                        color: Colors.black.withValues(red: 0, green: 0, blue: 0, alpha: 0.1),
                         blurRadius: 20,
                         offset: const Offset(0, 10),
                       ),

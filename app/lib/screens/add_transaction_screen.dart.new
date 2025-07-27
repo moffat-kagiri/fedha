@@ -4,67 +4,55 @@ import '../widgets/quick_transaction_entry.dart';
 
 class AddTransactionScreen extends StatefulWidget {
   final Transaction? existingTransaction;
-  
+
   const AddTransactionScreen({
-    super.key,
+    Key? key,
     this.existingTransaction,
-  });
+  }) : super(key: key);
 
   @override
   State<AddTransactionScreen> createState() => _AddTransactionScreenState();
 }
 
-class _AddTransactionScreenState extends State<AddTransactionScreen> 
-    with SingleTickerProviderStateMixin {
+class _AddTransactionScreenState extends State<AddTransactionScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  final PageController _pageController = PageController();
-  // Current tab is managed by TabController
-
+  int _currentTab = 0;
+  
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
     _tabController.addListener(() {
       if (_tabController.indexIsChanging) {
-        _pageController.animateToPage(
-          _tabController.index,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeInOut,
-        );
+        setState(() {
+          _currentTab = _tabController.index;
+        });
       }
     });
   }
-
+  
   @override
   void dispose() {
     _tabController.dispose();
-    _pageController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
-        title: Text(
-          widget.existingTransaction == null ? 'Add Transaction' : 'Edit Transaction',
-          style: const TextStyle(
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF007A39),
-          ),
-        ),
-        backgroundColor: Colors.white,
+        title: const Text('Add Transaction'),
+        backgroundColor: const Color(0xFF007A39),
+        foregroundColor: Colors.white,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Color(0xFF007A39)),
         bottom: TabBar(
           controller: _tabController,
-          indicatorColor: const Color(0xFF007A39),
-          labelColor: const Color(0xFF007A39),
-          unselectedLabelColor: Colors.grey,
+          indicatorColor: Colors.white,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white70,
           tabs: const [
             Tab(
-              icon: Icon(Icons.speed),
+              icon: Icon(Icons.bolt),
               text: 'Quick Entry',
             ),
             Tab(
@@ -78,11 +66,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
           ],
         ),
       ),
-      body: PageView(
-        controller: _pageController,
-        onPageChanged: (index) {
-          _tabController.animateTo(index);
-        },
+      body: TabBarView(
+        controller: _tabController,
         children: [
           // Quick Entry Tab
           _buildQuickEntryTab(),
@@ -219,11 +204,11 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [
+        boxShadow: const [
           BoxShadow(
-            color: const Color.fromRGBO(0, 0, 0, 0.05),
+            color: Color.fromRGBO(0, 0, 0, 0.05),
             blurRadius: 8,
-            offset: const Offset(0, 2),
+            offset: Offset(0, 2),
           ),
         ],
       ),
@@ -245,7 +230,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
           ),
           const SizedBox(height: 12),
           const Text(
-            'This feature will use AI to automatically categorize transactions, suggest goals to link to, and provide smart spending insights.',
+            'Our AI-powered transaction entry will automatically categorize your expenses and suggest goals based on your spending patterns.',
             style: TextStyle(
               color: Colors.grey,
               height: 1.5,
@@ -253,20 +238,26 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 24),
-          ElevatedButton(
+          ElevatedButton.icon(
             onPressed: () {
-              // Switch to quick entry for now
-              _tabController.animateTo(0);
+              // TODO: Implement AI entry
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Smart entry feature coming in next update!'),
+                  backgroundColor: Colors.blue,
+                ),
+              );
             },
+            icon: const Icon(Icons.notifications),
+            label: const Text('Notify Me When Available'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue,
               foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+              backgroundColor: Colors.blue,
+              padding: const EdgeInsets.symmetric(vertical: 12),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),
               ),
             ),
-            child: const Text('Use Quick Entry Instead'),
           ),
         ],
       ),
@@ -279,11 +270,11 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [
+        boxShadow: const [
           BoxShadow(
-            color: const Color.fromRGBO(0, 0, 0, 0.05),
+            color: Color.fromRGBO(0, 0, 0, 0.05),
             blurRadius: 8,
-            offset: const Offset(0, 2),
+            offset: Offset(0, 2),
           ),
         ],
       ),
@@ -339,14 +330,19 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
               Expanded(
                 child: ElevatedButton.icon(
                   onPressed: () {
-                    // Switch to quick entry for now
-                    _tabController.animateTo(0);
+                    // TODO: Implement bank connection
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Bank connection feature coming in next update!'),
+                        backgroundColor: Colors.orange,
+                      ),
+                    );
                   },
-                  icon: const Icon(Icons.speed),
-                  label: const Text('Quick Entry'),
+                  icon: const Icon(Icons.account_balance),
+                  label: const Text('Connect Bank'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.orange,
                     foregroundColor: Colors.white,
+                    backgroundColor: Colors.orange,
                     padding: const EdgeInsets.symmetric(vertical: 12),
                   ),
                 ),

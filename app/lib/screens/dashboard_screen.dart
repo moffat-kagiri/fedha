@@ -83,7 +83,7 @@ class DashboardContent extends StatelessWidget {
 
   Future<DashboardData> _loadDashboardData(OfflineDataService dataService, String profileId) async {
     try {
-      final goals = dataService.getAllGoals().where((goal) => goal.profileId == profileId).toList();
+      final goals = dataService.getAllGoals().toList();
       final allTransactions = dataService.getAllTransactions().where((tx) => tx.profileId == profileId).toList();
       allTransactions.sort((a, b) => b.date.compareTo(a.date));
       final recentTransactions = allTransactions.take(5).toList();

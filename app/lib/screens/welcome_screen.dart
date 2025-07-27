@@ -168,7 +168,7 @@ class _WelcomePageContent extends StatelessWidget {
             width: 120,
             height: 120,
             decoration: BoxDecoration(
-              color: const Color(0xFF007A39).withOpacity(0.1),
+              color: const Color(0xFF007A39).withValues(red: 0, green: 122, blue: 57, alpha: 0.1),
               borderRadius: BorderRadius.circular(30),
             ),
             child: Icon(

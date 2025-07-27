@@ -1,5 +1,6 @@
 import '../models/goal.dart';
 import '../models/transaction.dart';
+import '../models/enums.dart';
 import 'offline_data_service.dart';
 
 class GoalTransactionService {
@@ -78,7 +79,7 @@ class GoalTransactionService {
     await _offlineService.saveGoal(updatedGoal);
   }
 
-  Future<List<Goal>> getSuggestedGoals(Transaction transaction) async {
+  List<Goal> getSuggestedGoals(Transaction transaction) {
     // Return goals that might be relevant to this transaction
     return getActiveGoals().where((goal) {
       // Suggest goals for income transactions or expense reduction goals for expenses

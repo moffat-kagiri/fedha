@@ -31,6 +31,9 @@ class Client extends HiveObject {
   @HiveField(8)
   DateTime updatedAt;
 
+  @HiveField(9)
+  bool isSynced;
+
   Client({
     required this.id,
     required this.name,
@@ -39,6 +42,7 @@ class Client extends HiveObject {
     this.address,
     this.notes,
     this.isActive = true,
+    this.isSynced = false,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) : 
@@ -54,6 +58,7 @@ class Client extends HiveObject {
       'address': address,
       'notes': notes,
       'is_active': isActive,
+      'is_synced': isSynced,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };
@@ -68,6 +73,7 @@ class Client extends HiveObject {
       address: json['address'],
       notes: json['notes'],
       isActive: json['is_active'] ?? json['isActive'] ?? true,
+      isSynced: json['is_synced'] ?? json['isSynced'] ?? true,
       createdAt: json['created_at'] != null 
         ? DateTime.parse(json['created_at']) 
         : DateTime.now(),

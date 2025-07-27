@@ -3,7 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'auth_wrapper.dart';
 
 class WelcomeOnboardingScreen extends StatefulWidget {
-  const WelcomeOnboardingScreen({Key? key}) : super(key: key);
+  const WelcomeOnboardingScreen({super.key});
 
   @override
   State<WelcomeOnboardingScreen> createState() => _WelcomeOnboardingScreenState();
@@ -84,7 +84,7 @@ class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
               margin: const EdgeInsets.symmetric(horizontal: 20),
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.3),
+                color: Colors.white.withValues(red: 255, green: 255, blue: 255, alpha: 0.3),
                 borderRadius: BorderRadius.circular(2),
               ),
               child: Stack(
@@ -183,7 +183,7 @@ class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
             width: 120,
             height: 120,
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
+              color: Colors.white.withValues(red: 255, green: 255, blue: 255, alpha: 0.2),
               borderRadius: BorderRadius.circular(60),
             ),
             child: const Icon(
@@ -214,9 +214,9 @@ class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
+              color: Colors.white.withValues(red: 255, green: 255, blue: 255, alpha: 0.2),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.white.withOpacity(0.3)),
+              border: Border.all(color: Colors.white.withValues(red: 255, green: 255, blue: 255, alpha: 0.5)),
             ),
             child: const Column(
               children: [
@@ -249,7 +249,7 @@ class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
             width: 120,
             height: 120,
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
+              color: Colors.white.withValues(red: 255, green: 255, blue: 255, alpha: 0.2),
               borderRadius: BorderRadius.circular(60),
             ),
             child: const Icon(
@@ -302,7 +302,7 @@ class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
             width: 120,
             height: 120,
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
+              color: Colors.white.withValues(red: 255, green: 255, blue: 255, alpha: ),
               borderRadius: BorderRadius.circular(60),
             ),
             child: const Icon(
@@ -355,7 +355,7 @@ class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
             width: 120,
             height: 120,
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
+              color: Colors.white.withValues(red: 255, green: 255, blue: 255, alpha: ),
               borderRadius: BorderRadius.circular(60),
             ),
             child: const Icon(
@@ -398,9 +398,9 @@ class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
+              color: Colors.white.withValues(red: 255, green: 255, blue: 255, alpha: 0.2),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.white.withOpacity(0.3)),
+              border: Border.all(color: Colors.white.withValues(red: 255, green: 255, blue: 255, alpha: 0.5)),
             ),
             child: const Column(
               children: [
@@ -427,9 +427,9 @@ class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.1),
+        color: Colors.white.withValues(red: 255, green: 255, blue: 255, alpha: 0.2),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withOpacity(0.2)),
+        border: Border.all(color: Colors.white.withValues(red: 255, green: 255, blue: 255, alpha: 0.5)),
       ),
       child: Row(
         children: [
@@ -437,7 +437,7 @@ class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
             width: 48,
             height: 48,
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
+              color: Colors.white.withValues(red: 255, green: 255, blue: 255, alpha: 0.2),
               borderRadius: BorderRadius.circular(24),
             ),
             child: Icon(
@@ -476,3 +476,4 @@ class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
     );
   }
 }
+

@@ -9,7 +9,7 @@ import 'main_navigation.dart';
 import 'biometric_lock_screen.dart';
 
 class AuthWrapper extends StatefulWidget {
-  const AuthWrapper({Key? key}) : super(key: key);
+  const AuthWrapper({super.key});
 
   @override
   State<AuthWrapper> createState() => _AuthWrapperState();
@@ -18,9 +18,7 @@ class AuthWrapper extends StatefulWidget {
 class _AuthWrapperState extends State<AuthWrapper> {
   bool _isLoading = true;
   bool _onboardingCompleted = false;
-  bool _isLoggedIn = false;
   bool _needsBiometricAuth = false;
-  bool _biometricEnabled = false;
 
   @override
   void initState() {
@@ -49,8 +47,6 @@ class _AuthWrapperState extends State<AuthWrapper> {
         
         setState(() {
           _onboardingCompleted = onboardingCompleted;
-          _isLoggedIn = authService.isLoggedIn();
-          _biometricEnabled = biometricEnabled;
           _needsBiometricAuth = needsBiometric;
           _isLoading = false;
         });
@@ -59,8 +55,6 @@ class _AuthWrapperState extends State<AuthWrapper> {
       if (mounted) {
         setState(() {
           _onboardingCompleted = false;
-          _isLoggedIn = false;
-          _biometricEnabled = false;
           _needsBiometricAuth = false;
           _isLoading = false;
         });

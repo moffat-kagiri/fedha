@@ -3,14 +3,9 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:async';
-import 'package:flutter/foundation.dart' hide Category;
 import 'package:http/http.dart' as http;
 import '../models/transaction.dart';
-import '../models/category.dart';
-import '../models/client.dart';
-import '../models/invoice.dart';
 import '../models/goal.dart';
-import '../models/budget.dart';
 import '../models/profile.dart';
 import '../utils/logger.dart';
 
@@ -75,7 +70,7 @@ class ApiClient {
       }
     } catch (e) {
       logger.severe('Enhanced profile creation failed: $e');
-      return false;
+      return {'error': e.toString(), 'success': false};
     }
   }
   
@@ -90,6 +85,75 @@ class ApiClient {
     } catch (e) {
       logger.warning('Server connection check failed: $e');
       return false;
+    }
+  }
+  
+  // Instance method for checking server health
+  Future<Map<String, dynamic>> checkServerHealth() async {
+    try {
+      final response = await _httpClient.get(
+        Uri.parse('$_baseUrl/health'),
+        headers: _commonHeaders,
+      );
+      
+      if (response.statusCode == 200) {
+        return {
+          'isConnected': true,
+          'canCreateProfile': true,
+          'message': 'Server is online'
+        };
+      } else {
+        return {
+          'isConnected': false,
+          'canCreateProfile': false,
+          'message': 'Server is experiencing issues'
+        };
+      }
+    } catch (e) {
+      return {
+        'isConnected': false,
+        'canCreateProfile': false,
+        'message': 'Unable to connect to server'
+      };
+    }
+  }
+  
+  // Instance method for validating profile creation
+  Future<Map<String, dynamic>> validateProfileCreation({
+    required String email,
+    String? phoneNumber,
+  }) async {
+    try {
+      final response = await _httpClient.post(
+        Uri.parse('$_baseUrl/profiles/validate'),
+        headers: _commonHeaders,
+        body: jsonEncode({
+          'email': email,
+        }),
+      );
+      
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return {
+          'canCreate': data['available'] ?? true,
+          'message': data['message'] ?? 'Email is available'
+        };
+      } else if (response.statusCode == 409) {
+        return {
+          'canCreate': false,
+          'message': 'Email already registered'
+        };
+      } else {
+        return {
+          'canCreate': false,
+          'message': 'Unable to validate email'
+        };
+      }
+    } catch (e) {
+      return {
+        'canCreate': false,
+        'message': 'Error checking email availability'
+      };
     }
   }
   
@@ -452,6 +516,195 @@ class ApiClient {
     } catch (e) {
       logger.severe('Error refreshing token: $e');
       return {'error': e.toString()};
+    }
+  }
+  
+  /// Synchronize transactions with the server
+  Future<Map<String, dynamic>> syncTransactions(
+    String profileId, 
+    List<Transaction> transactions,
+  ) async {
+    try {
+      final response = await _httpClient.post(
+        Uri.parse('$_baseUrl/sync/transactions'),
+        headers: {
+          ..._commonHeaders,
+          'Authorization': 'Bearer $profileId', // Assuming profileId is used as token
+        },
+        body: json.encode({
+          'transactions': transactions.map((t) => t.toJson()).toList(),
+        }),
+      );
+      
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      } else {
+        logger.warning('Sync transactions failed with status ${response.statusCode}');
+        return {'error': 'Failed to sync transactions'};
+      }
+    } catch (e) {
+      logger.severe('Error syncing transactions: $e');
+      return {'error': e.toString()};
+    }
+  }
+  
+  /// Synchronize categories with the server
+  Future<Map<String, dynamic>> syncCategories(
+    String profileId, 
+    List<dynamic> categories,
+  ) async {
+    try {
+      final response = await _httpClient.post(
+        Uri.parse('$_baseUrl/sync/categories'),
+        headers: {
+          ..._commonHeaders,
+          'Authorization': 'Bearer $profileId',
+        },
+        body: json.encode({
+          'categories': categories.map((c) => c.toJson()).toList(),
+        }),
+      );
+      
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      } else {
+        logger.warning('Sync categories failed with status ${response.statusCode}');
+        return {'error': 'Failed to sync categories'};
+      }
+    } catch (e) {
+      logger.severe('Error syncing categories: $e');
+      return {'error': e.toString()};
+    }
+  }
+  
+  /// Synchronize goals with the server
+  Future<Map<String, dynamic>> syncGoals(
+    String profileId, 
+    List<dynamic> goals,
+  ) async {
+    try {
+      final response = await _httpClient.post(
+        Uri.parse('$_baseUrl/sync/goals'),
+        headers: {
+          ..._commonHeaders,
+          'Authorization': 'Bearer $profileId',
+        },
+        body: json.encode({
+          'goals': goals.map((g) => g.toJson()).toList(),
+        }),
+      );
+      
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      } else {
+        logger.warning('Sync goals failed with status ${response.statusCode}');
+        return {'error': 'Failed to sync goals'};
+      }
+    } catch (e) {
+      logger.severe('Error syncing goals: $e');
+      return {'error': e.toString()};
+    }
+  }
+  
+  /// Synchronize budgets with the server
+  Future<Map<String, dynamic>> syncBudgets(
+    String profileId, 
+    List<dynamic> budgets,
+  ) async {
+    try {
+      final response = await _httpClient.post(
+        Uri.parse('$_baseUrl/sync/budgets'),
+        headers: {
+          ..._commonHeaders,
+          'Authorization': 'Bearer $profileId',
+        },
+        body: json.encode({
+          'budgets': budgets.map((b) => b.toJson()).toList(),
+        }),
+      );
+      
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      } else {
+        logger.warning('Sync budgets failed with status ${response.statusCode}');
+        return {'error': 'Failed to sync budgets'};
+      }
+    } catch (e) {
+      logger.severe('Error syncing budgets: $e');
+      return {'error': e.toString()};
+    }
+  }
+  
+  /// Synchronize clients with the server
+  Future<Map<String, dynamic>> syncClients(
+    String profileId, 
+    List<dynamic> clients,
+  ) async {
+    try {
+      final response = await _httpClient.post(
+        Uri.parse('$_baseUrl/sync/clients'),
+        headers: {
+          ..._commonHeaders,
+          'Authorization': 'Bearer $profileId',
+        },
+        body: json.encode({
+          'clients': clients.map((c) => c.toJson()).toList(),
+        }),
+      );
+      
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      } else {
+        logger.warning('Sync clients failed with status ${response.statusCode}');
+        return {'error': 'Failed to sync clients'};
+      }
+    } catch (e) {
+      logger.severe('Error syncing clients: $e');
+      return {'error': e.toString()};
+    }
+  }
+  
+  /// Synchronize invoices with the server
+  Future<Map<String, dynamic>> syncInvoices(
+    String profileId, 
+    List<dynamic> invoices,
+  ) async {
+    try {
+      final response = await _httpClient.post(
+        Uri.parse('$_baseUrl/sync/invoices'),
+        headers: {
+          ..._commonHeaders,
+          'Authorization': 'Bearer $profileId',
+        },
+        body: json.encode({
+          'invoices': invoices.map((i) => i.toJson()).toList(),
+        }),
+      );
+      
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      } else {
+        logger.warning('Sync invoices failed with status ${response.statusCode}');
+        return {'error': 'Failed to sync invoices'};
+      }
+    } catch (e) {
+      logger.severe('Error syncing invoices: $e');
+      return {'error': e.toString()};
+    }
+  }
+  
+  /// Server health check
+  Future<bool> healthCheck() async {
+    try {
+      final response = await _httpClient.get(
+        Uri.parse('$_baseUrl/health'),
+        headers: _commonHeaders,
+      );
+      
+      return response.statusCode == 200;
+    } catch (e) {
+      logger.severe('Error checking server health: $e');
+      return false;
     }
   }
 }

@@ -3,11 +3,11 @@ import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../services/auth_service.dart';
 import '../services/biometric_auth_service.dart';
-import '../utils/app_logger.dart';
+import '../utils/logger.dart';
 
 /// Extension to add biometric authentication methods to AuthService
 extension BiometricAuthExtension on AuthService {
-  static final _logger = AppLogger('BiometricAuthExtension');
+  static final _logger = AppLogger.getLogger('BiometricAuthExtension');
   static final _secureStorage = const FlutterSecureStorage();
   static const _biometricAuthKey = 'biometric_auth_key';
 
@@ -44,7 +44,7 @@ extension BiometricAuthExtension on AuthService {
       _logger.info('Biometric authentication enabled');
       return true;
     } catch (e) {
-      _logger.error('Failed to enable biometric authentication: $e');
+      _logger.severe('Failed to enable biometric authentication: $e');
       return false;
     }
   }
@@ -62,7 +62,7 @@ extension BiometricAuthExtension on AuthService {
       _logger.info('Biometric authentication disabled');
       return true;
     } catch (e) {
-      _logger.error('Failed to disable biometric authentication: $e');
+      _logger.severe('Failed to disable biometric authentication: $e');
       return false;
     }
   }

@@ -46,6 +46,9 @@ class Goal extends HiveObject {
 
   @HiveField(13)
   String? profileId;
+  
+  @HiveField(14)
+  bool isSynced;
 
   Goal({
     required this.id,
@@ -62,6 +65,7 @@ class Goal extends HiveObject {
     this.goalType = GoalType.savings,
     this.currency = 'KES',
     this.profileId,
+    this.isSynced = false,
   }) : 
     createdAt = createdAt ?? DateTime.now(),
     updatedAt = updatedAt ?? DateTime.now();

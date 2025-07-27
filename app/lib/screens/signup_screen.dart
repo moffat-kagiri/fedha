@@ -54,8 +54,10 @@ class _SignupScreenState extends State<SignupScreen> {
       _errorMessage = null;
     });
 
+    final apiClient = ApiClient();
+    
     // Check server health first
-    final healthCheck = await ApiClient.checkServerHealth();
+    final healthCheck = await apiClient.checkServerHealth();
     
     if (!healthCheck['isConnected']) {
       setState(() {
@@ -74,7 +76,7 @@ class _SignupScreenState extends State<SignupScreen> {
     }
 
     // Validate if profile can be created
-    final validationResult = await ApiClient.validateProfileCreation(
+    final validationResult = await apiClient.validateProfileCreation(
       email: _emailController.text.trim(),
     );
 

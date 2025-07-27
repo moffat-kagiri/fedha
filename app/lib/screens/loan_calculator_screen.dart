@@ -1,9 +1,9 @@
-import 'dart:math' as Math;
+import 'dart:math' as math;
 import 'dart:math' show pow;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import '../services/api_client.dart';
+// import '../services/api_client.dart'; // Removed unused import
 import '../services/currency_service.dart';
 
 // Add interest models enum
@@ -137,8 +137,8 @@ class _PaymentCalculatorTabState extends State<PaymentCalculatorTab> {
           // Amortized payment formula for compound/reducing-balance
           final monthlyRate = annualRate / 12;
           monthlyPayment = principal * 
-              (monthlyRate * Math.pow(1 + monthlyRate, numberOfPayments)) /
-              (Math.pow(1 + monthlyRate, numberOfPayments) - 1);
+              (monthlyRate * math.pow(1 + monthlyRate, numberOfPayments)) /
+              (math.pow(1 + monthlyRate, numberOfPayments) - 1);
           totalAmount = monthlyPayment * numberOfPayments;
           totalInterest = totalAmount - principal;
           break;
@@ -748,13 +748,13 @@ class _InterestSolverTabState extends State<InterestSolverTab> {
   }
 
   double _calculatePresentValue(double payment, double rate, double periods) {
-    return payment * (1 - Math.pow(1 + rate, -periods)) / rate;
+    return payment * (1 - math.pow(1 + rate, -periods)) / rate;
   }
 
   double _calculateDerivative(double payment, double rate, double periods) {
     if (rate == 0) return 0;
-    double factor1 = (1 - Math.pow(1 + rate, -periods)) / (rate * rate);
-    double factor2 = periods * Math.pow(1 + rate, -periods - 1) / rate;
+    double factor1 = (1 - math.pow(1 + rate, -periods)) / (rate * rate);
+    double factor2 = periods * math.pow(1 + rate, -periods - 1) / rate;
     return payment * (factor1 - factor2);
   }
 }
