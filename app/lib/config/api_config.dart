@@ -36,10 +36,10 @@ class ApiConfig {
   // Development configuration
   factory ApiConfig.development() {
     return const ApiConfig(
-      primaryApiUrl: 'dev-api.fedha.app',
-      fallbackApiUrl: 'dev-api-backup.fedha.app',
+      primaryApiUrl: 'beige-insects-lick.loca.lt',
+      fallbackApiUrl: 'localhost:8000',
       connectionTimeout: 30,
-      useSecureConnections: true,
+      useSecureConnections: false, // Use HTTP for localtunnel
       apiVersion: 'v1',
       defaultHeaders: {
         'X-Client-Version': '1.0.0',
@@ -68,9 +68,9 @@ class ApiConfig {
   // Local development configuration
   factory ApiConfig.local() {
     return const ApiConfig(
-      primaryApiUrl: '10.0.2.2:8000',
+      primaryApiUrl: 'tired-dingos-beg.loca.lt',
       fallbackApiUrl: '127.0.0.1:8000',
-      connectionTimeout: 5,
+      connectionTimeout: 15,
       useSecureConnections: false,
       apiVersion: 'v1',
       defaultHeaders: {

@@ -1,15 +1,17 @@
 import 'package:flutter/foundation.dart';
 
+/// Enum representing different environment types
+enum EnvironmentType {
+  production,
+  development,
+  staging,
+  testing,
+}
+
 /// Configuration for the app environment
 class EnvironmentConfig {
-  // Environment type constants
-  static const String ENV_PRODUCTION = 'production';
-  static const String ENV_DEVELOPMENT = 'development';
-  static const String ENV_STAGING = 'staging';
-  static const String ENV_TESTING = 'testing';
-  
-  // Current environment
-  final String environment;
+  // Current environment type
+  final EnvironmentType type;
   
   // Whether this is a production environment
   final bool isProduction;
@@ -26,8 +28,13 @@ class EnvironmentConfig {
   // Whether to use mock services
   final bool useMockServices;
   
+  // Get the environment name as a string
+  String get environment {
+    return type.toString().split('.').last;
+  }
+  
   const EnvironmentConfig._({
-    required this.environment,
+    required this.type,
     required this.isProduction,
     required this.enableAnalytics,
     required this.showDeveloperMenu,
@@ -36,9 +43,9 @@ class EnvironmentConfig {
   });
   
   // Production environment
-  factory EnvironmentConfig.productionConfig() {
+  factory EnvironmentConfig.production() {
     return const EnvironmentConfig._(
-      environment: ENV_PRODUCTION,
+      type: EnvironmentType.production,
       isProduction: true,
       enableAnalytics: true,
       showDeveloperMenu: false,
@@ -48,9 +55,9 @@ class EnvironmentConfig {
   }
   
   // Development environment
-  factory EnvironmentConfig.developmentConfig() {
+  factory EnvironmentConfig.development() {
     return const EnvironmentConfig._(
-      environment: ENV_DEVELOPMENT,
+      type: EnvironmentType.development,
       isProduction: false,
       enableAnalytics: false,
       showDeveloperMenu: true,
@@ -60,9 +67,9 @@ class EnvironmentConfig {
   }
   
   // Staging environment
-  factory EnvironmentConfig.stagingConfig() {
+  factory EnvironmentConfig.staging() {
     return const EnvironmentConfig._(
-      environment: ENV_STAGING,
+      type: EnvironmentType.staging,
       isProduction: false,
       enableAnalytics: true,
       showDeveloperMenu: false,
@@ -72,9 +79,9 @@ class EnvironmentConfig {
   }
   
   // Testing environment
-  factory EnvironmentConfig.testingConfig() {
+  factory EnvironmentConfig.testing() {
     return const EnvironmentConfig._(
-      environment: ENV_TESTING,
+      type: EnvironmentType.testing,
       isProduction: false,
       enableAnalytics: false,
       showDeveloperMenu: true,
@@ -88,11 +95,11 @@ class EnvironmentConfig {
     // Use debug mode to determine environment for now
     // This can be extended to use flavor-based configuration
     if (kReleaseMode) {
-      return EnvironmentConfig.productionConfig();
+      return EnvironmentConfig.production();
     } else if (kProfileMode) {
-      return EnvironmentConfig.stagingConfig();
+      return EnvironmentConfig.staging();
     } else {
-      return EnvironmentConfig.developmentConfig();
+      return EnvironmentConfig.development();
     }
   }
 }

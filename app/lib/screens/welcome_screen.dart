@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:fedha/screens/login_screen.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'auth_wrapper.dart';
 
 class WelcomeScreen extends StatefulWidget {
   const WelcomeScreen({Key? key}) : super(key: key);
@@ -11,6 +13,7 @@ class WelcomeScreen extends StatefulWidget {
 class _WelcomeScreenState extends State<WelcomeScreen> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
+  final int _totalPages = 3;
 
   @override
   void dispose() {
@@ -19,15 +22,33 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   }
 
   void _nextPage() {
-    if (_currentPage == 2) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => const LoginScreen()),
-      );
-    } else {
+    if (_currentPage < _totalPages - 1) {
       _pageController.nextPage(
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
+      );
+    } else {
+      _completeOnboarding();
+    }
+  }
+
+  void _previousPage() {
+    if (_currentPage > 0) {
+      _pageController.previousPage(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
+
+  Future<void> _completeOnboarding() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('onboarding_completed', true);
+    
+    if (mounted) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const AuthWrapper()),
       );
     }
   }
@@ -35,101 +56,115 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1E1E1E), // Dark grey background
+      backgroundColor: const Color(0xFF007A39), // Brand green background
       body: SafeArea(
         child: Column(
           children: [
+            // Page content
             Expanded(
               child: PageView(
                 controller: _pageController,
                 onPageChanged: (int page) => setState(() => _currentPage = page),
                 children: [
                   // Screen 1: SMS Transaction Capture
-                  _WelcomePageContent(
-                    icon: Icons.message_outlined,
-                    title: 'Effortless Tracking',
-                    description: 'Auto-capture transactions from SMS notifications',
+                  _buildWelcomePage(
+                    'assets/images/welcome1.svg',
+                    'Effortless Tracking',
+                    'Auto-capture transactions from SMS notifications',
                   ),
                   
                   // Screen 2: Analytics
-                  _WelcomePageContent(
-                    icon: Icons.analytics_outlined,
-                    title: 'Smart Insights',
-                    description: 'Real-time budgeting with powerful analytics',
+                  _buildWelcomePage(
+                    'assets/images/welcome2.svg',
+                    'Smart Insights',
+                    'Real-time budgeting with powerful analytics',
                   ),
                   
                   // Screen 3: AI-Powered Analysis
-                  _WelcomePageContent(
-                    icon: Icons.auto_graph,
-                    title: 'AI-Powered',
-                    description: 'Advanced investment and debt analysis by Gauss',
+                  _buildWelcomePage(
+                    'assets/images/welcome3.svg',
+                    'AI-Powered Financial Assistant',
+                    'Get personalized recommendations and insights',
                   ),
                 ],
               ),
             ),
             
             // Bottom Navigation
-            Padding(
+            Container(
               padding: const EdgeInsets.all(24.0),
               child: Column(
                 children: [
-                  // Page Indicators
+                  // Page Indicators with animated width
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
-                    children: List.generate(3, (index) {
-                      return Container(
-                        width: 8,
+                    children: List.generate(_totalPages, (index) {
+                      return AnimatedContainer(
+                        duration: const Duration(milliseconds: 300),
+                        margin: const EdgeInsets.symmetric(horizontal: 5),
                         height: 8,
-                        margin: const EdgeInsets.symmetric(horizontal: 4),
+                        width: _currentPage == index ? 24 : 8,
                         decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: _currentPage == index
-                              ? const Color(0xFF007A39)
-                              : Colors.grey.shade600,
+                          color: _currentPage == index 
+                              ? Colors.white 
+                              : Colors.white.withOpacity(0.3),
+                          borderRadius: BorderRadius.circular(4),
                         ),
                       );
                     }),
                   ),
                   const SizedBox(height: 32),
                   
-                  // Next/Get Started Button
-                  SizedBox(
-                    width: double.infinity,
-                    height: 56,
-                    child: ElevatedButton(
-                      onPressed: _nextPage,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF007A39),
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
+                  // Navigation Buttons
+                  Row(
+                    children: [
+                      if (_currentPage > 0)
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: _previousPage,
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.white,
+                              side: const BorderSide(color: Colors.white),
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: const Text('Previous'),
+                          ),
                         ),
-                        elevation: 2,
-                      ),
-                      child: Text(
-                        _currentPage == 2 ? 'Get Started' : 'Next',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+                      if (_currentPage > 0) const SizedBox(width: 16),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: _nextPage,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            foregroundColor: const Color(0xFF007A39),
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            elevation: 2,
+                          ),
+                          child: Text(
+                            _currentPage == _totalPages - 1 ? 'Get Started' : 'Next',
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ),
                       ),
-                    ),
+                    ],
                   ),
-                  if (_currentPage < 2) ...[
+                  if (_currentPage < _totalPages - 1) ...[
                     const SizedBox(height: 16),
                     TextButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const LoginScreen(),
-                          ),
-                        );
-                      },
+                      onPressed: _completeOnboarding,
                       child: const Text(
                         'Skip',
                         style: TextStyle(
-                          color: Colors.grey,
+                          color: Colors.white70,
                           fontSize: 16,
                         ),
                       ),
@@ -143,41 +178,24 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
       ),
     );
   }
-}
 
-class _WelcomePageContent extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String description;
-
-  const _WelcomePageContent({
-    required this.icon,
-    required this.title,
-    required this.description,
-  });
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildWelcomePage(String svgAsset, String title, String description) {
     return Padding(
-      padding: const EdgeInsets.all(24.0),
+      padding: const EdgeInsets.all(32.0),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // Icon Container
-          Container(
-            width: 120,
-            height: 120,
-            decoration: BoxDecoration(
-              color: const Color(0xFF007A39).withValues(red: 0, green: 122, blue: 57, alpha: 0.1),
-              borderRadius: BorderRadius.circular(30),
-            ),
-            child: Icon(
-              icon,
-              size: 60,
-              color: const Color(0xFF007A39),
+          // SVG Illustration
+          Expanded(
+            child: Center(
+              child: SvgPicture.asset(
+                svgAsset,
+                width: 240,
+                height: 240,
+                placeholderBuilder: (context) => const CircularProgressIndicator(),
+              ),
             ),
           ),
-          const SizedBox(height: 48),
           
           // Title
           Text(
@@ -196,10 +214,12 @@ class _WelcomePageContent extends StatelessWidget {
             description,
             style: TextStyle(
               fontSize: 16,
-              color: Colors.grey.shade400,
+              color: Colors.grey.shade200,
+              height: 1.5,
             ),
             textAlign: TextAlign.center,
           ),
+          const SizedBox(height: 48),
         ],
       ),
     );

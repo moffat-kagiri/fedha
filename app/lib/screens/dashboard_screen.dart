@@ -188,7 +188,7 @@ class DashboardContent extends StatelessWidget {
       title: 'Financial Overview',
       items: summaryItems,
       onTap: () {
-        // Navigate to detailed financial overview
+        Navigator.pushNamed(context, '/create_budget');
       },
     );
   }

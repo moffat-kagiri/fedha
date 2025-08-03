@@ -42,6 +42,8 @@ import 'screens/add_goal_screen.dart';
 import 'screens/create_budget_screen.dart';
 import 'screens/goals_screen.dart';
 import 'screens/sms_review_screen.dart';
+import 'screens/spending_overview_screen.dart';
+import 'screens/loans_tracker_screen.dart';
 import 'screens/add_transaction_screen.dart';
 import 'screens/transaction_entry_screen.dart';
 import 'screens/detailed_transaction_entry_screen.dart';
@@ -108,13 +110,13 @@ void main() async {
     
     // Initialize API configuration based on environment
     // Check for local server flag in arguments or preferences
-    final useLocalServer = false; // Set to true to use local development server
+    final useLocalServer = true; // Using our localtunnel server
     
     final apiConfig = useLocalServer
-        ? getLocalApiConfig()
+        ? ApiConfig.development() // Using development config with Localtunnel
         : (envConfig.isProduction
             ? ApiConfig.production()
-            : (envConfig.environment == EnvironmentConfig.ENV_STAGING
+            : (envConfig.type == EnvironmentType.staging
                 ? ApiConfig.production().copyWith(enableDebugLogging: true)
                 : ApiConfig.development()));
     
@@ -294,6 +296,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             '/login': (context) => const LoginScreen(),
             '/signup': (context) => const SignupScreen(),
             '/test_profiles': (context) => const TestProfilesScreen(),
+            '/spending_overview': (context) => const SpendingOverviewScreen(),
+            '/loans_tracker': (context) => const LoansTrackerScreen(),
           },
           home: FutureBuilder<void>(
             future: _initializationFuture,

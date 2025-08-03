@@ -73,20 +73,6 @@ class ToolsScreen extends StatelessWidget {
               context: context,
               features: [
                 _FeatureItem(
-                  title: 'Quick Transaction Entry',
-                  description: 'Fast manual transaction logging',
-                  icon: Icons.add_card,
-                  isAvailable: true,
-                  route: '/detailed_transaction_entry',
-                ),
-                _FeatureItem(
-                  title: 'Loans Tracker',
-                  description: 'View and manage your loans',
-                  icon: Icons.account_balance_wallet,
-                  isAvailable: true,
-                  route: '/loans_tracker',
-                ),
-                _FeatureItem(
                   title: 'Budget Creation',
                   description: '50/30/20 budgeting methodology',
                   icon: Icons.pie_chart,
@@ -114,15 +100,13 @@ class ToolsScreen extends StatelessWidget {
                   isAvailable: true,
                   route: '/spending_overview',
                 ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            // More Tools (4 items)
-            _buildSection(
-              title: 'More Tools',
-              subtitle: 'Additional financial utilities',
-              context: context,
-              features: [
+                _FeatureItem(
+                  title: 'Quick Transaction Entry',
+                  description: 'Fast manual transaction logging',
+                  icon: Icons.add_card,
+                  isAvailable: true,
+                  route: '/detailed_transaction_entry',
+                ),
                 _FeatureItem(
                   title: 'SMS Transaction Import',
                   description: 'Real-time M-PESA & bank SMS parsing',
@@ -130,6 +114,15 @@ class ToolsScreen extends StatelessWidget {
                   isAvailable: true,
                   route: '/sms_review',
                 ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            // More Tools (3 items)
+            _buildSection(
+              title: 'More Tools',
+              subtitle: 'Additional financial utilities',
+              context: context,
+              features: [
                 _FeatureItem(
                   title: 'Expense Analytics',
                   description: 'AI-powered spending insights',
@@ -145,7 +138,7 @@ class ToolsScreen extends StatelessWidget {
                 _FeatureItem(
                   title: 'Investment Calculator',
                   description: 'Compound interest & ROI analysis',
-                  icon: Icons.trending_up,
+                  icon: Icons.attach_money,
                   isAvailable: false,
                 ),
               ],

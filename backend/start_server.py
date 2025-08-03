@@ -2,6 +2,7 @@
 """
 Django Server Startup Script for Fedha Backend
 Configures and starts the Django development server for Android emulator access
+with optional localtunnel support for external access
 """
 
 import os
@@ -9,7 +10,16 @@ import sys
 import subprocess
 import argparse
 import socket
+import threading
+import json
+import time
 from pathlib import Path
+
+# Import localtunnel module
+try:
+    import setup_tunnel
+except ImportError:
+    setup_tunnel = None
 
 def check_requirements(python_cmd):
     """Check if Django and other requirements are installed"""
@@ -83,6 +93,7 @@ def main():
     parser.add_argument('--skip-migrate', action='store_true', help='Skip running migrations')
     parser.add_argument('--skip-checks', action='store_true', help='Skip requirement checks')
     parser.add_argument('--usb-debug', action='store_true', help='Optimize for USB debugging with physical device')
+    parser.add_argument('--tunnel', action='store_true', help='Create a localtunnel for external access')
     
     args = parser.parse_args()
     
@@ -103,6 +114,19 @@ def main():
     print(f"   - Local Machine: http://127.0.0.1:{args.port}")
     print(f"   - Physical Device (USB): http://{local_ip}:{args.port}")
     print(f"   - Network: http://{args.host}:{args.port}")
+    
+    # Start localtunnel if requested
+    tunnel_thread = None
+    if args.tunnel and setup_tunnel:
+        print("🚇 Setting up external tunnel access...")
+        try:
+            tunnel_thread = setup_tunnel.run_tunnel_in_thread(port=int(args.port))
+            print("🌍 Tunnel initialized - check above for the public URL")
+            print("✅ Use this URL in your app's API configuration")
+        except Exception as e:
+            print(f"❌ Failed to start tunnel: {e}")
+            print("💡 You can start it separately with: python setup_tunnel.py")
+    
     print("=" * 60)
     
     if args.usb_debug:

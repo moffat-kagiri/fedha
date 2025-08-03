@@ -196,8 +196,23 @@ class ApiClient {
   // Instance method for checking server health
   Future<Map<String, dynamic>> checkServerHealth() async {
     try {
+      // Use specific URL format for localhost connections
+      String healthUrl;
+      if (_baseUrl.contains('127.0.0.1') || _baseUrl.contains('localhost')) {
+        healthUrl = 'http://127.0.0.1:8000/health/';
+      } else if (_baseUrl.contains('loca.lt')) {
+        // Handle localtunnel URLs
+        healthUrl = 'https://${_config.primaryApiUrl}/health/';
+      } else {
+        healthUrl = '$_baseUrl/health/';
+      }
+      
+      if (_config.enableDebugLogging) {
+        logger.info('Checking server health at: $healthUrl');
+      }
+      
       final response = await _httpClient.get(
-        Uri.parse('$_baseUrl/health'),
+        Uri.parse(healthUrl),
         headers: _commonHeaders,
       );
       
@@ -211,7 +226,7 @@ class ApiClient {
         return {
           'isConnected': false,
           'canCreateProfile': false,
-          'message': 'Server is experiencing issues'
+          'message': 'Server is experiencing issues (${response.statusCode})'
         };
       }
     } catch (e) {

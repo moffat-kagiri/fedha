@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 import '../services/biometric_auth_service.dart';
 import '../services/permissions_service.dart';
-import 'welcome_onboarding_screen.dart';
+import 'welcome_screen.dart';
 import 'login_welcome_screen.dart';
 import 'main_navigation.dart';
 import 'biometric_lock_screen.dart';
@@ -104,7 +104,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
     }
 
     if (!_onboardingCompleted) {
-      return const WelcomeOnboardingScreen();
+      return const WelcomeScreen();
     }
     
     // Show permissions screen if needed
