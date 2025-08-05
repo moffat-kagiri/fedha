@@ -17,6 +17,9 @@ class ApiConfig {
   // API version
   final String apiVersion;
   
+  // Standardized health endpoint path (used for server health checks)
+  final String apiHealthEndpoint;
+  
   // Default headers to include with all requests
   final Map<String, String> defaultHeaders;
   
@@ -29,6 +32,7 @@ class ApiConfig {
     this.connectionTimeout = 10,
     this.useSecureConnections = true,
     this.apiVersion = 'v1',
+    this.apiHealthEndpoint = 'api/health/',
     this.defaultHeaders = const {},
     this.enableDebugLogging = false,
   });
@@ -36,14 +40,16 @@ class ApiConfig {
   // Development configuration
   factory ApiConfig.development() {
     return const ApiConfig(
-      primaryApiUrl: 'beige-insects-lick.loca.lt',
-      fallbackApiUrl: 'localhost:8000',
+      primaryApiUrl: '192.168.100.6:8000',
+      fallbackApiUrl: '10.0.2.2:8000',  // Android emulator loopback
       connectionTimeout: 30,
-      useSecureConnections: false, // Use HTTP for localtunnel
+      useSecureConnections: false, // Use HTTP for local network
       apiVersion: 'v1',
+      apiHealthEndpoint: 'api/health/',
       defaultHeaders: {
         'X-Client-Version': '1.0.0',
         'X-Client-Platform': 'flutter',
+        'X-Environment': 'development',
       },
       enableDebugLogging: true,
     );
@@ -57,9 +63,11 @@ class ApiConfig {
       connectionTimeout: 15,
       useSecureConnections: true,
       apiVersion: 'v1',
+      apiHealthEndpoint: 'api/health/',
       defaultHeaders: {
         'X-Client-Version': '1.0.0',
         'X-Client-Platform': 'flutter',
+        'X-Environment': 'production',
       },
       enableDebugLogging: false,
     );
@@ -68,14 +76,16 @@ class ApiConfig {
   // Local development configuration
   factory ApiConfig.local() {
     return const ApiConfig(
-      primaryApiUrl: 'tired-dingos-beg.loca.lt',
+      primaryApiUrl: '192.168.100.6:8000', 
       fallbackApiUrl: '127.0.0.1:8000',
       connectionTimeout: 15,
       useSecureConnections: false,
       apiVersion: 'v1',
+      apiHealthEndpoint: 'api/health/',
       defaultHeaders: {
         'X-Client-Version': '1.0.0',
         'X-Client-Platform': 'flutter',
+        'X-Environment': 'local',
       },
       enableDebugLogging: true,
     );
@@ -89,7 +99,28 @@ class ApiConfig {
       connectionTimeout: 1,
       useSecureConnections: false,
       apiVersion: 'v1',
-      defaultHeaders: {},
+      apiHealthEndpoint: 'health/',
+      defaultHeaders: {
+        'X-Environment': 'mock',
+      },
+      enableDebugLogging: true,
+    );
+  }
+  
+  // Staging configuration for pre-production testing
+  factory ApiConfig.staging() {
+    return const ApiConfig(
+      primaryApiUrl: 'staging-api.fedha.app',
+      fallbackApiUrl: 'staging-backup.fedha.app',
+      connectionTimeout: 20,
+      useSecureConnections: true,
+      apiVersion: 'v1',
+      apiHealthEndpoint: 'api/health/',
+      defaultHeaders: {
+        'X-Client-Version': '1.0.0',
+        'X-Client-Platform': 'flutter',
+        'X-Environment': 'staging',
+      },
       enableDebugLogging: true,
     );
   }
@@ -125,6 +156,7 @@ class ApiConfig {
     int? connectionTimeout,
     bool? useSecureConnections,
     String? apiVersion,
+    String? apiHealthEndpoint,
     Map<String, String>? defaultHeaders,
     bool? enableDebugLogging,
   }) {
@@ -134,8 +166,22 @@ class ApiConfig {
       connectionTimeout: connectionTimeout ?? this.connectionTimeout,
       useSecureConnections: useSecureConnections ?? this.useSecureConnections,
       apiVersion: apiVersion ?? this.apiVersion,
+      apiHealthEndpoint: apiHealthEndpoint ?? this.apiHealthEndpoint,
       defaultHeaders: defaultHeaders ?? this.defaultHeaders,
       enableDebugLogging: enableDebugLogging ?? this.enableDebugLogging,
     );
+  }
+  
+  // Get health check URL for the primary API
+  String get healthCheckUrl {
+    final protocol = useSecureConnections ? 'https' : 'http';
+    return '$protocol://$primaryApiUrl/$apiHealthEndpoint';
+  }
+  
+  // Get health check URL for the fallback API
+  String? get fallbackHealthCheckUrl {
+    if (fallbackApiUrl == null) return null;
+    final protocol = useSecureConnections ? 'https' : 'http';
+    return '$protocol://$fallbackApiUrl/$apiHealthEndpoint';
   }
 }

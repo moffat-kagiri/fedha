@@ -30,7 +30,7 @@ class ApiClient {
         'Accept': 'application/json',
       } {
     // Initialize the base URL
-    _currentBaseUrl = _config.primaryBaseUrl;
+    _currentBaseUrl = _config.primaryApiUrl;
     
     // Add any default headers from config
     _commonHeaders.addAll(_config.defaultHeaders);
@@ -41,10 +41,10 @@ class ApiClient {
   }
   
   // Get the current base URL (could be primary or fallback)
-  String get _baseUrl => _currentBaseUrl ?? _config.primaryBaseUrl;
+  String get _baseUrl => _currentBaseUrl ?? _config.primaryApiUrl;
   
   // Get the current base URL (could be primary or fallback)
-  String get baseUrl => _currentBaseUrl ?? _config.primaryBaseUrl;
+  String get baseUrl => _currentBaseUrl ?? _config.primaryApiUrl;
   
   // Check if using fallback server
   bool get isUsingFallbackServer => _usingFallbackUrl;
@@ -52,7 +52,7 @@ class ApiClient {
   // Reset to primary server
   void resetToPrimaryServer() {
     if (_usingFallbackUrl) {
-      _currentBaseUrl = _config.primaryBaseUrl;
+      _currentBaseUrl = _config.primaryApiUrl;
       _usingFallbackUrl = false;
       _failedAttempts = 0;
       logger.info('Reset to primary server: $_currentBaseUrl');
@@ -61,8 +61,8 @@ class ApiClient {
   
   // Switch to fallback server if available
   bool switchToFallbackServer() {
-    if (!_usingFallbackUrl && _config.fallbackBaseUrl != null) {
-      _currentBaseUrl = _config.fallbackBaseUrl;
+    if (!_usingFallbackUrl && _config.fallbackApiUrl != null) {
+      _currentBaseUrl = _config.fallbackApiUrl;
       _usingFallbackUrl = true;
       _failedAttempts = 0;
       logger.info('Switched to fallback server: $_currentBaseUrl');
@@ -91,7 +91,7 @@ class ApiClient {
         
         // Increment failed attempts and try fallback if needed
         _failedAttempts++;
-        if (_failedAttempts >= 3 && !_usingFallbackUrl && _config.fallbackBaseUrl != null) {
+        if (_failedAttempts >= 3 && !_usingFallbackUrl && _config.fallbackApiUrl != null) {
           switchToFallbackServer();
           return testConnection(); // Retry with fallback server
         }
@@ -112,7 +112,7 @@ class ApiClient {
       logger.warning('Server connection timed out');
       
       // Try fallback server on timeout
-      if (!_usingFallbackUrl && _config.fallbackBaseUrl != null) {
+      if (!_usingFallbackUrl && _config.fallbackApiUrl != null) {
         switchToFallbackServer();
         return testConnection(); // Retry with fallback server
       }
@@ -122,7 +122,7 @@ class ApiClient {
       logger.warning('Network error during connection test: $e');
       
       // Try fallback server on socket exception
-      if (!_usingFallbackUrl && _config.fallbackBaseUrl != null) {
+      if (!_usingFallbackUrl && _config.fallbackApiUrl != null) {
         switchToFallbackServer();
         return testConnection(); // Retry with fallback server
       }
@@ -132,7 +132,7 @@ class ApiClient {
       logger.warning('Connection test failed: $e');
       
       // Try fallback server on other exceptions
-      if (!_usingFallbackUrl && _config.fallbackBaseUrl != null) {
+      if (!_usingFallbackUrl && _config.fallbackApiUrl != null) {
         switchToFallbackServer();
         return testConnection(); // Retry with fallback server
       }
@@ -196,16 +196,9 @@ class ApiClient {
   // Instance method for checking server health
   Future<Map<String, dynamic>> checkServerHealth() async {
     try {
-      // Use specific URL format for localhost connections
-      String healthUrl;
-      if (_baseUrl.contains('127.0.0.1') || _baseUrl.contains('localhost')) {
-        healthUrl = 'http://127.0.0.1:8000/health/';
-      } else if (_baseUrl.contains('loca.lt')) {
-        // Handle localtunnel URLs
-        healthUrl = 'https://${_config.primaryApiUrl}/health/';
-      } else {
-        healthUrl = '$_baseUrl/health/';
-      }
+      // Use the standardized health endpoint from config
+      final scheme = _config.useSecureConnections ? 'https' : 'http';
+      final healthUrl = '$scheme://$_baseUrl/${_config.apiHealthEndpoint}';
       
       if (_config.enableDebugLogging) {
         logger.info('Checking server health at: $healthUrl');
@@ -244,9 +237,11 @@ class ApiClient {
     String? phoneNumber,
   }) async {
     try {
+      final Map<String, String> headers = Map.from(_commonHeaders);
+      
       final response = await _httpClient.post(
         Uri.parse('$_baseUrl/profiles/validate'),
-        headers: _commonHeaders,
+        headers: headers,
         body: jsonEncode({
           'email': email,
         }),
@@ -270,6 +265,7 @@ class ApiClient {
         };
       }
     } catch (e) {
+      logger.warning('Failed to validate profile creation: $e');
       return {
         'canCreate': false,
         'message': 'Error checking email availability'
