@@ -69,8 +69,6 @@ class _SignupScreenState extends State<SignupScreen> {
 
     // Server is healthy, proceed with registration
     try {
-
-    try {
       final authService = Provider.of<AuthService>(context, listen: false);
       
       final success = await authService.signup(

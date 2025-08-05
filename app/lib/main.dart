@@ -30,7 +30,7 @@ import 'services/biometric_auth_service.dart';
 import 'services/service_stubs.dart' as stubs;
 import 'utils/connection_manager.dart';
 import 'services/enhanced_sync_service.dart';
-import 'services/connectivity_service.dart';
+import 'services/connectivity_service_new.dart' as conn_svc;
 import 'services/sms_listener_service.dart';
 import 'services/permissions_service.dart';
 import 'utils/enum_adapters.dart' as enum_adapters;
@@ -53,6 +53,8 @@ import 'screens/signup_screen.dart';
 import 'screens/test_profiles_screen.dart';
 import 'screens/connection_diagnostics_screen.dart';
 import 'health_dashboard.dart';
+import 'device_network_info.dart';
+import 'ip_settings.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -124,7 +126,7 @@ void main() async {
     
     // Create API client with minimal config for connectivity check
     final tempApiClient = ApiClient(config: ApiConfig.development());
-    final connectivityService = ConnectivityService(tempApiClient);
+    final connectivityService = conn_svc.ConnectivityService(tempApiClient);
     await connectivityService.initialize();
     
     // Check if we have internet connectivity at all
@@ -217,7 +219,7 @@ void main() async {
         providers: [
           Provider<ApiClient>.value(value: apiClient),
           ChangeNotifierProvider<OfflineDataService>.value(value: offlineDataService),
-          Provider<ConnectivityService>.value(value: connectivityService),
+          Provider<conn_svc.ConnectivityService>.value(value: connectivityService),
           Provider<stubs.GoalTransactionService>.value(value: goalTransactionService),
           Provider<stubs.TextRecognitionService>.value(value: textRecognitionService),
           Provider<stubs.CSVUploadService>.value(value: csvUploadService),
@@ -353,6 +355,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
               apiClient: Provider.of<ApiClient>(context, listen: false),
             ),
             '/health_dashboard': (context) => const HealthDashboard(),
+            '/device_network_info': (context) => const DeviceInfoScreen(),
+            '/ip_settings': (context) => const IpSettingsScreen(),
           },
           home: FutureBuilder<void>(
             future: _initializationFuture,

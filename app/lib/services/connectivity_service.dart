@@ -80,10 +80,116 @@ class ConnectivityService {
       _logger.severe('Error checking internet connection: $e');
       return false;
     }
-    _setupConnectivityListener();
+  }
+  
+  // Initialize connectivity monitoring
+  void _initConnectivity() {
+    _logger.info('Initializing connectivity monitoring');
+    _checkConnectivity();
+  }
+  
+  // Setup connectivity change listener
+  void _setupConnectivityListener() {
+    _logger.info('Setting up connectivity listener');
+    _connectivity.onConnectivityChanged.listen((result) {
+      _logger.info('Connectivity changed: $result');
+      _checkConnectivity();
+    });
+  }
+  
+  // Check connectivity status
+  Future<void> _checkConnectivity() async {
+    try {
+      _logger.info('Checking connectivity...');
+      
+      // Check basic connectivity first
+      final connectivityResult = await _connectivity.checkConnectivity();
+      final hadConnection = _hasConnection; // Store previous state
+      
+      if (connectivityResult == ConnectivityResult.none) {
+        _hasConnection = false;
+        _serverReachable = false;
+        
+        _logger.warning('No connectivity detected');
+        
+        if (hadConnection) {
+          // Only notify if state changed
+          _connectionStatusController.add(false);
+          _serverStatusController.add(false);
+        }
+        return;
+      }
+      
+      // We have some form of connectivity, check actual internet connection
+      try {
+        final result = await InternetAddress.lookup('google.com');
+        final hasInternet = result.isNotEmpty && result[0].rawAddress.isNotEmpty;
+        
+        if (!hasInternet) {
+          _hasConnection = false;
+          _serverReachable = false;
+          
+          _logger.warning('Internet not reachable');
+          
+          if (hadConnection) {
+            _connectionStatusController.add(false);
+            _serverStatusController.add(false);
+          }
+          return;
+        }
+        
+        // We have internet, now check server
+        _hasConnection = true;
+        
+        if (hadConnection != _hasConnection) {
+          _connectionStatusController.add(true);
+        }
+        
+        // Check if our API server is reachable
+        _checkServerReachability();
+      } catch (e) {
+        _logger.warning('Error checking internet: $e');
+        _hasConnection = false;
+        _serverReachable = false;
+        
+        if (hadConnection) {
+          _connectionStatusController.add(false);
+          _serverStatusController.add(false);
+        }
+      }
+    } catch (e) {
+      _logger.severe('Error in _checkConnectivity: $e');
+    }
     
     // Start periodic checks if needed
     startPeriodicChecks();
+  }
+  
+  // Check if the API server is reachable
+  Future<void> _checkServerReachability() async {
+    try {
+      _logger.info('Checking server reachability...');
+      final wasReachable = _serverReachable;
+      
+      final isReachable = await _apiClient.checkServerHealth();
+      _serverReachable = isReachable;
+      
+      _logger.info('Server reachable: $_serverReachable');
+      
+      if (wasReachable != _serverReachable) {
+        _serverStatusController.add(_serverReachable);
+      }
+    } catch (e) {
+      _logger.warning('Error checking server reachability: $e');
+      _serverReachable = false;
+      _serverStatusController.add(false);
+    }
+  }
+  
+  // Attempt to reconnect to server after connectivity issues
+  Future<bool> attemptReconnect() async {
+    await _checkConnectivity();
+    return _serverReachable;
   }
   
   // Start periodic connectivity checks (every 30 seconds)

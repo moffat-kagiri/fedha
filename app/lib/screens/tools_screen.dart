@@ -138,6 +138,20 @@ class ToolsScreen extends StatelessWidget {
                   route: '/health_dashboard',
                 ),
                 _FeatureItem(
+                  title: 'Device Network Info',
+                  description: 'View device network information',
+                  icon: Icons.network_check,
+                  isAvailable: true,
+                  route: '/device_network_info',
+                ),
+                _FeatureItem(
+                  title: 'IP Settings',
+                  description: 'Configure connection IP settings',
+                  icon: Icons.settings_ethernet,
+                  isAvailable: true,
+                  route: '/ip_settings',
+                ),
+                _FeatureItem(
                   title: 'Expense Analytics',
                   description: 'AI-powered spending insights',
                   icon: Icons.analytics,
