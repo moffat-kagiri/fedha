@@ -73,6 +73,24 @@ class ApiConfig {
     );
   }
   
+  // Staging with Cloudflare tunnel configuration
+  factory ApiConfig.cloudflare() {
+    return const ApiConfig(
+      primaryApiUrl: 'place-jd-telecom-hi.trycloudflare.com',  // Cloudflare tunnel URL
+      fallbackApiUrl: '192.168.100.6:8000', // Fallback to local network if tunnel fails
+      connectionTimeout: 20,
+      useSecureConnections: true,  // Use HTTPS for Cloudflare tunnel
+      apiVersion: 'v1',
+      apiHealthEndpoint: 'api/health/',
+      defaultHeaders: {
+        'X-Client-Version': '1.0.0',
+        'X-Client-Platform': 'flutter',
+        'X-Environment': 'staging',
+      },
+      enableDebugLogging: true,
+    );
+  }
+  
   // Local development configuration
   factory ApiConfig.local() {
     return const ApiConfig(

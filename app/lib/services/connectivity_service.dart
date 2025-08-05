@@ -48,6 +48,38 @@ class ConnectivityService {
   ConnectivityService(this._apiClient) : _logger = AppLogger.getLogger('ConnectivityService') {
     // Initialize connection monitoring
     _initConnectivity();
+  }
+  
+  /// Initialize the connectivity service
+  Future<void> initialize() async {
+    await _checkConnectivity();
+    _setupConnectivityListener();
+  }
+  
+  /// Check if device has internet connection
+  Future<bool> hasInternetConnection() async {
+    try {
+      final connectivityResult = await _connectivity.checkConnectivity();
+      
+      if (connectivityResult == ConnectivityResult.none) {
+        return false;
+      }
+      
+      // Try to connect to a reliable host to verify actual internet connectivity
+      try {
+        final result = await InternetAddress.lookup('google.com');
+        if (result.isNotEmpty && result[0].rawAddress.isNotEmpty) {
+          return true;
+        }
+      } catch (_) {
+        return false;
+      }
+      
+      return false;
+    } catch (e) {
+      _logger.severe('Error checking internet connection: $e');
+      return false;
+    }
     _setupConnectivityListener();
     
     // Start periodic checks if needed

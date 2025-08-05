@@ -28,6 +28,7 @@ import 'config/local_server_config.dart';
 import 'services/currency_service.dart';
 import 'services/biometric_auth_service.dart';
 import 'services/service_stubs.dart' as stubs;
+import 'utils/connection_manager.dart';
 import 'services/enhanced_sync_service.dart';
 import 'services/connectivity_service.dart';
 import 'services/sms_listener_service.dart';
@@ -50,6 +51,8 @@ import 'screens/detailed_transaction_entry_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/signup_screen.dart';
 import 'screens/test_profiles_screen.dart';
+import 'screens/connection_diagnostics_screen.dart';
+import 'health_dashboard.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -109,16 +112,64 @@ void main() async {
     await permissionsService.initialize();
     
     // Initialize API configuration based on environment
+    // Import the connection manager at the top of the file:
+    // import 'utils/connection_manager.dart';
+    
     // Check for local server flag in arguments or preferences
     final useLocalServer = true; // Using our localtunnel server
     
-    final apiConfig = useLocalServer
-        ? ApiConfig.development() // Using development config with Localtunnel
-        : (envConfig.isProduction
-            ? ApiConfig.production()
-            : (envConfig.type == EnvironmentType.staging
-                ? ApiConfig.production().copyWith(enableDebugLogging: true)
-                : ApiConfig.development()));
+    // Auto-detect best connection based on platform and network availability
+    final logger = AppLogger.getLogger('Main');
+    logger.info('Detecting optimal connection method...');
+    
+    // Create API client with minimal config for connectivity check
+    final tempApiClient = ApiClient(config: ApiConfig.development());
+    final connectivityService = ConnectivityService(tempApiClient);
+    await connectivityService.initialize();
+    
+    // Check if we have internet connectivity at all
+    final hasConnectivity = await connectivityService.hasInternetConnection();
+    logger.info('Internet connectivity available: $hasConnectivity');
+    
+    // Get the best available connection URL
+    String? bestConnectionUrl;
+    if (hasConnectivity) {
+      bestConnectionUrl = await ConnectionManager.findWorkingConnection();
+      AppLogger.getLogger('Main').info('Best available connection: $bestConnectionUrl');
+    }
+    
+    // Configure API based on detection results
+    ApiConfig apiConfig;
+    
+    // Choose configuration based on the detected connection
+    if (bestConnectionUrl != null) {
+      if (bestConnectionUrl.contains('trycloudflare.com')) {
+        // Cloudflare tunnel is working
+        apiConfig = ApiConfig.cloudflare();
+        logger.info('Using Cloudflare tunnel connection');
+      } else if (bestConnectionUrl.contains('192.168.')) {
+        // Local network is working
+        apiConfig = ApiConfig.development();
+        logger.info('Using local network connection');
+      } else if (bestConnectionUrl.contains('localhost') || bestConnectionUrl.contains('127.0.0.1')) {
+        // Direct localhost connection
+        apiConfig = ApiConfig.development();
+        logger.info('Using direct localhost connection');
+      } else {
+        // Some other connection was found
+        apiConfig = ApiConfig.development().copyWith(primaryApiUrl: bestConnectionUrl);
+        logger.info('Using custom connection: $bestConnectionUrl');
+      }
+    } else if (envConfig.isProduction) {
+      apiConfig = ApiConfig.production();
+      logger.info('Using production connection');
+    } else if (envConfig.type == EnvironmentType.staging) {
+      apiConfig = ApiConfig.production().copyWith(enableDebugLogging: true);
+      logger.info('Using staging connection with debug logging');
+    } else {
+      apiConfig = ApiConfig.development();
+      logger.info('Using default development connection');
+    }
     
     // Create API client with config
     final apiClient = ApiClient(config: apiConfig);
@@ -158,8 +209,8 @@ void main() async {
       smsTransactionExtractor,
     );
 
-    // Create connectivity service
-    final connectivityService = ConnectivityService(apiClient);
+    // We already have a connectivity service initialized above
+    // No need to create it again
     
     runApp(
       MultiProvider(
@@ -298,6 +349,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             '/test_profiles': (context) => const TestProfilesScreen(),
             '/spending_overview': (context) => const SpendingOverviewScreen(),
             '/loans_tracker': (context) => const LoansTrackerScreen(),
+            '/connection_diagnostics': (context) => ConnectionDiagnosticsScreen(
+              apiClient: Provider.of<ApiClient>(context, listen: false),
+            ),
+            '/health_dashboard': (context) => const HealthDashboard(),
           },
           home: FutureBuilder<void>(
             future: _initializationFuture,

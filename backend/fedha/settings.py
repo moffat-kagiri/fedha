@@ -10,7 +10,13 @@ SECRET_KEY = 'django-insecure-your-secret-key-here'  # Change this in production
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    'localhost',
+    '127.0.0.1',
+    '0.0.0.0',
+    '192.168.100.6',  # Your local network IP (removed port number)
+    'place-jd-telecom-hi.trycloudflare.com',  # Cloudflare tunnel domain
+]
 
 # Application definition
 INSTALLED_APPS = [
@@ -20,10 +26,13 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'corsheaders',  # Add CORS headers app
+    'rest_framework',  # Assuming you're using DRF for your API
     # Add your apps here
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',  # Add CORS middleware first
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -88,3 +97,29 @@ STATIC_URL = 'static/'
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# CORS Settings
+CORS_ALLOW_ALL_ORIGINS = True  # For development - restrict in production
+CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_METHODS = [
+    'GET',
+    'POST',
+    'PUT',
+    'PATCH',
+    'DELETE',
+    'OPTIONS',
+]
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+    'x-client-version',
+    'x-client-platform',
+    'x-environment',
+]

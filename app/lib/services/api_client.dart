@@ -17,7 +17,7 @@ class ApiClient {
   final logger = AppLogger.getLogger('ApiClient');
   
   // API configuration
-  final ApiConfig _config;
+  ApiConfig _config;
   String? _currentBaseUrl;
   bool _usingFallbackUrl = false;
   int _failedAttempts = 0;
@@ -45,6 +45,9 @@ class ApiClient {
   
   // Get the current base URL (could be primary or fallback)
   String get baseUrl => _currentBaseUrl ?? _config.primaryApiUrl;
+  
+  // Get the current configuration
+  ApiConfig get config => _config;
   
   // Check if using fallback server
   bool get isUsingFallbackServer => _usingFallbackUrl;
@@ -193,8 +196,48 @@ class ApiClient {
     }
   }
   
+  // Update the API client configuration
+  void updateConfig(ApiConfig newConfig) {
+    // Apply the new configuration
+    _config = newConfig;
+    
+    // Update the base URL
+    _currentBaseUrl = newConfig.primaryApiUrl;
+    _usingFallbackUrl = false;
+    _failedAttempts = 0;
+    
+    // Log the change
+    logger.info('API config updated. New URL: $_currentBaseUrl');
+  }
+  
   // Instance method for checking server health
-  Future<Map<String, dynamic>> checkServerHealth() async {
+  Future<bool> checkServerHealth() async {
+    try {
+      final healthEndpoint = '/api/health/';
+      final scheme = _config.useSecureConnections ? 'https://' : 'http://';
+      final url = '$scheme$_currentBaseUrl$healthEndpoint';
+      
+      logger.info('Checking server health at: $url');
+      
+      final response = await _httpClient
+          .get(
+            Uri.parse(url),
+            headers: _commonHeaders,
+          )
+          .timeout(
+            Duration(seconds: _config.connectionTimeout),
+          );
+      
+      logger.info('Server health check result: ${response.statusCode}, ${response.body}');
+      return response.statusCode == 200;
+    } catch (e) {
+      logger.warning('Server health check failed: $e');
+      return false;
+    }
+  }
+  
+  // Instance method for checking detailed server health information
+  Future<Map<String, dynamic>> getServerHealthDetails() async {
     try {
       // Use the standardized health endpoint from config
       final scheme = _config.useSecureConnections ? 'https' : 'http';

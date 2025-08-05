@@ -57,36 +57,18 @@ class _SignupScreenState extends State<SignupScreen> {
     final apiClient = ApiClient();
     
     // Check server health first
-    final healthCheck = await apiClient.checkServerHealth();
+    final isHealthy = await apiClient.checkServerHealth();
     
-    if (!healthCheck['isConnected']) {
+    if (!isHealthy) {
       setState(() {
         _isLoading = false;
-        _errorMessage = '${healthCheck['message']}. Please try again later.';
+        _errorMessage = 'Could not connect to server. Please check your connection and try again later.';
       });
       return;
     }
 
-    if (!healthCheck['canCreateProfile']) {
-      setState(() {
-        _isLoading = false;
-        _errorMessage = 'Service temporarily unavailable. Please try again later.';
-      });
-      return;
-    }
-
-    // Validate if profile can be created
-    final validationResult = await apiClient.validateProfileCreation(
-      email: _emailController.text.trim(),
-    );
-
-    if (!validationResult['canCreate']) {
-      setState(() {
-        _isLoading = false;
-        _errorMessage = validationResult['message'];
-      });
-      return;
-    }
+    // Server is healthy, proceed with registration
+    try {
 
     try {
       final authService = Provider.of<AuthService>(context, listen: false);

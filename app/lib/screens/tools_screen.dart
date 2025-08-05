@@ -117,12 +117,26 @@ class ToolsScreen extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 24),
-            // More Tools (3 items)
+            // More Tools (4 items)
             _buildSection(
               title: 'More Tools',
               subtitle: 'Additional financial utilities',
               context: context,
               features: [
+                _FeatureItem(
+                  title: 'Connection Diagnostics',
+                  description: 'Test and manage API connections',
+                  icon: Icons.wifi_tethering,
+                  isAvailable: true,
+                  route: '/connection_diagnostics',
+                ),
+                _FeatureItem(
+                  title: 'Health Dashboard',
+                  description: 'Simple API health testing',
+                  icon: Icons.health_and_safety,
+                  isAvailable: true,
+                  route: '/health_dashboard',
+                ),
                 _FeatureItem(
                   title: 'Expense Analytics',
                   description: 'AI-powered spending insights',
