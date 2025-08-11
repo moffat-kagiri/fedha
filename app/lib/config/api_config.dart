@@ -76,7 +76,7 @@ class ApiConfig {
   // Staging with Cloudflare tunnel configuration
   factory ApiConfig.cloudflare() {
     return const ApiConfig(
-      primaryApiUrl: 'place-jd-telecom-hi.trycloudflare.com',  // Cloudflare tunnel URL
+      primaryApiUrl: 'lake-consistently-affects-applications.trycloudflare.com',  // Cloudflare tunnel URL
       fallbackApiUrl: '192.168.100.6:8000', // Fallback to local network if tunnel fails
       connectionTimeout: 20,
       useSecureConnections: true,  // Use HTTPS for Cloudflare tunnel

@@ -144,6 +144,45 @@ fedha/
 - Store sensitive data in `.env` files (not tracked in git)
 - Use environment variables for production deployment
 
+### Cloudflare Tunnel Setup
+For development and testing with mobile devices:
+
+1. Install Cloudflared:
+   ```bash
+   # Windows
+   choco install cloudflared
+
+   # macOS
+   brew install cloudflared
+   
+   # Linux
+   curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o cloudflared
+   chmod +x cloudflared
+   ```
+
+2. Start your Django backend server:
+   ```bash
+   cd backend
+   python manage.py runserver
+   ```
+
+3. Create a tunnel to expose your local server:
+   ```bash
+   # In a new terminal
+   cloudflared tunnel --url http://localhost:8000
+   ```
+   
+4. Update the app to use the tunnel URL:
+   ```powershell
+   # Windows
+   .\update_tunnel.ps1 "your-tunnel-name.trycloudflare.com"
+   
+   # Linux/macOS
+   ./update_tunnel.sh "your-tunnel-name.trycloudflare.com"
+   ```
+
+This enables testing your app on physical devices without exposing your development machine to the internet.
+
 ## 🚨 Troubleshooting
 
 ### Common Issues
@@ -179,6 +218,16 @@ pip install --upgrade -r requirements.txt
 
 # Node.js
 npm update
+```
+
+**Cloudflare Tunnel Issues:**
+```powershell
+# When your tunnel URL changes (they expire after terminal sessions end)
+# Windows
+.\update_tunnel.ps1 "new-tunnel-name.trycloudflare.com"
+
+# Linux/macOS
+./update_tunnel.sh "new-tunnel-name.trycloudflare.com"
 ```
 
 ## 📱 Supported Platforms

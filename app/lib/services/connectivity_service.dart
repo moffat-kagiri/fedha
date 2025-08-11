@@ -82,13 +82,13 @@ class ConnectivityService {
     }
   }
   
-  // Initialize connectivity monitoring
+  // Initialize connectivity monitoring (used in constructor)
   void _initConnectivity() {
     _logger.info('Initializing connectivity monitoring');
     _checkConnectivity();
   }
   
-  // Setup connectivity change listener
+  // Setup connectivity change listener (used in initialize method)
   void _setupConnectivityListener() {
     _logger.info('Setting up connectivity listener');
     _connectivity.onConnectivityChanged.listen((result) {
@@ -186,8 +186,8 @@ class ConnectivityService {
     }
   }
   
-  // Attempt to reconnect to server after connectivity issues
-  Future<bool> attemptReconnect() async {
+  // Simple attempt to reconnect (called by the periodic check timer)
+  Future<bool> _simpleReconnect() async {
     await _checkConnectivity();
     return _serverReachable;
   }
@@ -198,32 +198,13 @@ class ConnectivityService {
     _periodicCheckTimer = Timer.periodic(interval, (_) {
       if (!_hasConnection || !_serverReachable) {
         _logger.info('Performing periodic connectivity check...');
-        attemptReconnect();
+        _simpleReconnect();
       }
     });
     _logger.info('Started periodic connectivity checks: ${interval.inSeconds}s');
   }
   
-  // Initial connectivity check
-  Future<void> _initConnectivity() async {
-    try {
-      ConnectivityResult result = await _connectivity.checkConnectivity();
-      _updateConnectionStatus(result);
-    } catch (e) {
-      if (kDebugMode) {
-        print('Failed to check connectivity: $e');
-      }
-      _hasConnection = false;
-      _connectionStatusController.add(false);
-    }
-  }
-  
-  // Listen for connectivity changes
-  void _setupConnectivityListener() {
-    _connectivity.onConnectivityChanged.listen((ConnectivityResult result) {
-      _updateConnectionStatus(result);
-    });
-  }
+  // Update connection status based on connectivity result (helper for the onConnectivityChanged listener)
   
   // Update connection status based on connectivity result
   void _updateConnectionStatus(ConnectivityResult result) async {
@@ -284,7 +265,8 @@ class ConnectivityService {
   Future<bool> attemptReconnect({bool force = false}) async {
     if (force) {
       _logger.info('Forcing connectivity check...');
-      await _initConnectivity();
+      _initConnectivity(); // Don't await since it's void now
+      await _checkConnectivity(); // Add this line to ensure connectivity is checked
     }
     
     if (!_hasConnection) {

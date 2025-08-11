@@ -40,11 +40,19 @@ class ApiClient {
     }
   }
   
-  // Get the current base URL (could be primary or fallback)
-  String get _baseUrl => _currentBaseUrl ?? _config.primaryApiUrl;
+  // Get the current base URL (could be primary or fallback) with protocol
+  String get _baseUrl {
+    final url = _currentBaseUrl ?? _config.primaryApiUrl;
+    final protocol = _config.useSecureConnections ? 'https' : 'http';
+    return '$protocol://$url';
+  }
   
-  // Get the current base URL (could be primary or fallback)
-  String get baseUrl => _currentBaseUrl ?? _config.primaryApiUrl;
+  // Get the current base URL (could be primary or fallback) with protocol
+  String get baseUrl {
+    final url = _currentBaseUrl ?? _config.primaryApiUrl;
+    final protocol = _config.useSecureConnections ? 'https' : 'http';
+    return '$protocol://$url';
+  }
   
   // Get the current configuration
   ApiConfig get config => _config;
@@ -78,9 +86,14 @@ class ApiClient {
   Future<bool> testConnection() async {
     try {
       // Add timeout to prevent hanging
+      final healthEndpoint = '/api/health/';
+      final url = '${baseUrl}$healthEndpoint';
+      
+      logger.info('Testing server connection at: $url');
+      
       final response = await _httpClient
           .get(
-            Uri.parse('$baseUrl/health'),
+            Uri.parse(url),
             headers: _commonHeaders,
           )
           .timeout(
@@ -214,8 +227,7 @@ class ApiClient {
   Future<bool> checkServerHealth() async {
     try {
       final healthEndpoint = '/api/health/';
-      final scheme = _config.useSecureConnections ? 'https://' : 'http://';
-      final url = '$scheme$_currentBaseUrl$healthEndpoint';
+      final url = '${baseUrl}$healthEndpoint';
       
       logger.info('Checking server health at: $url');
       
@@ -240,8 +252,7 @@ class ApiClient {
   Future<Map<String, dynamic>> getServerHealthDetails() async {
     try {
       // Use the standardized health endpoint from config
-      final scheme = _config.useSecureConnections ? 'https' : 'http';
-      final healthUrl = '$scheme://$_baseUrl/${_config.apiHealthEndpoint}';
+      final healthUrl = '${baseUrl}/${_config.apiHealthEndpoint}';
       
       if (_config.enableDebugLogging) {
         logger.info('Checking server health at: $healthUrl');

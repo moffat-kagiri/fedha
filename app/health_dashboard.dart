@@ -100,7 +100,7 @@ class _HealthDashboardState extends State<HealthDashboard> {
     ),
     ConnectionOption(
       name: 'Cloudflare Tunnel',
-      baseUrl: 'https://place-jd-telecom-hi.trycloudflare.com',
+      baseUrl: 'https://lake-consistently-affects-applications.trycloudflare.com', // Cloudflare Tunnel
     ),
     // Add any other connection options here
   ];

@@ -13,7 +13,7 @@ class ConnectionManager {
   static List<String> get _connectionOptions {
     // Base list that works for all platforms
     final baseOptions = [
-      'https://place-jd-telecom-hi.trycloudflare.com',  // Cloudflare tunnel - most reliable option
+      'https://lake-consistently-affects-applications.trycloudflare.com',  // Cloudflare tunnel - most reliable option
     ];
     
     // Platform-specific options
