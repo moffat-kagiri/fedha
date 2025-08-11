@@ -226,8 +226,8 @@ class AuthService extends ChangeNotifier {
       if (_profileBox == null) await initialize();
       
       final existingProfiles = _profileBox!.values.cast<Profile>().toList();
-      final matchingProfile = existingProfiles.firstWhere(
-        (profile) => profile.email.toLowerCase() == email.toLowerCase(),
+     final matchingProfile = existingProfiles.firstWhere(
+       (profile) => (profile.email ?? '').toLowerCase() == email.toLowerCase(),
         orElse: () => throw Exception('No account found with this email'),
       );
       
@@ -328,7 +328,7 @@ class AuthService extends ChangeNotifier {
       // Check if email is already registered
       final existingProfiles = _profileBox!.values.cast<Profile>().toList();
       final emailExists = existingProfiles.any(
-        (profile) => profile.email.toLowerCase() == email.toLowerCase()
+        (profile) => (profile.email ?? '').toLowerCase() == email.toLowerCase()
       );
       
       if (emailExists) {
@@ -348,11 +348,12 @@ class AuthService extends ChangeNotifier {
       final newProfile = Profile.defaultProfile(
         id: userId,
         name: fullName,
-        email: email.trim(),
-        pin: '0000', // Default PIN
+        final newProfile = Profile.defaultProfile(
+                password: password,
       ).copyWith(
         authToken: sessionToken,
-        sessionToken: sessionToken,
+          password: password,
+        ).copyWith(
         phoneNumber: phone ?? '',
         photoUrl: avatarPath ?? '',
       );
@@ -367,18 +368,17 @@ class AuthService extends ChangeNotifier {
       
       // Try to create account on server if online
       try {
-        final isConnected = await _apiClient.checkServerConnection();
+                final isConnected = await _apiClient.checkServerHealth();
         
         if (isConnected) {
           await _apiClient.createAccount(
             email: email,
-            password: password,
-            firstName: firstName,
-            lastName: lastName,
-            deviceId: deviceId,
-          );
-        }
-      } catch (e) {
+            await _apiClient.createAccount(
+              email: email,
+              password: password,
+              firstName: firstName,
+              lastName: lastName,
+            );
         _logger.warning('Could not sync new account to server: $e');
         // Continue anyway as we've created the local account
       }
@@ -402,10 +402,7 @@ class AuthService extends ChangeNotifier {
       // Invalidate session on server if possible
       if (_currentProfile != null) {
         try {
-          await _apiClient.invalidateSession(
-            userId: _currentProfile!.id,
-            sessionToken: _currentProfile!.authToken ?? '',
-          );
+          await _apiClient.invalidateSession();
         } catch (e) {
           _logger.severe('Failed to invalidate server session: $e');
           // Continue with local logout
@@ -448,7 +445,7 @@ class AuthService extends ChangeNotifier {
   // Update profile email
   Future<bool> updateProfileEmail(String newEmail) async {
     if (_currentProfile == null || 
-        _currentProfile!.email.toLowerCase() == newEmail.trim().toLowerCase()) {
+         (_currentProfile!.email ?? '').toLowerCase() == newEmail.trim().toLowerCase()) {
       return false;
     }
     
@@ -511,7 +508,7 @@ class AuthService extends ChangeNotifier {
       // Here we'll simulate a successful password change
       
       // Try to update password on server if online
-      final isConnected = await _apiClient.checkServerConnection();
+            final isConnected = await _apiClient.checkServerHealth();
       
       if (isConnected) {
         try {
@@ -613,7 +610,7 @@ class AuthService extends ChangeNotifier {
         id: userId,
         name: name.trim(),
         email: email.trim(),
-        pin: profileData['pin'] as String? ?? '0000',
+        password: profileData['password'] as String? ?? 'ChangeMe123!',
       );
       
       // Apply any additional data from profileData

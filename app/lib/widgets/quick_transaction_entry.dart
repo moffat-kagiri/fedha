@@ -155,8 +155,6 @@ class _QuickTransactionEntryState extends State<QuickTransactionEntry> {
         return _expenseCategories;
       case TransactionType.savings:
         return ['Savings'];
-      case TransactionType.transfer:
-        return ['Transfer'];
     }
   }
 

@@ -863,8 +863,6 @@ class _DetailedTransactionEntryScreenState extends State<DetailedTransactionEntr
         return Icons.remove_circle;
       case TransactionType.savings:
         return Icons.savings;
-      case TransactionType.transfer:
-        return Icons.swap_horiz;
     }
   }
 
@@ -876,8 +874,6 @@ class _DetailedTransactionEntryScreenState extends State<DetailedTransactionEntr
         return 'Expense';
       case TransactionType.savings:
         return 'Savings';
-      case TransactionType.transfer:
-        return 'Transfer';
     }
   }
 

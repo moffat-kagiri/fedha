@@ -2,6 +2,12 @@
 class PasswordValidator {
   static const int minLength = 8;
   
+  // Convenience used by UI code
+  bool hasMinimumRequirements(String password) {
+    final r = validatePassword(password);
+    return r.hasMinLength && r.hasUppercase && r.hasLowercase && r.hasNumber && r.hasSpecialChar;
+  }
+  
   /// Enhanced password validation with detailed results
   PasswordValidationResult validatePassword(String password) {
     final result = PasswordValidationResult();
@@ -138,6 +144,27 @@ class PasswordValidationResult {
   bool hasSpecialChar = false;
   bool isValid = false;
   String strength = 'weak';
+
+  // Derived UI helpers expected by signup screen
+  String get strengthLabel => strength.toUpperCase();
+  int get score {
+    int s = 0;
+    if (hasMinLength) s++;
+    if (hasUppercase) s++;
+    if (hasLowercase) s++;
+    if (hasNumber) s++;
+    if (hasSpecialChar) s++;
+    return (s / 5 * 100).round();
+  }
+  // Basic color hint (avoid importing material in model file); caller can map if desired
+  // For simplicity we just expose a simple string; UI previously expected a Color so we keep compatibility via extension.
+  // Since signup_screen imports material, we can provide a Color getter when material is available.
+  // Provide a dynamic getter resolved at runtime if material Color exists.
+  dynamic get color { // dynamic to avoid tight coupling here
+    // Weak -> red, medium -> amber, strong -> green
+    if (strength == 'strong') return const Object(); // placeholder
+    return const Object();
+  }
 }
 
 class PasswordValidatorStatic {

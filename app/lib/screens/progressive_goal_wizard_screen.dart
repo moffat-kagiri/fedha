@@ -1166,14 +1166,10 @@ class _ProgressiveGoalWizardScreenState extends State<ProgressiveGoalWizardScree
         return Icons.money_off;
       case GoalType.investment:
         return Icons.trending_up;
-      case GoalType.expenseReduction:
-        return Icons.trending_down;
       case GoalType.emergencyFund:
         return Icons.security;
-      case GoalType.incomeIncrease:
-        return Icons.attach_money;
-      case GoalType.retirement:
-        return Icons.account_balance;
+      case GoalType.insurance:
+        return Icons.health_and_safety;
       case GoalType.other:
         return Icons.flag;
     }
@@ -1187,14 +1183,10 @@ class _ProgressiveGoalWizardScreenState extends State<ProgressiveGoalWizardScree
         return 'Debt Reduction';
       case GoalType.investment:
         return 'Investment Goal';
-      case GoalType.expenseReduction:
-        return 'Expense Reduction';
       case GoalType.emergencyFund:
         return 'Emergency Fund';
-      case GoalType.incomeIncrease:
-        return 'Income Increase';
-      case GoalType.retirement:
-        return 'Retirement Planning';
+      case GoalType.insurance:
+        return 'Insurance Goal';
       case GoalType.other:
         return 'Other Goal';
     }
@@ -1208,14 +1200,10 @@ class _ProgressiveGoalWizardScreenState extends State<ProgressiveGoalWizardScree
         return 'Pay off loans or credit card debt';
       case GoalType.investment:
         return 'Invest money for long-term growth';
-      case GoalType.expenseReduction:
-        return 'Reduce monthly spending in specific areas';
       case GoalType.emergencyFund:
         return 'Build an emergency fund for unexpected expenses';
-      case GoalType.incomeIncrease:
-        return 'Increase your monthly income';
-      case GoalType.retirement:
-        return 'Save for retirement or pension';
+      case GoalType.insurance:
+        return 'Save for insurance premiums or build a coverage reserve';
       case GoalType.other:
         return 'Any other financial goal';
     }
@@ -1229,14 +1217,10 @@ class _ProgressiveGoalWizardScreenState extends State<ProgressiveGoalWizardScree
         return 'Focus on high-interest debt first. Calculate total debt including interest.';
       case GoalType.investment:
         return 'Consider your risk tolerance and investment timeline for this amount.';
-      case GoalType.expenseReduction:
-        return 'Track current spending first, then set a realistic reduction target.';
       case GoalType.emergencyFund:
         return 'Aim for 3-6 months of living expenses. Start with Ksh 50,000 if you\'re just beginning.';
-      case GoalType.incomeIncrease:
-        return 'Consider skills development, side hustles, or career advancement opportunities.';
-      case GoalType.retirement:
-        return 'Start early! Even small amounts compound significantly over time.';
+      case GoalType.insurance:
+        return 'Plan for annual premiums or future coverage needs; spread cost monthly.';
       case GoalType.other:
         return 'Make sure your goal amount is specific and well-researched.';
     }

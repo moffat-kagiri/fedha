@@ -6,11 +6,12 @@ import '../services/biometric_auth_service.dart';
 import '../services/permissions_service.dart';
 import '../theme/app_theme.dart';
 import 'welcome_onboarding_screen.dart';
-import 'login_welcome_screen.dart';
+// Removed deprecated login_welcome_screen import
 import 'main_navigation.dart';
 import 'biometric_lock_screen.dart';
 import 'permissions_screen.dart';
 import 'signup_screen.dart';
+import 'login_screen.dart';
 
 class AuthWrapper extends StatefulWidget {
   const AuthWrapper({super.key});
@@ -150,7 +151,8 @@ class _AuthWrapperState extends State<AuthWrapper> {
           // If they've attempted to create an account before but failed, go straight to signup
           return const SignupScreen();
         } else {
-          return const LoginWelcomeScreen();
+          // Directly show login screen (welcome login merged)
+          return const LoginScreen();
         }
       },
     );

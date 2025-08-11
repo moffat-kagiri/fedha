@@ -161,6 +161,17 @@ class BiometricAuthService {
       _logger.severe('Error clearing biometric session: $e');
     }
   }
+
+  // Backwards compatibility method expected by some screens
+  Future<void> setBiometricSession() async {
+    await _saveAuthenticationSession();
+  }
+
+  // Compatibility helper referenced by login_screen
+  Future<void> setBiometricSession() async {
+    // Simply save a fresh session marker
+    await _saveAuthenticationSession();
+  }
   
   /// Save credentials for biometric authentication
   Future<void> saveCredentials({

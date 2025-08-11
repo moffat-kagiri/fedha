@@ -26,7 +26,7 @@ class TestProfileCreator {
         name: 'John Doe',
         email: 'john.doe@example.com',
         type: ProfileType.personal,
-        pin: '1234',
+        password: 'Password123!',
         baseCurrency: 'KES',
         timezone: 'Africa/Nairobi',
         createdAt: now,
@@ -67,7 +67,7 @@ class TestProfileCreator {
         name: 'Acme Corporation',
         email: 'business@acme.com',
         type: ProfileType.business,
-        pin: '5678',
+        password: 'Password123!',
         baseCurrency: 'KES',
         timezone: 'Africa/Nairobi',
         createdAt: now,
@@ -145,7 +145,7 @@ class TestProfileCreator {
                 final profile = profiles[index];
                 return ListTile(
                   title: Text(profile.name),
-                  subtitle: Text(profile.email),
+                  subtitle: Text(profile.email ?? 'no-email'),
                   trailing: Text(profile.type.toString().split('.').last),
                 );
               },

@@ -940,11 +940,6 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
         icon = Icons.savings;
         prefix = '-';
         break;
-      case TransactionType.transfer:
-        color = Colors.orange;
-        icon = Icons.swap_horiz;
-        prefix = '';
-        break;
     }
 
     return Card(

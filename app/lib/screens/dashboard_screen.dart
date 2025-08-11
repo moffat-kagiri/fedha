@@ -403,12 +403,8 @@ class DashboardContent extends StatelessWidget {
         return Icons.security;
       case GoalType.debtReduction:
         return Icons.money_off;
-      case GoalType.expenseReduction:
-        return Icons.trending_down;
-      case GoalType.incomeIncrease:
-        return Icons.attach_money;
-      case GoalType.retirement:
-        return Icons.elderly;
+      case GoalType.insurance:
+        return Icons.health_and_safety;
       case GoalType.other:
         return Icons.flag;
     }
@@ -497,10 +493,6 @@ class DashboardContent extends StatelessWidget {
       case TransactionType.savings:
         icon = Icons.savings;
         color = Colors.blue;
-        break;
-      case TransactionType.transfer:
-        icon = Icons.swap_horiz;
-        color = Colors.orange;
         break;
     }
 

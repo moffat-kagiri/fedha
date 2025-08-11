@@ -10,6 +10,7 @@ import '../theme/app_theme.dart';
 import 'main_navigation.dart';
 import 'signup_screen.dart';
 import 'biometric_lock_screen.dart';
+import '../utils/first_login_handler.dart';
 import 'permissions_screen.dart';
 
 class LoginScreen extends StatefulWidget {

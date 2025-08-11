@@ -9,7 +9,6 @@ TransactionType parseTransactionTypeString(String? typeStr) {
   
   switch (typeStr.toLowerCase()) {
     case 'income': return TransactionType.income;
-    case 'transfer': return TransactionType.transfer;
     case 'savings': return TransactionType.savings;
     case 'expense':
     default: return TransactionType.expense;

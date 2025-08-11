@@ -35,6 +35,7 @@ import 'services/connectivity_service_new.dart' as conn_svc;
 import 'services/sms_listener_service.dart';
 import 'services/permissions_service.dart';
 import 'utils/enum_adapters.dart' as enum_adapters;
+import 'theme/app_theme.dart';
 
 // Screens
 import 'screens/auth_wrapper.dart';
@@ -54,7 +55,6 @@ import 'screens/signup_screen.dart';
 import 'screens/test_profiles_screen.dart';
 import 'screens/connection_diagnostics_screen.dart';
 import 'screens/welcome_onboarding_screen.dart';
-import 'health_dashboard.dart';
 import 'device_network_info.dart';
 import 'ip_settings.dart';
 
@@ -368,7 +368,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             '/connection_diagnostics': (context) => ConnectionDiagnosticsScreen(
               apiClient: Provider.of<ApiClient>(context, listen: false),
             ),
-            '/health_dashboard': (context) => const HealthDashboard(),
             '/device_network_info': (context) => const DeviceInfoScreen(),
             '/ip_settings': (context) => const IpSettingsScreen(),
           },
