@@ -319,6 +319,8 @@ class AuthService extends ChangeNotifier {
     required String lastName,
     required String email,
     required String password,
+    String? phone,
+    String? avatarPath,
   }) async {
     try {
       if (_profileBox == null) await initialize();
@@ -351,8 +353,8 @@ class AuthService extends ChangeNotifier {
       ).copyWith(
         authToken: sessionToken,
         sessionToken: sessionToken,
-        phoneNumber: '',
-        photoUrl: '',
+        phoneNumber: phone ?? '',
+        photoUrl: avatarPath ?? '',
       );
       
       // Save locally

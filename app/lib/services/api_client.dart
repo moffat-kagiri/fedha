@@ -195,6 +195,87 @@ class ApiClient {
     }
   }
   
+  // Create a new account
+  Future<Map<String, dynamic>> createAccount({
+    required String email,
+    required String password,
+    required String firstName,
+    required String lastName,
+    String? deviceId,
+    String? phone,
+    String? avatarPath,
+  }) async {
+    try {
+      final fullName = '$firstName $lastName'.trim();
+      
+      final body = jsonEncode({
+        'email': email,
+        'password': password,
+        'name': fullName,
+        'phone_number': phone ?? '',
+        'device_id': deviceId,
+        'profile_type': 'PERS',  // Default to personal account
+      });
+      
+      final response = await _httpClient.post(
+        Uri.parse('$baseUrl/auth/register/'),
+        headers: _commonHeaders,
+        body: body,
+      );
+      
+      if (response.statusCode == 201) {
+        return jsonDecode(response.body);
+      } else {
+        throw HttpException('Failed to create account: ${response.statusCode}');
+      }
+    } catch (e) {
+      logger.severe('Account creation failed: $e');
+      return {'error': e.toString(), 'success': false};
+    }
+  }
+  
+  // Invalidate a session
+  Future<bool> invalidateSession({
+    required String userId,
+    required String sessionToken,
+  }) async {
+    try {
+      final body = jsonEncode({
+        'user_id': userId,
+        'session_token': sessionToken,
+      });
+      
+      final response = await _httpClient.post(
+        Uri.parse('$baseUrl/auth/logout/'),
+        headers: {
+          ..._commonHeaders,
+          'Authorization': 'Token $sessionToken',
+        },
+        body: body,
+      );
+      
+      return response.statusCode == 200;
+    } catch (e) {
+      logger.warning('Failed to invalidate session: $e');
+      return false;
+    }
+  }
+  
+  // Check server health
+  Future<bool> checkServerHealth() async {
+    try {
+      final response = await _httpClient.get(
+        Uri.parse('$baseUrl/api/health/'),
+        headers: _commonHeaders,
+      ).timeout(Duration(seconds: 5));
+      
+      return response.statusCode == 200;
+    } catch (e) {
+      logger.warning('Health check failed: $e');
+      return false;
+    }
+  }
+  
   // Check server connection
   Future<bool> checkServerConnection() async {
     try {
