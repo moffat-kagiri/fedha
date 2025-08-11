@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../models/goal.dart';
 import '../models/enums.dart';
 import '../services/offline_data_service.dart';
+import '../theme/app_theme.dart';
 
 class ProgressiveGoalWizardScreen extends StatefulWidget {
   const ProgressiveGoalWizardScreen({Key? key}) : super(key: key);
@@ -110,128 +111,143 @@ class _ProgressiveGoalWizardScreenState extends State<ProgressiveGoalWizardScree
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text('Goal Wizard'),
-        backgroundColor: const Color(0xFF007A39),
-        foregroundColor: Colors.white,
-        elevation: 0,
+        title: Text(
+          'Goal Wizard',
+          style: Theme.of(context).textTheme.headlineMedium,
+        ),
+        backgroundColor: Theme.of(context).primaryColor,
       ),
-      body: Column(
-        children: [
-          // Progress indicator
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: const BoxDecoration(
-              color: Color(0xFF007A39),
-              borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Set your SMART goals',
+              style: Theme.of(context).textTheme.headlineMedium,
             ),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    Text(
-                      'Step ${_currentPage + 1} of $_totalPages',
-                      style: const TextStyle(color: Colors.white70, fontSize: 14),
+            const SizedBox(height: 8),
+            Text(
+              'Follow the steps below to refine your goals.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 16),
+            // Progress indicator
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: const BoxDecoration(
+                color: Color(0xFF007A39),
+                borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        'Step ${_currentPage + 1} of $_totalPages',
+                        style: const TextStyle(color: Colors.white70, fontSize: 14),
+                      ),
+                      const Spacer(),
+                      Text(
+                        '${((_currentPage + 1) / _totalPages * 100).round()}% Complete',
+                        style: const TextStyle(color: Colors.white70, fontSize: 14),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  LinearProgressIndicator(
+                    value: (_currentPage + 1) / _totalPages,
+                    backgroundColor: Colors.white.withValues(red: 255, green: 255, blue: 255, alpha: 0.3),
+                    valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                ],
+              ),
+            ),
+            
+            // Page content
+            Expanded(
+              child: PageView(
+                controller: _pageController,
+                onPageChanged: (page) {
+                  setState(() {
+                    _currentPage = page;
+                  });
+                },
+                children: [
+                  _buildWelcomePage(),
+                  _buildSpecificPage(),
+                  _buildFinancialProfilePage(),
+                  _buildMeasurablePage(),
+                  _buildAchievableRealisticPage(),
+                  _buildTimeBoundPage(),
+                ],
+              ),
+            ),
+            
+            // Navigation buttons
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.grey.withValues(red: 158, green: 158, blue: 158, alpha: 0.1),
+                    blurRadius: 10,
+                    offset: const Offset(0, -2),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  if (_currentPage > 0)
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: _previousPage,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF007A39),
+                          side: const BorderSide(color: Color(0xFF007A39)),
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                        ),
+                        child: const Text('Previous'),
+                      ),
                     ),
-                    const Spacer(),
-                    Text(
-                      '${((_currentPage + 1) / _totalPages * 100).round()}% Complete',
-                      style: const TextStyle(color: Colors.white70, fontSize: 14),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                LinearProgressIndicator(
-                  value: (_currentPage + 1) / _totalPages,
-                  backgroundColor: Colors.white.withValues(red: 255, green: 255, blue: 255, alpha: 0.3),
-                  valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
-                ),
-              ],
-            ),
-          ),
-          
-          // Page content
-          Expanded(
-            child: PageView(
-              controller: _pageController,
-              onPageChanged: (page) {
-                setState(() {
-                  _currentPage = page;
-                });
-              },
-              children: [
-                _buildWelcomePage(),
-                _buildSpecificPage(),
-                _buildFinancialProfilePage(),
-                _buildMeasurablePage(),
-                _buildAchievableRealisticPage(),
-                _buildTimeBoundPage(),
-              ],
-            ),
-          ),
-          
-          // Navigation buttons
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.grey.withValues(red: 158, green: 158, blue: 158, alpha: 0.1),
-                  blurRadius: 10,
-                  offset: const Offset(0, -2),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                if (_currentPage > 0)
+                  if (_currentPage > 0) const SizedBox(width: 16),
                   Expanded(
-                    child: OutlinedButton(
-                      onPressed: _previousPage,
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFF007A39),
-                        side: const BorderSide(color: Color(0xFF007A39)),
+                    child: ElevatedButton(
+                      onPressed: _currentPage == _totalPages - 1 
+                          ? (_isCreating ? null : _createGoal)
+                          : _nextPage,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF007A39),
+                        foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 16),
                       ),
-                      child: const Text('Previous'),
-                    ),
-                  ),
-                if (_currentPage > 0) const SizedBox(width: 16),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: _currentPage == _totalPages - 1 
-                        ? (_isCreating ? null : _createGoal)
-                        : _nextPage,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF007A39),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                    ),
-                    child: _isCreating
-                        ? const Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      child: _isCreating
+                          ? const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                  ),
                                 ),
-                              ),
-                              SizedBox(width: 8),
-                              Text('Creating...'),
-                            ],
-                          )
-                        : Text(_currentPage == _totalPages - 1 ? 'Create SMART Goal' : 'Next'),
+                                SizedBox(width: 8),
+                                Text('Creating...'),
+                              ],
+                            )
+                          : Text(_currentPage == _totalPages - 1 ? 'Create SMART Goal' : 'Next'),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

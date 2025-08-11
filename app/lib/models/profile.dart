@@ -14,13 +14,13 @@ class Profile {
   final String name;
 
   @HiveField(2)
-  final String email;
+  final String? email;
 
   @HiveField(3)
   final ProfileType type;
 
   @HiveField(4)
-  final String pin;
+  final String password;
   
   @HiveField(5)
   final String baseCurrency;
@@ -58,17 +58,21 @@ class Profile {
   @HiveField(16)
   final String? displayName;
   
-  // Additional fields from previous version
+  @HiveField(17)
   final String? phoneNumber;
+  
+  @HiveField(18)
   final String? photoUrl;
+  
+  @HiveField(19)
   final String? authToken;
 
   Profile({
     required this.id,
     required this.name,
-    required this.email,
+    this.email,
     required this.type,
-    required this.pin,
+    required this.password,
     required this.baseCurrency,
     required this.timezone,
     required this.createdAt,
@@ -84,7 +88,11 @@ class Profile {
     this.phoneNumber,
     this.photoUrl,
     this.authToken,
-  });
+  }) {
+    // Ensure either email or phoneNumber is provided
+    assert(email != null || phoneNumber != null, 
+      'Either email or phoneNumber must be provided');
+  }
 
   factory Profile.fromJson(Map<String, dynamic> json) => _$ProfileFromJson(json);
   Map<String, dynamic> toJson() => _$ProfileToJson(this);
@@ -93,7 +101,7 @@ class Profile {
     String? name,
     String? email,
     ProfileType? type,
-    String? pin,
+    String? password,
     String? baseCurrency,
     String? timezone,
     DateTime? updatedAt,
@@ -114,7 +122,7 @@ class Profile {
       name: name ?? this.name,
       email: email ?? this.email,
       type: type ?? this.type,
-      pin: pin ?? this.pin,
+      password: password ?? this.password,
       baseCurrency: baseCurrency ?? this.baseCurrency,
       timezone: timezone ?? this.timezone,
       createdAt: createdAt,
@@ -137,15 +145,20 @@ class Profile {
   factory Profile.defaultProfile({
     required String id,
     required String name,
-    required String email,
-    required String pin,
+    String? email,
+    String? phoneNumber,
+    required String password,
   }) {
+    assert(email != null || phoneNumber != null,
+      'Either email or phoneNumber must be provided');
+    
     return Profile(
       id: id,
       name: name,
       email: email,
+      phoneNumber: phoneNumber,
       type: ProfileType.personal,
-      pin: pin,
+      password: password,
       baseCurrency: 'KES',
       timezone: 'Africa/Nairobi',
       createdAt: DateTime.now(),

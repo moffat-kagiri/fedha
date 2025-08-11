@@ -1,4 +1,5 @@
 import 'package:hive/hive.dart';
+import 'package:json_annotation/json_annotation.dart';
 
 part 'enums.g.dart';
 
@@ -23,17 +24,13 @@ enum GoalType {
   @HiveField(1)
   debtReduction,
   @HiveField(2)
-  investment,
+  insurance,
   @HiveField(3)
-  expenseReduction,
-  @HiveField(4)
   emergencyFund,
+  @HiveField(4)
+  investment,
   @HiveField(5)
-  incomeIncrease,
-  @HiveField(6)
-  retirement,
-  @HiveField(7)
-  other
+  other,
 }
 
 // Goal Status
@@ -57,9 +54,7 @@ enum TransactionType {
   @HiveField(1)
   expense,
   @HiveField(2)
-  transfer,
-  @HiveField(3)
-  savings
+  savings,
 }
 
 // Payment Methods

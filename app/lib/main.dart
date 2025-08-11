@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'utils/logger.dart';
 
 // Models
@@ -52,6 +53,7 @@ import 'screens/login_screen.dart';
 import 'screens/signup_screen.dart';
 import 'screens/test_profiles_screen.dart';
 import 'screens/connection_diagnostics_screen.dart';
+import 'screens/welcome_onboarding_screen.dart';
 import 'health_dashboard.dart';
 import 'device_network_info.dart';
 import 'ip_settings.dart';
@@ -316,26 +318,38 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     }
   }
 
+  // New method to check onboarding status
+  Future<bool> _isOnboardingCompleted() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('onboarding_completed') ?? false;
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Consumer<theme_svc.ThemeService>(
-      builder: (context, themeService, child) {
-        return MaterialApp(
-          title: 'Fedha',
-          theme: ThemeData(
-            colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF007A39)), // Fedha green
-            useMaterial3: true,
-            elevatedButtonTheme: ElevatedButtonThemeData(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF007A39),
-                foregroundColor: Colors.white,
-              ),
+    return FutureBuilder<bool>(
+      future: _isOnboardingCompleted(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          // While waiting, show splash screen or loader
+          return MaterialApp(
+            theme: AppTheme.lightTheme,
+            darkTheme: AppTheme.darkTheme,
+            home: const Scaffold(
+              body: Center(child: CircularProgressIndicator()),
             ),
-          ),
-          darkTheme: ThemeData.dark(
-            useMaterial3: true,
-          ),
-          themeMode: themeService.themeMode,
+          );
+        }
+        // If onboarding is completed, show SignupScreen (for users returning after a failed account creation),
+        // otherwise, show WelcomeOnboardingScreen
+        final bool onboardingCompleted = snapshot.data!;
+        final Widget homeScreen = onboardingCompleted
+            ? const SignupScreen()
+            : const WelcomeOnboardingScreen();
+
+        return MaterialApp(
+          theme: AppTheme.lightTheme,
+          darkTheme: AppTheme.darkTheme,
+          home: homeScreen,
           routes: {
             '/loan_calculator': (context) => const LoanCalculatorScreen(),
             '/progressive_goal_wizard': (context) => const ProgressiveGoalWizardScreen(),
@@ -358,44 +372,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             '/device_network_info': (context) => const DeviceInfoScreen(),
             '/ip_settings': (context) => const IpSettingsScreen(),
           },
-          home: FutureBuilder<void>(
-            future: _initializationFuture,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Scaffold(
-                  body: Center(
-                    child: CircularProgressIndicator(),
-                  ),
-                );
-              }
-
-              if (snapshot.hasError) {
-                return Scaffold(
-                  body: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.error, size: 64, color: Colors.red),
-                        const SizedBox(height: 16),
-                        Text('Error: ${snapshot.error}'),
-                        const SizedBox(height: 16),
-                        ElevatedButton(
-                          onPressed: () {
-                            setState(() {
-                              _initializationFuture = _initializeServices();
-                            });
-                          },
-                          child: const Text('Retry'),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              }
-
-              return const AuthWrapper();
-            },
-          ),
         );
       },
     );

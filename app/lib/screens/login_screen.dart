@@ -1,10 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../services/auth_service.dart';
+import '../services/api_client.dart';
 import '../services/biometric_auth_service.dart';
-import '../utils/first_login_handler.dart';
+import '../services/permissions_service.dart';
+import '../theme/app_theme.dart';
+import 'main_navigation.dart';
 import 'signup_screen.dart';
+import 'biometric_lock_screen.dart';
+import 'permissions_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -20,12 +26,15 @@ class _LoginScreenState extends State<LoginScreen> {
   
   bool _isLoading = false;
   bool _obscurePassword = true;
+  bool _rememberMe = false;
   String? _errorMessage;
   bool _showBiometricOption = false;
 
   @override
   void initState() {
     super.initState();
+    _loadSavedEmail();
+    _checkRequirements();
     _checkBiometricAvailability();
   }
 
@@ -34,6 +43,91 @@ class _LoginScreenState extends State<LoginScreen> {
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  // Check if biometric or permissions are needed before showing login
+  Future<void> _checkRequirements() async {
+    // Check for permissions needs
+    final permissionsService = PermissionsService.instance;
+    final needsPermissions = await permissionsService.shouldShowPermissionsPrompt();
+    
+    if (needsPermissions) {
+      if (mounted) {
+        Navigator.pushReplacement(
+          context, 
+          MaterialPageRoute(
+            builder: (context) => PermissionsScreen(
+              onPermissionsSet: () {
+                // Return to login after permissions
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (context) => const LoginScreen()),
+                );
+              },
+            ),
+          ),
+        );
+      }
+      return;
+    }
+    
+    // Check if user is returning and needs biometric auth
+    final authService = Provider.of<AuthService>(context, listen: false);
+    await authService.initialize();
+    
+    if (authService.isLoggedIn()) {
+      final biometricService = BiometricAuthService.instance;
+      final biometricEnabled = await biometricService?.isBiometricEnabled() ?? false;
+      final hasValidSession = await biometricService?.hasValidBiometricSession() ?? false;
+      
+      if (biometricEnabled && !hasValidSession) {
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => BiometricLockScreen(
+                onAuthSuccess: () {
+                  // Navigate to main app after successful biometric auth
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(builder: (context) => const MainNavigation()),
+                  );
+                },
+                onSkip: () {
+                  // Optional: Allow skipping in development
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(builder: (context) => const MainNavigation()),
+                  );
+                },
+              ),
+            ),
+          );
+        }
+        return;
+      }
+      
+      // User is already logged in and no biometric needed, go to main app
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const MainNavigation()),
+        );
+      }
+    }
+  }
+
+  Future<void> _loadSavedEmail() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedEmail = prefs.getString('saved_email');
+    final shouldRemember = prefs.getBool('remember_me') ?? false;
+    
+    if (savedEmail != null && shouldRemember && mounted) {
+      setState(() {
+        _emailController.text = savedEmail;
+        _rememberMe = true;
+      });
+    }
   }
 
   Future<void> _checkBiometricAvailability() async {
@@ -63,8 +157,31 @@ class _LoginScreenState extends State<LoginScreen> {
       _errorMessage = null;
     });
 
+    final apiClient = ApiClient();
+    
+    // Check server health first
+    final isHealthy = await apiClient.checkServerHealth();
+    
+    if (!isHealthy) {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Could not connect to server. Please check your connection and try again later.';
+      });
+      return;
+    }
+
     try {
       final authService = Provider.of<AuthService>(context, listen: false);
+      
+      // Save email preference
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('remember_me', _rememberMe);
+      if (_rememberMe) {
+        await prefs.setString('saved_email', _emailController.text.trim());
+      } else {
+        await prefs.remove('saved_email');
+      }
+      
       final result = await authService.enhancedLogin(
         email: _emailController.text.trim(),
         password: _passwordController.text,
@@ -73,7 +190,17 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
 
       if (result.success) {
-        // Login successful, navigation handled by AuthWrapper
+        // Set up biometric auth if available
+        final biometricService = BiometricAuthService.instance;
+        if (biometricService != null) {
+          await biometricService.setBiometricSession();
+        }
+        
+        // Login successful, navigate to main screen
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const MainNavigation()),
+        );
         
         // If this is the user's first login, show first login prompts
         if (result.isFirstLogin) {
@@ -270,7 +397,49 @@ class _LoginScreenState extends State<LoginScreen> {
                                 return null;
                               },
                             ),
-                            const SizedBox(height: 24),
+                            const SizedBox(height: 8),
+                            
+                            // Remember me and Forgot password
+                            Row(
+                              children: [
+                                // Remember me checkbox
+                                Checkbox(
+                                  value: _rememberMe,
+                                  activeColor: FedhaColors.primaryGreen,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  onChanged: (value) {
+                                    setState(() {
+                                      _rememberMe = value ?? false;
+                                    });
+                                  },
+                                ),
+                                const Text('Remember me'),
+                                
+                                const Spacer(),
+                                
+                                // Forgot password link
+                                TextButton(
+                                  onPressed: () {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('Password reset feature coming soon!'),
+                                      ),
+                                    );
+                                  },
+                                  child: const Text(
+                                    'Forgot Password?',
+                                    style: TextStyle(
+                                      color: FedhaColors.primaryGreen,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            
+                            const SizedBox(height: 16),
                             
                             // Login Button
                             ElevatedButton(

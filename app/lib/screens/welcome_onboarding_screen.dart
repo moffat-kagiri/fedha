@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'auth_wrapper.dart';
+import 'login_screen.dart';
+import '../theme/app_theme.dart';
 
 class WelcomeOnboardingScreen extends StatefulWidget {
   const WelcomeOnboardingScreen({super.key});
@@ -12,7 +13,7 @@ class WelcomeOnboardingScreen extends StatefulWidget {
 class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
-  final int _totalPages = 4;
+  final int _totalPages = 3;
 
   @override
   void dispose() {
@@ -41,12 +42,12 @@ class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
   Future<void> _completeOnboarding() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('onboarding_completed', true);
-    
+
     if (mounted) {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (context) => const AuthWrapper(),
+          builder: (context) => const LoginScreen(),
         ),
       );
     }
@@ -55,7 +56,7 @@ class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF007A39),
+      backgroundColor: FedhaColors.primaryGreen,
       body: SafeArea(
         child: Column(
           children: [
@@ -84,15 +85,14 @@ class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
               margin: const EdgeInsets.symmetric(horizontal: 20),
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.white.withValues(red: 255, green: 255, blue: 255, alpha: 0.3),
+                color: Colors.white.withOpacity(0.3),
                 borderRadius: BorderRadius.circular(2),
               ),
               child: Stack(
                 children: [
                   AnimatedContainer(
                     duration: const Duration(milliseconds: 300),
-                    width: MediaQuery.of(context).size.width * 
-                           ((_currentPage + 1) / _totalPages) - 40,
+                    width: MediaQuery.of(context).size.width * ((_currentPage + 1) / _totalPages) - 40,
                     height: 4,
                     decoration: BoxDecoration(
                       color: Colors.white,
@@ -103,7 +103,7 @@ class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
               ),
             ),
             
-            // Page content
+            // Page content updated to 3 minimalist pages
             Expanded(
               child: PageView(
                 controller: _pageController,
@@ -113,10 +113,9 @@ class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
                   });
                 },
                 children: [
-                  _buildWelcomePage(),
-                  _buildFinancialPositionPage(),
-                  _buildMentalClarityPage(),
-                  _buildPrivacyPage(),
+                  _buildBudgetingPage(),
+                  _buildDebtAnalysisPage(),
+                  _buildTrackingPage(),
                 ],
               ),
             ),
@@ -149,7 +148,7 @@ class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
                           : _nextPage,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.white,
-                        foregroundColor: const Color(0xFF007A39),
+                        foregroundColor: FedhaColors.primaryGreen,
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
@@ -173,28 +172,29 @@ class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
     );
   }
 
-  Widget _buildWelcomePage() {
+  // New minimalist onboarding page: Budgeting
+  Widget _buildBudgetingPage() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(32),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            width: 120,
-            height: 120,
+            width: 100,
+            height: 100,
             decoration: BoxDecoration(
-              color: Colors.white.withValues(red: 255, green: 255, blue: 255, alpha: 0.2),
-              borderRadius: BorderRadius.circular(60),
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(50),
             ),
             child: const Icon(
-              Icons.account_balance_wallet,
-              size: 60,
+              Icons.attach_money,
+              size: 50,
               color: Colors.white,
             ),
           ),
           const SizedBox(height: 40),
           Text(
-            'Welcome to Fedha! 💰',
+            'Welcome 🚀',
             style: Theme.of(context).textTheme.headlineMedium?.copyWith(
               fontWeight: FontWeight.bold,
               color: Colors.white,
@@ -203,273 +203,95 @@ class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
           ),
           const SizedBox(height: 20),
           Text(
-            'Your Smart Financial Companion',
+            'Budget efficiently 📑',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
               color: Colors.white70,
-              fontWeight: FontWeight.w500,
             ),
             textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 32),
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(red: 255, green: 255, blue: 255, alpha: 0.2),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.white.withValues(red: 255, green: 255, blue: 255, alpha: 0.5)),
-            ),
-            child: const Column(
-              children: [
-                Icon(Icons.rocket_launch, color: Colors.white, size: 32),
-                SizedBox(height: 12),
-                Text(
-                  'Smart financial management made simple',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildFinancialPositionPage() {
+  // New minimalist onboarding page: Debt Analysis
+  Widget _buildDebtAnalysisPage() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(32),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            width: 120,
-            height: 120,
+            width: 100,
+            height: 100,
             decoration: BoxDecoration(
-              color: Colors.white.withValues(red: 255, green: 255, blue: 255, alpha: 0.2),
-              borderRadius: BorderRadius.circular(60),
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(50),
             ),
             child: const Icon(
-              Icons.trending_up,
-              size: 60,
+              Icons.money_off,
+              size: 50,
               color: Colors.white,
             ),
           ),
           const SizedBox(height: 40),
-          const Text(
-            'Strengthen Your Financial Position 📈',
-            style: TextStyle(
-              fontSize: 28,
+          Text(
+            'Borrow Smartly 🌱',
+            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
               fontWeight: FontWeight.bold,
               color: Colors.white,
             ),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 32),
-          
-          _buildBenefitCard(
-            Icons.sms,
-            'Smart SMS Tracking',
-            'Auto-capture M-PESA transactions from SMS',
-          ),
-          const SizedBox(height: 16),
-          _buildBenefitCard(
-            Icons.savings,
-            'SMART Goal Planning',
-            'Set realistic financial goals with timelines',
-          ),
-          const SizedBox(height: 16),
-          _buildBenefitCard(
-            Icons.analytics,
-            'Real-Time Budgets',
-            'Track spending with 50/30/20 rule insights',
+          const SizedBox(height: 20),
+          Text(
+            'Understand your debt levels and plan strategies to reduce them.',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: Colors.white70,
+            ),
+            textAlign: TextAlign.center,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildMentalClarityPage() {
+  // New minimalist onboarding page: Transaction Tracking
+  Widget _buildTrackingPage() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(32),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            width: 120,
-            height: 120,
+            width: 100,
+            height: 100,
             decoration: BoxDecoration(
-              color: Colors.white.withValues(red: 255, green: 255, blue: 255, alpha: 0.2),
-              borderRadius: BorderRadius.circular(60),
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(50),
             ),
             child: const Icon(
-              Icons.psychology,
-              size: 60,
+              Icons.track_changes,
+              size: 50,
               color: Colors.white,
             ),
           ),
           const SizedBox(height: 40),
-          const Text(
-            'Achieve Mental Clarity 🧘‍♀️',
-            style: TextStyle(
-              fontSize: 28,
+          Text(
+            'Track Transactions 📊',
+            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
               fontWeight: FontWeight.bold,
               color: Colors.white,
             ),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 32),
-          
-          _buildBenefitCard(
-            Icons.visibility,
-            'Complete Financial Visibility',
-            'See exactly where your money goes',
-          ),
-          const SizedBox(height: 16),
-          _buildBenefitCard(
-            Icons.schedule,
-            'Stress-Free Planning',
-            'Plan your future with AI-powered insights',
-          ),
-          const SizedBox(height: 16),
-          _buildBenefitCard(
-            Icons.celebration,
-            'Celebrate Your Wins',
-            'Track milestones and achievements',
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPrivacyPage() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(32),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            width: 120,
-            height: 120,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(red: 255, green: 255, blue: 255, alpha: 0.2),
-              borderRadius: BorderRadius.circular(60),
-            ),
-            child: const Icon(
-              Icons.security,
-              size: 60,
-              color: Colors.white,
-            ),
-          ),
-          const SizedBox(height: 40),
-          const Text(
-            'Your Privacy Comes First 🔒',
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
+          const SizedBox(height: 20),
+          Text(
+            'Monitor every expense and income with real-time updates.',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: Colors.white70,
             ),
             textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 32),
-          
-          _buildBenefitCard(
-            Icons.phone_android,
-            'Offline-First Design',
-            'Your data stays on your device',
-          ),
-          const SizedBox(height: 16),
-          _buildBenefitCard(
-            Icons.fingerprint,
-            'Biometric Security',
-            'Secure with fingerprint or face unlock',
-          ),
-          const SizedBox(height: 16),
-          _buildBenefitCard(
-            Icons.no_accounts,
-            'No Data Mining',
-            'We don\'t sell or track your data',
-          ),
-          const SizedBox(height: 32),
-          
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(red: 255, green: 255, blue: 255, alpha: 0.2),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.white.withValues(red: 255, green: 255, blue: 255, alpha: 0.5)),
-            ),
-            child: const Column(
-              children: [
-                Icon(Icons.verified_user, color: Colors.white, size: 32),
-                SizedBox(height: 12),
-                Text(
-                  'Ready to take control of your finances?',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBenefitCard(IconData icon, String title, String description) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(red: 255, green: 255, blue: 255, alpha: 0.2),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withValues(red: 255, green: 255, blue: 255, alpha: 0.5)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(red: 255, green: 255, blue: 255, alpha: 0.2),
-              borderRadius: BorderRadius.circular(24),
-            ),
-            child: Icon(
-              icon,
-              color: Colors.white,
-              size: 24,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  description,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: Colors.white70,
-                    height: 1.4,
-                  ),
-                ),
-              ],
-            ),
           ),
         ],
       ),
