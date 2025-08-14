@@ -183,7 +183,7 @@ class _LoginScreenState extends State<LoginScreen> {
         await prefs.remove('saved_email');
       }
       
-      final result = await authService.enhancedLogin(
+      final result = await authService.login(
         email: _emailController.text.trim(),
         password: _passwordController.text,
       );

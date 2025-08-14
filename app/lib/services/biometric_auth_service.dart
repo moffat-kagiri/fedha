@@ -162,14 +162,8 @@ class BiometricAuthService {
     }
   }
 
-  // Backwards compatibility method expected by some screens
+  // Backwards compatibility method expected by some screens and login_screen
   Future<void> setBiometricSession() async {
-    await _saveAuthenticationSession();
-  }
-
-  // Compatibility helper referenced by login_screen
-  Future<void> setBiometricSession() async {
-    // Simply save a fresh session marker
     await _saveAuthenticationSession();
   }
   
