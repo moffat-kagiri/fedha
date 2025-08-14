@@ -1,6 +1,5 @@
 // lib/screens/transaction_entry_unified_screen.dart
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 
@@ -9,7 +8,6 @@ import '../models/goal.dart';
 import '../models/enums.dart';
 import '../services/offline_data_service.dart';
 import '../services/currency_service.dart';
-import '../widgets/adaptive_button.dart';
 
 class TransactionEntryUnifiedScreen extends StatefulWidget {
   final Transaction? editingTransaction;
@@ -726,18 +724,3 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
   }
 }
 
-class LoginResult {
-  final bool success;
-  final String? message;
-  final Profile? profile;
-  final String? sessionToken;
-  
-  LoginResult.success({required this.profile, required this.sessionToken})
-      : success = true,
-        message = null;
-  
-  LoginResult.error({required this.message})
-      : success = false,
-        profile = null,
-        sessionToken = null;
-}

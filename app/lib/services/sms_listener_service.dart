@@ -1,11 +1,37 @@
 import 'dart:async';
-import 'package:telephony/telephony.dart' as telephony;
+import 'package:flutter_sms_inbox/flutter_sms_inbox.dart' as inbox;
 import 'package:flutter/foundation.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:hive/hive.dart';
 import 'package:uuid/uuid.dart';
 import '../models/transaction.dart';
 import '../models/enums.dart';
+/// Internal SMS message model
+class SmsMessage {
+  final String sender;
+  final String body;
+  final DateTime timestamp;
+
+  SmsMessage({
+    required this.sender,
+    required this.body,
+    required this.timestamp,
+  });
+
+  Map<String, dynamic> toMap() => {
+        'sender': sender,
+        'body': body,
+        'timestamp': timestamp.millisecondsSinceEpoch,
+      };
+
+  factory SmsMessage.fromMap(Map<String, dynamic> map) {
+    return SmsMessage(
+      sender: map['sender'] as String? ?? '',
+      body: map['body'] as String? ?? '',
+      timestamp: DateTime.fromMillisecondsSinceEpoch(map['timestamp'] as int? ?? 0),
+    );
+  }
+}
 
 class SmsListenerService extends ChangeNotifier {
   static SmsListenerService? _instance;
@@ -13,7 +39,8 @@ class SmsListenerService extends ChangeNotifier {
   
   SmsListenerService._();
   
-  final telephony.Telephony _telephony = telephony.Telephony.instance;
+  final inbox.SmsQuery _query = inbox.SmsQuery();
+  Timer? _pollTimer;
   StreamController<SmsMessage>? _messageController;
   
   bool _isListening = false;
@@ -56,92 +83,43 @@ class SmsListenerService extends ChangeNotifier {
   /// Initialize the SMS listener service
   Future<bool> initialize() async {
     try {
-      // Request permission and start listening via Telephony plugin
-      if (await checkAndRequestPermissions()) {
-        _telephony.listenIncomingSms(
-          onNewMessage: (telephony.SmsMessage nativeMsg) {
-            final msg = SmsMessage.fromNative(nativeMsg);
-            _handleSmsReceived(msg.toMap());
-          },
-          listenInBackground: false,
+      if (!await checkAndRequestPermissions()) return false;
+      // Poll SMS inbox every 10 seconds
+      DateTime? lastTimestamp;
+      _pollTimer = Timer.periodic(const Duration(seconds: 10), (_) async {
+        final List<inbox.SmsMessage> raw = await _query.getAllSms(
+          count: 20,
+          sort: true,
         );
-        _isListening = true;
-        notifyListeners();
-        if (kDebugMode) print('SMS listener started via Telephony plugin');
-        return true;
-      }
-      return false;
+        for (var nativeMsg in raw) {
+          final msgTime = DateTime.fromMillisecondsSinceEpoch(nativeMsg.date ?? 0);
+          if (lastTimestamp == null || msgTime.isAfter(lastTimestamp)) {
+            lastTimestamp = msgTime;
+            final msg = SmsMessage(
+              sender: nativeMsg.address ?? '',
+              body: nativeMsg.body ?? '',
+              timestamp: msgTime,
+            );
+            _handleSmsReceived(msg.toMap());
+          }
+        }
+      });
+      _isListening = true;
+      notifyListeners();
+      if (kDebugMode) print('SMS listener started via flutter_sms_inbox');
+      return true;
     } catch (e) {
-      if (kDebugMode) {
-        print('Error initializing SMS listener: $e');
-      }
+      if (kDebugMode) print('Error initializing SMS listener: $e');
       return false;
     }
   }
   
-  /// Start listening for SMS messages
-  Future<void> startListening() async {
-    if (_isListening) return;
-    
-    try {
-      if (kDebugMode) {
-        // Simulate starting in development
-        _isListening = true;
-        print('SMS listener started (development mode)');
-        _simulateIncomingMessages();
-        notifyListeners();
-        return;
-      }
-      
-      final result = await _channel.invokeMethod('startListening');
-      if (result == true) {
-        _isListening = true;
-        print('SMS listener started successfully');
-        notifyListeners();
-      }
-    } catch (e) {
-      print('Error starting SMS listener: $e');
-    }
-  }
-  
-  /// Stop listening for SMS messages
-  Future<void> stopListening() async {
-    if (!_isListening) return;
-    
-    try {
-      if (kDebugMode) {
-        _isListening = false;
-        print('SMS listener stopped (development mode)');
-        notifyListeners();
-        return;
-      }
-      
-      final result = await _channel.invokeMethod('stopListening');
-      if (result == true) {
-        _isListening = false;
-        print('SMS listener stopped successfully');
-        notifyListeners();
-      }
-    } catch (e) {
-      print('Error stopping SMS listener: $e');
-    }
-  }
   
   void setCurrentProfile(String profileId) {
     _currentProfileId = profileId;
     print('SMS listener profile set to: $profileId');
   }
   
-  /// Handle incoming method calls from native code
-  Future<void> _handleMethodCall(MethodCall call) async {
-    switch (call.method) {
-      case 'onSmsReceived':
-        _handleSmsReceived(call.arguments);
-        break;
-      default:
-        print('Unhandled method call: ${call.method}');
-    }
-  }
   
   /// Process received SMS message
   void _handleSmsReceived(Map<String, dynamic> data) {
@@ -364,64 +342,6 @@ class SmsListenerService extends ChangeNotifier {
     }
   }
   
-  /// Get recent financial messages
-  List<SmsMessage> getRecentFinancialMessages({int limit = 20}) {
-    return _recentMessages.take(limit).toList();
-  }
-  
-  /// Clear message history
-  void clearHistory() {
-    _recentMessages.clear();
-    notifyListeners();
-  }
-  
-  @override
-  void dispose() {
-    _messageController?.close();
-    _messageController = null;
-    _isListening = false;
-    _recentMessages.clear();
-    super.dispose();
-  }
-}
-
-class SmsMessage {
-  final String sender;
-  final String body;
-  final DateTime timestamp;
-  final String? address;
-  
-  SmsMessage({
-    required this.sender,
-    required this.body,
-    required this.timestamp,
-    this.address,
-  });
-  
-  factory SmsMessage.fromMap(Map<String, dynamic> map) {
-    return SmsMessage(
-      sender: map['sender'] ?? '',
-      body: map['body'] ?? '',
-      timestamp: DateTime.fromMillisecondsSinceEpoch(map['timestamp'] ?? 0),
-      address: map['address'],
-    );
-  }
-  
-  Map<String, dynamic> toMap() {
-    return {
-      'sender': sender,
-      'body': body,
-      'timestamp': timestamp.millisecondsSinceEpoch,
-      'address': address,
-    };
-  }
-  
-  /// Create SmsMessage from telephony plugin message
-  factory SmsMessage.fromNative(telephony.SmsMessage native) {
-    return SmsMessage(
-      sender: native.address ?? '',
-      body: native.body ?? '',
-      timestamp: DateTime.fromMillisecondsSinceEpoch(native.date ?? 0),
       address: native.address,
     );
   }
