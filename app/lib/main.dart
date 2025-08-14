@@ -47,9 +47,7 @@ import 'screens/goals_screen.dart';
 import 'screens/sms_review_screen.dart';
 import 'screens/spending_overview_screen.dart';
 import 'screens/loans_tracker_screen.dart';
-import 'screens/add_transaction_screen.dart';
-import 'screens/transaction_entry_screen.dart';
-import 'screens/detailed_transaction_entry_screen.dart';
+import 'screens/transaction_entry_unified_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/signup_screen.dart';
 import 'screens/test_profiles_screen.dart';
@@ -110,6 +108,27 @@ void main() async {
     // Initialize services
     final authService = AuthService();
     await authService.initialize();
+    
+    // Create test account for debugging in debug mode
+    if (kDebugMode) {
+      // Check if test account already exists to avoid duplicates
+      final testEmail = 'personal@test.com';
+      final testPassword = 'Password456';
+      
+      try {
+        AppLogger.getLogger('Main').info('Creating test account for debugging...');
+        await authService.signup(
+          firstName: 'Test',
+          lastName: 'User',
+          email: testEmail,
+          password: testPassword,
+        );
+        AppLogger.getLogger('Main').info('Test account created or already exists');
+      } catch (e) {
+        AppLogger.getLogger('Main').warning('Error creating test account: $e');
+        // Continue with app startup even if test account creation fails
+      }
+    }
     
     // Initialize permissions service
     final permissionsService = PermissionsService.instance;
@@ -188,9 +207,10 @@ void main() async {
     final biometricAuthService = BiometricAuthService.instance!;
     await biometricAuthService.initialize();
     
-    // Initialize SMS listener service
-    final smsListenerService = SmsListenerService.instance;
-    // Initialize will be called as needed
+  // Initialize SMS listener service
+  final smsListenerService = SmsListenerService.instance;
+  // Start SMS listener immediately
+  await smsListenerService.initialize();
     
     final syncService = EnhancedSyncService(
       offlineDataService,
@@ -357,9 +377,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             '/create_budget': (context) => const CreateBudgetScreen(),
             '/goals': (context) => const GoalsScreen(),
             '/sms_review': (context) => const SmsReviewScreen(),
-            '/add_transaction': (context) => const AddTransactionScreen(),
-            '/transaction_entry': (context) => const TransactionEntryScreen(),
-            '/detailed_transaction_entry': (context) => const DetailedTransactionEntryScreen(),
+            '/add_transaction': (context) => const TransactionEntryUnifiedScreen(),
+            '/transaction_entry': (context) => const TransactionEntryUnifiedScreen(),
+            '/detailed_transaction_entry': (context) => const TransactionEntryUnifiedScreen(),
             '/login': (context) => const LoginScreen(),
             '/signup': (context) => const SignupScreen(),
             '/test_profiles': (context) => const TestProfilesScreen(),

@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'package:flutter/services.dart';
+import 'package:telephony/telephony.dart' as telephony;
 import 'package:flutter/foundation.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:hive/hive.dart';
@@ -13,10 +13,8 @@ class SmsListenerService extends ChangeNotifier {
   
   SmsListenerService._();
   
-  static const MethodChannel _channel = MethodChannel('sms_listener');
-  static const EventChannel _eventChannel = EventChannel('sms_listener_events');
+  final telephony.Telephony _telephony = telephony.Telephony.instance;
   StreamController<SmsMessage>? _messageController;
-  StreamSubscription? _eventChannelSubscription;
   
   bool _isListening = false;
   List<SmsMessage> _recentMessages = [];
@@ -58,40 +56,21 @@ class SmsListenerService extends ChangeNotifier {
   /// Initialize the SMS listener service
   Future<bool> initialize() async {
     try {
-      if (kIsWeb) {
-        // Web doesn't support SMS
-        if (kDebugMode) {
-          print('SMS listener not supported on web');
-        }
-        return false;
-      }
-      
-      // Set up method channel handler
-      _channel.setMethodCallHandler(_handleMethodCall);
-      
-      // Set up event channel listener
-      _eventChannelSubscription = _eventChannel.receiveBroadcastStream().listen(
-        (dynamic event) {
-          if (event is Map<Object?, Object?>) {
-            _handleSmsReceived(Map<String, dynamic>.from(event as Map));
-          }
-        },
-        onError: (dynamic error) {
-          if (kDebugMode) {
-            print('SMS event channel error: $error');
-          }
-        }
-      );
-      
-      // For development, simulate initialization success
-      if (kDebugMode) {
-        print('SMS listener initialized (development mode)');
+      // Request permission and start listening via Telephony plugin
+      if (await checkAndRequestPermissions()) {
+        _telephony.listenIncomingSms(
+          onNewMessage: (telephony.SmsMessage nativeMsg) {
+            final msg = SmsMessage.fromNative(nativeMsg);
+            _handleSmsReceived(msg.toMap());
+          },
+          listenInBackground: false,
+        );
+        _isListening = true;
+        notifyListeners();
+        if (kDebugMode) print('SMS listener started via Telephony plugin');
         return true;
       }
-      
-      // In production, initialize native SMS listener
-      final result = await _channel.invokeMethod('initialize');
-      return result == true;
+      return false;
     } catch (e) {
       if (kDebugMode) {
         print('Error initializing SMS listener: $e');
@@ -435,6 +414,16 @@ class SmsMessage {
       'timestamp': timestamp.millisecondsSinceEpoch,
       'address': address,
     };
+  }
+  
+  /// Create SmsMessage from telephony plugin message
+  factory SmsMessage.fromNative(telephony.SmsMessage native) {
+    return SmsMessage(
+      sender: native.address ?? '',
+      body: native.body ?? '',
+      timestamp: DateTime.fromMillisecondsSinceEpoch(native.date ?? 0),
+      address: native.address,
+    );
   }
 }
 

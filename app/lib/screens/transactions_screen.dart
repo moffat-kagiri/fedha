@@ -7,8 +7,7 @@ import '../models/enums.dart';
 import '../services/auth_service.dart';
 import '../services/offline_data_service.dart';
 import '../utils/profile_transaction_utils.dart';
-import 'add_transaction_screen.dart';
-import '../widgets/quick_transaction_entry.dart';
+import 'transaction_entry_unified_screen.dart';
 import '../widgets/transaction_dialog.dart';
 import '../widgets/transaction_card.dart';
 
@@ -337,7 +336,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => const AddTransactionScreen(),
+                  builder: (context) => const TransactionEntryUnifiedScreen(),
                 ),
               );
             },
