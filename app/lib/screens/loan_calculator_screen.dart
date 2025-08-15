@@ -685,12 +685,8 @@ class _InterestSolverTabState extends State<InterestSolverTab> {
         final totalAmount = payment * totalPayments;
         final totalInterest = totalAmount - principal;
         apr = (totalInterest / principal) / years * 100;
-      } else if (_interestModel == InterestModel.compound) {
-        // Compound APR: ( (payment*totalPayments / principal) ^ (1/years) - 1 ) * 100
-        final totalAmount = payment * totalPayments;
-        apr = (pow(totalAmount / principal, 1 / years) - 1) * 100;
       } else {
-        // Reducing balance via Newton-Raphson
+        // For both compound and reducing-balance, solve using amortization formula
         apr = _solveForInterestRate(principal, payment, totalPayments, paymentsPerYear);
       }
       

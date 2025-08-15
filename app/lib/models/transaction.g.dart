@@ -36,13 +36,14 @@ class TransactionAdapter extends TypeAdapter<Transaction> {
       isPending: fields[16] as bool,
       isExpense: fields[17] as bool,
       isRecurring: fields[18] as bool,
+      paymentMethod: fields[19] as PaymentMethod?,
     );
   }
 
   @override
   void write(BinaryWriter writer, Transaction obj) {
     writer
-      ..writeByte(19)
+      ..writeByte(20)
       ..writeByte(0)
       ..write(obj.uuid)
       ..writeByte(1)
@@ -80,7 +81,9 @@ class TransactionAdapter extends TypeAdapter<Transaction> {
       ..writeByte(17)
       ..write(obj.isExpense)
       ..writeByte(18)
-      ..write(obj.isRecurring);
+      ..write(obj.isRecurring)
+      ..writeByte(19)
+      ..write(obj.paymentMethod);
   }
 
   @override
@@ -121,6 +124,8 @@ Transaction _$TransactionFromJson(Map<String, dynamic> json) => Transaction(
       isPending: json['isPending'] as bool? ?? false,
       isExpense: json['isExpense'] as bool? ?? true,
       isRecurring: json['isRecurring'] as bool? ?? false,
+      paymentMethod:
+          $enumDecodeNullable(_$PaymentMethodEnumMap, json['paymentMethod']),
     );
 
 Map<String, dynamic> _$TransactionToJson(Transaction instance) =>
@@ -144,6 +149,7 @@ Map<String, dynamic> _$TransactionToJson(Transaction instance) =>
       'isPending': instance.isPending,
       'isExpense': instance.isExpense,
       'isRecurring': instance.isRecurring,
+      'paymentMethod': _$PaymentMethodEnumMap[instance.paymentMethod],
     };
 
 const _$TransactionTypeEnumMap = {
@@ -163,4 +169,13 @@ const _$TransactionCategoryEnumMap = {
   TransactionCategory.business: 'business',
   TransactionCategory.investment: 'investment',
   TransactionCategory.other: 'other',
+};
+
+const _$PaymentMethodEnumMap = {
+  PaymentMethod.cash: 'cash',
+  PaymentMethod.card: 'card',
+  PaymentMethod.bank: 'bank',
+  PaymentMethod.mobile: 'mobile',
+  PaymentMethod.online: 'online',
+  PaymentMethod.cheque: 'cheque',
 };
