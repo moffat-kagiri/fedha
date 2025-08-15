@@ -65,6 +65,8 @@ class Transaction extends HiveObject {
   
   @HiveField(18)
   bool isRecurring;
+  @HiveField(19)
+  PaymentMethod? paymentMethod;
 
   Transaction({
     String? uuid,
@@ -86,6 +88,7 @@ class Transaction extends HiveObject {
     this.isPending = false,
     this.isExpense = true,
     this.isRecurring = false,
+    this.paymentMethod,
   }) : uuid = uuid ?? const Uuid().v4(),
        id = id ?? const Uuid().v4(),
        updatedAt = updatedAt ?? DateTime.now();

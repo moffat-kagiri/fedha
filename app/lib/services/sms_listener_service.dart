@@ -87,13 +87,17 @@ class SmsListenerService extends ChangeNotifier {
       // Poll SMS inbox every 10 seconds
       DateTime? lastTimestamp;
       _pollTimer = Timer.periodic(const Duration(seconds: 10), (_) async {
-        final List<inbox.SmsMessage> raw = await _query.getAllSms(
+        // Poll SMS messages from inbox
+        final List<inbox.SmsMessage> raw = await _query.querySms(
           count: 20,
           sort: true,
         );
         for (var nativeMsg in raw) {
-          final msgTime = DateTime.fromMillisecondsSinceEpoch(nativeMsg.date ?? 0);
-          if (lastTimestamp == null || msgTime.isAfter(lastTimestamp)) {
+          // plugin returns DateTime or int? ensure a DateTime
+          final DateTime msgTime = nativeMsg.date is DateTime
+              ? nativeMsg.date as DateTime
+              : DateTime.fromMillisecondsSinceEpoch((nativeMsg.date as int?) ?? 0);
+          if (lastTimestamp == null || msgTime.isAfter(lastTimestamp!)) {
             lastTimestamp = msgTime;
             final msg = SmsMessage(
               sender: nativeMsg.address ?? '',
@@ -112,6 +116,16 @@ class SmsListenerService extends ChangeNotifier {
       if (kDebugMode) print('Error initializing SMS listener: $e');
       return false;
     }
+  }
+  /// Alias to start listening for SMS transactions
+  Future<bool> startListening() async {
+    return initialize();
+  }
+  /// Stop polling SMS inbox
+  Future<void> stopListening() async {
+    _pollTimer?.cancel();
+    _isListening = false;
+    notifyListeners();
   }
   
   
@@ -181,7 +195,10 @@ class SmsListenerService extends ChangeNotifier {
         description: 'SMS: ${transactionData.type ?? ""} via ${transactionData.source}',
         categoryId: (await _guessCategory(transactionData)) ?? 'uncategorized',
         isRecurring: false,
-        notes: 'Auto-detected from SMS'
+        notes: 'Auto-detected from SMS',
+        smsSource: transactionData.rawMessage,
+        reference: transactionData.reference,
+        recipient: transactionData.recipient,
       );
       
       // Save to pending transactions box
@@ -340,10 +357,6 @@ class SmsListenerService extends ChangeNotifier {
       print('Error parsing transaction: $e');
       return null;
     }
-  }
-  
-      address: native.address,
-    );
   }
 }
 

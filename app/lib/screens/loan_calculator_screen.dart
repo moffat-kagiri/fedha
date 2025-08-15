@@ -743,8 +743,9 @@ class _InterestSolverTabState extends State<InterestSolverTab> {
       if (rate > 1) rate = 1.0; // Cap at 100% per period
     }
     
-    // Convert to annual percentage rate
-    return rate * paymentsPerYear * 100;
+  // Convert periodic rate to effective annual percentage rate
+  final effectiveAnnual = math.pow(1 + rate, paymentsPerYear) - 1;
+  return effectiveAnnual * 100;
   }
 
   double _calculatePresentValue(double payment, double rate, double periods) {

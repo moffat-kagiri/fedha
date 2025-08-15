@@ -194,7 +194,7 @@ class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
           ),
           const SizedBox(height: 40),
           Text(
-            'Welcome 🚀',
+            'Your Personal Finance Assistant 🚀',
             style: Theme.of(context).textTheme.headlineMedium?.copyWith(
               fontWeight: FontWeight.bold,
               color: Colors.white,

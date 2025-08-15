@@ -354,6 +354,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           return MaterialApp(
             theme: AppTheme.lightTheme,
             darkTheme: AppTheme.darkTheme,
+            themeMode: ThemeMode.system,
             home: const Scaffold(
               body: Center(child: CircularProgressIndicator()),
             ),
@@ -369,6 +370,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         return MaterialApp(
           theme: AppTheme.lightTheme,
           darkTheme: AppTheme.darkTheme,
+          themeMode: ThemeMode.system,
           home: homeScreen,
           routes: {
             '/loan_calculator': (context) => const LoanCalculatorScreen(),

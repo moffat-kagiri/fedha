@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter/services.dart';  // for FilteringTextInputFormatter
 
 import '../models/transaction.dart';
 import '../models/goal.dart';
@@ -34,6 +35,7 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
   String _selectedCategory = '';
   PaymentMethod _selectedPaymentMethod = PaymentMethod.cash;
   Goal? _selectedGoal;
+  List<Goal> _goals = [];
   bool _isSaving = false;
   
   final Map<TransactionType, List<String>> _categories = {
@@ -61,6 +63,31 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
     
     // Add listener to amount field for formatting
     _amountController.addListener(_formatAmount);
+    // Load goals for savings
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final dataService = Provider.of<OfflineDataService>(context, listen: false);
+      final loaded = dataService.getAllGoals();
+      setState(() {
+        _goals = loaded;
+        if (_selectedType == TransactionType.savings) {
+          // default to first goal if none selected
+          _selectedGoal ??= _goals.isNotEmpty ? _goals.first : null;
+        }
+      });
+    });
+    
+    // Populate savings goals for 'savings' type
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final dataService = Provider.of<OfflineDataService>(context, listen: false);
+      final goals = dataService.getAllGoals();
+      setState(() {
+        _categories[TransactionType.savings] = goals.map((g) => g.name).toList();
+        // Default goal selection for new savings
+        if (_selectedType == TransactionType.savings && _selectedGoal == null && goals.isNotEmpty) {
+          _selectedGoal = goals.first;
+        }
+      });
+    });
   }
 
   void _formatAmount() {
@@ -334,16 +361,6 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
   Widget build(BuildContext context) {
     return Consumer2<OfflineDataService, CurrencyService>(
       builder: (context, dataService, currencyService, child) {
-        // Populate goals list for savings transactions
-        if (_selectedType == TransactionType.savings) {
-          _categories[TransactionType.savings] = dataService.getActiveGoals()
-              .map((goal) => goal.name)
-              .toList();
-          
-          if (_categories[TransactionType.savings]!.isEmpty) {
-            _categories[TransactionType.savings] = ['General Savings'];
-          }
-        }
         
         return Scaffold(
           appBar: AppBar(
@@ -379,7 +396,7 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
                     decoration: InputDecoration(
                       labelText: 'Amount',
                       hintText: '0.00',
-                      prefixText: '${currencyService.currencySymbol} ',
+                      prefixText: '${currencyService.currentSymbol} ',
                       border: const OutlineInputBorder(),
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 16,
@@ -411,8 +428,11 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
                   
                   const SizedBox(height: 16),
                   
-                  // Category Field
-                  _buildCategorySelector(),
+                  // Category or Goal Field
+                  if (_selectedType == TransactionType.savings)
+                    _buildGoalSelector()
+                  else
+                    _buildCategorySelector(),
                   
                   const SizedBox(height: 16),
                   
@@ -607,7 +627,7 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
             // If this is a savings transaction, update the selected goal
             if (_selectedType == TransactionType.savings) {
               final dataService = Provider.of<OfflineDataService>(context, listen: false);
-              _selectedGoal = dataService.getGoals()
+              _selectedGoal = dataService.getAllGoals()
                   .firstWhere((g) => g.name == value, orElse: () => null as Goal);
             }
           });
@@ -619,6 +639,33 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
               ? 'Please select a goal'
               : 'Please select a category';
         }
+        return null;
+      },
+    );
+  }
+  
+  /// Build goal selector when type is savings
+  Widget _buildGoalSelector() {
+    return DropdownButtonFormField<Goal>(
+      value: _selectedGoal,
+      decoration: const InputDecoration(
+        labelText: 'Select Goal',
+        border: OutlineInputBorder(),
+        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      ),
+      items: _goals.map((goal) {
+        return DropdownMenuItem<Goal>(
+          value: goal,
+          child: Text(goal.name),
+        );
+      }).toList(),
+      onChanged: (Goal? value) {
+        setState(() {
+          _selectedGoal = value;
+        });
+      },
+      validator: (value) {
+        if (value == null) return 'Please select a goal';
         return null;
       },
     );
@@ -694,10 +741,10 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
               case PaymentMethod.card:
                 label = 'Card';
                 break;
-              case PaymentMethod.bankTransfer:
+              case PaymentMethod.bank:
                 label = 'Bank Transfer';
                 break;
-              case PaymentMethod.mobileMoney:
+              case PaymentMethod.mobile:
                 label = 'Mobile Money';
                 break;
               default:

@@ -28,6 +28,10 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _loadTransactionCandidates();
+    // Reload candidates whenever a new SMS is processed
+    SmsListenerService.instance.messageStream.listen((_) {
+      _loadTransactionCandidates();
+    });
   }
 
   @override
@@ -278,6 +282,12 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
             ),
           ],
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _loadTransactionCandidates,
+          ),
+        ],
       ),
       body: _isLoading
           ? const Center(
