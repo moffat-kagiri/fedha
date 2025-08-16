@@ -43,7 +43,7 @@ class _LoanCalculatorScreenState extends State<LoanCalculatorScreen> with Ticker
         bottom: TabBar(
           controller: _tabController,
           labelColor: theme.colorScheme.onPrimary,
-          unselectedLabelColor: theme.colorScheme.onPrimary.withOpacity(0.7),
+          unselectedLabelColor: theme.colorScheme.onPrimary.withAlpha((0.7 * 255).round()),
           indicatorColor: theme.colorScheme.onPrimary,
           tabs: const [
             Tab(text: 'Payment Calculator', icon: Icon(Icons.calculate)),
@@ -285,7 +285,7 @@ class _PaymentCalculatorTabState extends State<PaymentCalculatorTab> {
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
                 child: _isCalculating
-                    ? const Row(
+                    ? Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           SizedBox(
@@ -296,8 +296,8 @@ class _PaymentCalculatorTabState extends State<PaymentCalculatorTab> {
                               color: Colors.white,
                             ),
                           ),
-                          SizedBox(width: 12),
-                          Text('Calculating...'),
+                          const SizedBox(width: 12),
+                          const Text('Calculating...'),
                         ],
                       )
                     : const Text('Calculate Loan Payment'),
@@ -567,7 +567,7 @@ class _InterestSolverTabState extends State<InterestSolverTab> {
                           padding: const EdgeInsets.symmetric(vertical: 16),
                         ),
                         child: _isCalculating
-                            ? const CircularProgressIndicator(
+                            ? CircularProgressIndicator(
                                 valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).colorScheme.onPrimary),
                               )
                             : const Text('Calculate Interest Rate'),
@@ -581,7 +581,7 @@ class _InterestSolverTabState extends State<InterestSolverTab> {
             if (_calculatedAPR != null) ...[
               const SizedBox(height: 16),
               Card(
-                color: Theme.of(context).primaryColor.withOpacity(0.1),
+                color: Theme.of(context).primaryColor.withAlpha((0.1 * 255).round()),
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(

@@ -338,8 +338,8 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
         if (mounted) {
           Navigator.pop(context, 'deleted');
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Transaction deleted'),
+            SnackBar(
+              content: const Text('Transaction deleted'),
               backgroundColor: Theme.of(context).primaryColor,
             ),
           );
@@ -508,7 +508,7 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
                               width: 24,
                               height: 24,
                               padding: const EdgeInsets.all(2),
-                              child: const CircularProgressIndicator(
+                              child: CircularProgressIndicator(
                                 color: Theme.of(context).colorScheme.onPrimary,
                                 strokeWidth: 3,
                               ),

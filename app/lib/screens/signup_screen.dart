@@ -94,7 +94,7 @@ class _SignupScreenState extends State<SignupScreen> {
         // Signup successful, navigation will be handled by Consumer in AuthWrapper
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
+            SnackBar(
               content: Text('Account created successfully! Welcome to Fedha!'),
               backgroundColor: Theme.of(context).primaryColor,
             ),
@@ -129,7 +129,7 @@ class _SignupScreenState extends State<SignupScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         iconTheme: IconThemeData(color: Theme.of(context).primaryColor),
-        title: const Text(
+  title: Text(
           'Create Account',
           style: TextStyle(
             color: Theme.of(context).primaryColor,
@@ -476,8 +476,8 @@ class _SignupScreenState extends State<SignupScreen> {
                     ),
                     elevation: 0,
                   ),
-                  child: _isLoading
-                      ? const SizedBox(
+          child: _isLoading
+            ? SizedBox(
                           height: 20,
                           width: 20,
                           child: CircularProgressIndicator(

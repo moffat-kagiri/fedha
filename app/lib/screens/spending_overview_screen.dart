@@ -58,7 +58,7 @@ class _SpendingOverviewScreenState extends State<SpendingOverviewScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.analytics_outlined, size: 80, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.3)),
+          Icon(Icons.analytics_outlined, size: 80, color: Theme.of(context).colorScheme.onSurface.withAlpha((0.3 * 255).round())),
           const SizedBox(height: 16),
           Text(
             'No spending data yet',
@@ -71,7 +71,7 @@ class _SpendingOverviewScreenState extends State<SpendingOverviewScreen> {
           const SizedBox(height: 8),
           Text(
             'Start adding transactions to see your spending patterns',
-            style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7)),
+            style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withAlpha((0.7 * 255).round())),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 24),
@@ -134,13 +134,13 @@ class _SpendingOverviewScreenState extends State<SpendingOverviewScreen> {
               'Total Spent',
               style: TextStyle(
                 fontSize: 16,
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                color: Theme.of(context).colorScheme.onSurface.withAlpha((0.7 * 255).round()),
               ),
             ),
             const SizedBox(height: 8),
             Text(
               'Ksh ${totalSpent.toStringAsFixed(2)}',
-              style: const TextStyle(
+                style: TextStyle(
                 fontSize: 32,
                 fontWeight: FontWeight.bold,
                 color: Theme.of(context).primaryColor,
@@ -151,7 +151,7 @@ class _SpendingOverviewScreenState extends State<SpendingOverviewScreen> {
               'During $_timeRange',
               style: TextStyle(
                 fontSize: 14,
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                color: Theme.of(context).colorScheme.onSurface.withAlpha((0.7 * 255).round()),
               ),
             ),
           ],
@@ -184,7 +184,7 @@ class _SpendingOverviewScreenState extends State<SpendingOverviewScreen> {
           alignment: Alignment.center,
           child: Text(
             'Category breakdown chart coming soon',
-            style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7)),
+            style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withAlpha((0.7 * 255).round())),
           ),
         ),
       ],
@@ -215,7 +215,7 @@ class _SpendingOverviewScreenState extends State<SpendingOverviewScreen> {
       margin: const EdgeInsets.only(bottom: 12),
       child: ListTile(
         leading: CircleAvatar(
-          backgroundColor: const Color(0xFF007A39).withOpacity(0.1),
+          backgroundColor: Color(0xFF007A39).withAlpha((0.1 * 255).round()),
           child: Icon(
             Icons.shopping_bag,
             color: const Color(0xFF007A39),

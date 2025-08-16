@@ -5,9 +5,7 @@ import 'package:permission_handler/permission_handler.dart';
 import '../services/auth_service.dart';
 import '../services/api_client.dart';
 import '../services/biometric_auth_service.dart';
-i                                  color: Theme.of(context).colorScheme.error.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(4),
-                                  border: Border.all(color: Theme.of(context).colorScheme.error.withOpacity(0.5)),rt '../services/permissions_service.dart';
+import '../services/permissions_service.dart';
 import '../theme/app_theme.dart';
 import 'main_navigation.dart';
 import 'signup_screen.dart';
@@ -456,7 +454,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ),
                               ),
                               child: _isLoading
-                                  ? const SizedBox(
+                                  ? SizedBox(
                                       width: 24,
                                       height: 24,
                                       child: CircularProgressIndicator(
@@ -504,7 +502,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Text(
+                      Text(
                         "Don't have an account?",
                         style: TextStyle(color: Theme.of(context).colorScheme.onPrimary),
                       ),
@@ -512,7 +510,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         onPressed: () {
                           Navigator.pushReplacementNamed(context, '/signup');
                         },
-                        child: const Text(
+                        child: Text(
                           'Sign Up',
                           style: TextStyle(
                             color: Theme.of(context).colorScheme.onPrimary,

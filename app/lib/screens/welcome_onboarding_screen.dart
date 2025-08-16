@@ -70,7 +70,7 @@ class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
                   Text(
                     'Step ${_currentPage + 1} of $_totalPages',
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.primaryColorLight.withOpacity(0.7),
+                      color: theme.primaryColorLight.withAlpha((0.7 * 255).round()),
                     ),
                   ),
                   const Spacer(),
@@ -87,7 +87,7 @@ class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
               margin: const EdgeInsets.symmetric(horizontal: 20),
               height: 4,
               decoration: BoxDecoration(
-                color: theme.primaryColorLight.withOpacity(0.3),
+                color: theme.primaryColorLight.withAlpha((0.3 * 255).round()),
                 borderRadius: BorderRadius.circular(2),
               ),
               child: Stack(
@@ -183,7 +183,7 @@ class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
             width: 100,
             height: 100,
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.onPrimary.withOpacity(0.2),
+              color: Theme.of(context).colorScheme.onPrimary.withAlpha((0.2 * 255).round()),
               borderRadius: BorderRadius.circular(50),
             ),
             child: Icon(
@@ -205,7 +205,7 @@ class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
           Text(
             'Budget efficiently 📑',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: Theme.of(context).colorScheme.onPrimary.withOpacity(0.7),
+              color: Theme.of(context).colorScheme.onPrimary.withAlpha((0.7 * 255).round()),
             ),
             textAlign: TextAlign.center,
           ),
@@ -225,7 +225,7 @@ class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
             width: 100,
             height: 100,
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.onPrimary.withOpacity(0.2),
+              color: Theme.of(context).colorScheme.onPrimary.withAlpha((0.2 * 255).round()),
               borderRadius: BorderRadius.circular(50),
             ),
             child: Icon(
@@ -247,7 +247,7 @@ class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
           Text(
             'Understand your debt levels and plan strategies to reduce them.',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: Theme.of(context).colorScheme.onPrimary.withOpacity(0.7),
+              color: Theme.of(context).colorScheme.onPrimary.withAlpha((0.7 * 255).round()),
             ),
             textAlign: TextAlign.center,
           ),
@@ -267,7 +267,7 @@ class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
             width: 100,
             height: 100,
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.onPrimary.withOpacity(0.2),
+              color: Theme.of(context).colorScheme.onPrimary.withAlpha((0.2 * 255).round()),
               borderRadius: BorderRadius.circular(50),
             ),
             child: Icon(
@@ -289,7 +289,7 @@ class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
           Text(
             'Monitor every expense and income with real-time updates.',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: Theme.of(context).colorScheme.onPrimary.withOpacity(0.7),
+              color: Theme.of(context).colorScheme.onPrimary.withAlpha((0.7 * 255).round()),
             ),
             textAlign: TextAlign.center,
           ),

@@ -11,7 +11,7 @@ import 'main_navigation.dart';
 import 'biometric_lock_screen.dart';
 import 'permissions_screen.dart';
 import 'signup_screen.dart';
-import 'login_screen.dart';
+import 'login_screen.dart' hide Theme;
 
 class AuthWrapper extends StatefulWidget {
   const AuthWrapper({super.key});

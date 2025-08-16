@@ -42,8 +42,8 @@ class LoanCalculator {
     int maxIterations = 100;
     
     for (int i = 0; i < maxIterations; i++) {
-      double presentValue = _calculatePresentValue(payment, rate, numberOfPayments);
-      double derivative = _calculateDerivative(payment, rate, numberOfPayments);
+  double presentValue = _calculatePresentValue(payment, rate, numberOfPayments.toDouble());
+  double derivative = _calculateDerivative(payment, rate, numberOfPayments.toDouble());
       
       if (derivative.abs() < tolerance) break;
       
