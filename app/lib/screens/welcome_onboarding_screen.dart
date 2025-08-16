@@ -55,8 +55,10 @@ class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     return Scaffold(
-      backgroundColor: FedhaColors.primaryGreen,
+      backgroundColor: theme.primaryColor,
       body: SafeArea(
         child: Column(
           children: [
@@ -67,15 +69,15 @@ class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
                 children: [
                   Text(
                     'Step ${_currentPage + 1} of $_totalPages',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Colors.white70,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.primaryColorLight.withOpacity(0.7),
                     ),
                   ),
                   const Spacer(),
                   Text(
                     '${((_currentPage + 1) / _totalPages * 100).round()}%',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Colors.white70,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.primaryColorLight.withOpacity(0.7),
                     ),
                   ),
                 ],
@@ -85,7 +87,7 @@ class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
               margin: const EdgeInsets.symmetric(horizontal: 20),
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.3),
+                color: theme.primaryColorLight.withOpacity(0.3),
                 borderRadius: BorderRadius.circular(2),
               ),
               child: Stack(
@@ -95,14 +97,13 @@ class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
                     width: MediaQuery.of(context).size.width * ((_currentPage + 1) / _totalPages) - 40,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: theme.primaryColorLight,
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
                 ],
               ),
             ),
-            
             // Page content updated to 3 minimalist pages
             Expanded(
               child: PageView(
@@ -119,7 +120,6 @@ class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
                 ],
               ),
             ),
-            
             // Navigation buttons
             Container(
               padding: const EdgeInsets.all(20),
@@ -130,8 +130,8 @@ class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
                       child: OutlinedButton(
                         onPressed: _previousPage,
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.white,
-                          side: const BorderSide(color: Colors.white),
+                          foregroundColor: theme.primaryColorLight,
+                          side: BorderSide(color: theme.primaryColorLight),
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
@@ -143,12 +143,12 @@ class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
                   if (_currentPage > 0) const SizedBox(width: 16),
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: _currentPage == _totalPages - 1 
+                      onPressed: _currentPage == _totalPages - 1
                           ? _completeOnboarding
                           : _nextPage,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: FedhaColors.primaryGreen,
+                        backgroundColor: theme.scaffoldBackgroundColor,
+                        foregroundColor: theme.primaryColor,
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
@@ -183,13 +183,13 @@ class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
             width: 100,
             height: 100,
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
+              color: Theme.of(context).colorScheme.onPrimary.withOpacity(0.2),
               borderRadius: BorderRadius.circular(50),
             ),
-            child: const Icon(
+            child: Icon(
               Icons.attach_money,
               size: 50,
-              color: Colors.white,
+              color: Theme.of(context).colorScheme.onPrimary,
             ),
           ),
           const SizedBox(height: 40),
@@ -197,7 +197,7 @@ class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
             'Your Personal Finance Assistant 🚀',
             style: Theme.of(context).textTheme.headlineMedium?.copyWith(
               fontWeight: FontWeight.bold,
-              color: Colors.white,
+              color: Theme.of(context).colorScheme.onPrimary,
             ),
             textAlign: TextAlign.center,
           ),
@@ -205,7 +205,7 @@ class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
           Text(
             'Budget efficiently 📑',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: Colors.white70,
+              color: Theme.of(context).colorScheme.onPrimary.withOpacity(0.7),
             ),
             textAlign: TextAlign.center,
           ),
@@ -225,13 +225,13 @@ class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
             width: 100,
             height: 100,
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
+              color: Theme.of(context).colorScheme.onPrimary.withOpacity(0.2),
               borderRadius: BorderRadius.circular(50),
             ),
-            child: const Icon(
+            child: Icon(
               Icons.money_off,
               size: 50,
-              color: Colors.white,
+              color: Theme.of(context).colorScheme.onPrimary,
             ),
           ),
           const SizedBox(height: 40),
@@ -239,7 +239,7 @@ class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
             'Borrow Smartly 🌱',
             style: Theme.of(context).textTheme.headlineMedium?.copyWith(
               fontWeight: FontWeight.bold,
-              color: Colors.white,
+              color: Theme.of(context).colorScheme.onPrimary,
             ),
             textAlign: TextAlign.center,
           ),
@@ -247,7 +247,7 @@ class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
           Text(
             'Understand your debt levels and plan strategies to reduce them.',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: Colors.white70,
+              color: Theme.of(context).colorScheme.onPrimary.withOpacity(0.7),
             ),
             textAlign: TextAlign.center,
           ),
@@ -267,13 +267,13 @@ class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
             width: 100,
             height: 100,
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
+              color: Theme.of(context).colorScheme.onPrimary.withOpacity(0.2),
               borderRadius: BorderRadius.circular(50),
             ),
-            child: const Icon(
+            child: Icon(
               Icons.track_changes,
               size: 50,
-              color: Colors.white,
+              color: Theme.of(context).colorScheme.onPrimary,
             ),
           ),
           const SizedBox(height: 40),
@@ -281,7 +281,7 @@ class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
             'Track Transactions 📊',
             style: Theme.of(context).textTheme.headlineMedium?.copyWith(
               fontWeight: FontWeight.bold,
-              color: Colors.white,
+              color: Theme.of(context).colorScheme.onPrimary,
             ),
             textAlign: TextAlign.center,
           ),
@@ -289,7 +289,7 @@ class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
           Text(
             'Monitor every expense and income with real-time updates.',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: Colors.white70,
+              color: Theme.of(context).colorScheme.onPrimary.withOpacity(0.7),
             ),
             textAlign: TextAlign.center,
           ),

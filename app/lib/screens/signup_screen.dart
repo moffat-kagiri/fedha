@@ -96,7 +96,7 @@ class _SignupScreenState extends State<SignupScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Account created successfully! Welcome to Fedha!'),
-              backgroundColor: Color(0xFF007A39),
+              backgroundColor: Theme.of(context).primaryColor,
             ),
           );
         }
@@ -128,11 +128,11 @@ class _SignupScreenState extends State<SignupScreen> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Color(0xFF007A39)),
+        iconTheme: IconThemeData(color: Theme.of(context).primaryColor),
         title: const Text(
           'Create Account',
           style: TextStyle(
-            color: Color(0xFF007A39),
+            color: Theme.of(context).primaryColor,
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -423,7 +423,7 @@ class _SignupScreenState extends State<SignupScreen> {
                       height: 24,
                       child: Checkbox(
                         value: _acceptTerms,
-                        activeColor: const Color(0xFF007A39),
+                        activeColor: Theme.of(context).primaryColor,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(4),
                         ),

@@ -5,7 +5,9 @@ import 'package:permission_handler/permission_handler.dart';
 import '../services/auth_service.dart';
 import '../services/api_client.dart';
 import '../services/biometric_auth_service.dart';
-import '../services/permissions_service.dart';
+i                                  color: Theme.of(context).colorScheme.error.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(color: Theme.of(context).colorScheme.error.withOpacity(0.5)),rt '../services/permissions_service.dart';
 import '../theme/app_theme.dart';
 import 'main_navigation.dart';
 import 'signup_screen.dart';
@@ -343,7 +345,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ),
                                 child: Text(
                                   _errorMessage!,
-                                  style: TextStyle(color: Colors.red.shade800),
+                                  style: TextStyle(color: Theme.of(context).colorScheme.error),
                                 ),
                               ),
                               const SizedBox(height: 16),
@@ -446,8 +448,8 @@ class _LoginScreenState extends State<LoginScreen> {
                             ElevatedButton(
                               onPressed: _isLoading ? null : _login,
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF007A39),
-                                foregroundColor: Colors.white,
+                                backgroundColor: Theme.of(context).primaryColor,
+                                foregroundColor: Theme.of(context).colorScheme.onPrimary,
                                 padding: const EdgeInsets.symmetric(vertical: 16),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(8),
@@ -458,7 +460,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                       width: 24,
                                       height: 24,
                                       child: CircularProgressIndicator(
-                                        color: Colors.white,
+                                        color: Theme.of(context).colorScheme.onPrimary,
                                         strokeWidth: 2,
                                       ),
                                     )
@@ -473,12 +475,12 @@ class _LoginScreenState extends State<LoginScreen> {
                                 icon: const Icon(Icons.fingerprint),
                                 label: const Text('Sign in with Biometrics'),
                                 style: OutlinedButton.styleFrom(
-                                  foregroundColor: const Color(0xFF007A39),
+                                  foregroundColor: Theme.of(context).primaryColor,
                                   padding: const EdgeInsets.symmetric(vertical: 16),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(8),
                                   ),
-                                  side: const BorderSide(color: Color(0xFF007A39)),
+                                  side: BorderSide(color: Theme.of(context).primaryColor),
                                 ),
                               ),
                             ],
@@ -504,7 +506,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     children: [
                       const Text(
                         "Don't have an account?",
-                        style: TextStyle(color: Colors.white),
+                        style: TextStyle(color: Theme.of(context).colorScheme.onPrimary),
                       ),
                       TextButton(
                         onPressed: () {
@@ -513,7 +515,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         child: const Text(
                           'Sign Up',
                           style: TextStyle(
-                            color: Colors.white,
+                            color: Theme.of(context).colorScheme.onPrimary,
                             fontWeight: FontWeight.bold,
                           ),
                         ),

@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 // import '../services/api_client.dart'; // Removed unused import
 import '../services/currency_service.dart';
+import '../utils/loan_calculator.dart';
 
 // Add interest models enum
 enum InterestModel { simple, reducingBalance, compound }
@@ -33,16 +34,17 @@ class _LoanCalculatorScreenState extends State<LoanCalculatorScreen> with Ticker
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
         title: const Text('Loan Calculator'),
-        backgroundColor: const Color(0xFF007A39),
-        foregroundColor: Colors.white,
+        backgroundColor: theme.primaryColor,
+        foregroundColor: theme.colorScheme.onPrimary,
         bottom: TabBar(
           controller: _tabController,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white70,
-          indicatorColor: Colors.white,
+          labelColor: theme.colorScheme.onPrimary,
+          unselectedLabelColor: theme.colorScheme.onPrimary.withOpacity(0.7),
+          indicatorColor: theme.colorScheme.onPrimary,
           tabs: const [
             Tab(text: 'Payment Calculator', icon: Icon(Icons.calculate)),
             Tab(text: 'Interest Solver', icon: Icon(Icons.trending_up)),
@@ -134,11 +136,12 @@ class _PaymentCalculatorTabState extends State<PaymentCalculatorTab> {
           break;
         case InterestModel.compound:
         case InterestModel.reducingBalance:
-          // Amortized payment formula for compound/reducing-balance
-          final monthlyRate = annualRate / 12;
-          monthlyPayment = principal * 
-              (monthlyRate * math.pow(1 + monthlyRate, numberOfPayments)) /
-              (math.pow(1 + monthlyRate, numberOfPayments) - 1);
+          // Amortized payment formula using our utility class
+          monthlyPayment = LoanCalculator.calculateMonthlyPayment(
+            principal: principal,
+            annualInterestRate: annualRate * 100, // Convert to percentage
+            termInMonths: numberOfPayments,
+          );
           totalAmount = monthlyPayment * numberOfPayments;
           totalInterest = totalAmount - principal;
           break;
@@ -277,8 +280,8 @@ class _PaymentCalculatorTabState extends State<PaymentCalculatorTab> {
               child: ElevatedButton(
                 onPressed: _isCalculating ? null : _calculateLoan,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF007A39),
-                  foregroundColor: Colors.white,
+                  backgroundColor: Theme.of(context).primaryColor,
+                  foregroundColor: Theme.of(context).colorScheme.onPrimary,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
                 child: _isCalculating
@@ -559,13 +562,13 @@ class _InterestSolverTabState extends State<InterestSolverTab> {
                       child: ElevatedButton(
                         onPressed: _isCalculating ? null : _calculateInterestRate,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF007A39),
-                          foregroundColor: Colors.white,
+                          backgroundColor: Theme.of(context).primaryColor,
+                          foregroundColor: Theme.of(context).colorScheme.onPrimary,
                           padding: const EdgeInsets.symmetric(vertical: 16),
                         ),
                         child: _isCalculating
                             ? const CircularProgressIndicator(
-                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).colorScheme.onPrimary),
                               )
                             : const Text('Calculate Interest Rate'),
                       ),
@@ -578,7 +581,7 @@ class _InterestSolverTabState extends State<InterestSolverTab> {
             if (_calculatedAPR != null) ...[
               const SizedBox(height: 16),
               Card(
-                color: const Color(0xFF007A39).withValues(alpha: 0.1),
+                color: Theme.of(context).primaryColor.withOpacity(0.1),
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(
@@ -587,7 +590,7 @@ class _InterestSolverTabState extends State<InterestSolverTab> {
                         'Calculated Interest Rate',
                         style: Theme.of(context).textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.bold,
-                          color: const Color(0xFF007A39),
+                          color: Theme.of(context).primaryColor,
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -595,7 +598,7 @@ class _InterestSolverTabState extends State<InterestSolverTab> {
                         '${_calculatedAPR!.toStringAsFixed(2)}% APR',
                         style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                           fontWeight: FontWeight.bold,
-                          color: const Color(0xFF007A39),
+                          color: Theme.of(context).primaryColor,
                         ),
                       ),
                       const SizedBox(height: 16),
@@ -680,15 +683,14 @@ class _InterestSolverTabState extends State<InterestSolverTab> {
       final paymentsPerYear = _getPaymentsPerYear(_paymentFrequency);
       final totalPayments = years * paymentsPerYear;
       double apr;
-      if (_interestModel == InterestModel.simple) {
-        // Simple interest APR = (TotalInterest / Principal) / years * 100
-        final totalAmount = payment * totalPayments;
-        final totalInterest = totalAmount - principal;
-        apr = (totalInterest / principal) / years * 100;
-      } else {
-        // For both compound and reducing-balance, solve using amortization formula
-        apr = _solveForInterestRate(principal, payment, totalPayments, paymentsPerYear);
-      }
+      // For all interest models, we'll use the same APR calculation to ensure consistency
+      // This uses the Newton-Raphson method to solve for the rate that makes PV(payment stream) = principal
+      apr = LoanCalculator.calculateApr(
+        principal: principal,
+        payment: payment,
+        numberOfPayments: totalPayments.toInt(),
+        paymentsPerYear: paymentsPerYear,
+      );
       
       setState(() {
         _calculatedAPR = apr;
@@ -709,50 +711,12 @@ class _InterestSolverTabState extends State<InterestSolverTab> {
   }
 
   double _solveForInterestRate(double principal, double payment, double totalPayments, int paymentsPerYear) {
-    // If payment * totalPayments equals principal, interest rate is 0
-    if ((payment * totalPayments - principal).abs() < 0.01) {
-      return 0.0;
-    }
-    
-    // Initial guess: 5% annual rate
-    double rate = 0.05 / paymentsPerYear;
-    double tolerance = 1e-8;
-    int maxIterations = 100;
-    
-    for (int i = 0; i < maxIterations; i++) {
-      double presentValue = _calculatePresentValue(payment, rate, totalPayments);
-      double derivative = _calculateDerivative(payment, rate, totalPayments);
-      
-      if (derivative.abs() < tolerance) break;
-      
-      double newRate = rate - (presentValue - principal) / derivative;
-      
-      if ((newRate - rate).abs() < tolerance) {
-        rate = newRate;
-        break;
-      }
-      
-      rate = newRate;
-      
-      // Ensure rate stays positive
-      if (rate < 0) rate = 0.001 / paymentsPerYear;
-      if (rate > 1) rate = 1.0; // Cap at 100% per period
-    }
-    
-  // Convert periodic rate to effective annual percentage rate
-  final effectiveAnnual = math.pow(1 + rate, paymentsPerYear) - 1;
-  return effectiveAnnual * 100;
-  }
-
-  double _calculatePresentValue(double payment, double rate, double periods) {
-    return payment * (1 - math.pow(1 + rate, -periods)) / rate;
-  }
-
-  double _calculateDerivative(double payment, double rate, double periods) {
-    if (rate == 0) return 0;
-    double factor1 = (1 - math.pow(1 + rate, -periods)) / (rate * rate);
-    double factor2 = periods * math.pow(1 + rate, -periods - 1) / rate;
-    return payment * (factor1 - factor2);
+    return LoanCalculator.calculateApr(
+      principal: principal,
+      payment: payment,
+      numberOfPayments: totalPayments.toInt(),
+      paymentsPerYear: paymentsPerYear,
+    );
   }
 }
 
@@ -783,7 +747,7 @@ class _LoansTrackerTabState extends State<LoansTrackerTab> {
                     'Loans Tracker',
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                       fontWeight: FontWeight.bold,
-                      color: const Color(0xFF007A39),
+                      color: Theme.of(context).primaryColor,
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -806,8 +770,8 @@ class _LoansTrackerTabState extends State<LoansTrackerTab> {
             child: ElevatedButton.icon(
               onPressed: _showAddLoanDialog,
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF007A39),
-                foregroundColor: Colors.white,
+                backgroundColor: Theme.of(context).primaryColor,
+                foregroundColor: Theme.of(context).colorScheme.onPrimary,
                 padding: const EdgeInsets.symmetric(vertical: 16),
               ),
               icon: const Icon(Icons.add),
@@ -1077,7 +1041,7 @@ class _LoansTrackerTabState extends State<LoansTrackerTab> {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(loan == null ? 'Loan added successfully!' : 'Loan updated successfully!'),
-                    backgroundColor: const Color(0xFF007A39),
+                    backgroundColor: Theme.of(context).primaryColor,
                   ),
                 );
               }

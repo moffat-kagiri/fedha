@@ -172,6 +172,7 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
   }
 
   Future<void> _selectDate(BuildContext context) async {
+    final theme = Theme.of(context);
     final DateTime? picked = await showDatePicker(
       context: context,
       initialDate: _selectedDate,
@@ -179,11 +180,10 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
       lastDate: DateTime(2030),
       builder: (context, child) {
         return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: Color(0xFF007A39),
-              onPrimary: Colors.white,
-              onSurface: Colors.black,
+          data: theme.copyWith(
+            colorScheme: theme.colorScheme.copyWith(
+              primary: theme.primaryColor,
+              onPrimary: theme.colorScheme.onPrimary,
             ),
           ),
           child: child!,
@@ -205,16 +205,16 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
   }
 
   Future<void> _selectTime(BuildContext context) async {
+    final theme = Theme.of(context);
     final TimeOfDay? picked = await showTimePicker(
       context: context,
       initialTime: _selectedTime,
       builder: (context, child) {
         return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: Color(0xFF007A39),
-              onPrimary: Colors.white,
-              onSurface: Colors.black,
+          data: theme.copyWith(
+            colorScheme: theme.colorScheme.copyWith(
+              primary: theme.primaryColor,
+              onPrimary: theme.colorScheme.onPrimary,
             ),
           ),
           child: child!,
@@ -282,7 +282,7 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
             content: Text(widget.editingTransaction != null 
                 ? 'Transaction updated successfully' 
                 : 'Transaction saved successfully'),
-            backgroundColor: const Color(0xFF007A39),
+            backgroundColor: Theme.of(context).primaryColor,
             duration: const Duration(seconds: 2),
           ),
         );
@@ -292,7 +292,7 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error saving transaction: ${e.toString()}'),
-            backgroundColor: Colors.red,
+            backgroundColor: Theme.of(context).colorScheme.error,
             duration: const Duration(seconds: 3),
           ),
         );
@@ -320,7 +320,7 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error),
             child: const Text('DELETE'),
           ),
         ],
@@ -340,7 +340,7 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Transaction deleted'),
-              backgroundColor: Color(0xFF007A39),
+              backgroundColor: Theme.of(context).primaryColor,
             ),
           );
         }
@@ -350,7 +350,7 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error deleting transaction: ${e.toString()}'),
-            backgroundColor: Colors.red,
+            backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
       }
@@ -367,8 +367,8 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
             title: Text(widget.editingTransaction != null 
               ? 'Edit Transaction' 
               : 'Add Transaction'),
-            backgroundColor: const Color(0xFF007A39),
-            foregroundColor: Colors.white,
+            backgroundColor: Theme.of(context).primaryColor,
+            foregroundColor: Theme.of(context).colorScheme.onPrimary,
             actions: [
               if (widget.editingTransaction != null)
                 IconButton(
@@ -469,7 +469,7 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
                           _showAdvancedOptions = value;
                         });
                       },
-                      activeColor: const Color(0xFF007A39),
+                      activeColor: Theme.of(context).primaryColor,
                     ),
                     contentPadding: EdgeInsets.zero,
                     onTap: () {
@@ -489,8 +489,8 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
                     child: ElevatedButton.icon(
                       onPressed: _isSaving ? null : _saveTransaction,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF007A39),
-                        foregroundColor: Colors.white,
+                        backgroundColor: Theme.of(context).primaryColor,
+                        foregroundColor: Theme.of(context).colorScheme.onPrimary,
                         padding: const EdgeInsets.symmetric(
                           horizontal: 32, 
                           vertical: 16,
@@ -509,7 +509,7 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
                               height: 24,
                               padding: const EdgeInsets.all(2),
                               child: const CircularProgressIndicator(
-                                color: Colors.white,
+                                color: Theme.of(context).colorScheme.onPrimary,
                                 strokeWidth: 3,
                               ),
                             )
@@ -534,7 +534,9 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
     return Container(
       height: 60,
       decoration: BoxDecoration(
-        color: Colors.grey.shade200,
+        color: Theme.of(context).brightness == Brightness.light 
+            ? Colors.grey.shade200 
+            : Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
@@ -574,7 +576,7 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
               },
               child: Container(
                 decoration: BoxDecoration(
-                  color: isSelected ? const Color(0xFF007A39) : Colors.transparent,
+                  color: isSelected ? Theme.of(context).primaryColor : Colors.transparent,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Column(
@@ -582,13 +584,13 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
                   children: [
                     Icon(
                       icon,
-                      color: isSelected ? Colors.white : Colors.grey.shade700,
+                      color: isSelected ? Theme.of(context).colorScheme.onPrimary : Theme.of(context).colorScheme.onSurface,
                     ),
                     const SizedBox(height: 4),
                     Text(
                       label,
                       style: TextStyle(
-                        color: isSelected ? Colors.white : Colors.grey.shade700,
+                        color: isSelected ? Theme.of(context).colorScheme.onPrimary : Theme.of(context).colorScheme.onSurface,
                         fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                         fontSize: 12,
                       ),

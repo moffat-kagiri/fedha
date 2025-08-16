@@ -58,26 +58,26 @@ class _SpendingOverviewScreenState extends State<SpendingOverviewScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.analytics_outlined, size: 80, color: Colors.grey.shade400),
+          Icon(Icons.analytics_outlined, size: 80, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.3)),
           const SizedBox(height: 16),
           Text(
             'No spending data yet',
             style: TextStyle(
               fontSize: 20, 
               fontWeight: FontWeight.bold,
-              color: Colors.grey.shade700,
+              color: Theme.of(context).colorScheme.onSurface,
             ),
           ),
           const SizedBox(height: 8),
           Text(
             'Start adding transactions to see your spending patterns',
-            style: TextStyle(color: Colors.grey.shade600),
+            style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7)),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 24),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF007A39),
+              backgroundColor: Theme.of(context).primaryColor,
               foregroundColor: Colors.white,
             ),
             onPressed: () {
@@ -94,12 +94,14 @@ class _SpendingOverviewScreenState extends State<SpendingOverviewScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.grey.shade100,
+        color: Theme.of(context).brightness == Brightness.light 
+            ? Colors.grey.shade100 
+            : Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(12),
       ),
       child: DropdownButton<String>(
         value: _timeRange,
-        icon: const Icon(Icons.arrow_drop_down, color: Color(0xFF007A39)),
+        icon: Icon(Icons.arrow_drop_down, color: Theme.of(context).primaryColor),
         isExpanded: true,
         underline: const SizedBox(),
         onChanged: (String? newValue) {
@@ -132,7 +134,7 @@ class _SpendingOverviewScreenState extends State<SpendingOverviewScreen> {
               'Total Spent',
               style: TextStyle(
                 fontSize: 16,
-                color: Colors.grey.shade600,
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
               ),
             ),
             const SizedBox(height: 8),
@@ -141,7 +143,7 @@ class _SpendingOverviewScreenState extends State<SpendingOverviewScreen> {
               style: const TextStyle(
                 fontSize: 32,
                 fontWeight: FontWeight.bold,
-                color: Color(0xFF007A39),
+                color: Theme.of(context).primaryColor,
               ),
             ),
             const SizedBox(height: 16),
@@ -149,7 +151,7 @@ class _SpendingOverviewScreenState extends State<SpendingOverviewScreen> {
               'During $_timeRange',
               style: TextStyle(
                 fontSize: 14,
-                color: Colors.grey.shade600,
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
               ),
             ),
           ],
@@ -174,13 +176,15 @@ class _SpendingOverviewScreenState extends State<SpendingOverviewScreen> {
         Container(
           height: 200,
           decoration: BoxDecoration(
-            color: Colors.grey.shade100,
+            color: Theme.of(context).brightness == Brightness.light 
+                ? Colors.grey.shade100 
+                : Theme.of(context).colorScheme.surface,
             borderRadius: BorderRadius.circular(16),
           ),
           alignment: Alignment.center,
           child: Text(
             'Category breakdown chart coming soon',
-            style: TextStyle(color: Colors.grey.shade600),
+            style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7)),
           ),
         ),
       ],
