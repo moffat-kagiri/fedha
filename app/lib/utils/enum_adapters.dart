@@ -99,3 +99,51 @@ class BudgetStatusAdapter extends TypeAdapter<BudgetStatus> {
           runtimeType == other.runtimeType &&
           typeId == other.typeId;
 }
+// Ensure InterestModel enum is available
+import '../models/enums.dart';
+
+// Interest calculation model enum exists in models/enums.dart
+// Adapter for InterestModel
+class InterestModelAdapter extends TypeAdapter<InterestModel> {
+  @override
+  final int typeId = 42;
+
+  @override
+  InterestModel read(BinaryReader reader) {
+    switch (reader.readByte()) {
+      case 0:
+        return InterestModel.simple;
+      case 1:
+        return InterestModel.compound;
+      case 2:
+        return InterestModel.reducingBalance;
+      default:
+        return InterestModel.reducingBalance;
+    }
+  }
+
+  @override
+  void write(BinaryWriter writer, InterestModel obj) {
+    switch (obj) {
+      case InterestModel.simple:
+        writer.writeByte(0);
+        break;
+      case InterestModel.compound:
+        writer.writeByte(1);
+        break;
+      case InterestModel.reducingBalance:
+        writer.writeByte(2);
+        break;
+    }
+  }
+
+  @override
+  int get hashCode => typeId.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is InterestModelAdapter &&
+          runtimeType == other.runtimeType &&
+          typeId == other.typeId;
+}

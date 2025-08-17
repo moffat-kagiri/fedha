@@ -210,6 +210,17 @@ enum AccountType {
   mobile
 }
 
+// Interest calculation models
+@HiveType(typeId: 33)
+enum InterestModel {
+  @HiveField(0)
+  simple,
+  @HiveField(1)
+  compound,
+  @HiveField(2)
+  reducingBalance,
+}
+
 // Invoice Line Item
 class InvoiceLineItem {
   final String description;

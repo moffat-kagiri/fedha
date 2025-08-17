@@ -38,9 +38,23 @@ class AuthService extends ChangeNotifier {
 
   bool isLoggedIn() => _currentProfile != null;
 
+  /// Initialize AuthService by restoring any existing session
   Future<void> initialize() async {
-    // Initialize Hive box or other storages if needed
-    _logger.info('AuthService initialized');
+    // Open Hive box for profiles
+    _profileBox = await Hive.openBox<Profile>('profiles');
+    // Attempt to restore last logged-in profile
+    try {
+      final storedId = await _secureStorage.read(key: 'current_profile_id');
+      if (storedId != null) {
+        final storedProfile = _profileBox?.get(storedId);
+        if (storedProfile != null) {
+          _currentProfile = storedProfile;
+        }
+      }
+    } catch (e) {
+      _logger.warning('Failed to restore session: $e');
+    }
+    _logger.info('AuthService initialized, currentProfile: ${_currentProfile?.id}');
   }
 
   Future<void> _restoreLastProfile() async {
@@ -109,8 +123,11 @@ class AuthService extends ChangeNotifier {
         photoUrl: avatarPath ?? '',
       );
       await _profileBox?.put(userId, updatedProfile);
-      await _secureStorage.write(key: 'current_profile_id', value: userId);
-      await _secureStorage.write(key: 'session_token', value: sessionToken);
+  await _secureStorage.write(key: 'current_profile_id', value: userId);
+  await _secureStorage.write(key: 'session_token', value: sessionToken);
+  // Persist that an account has been created
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setBool('account_creation_attempted', true);
       _currentProfile = updatedProfile;
       try {
         final isConnected = await _apiClient.checkServerHealth();

@@ -1,7 +1,10 @@
 import 'dart:math' as math;
+import '../models/enums.dart';
 
 /// Utility class for loan calculations
 class LoanCalculator {
+  /// Supported interest calculation models
+  static const List<InterestModel> interestModels = InterestModel.values;
   /// Calculate monthly payment for a loan
   static double calculateMonthlyPayment({
     required double principal,
@@ -24,46 +27,56 @@ class LoanCalculator {
   }
   
   /// Calculate APR using Newton-Raphson method
-  /// This works for both compound and reducing-balance loan models
+  /// Calculate APR for specified interest model
+  /// [model] can be simple interest, compound interest, or reducing balance (amortized)
   static double calculateApr({
     required double principal,
     required double payment,
     required int numberOfPayments,
     required int paymentsPerYear,
+    InterestModel model = InterestModel.reducingBalance,
   }) {
-    // If payment * numberOfPayments equals principal, interest rate is 0
-    if ((payment * numberOfPayments - principal).abs() < 0.01) {
-      return 0.0;
+    // Compute years duration
+    final years = numberOfPayments / paymentsPerYear;
+    switch (model) {
+      case InterestModel.simple:
+        // Simple interest APR = (total interest / principal) / years
+        final totalPaid = payment * numberOfPayments;
+        final totalInterest = totalPaid - principal;
+        if (principal <= 0 || years <= 0) return 0.0;
+        return (totalInterest / principal) / years * 100;
+      case InterestModel.compound:
+        // Compound APR: (totalPaid/principal)^(1/years) - 1
+        final totalPaidC = payment * numberOfPayments;
+        if (principal <= 0 || years <= 0) return 0.0;
+        final factor = totalPaidC / principal;
+        final effective = math.pow(factor, 1 / years) - 1;
+        return effective * 100;
+      case InterestModel.reducingBalance:
+      default:
+        // Amortized (reducing balance) via Newton-Raphson
+        if ((payment * numberOfPayments - principal).abs() < 0.01) {
+          return 0.0;
+        }
+        double rate = 0.05 / paymentsPerYear;
+        const double tolerance = 1e-8;
+        const int maxIterations = 100;
+        for (int i = 0; i < maxIterations; i++) {
+          final pv = _calculatePresentValue(payment, rate, numberOfPayments.toDouble());
+          final deriv = _calculateDerivative(payment, rate, numberOfPayments.toDouble());
+          if (deriv.abs() < tolerance) break;
+          final newRate = rate - (pv - principal) / deriv;
+          if ((newRate - rate).abs() < tolerance) {
+            rate = newRate;
+            break;
+          }
+          rate = newRate;
+          if (rate < 0) rate = 0.001 / paymentsPerYear;
+          if (rate > 1) rate = 1.0;
+        }
+        final effectiveAnnual = math.pow(1 + rate, paymentsPerYear) - 1;
+        return effectiveAnnual * 100;
     }
-    
-    // Initial guess: 5% annual rate
-    double rate = 0.05 / paymentsPerYear;
-    double tolerance = 1e-8;
-    int maxIterations = 100;
-    
-    for (int i = 0; i < maxIterations; i++) {
-  double presentValue = _calculatePresentValue(payment, rate, numberOfPayments.toDouble());
-  double derivative = _calculateDerivative(payment, rate, numberOfPayments.toDouble());
-      
-      if (derivative.abs() < tolerance) break;
-      
-      double newRate = rate - (presentValue - principal) / derivative;
-      
-      if ((newRate - rate).abs() < tolerance) {
-        rate = newRate;
-        break;
-      }
-      
-      rate = newRate;
-      
-      // Ensure rate stays positive
-      if (rate < 0) rate = 0.001 / paymentsPerYear;
-      if (rate > 1) rate = 1.0; // Cap at 100% per period
-    }
-    
-    // Convert periodic rate to effective annual percentage rate
-    final effectiveAnnual = math.pow(1 + rate, paymentsPerYear) - 1;
-    return effectiveAnnual * 100;
   }
 
   static double _calculatePresentValue(double payment, double rate, double periods) {

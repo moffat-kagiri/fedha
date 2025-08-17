@@ -22,7 +22,7 @@ import 'models/enums.dart';
 import 'services/offline_data_service.dart';
 import 'services/auth_service.dart';
 import 'services/api_client.dart';
-import 'services/theme_service.dart' as theme_svc;
+import 'services/theme_service.dart';
 import 'config/api_config.dart';
 import 'config/environment_config.dart';
 import 'config/local_server_config.dart';
@@ -90,6 +90,8 @@ void main() async {
   Hive.registerAdapter(InvoiceStatusAdapter());
   Hive.registerAdapter(enum_adapters.BudgetPeriodAdapter());
   Hive.registerAdapter(enum_adapters.BudgetStatusAdapter());
+  // Register adapter for the custom InterestModel enum
+  Hive.registerAdapter(enum_adapters.InterestModelAdapter());
 
   // Open boxes
   await Hive.openBox<Profile>('profiles');
@@ -220,7 +222,7 @@ void main() async {
       apiClient,
     );
     // Services already initialized above
-    final themeService = theme_svc.ThemeService.instance;
+  final themeService = ThemeService.instance;
     final currencyService = CurrencyService();
     await currencyService.loadCurrency(); // Initialize currency service
     final navigationService = stubs.NavigationService.instance;
@@ -303,26 +305,26 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     super.dispose();
   }
 
+  // New method to check onboarding status
+  Future<bool> _isOnboardingCompleted() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('onboarding_completed') ?? false;
+  }
+
+  // Service initialization for dependencies after widgets binding
   Future<void> _initializeServices() async {
     try {
-      // Store references to providers before any awaits to avoid context usage across async gaps
       final offlineService = Provider.of<OfflineDataService>(context, listen: false);
       final authService = Provider.of<AuthService>(context, listen: false);
       final smsListenerService = Provider.of<stubs.SmsListenerService>(context, listen: false);
       final backgroundMonitor = Provider.of<stubs.BackgroundTransactionMonitor>(context, listen: false);
-      
-      // Now we can use awaits safely
+
       await offlineService.initialize();
       await authService.initialize();
 
-      // Check if user is logged in and set current profile
       if (authService.isLoggedIn() && authService.currentProfile != null) {
         final currentProfile = authService.currentProfile!;
-        
-        // Set current profile for SMS listener
         smsListenerService.setCurrentProfile(currentProfile.id);
-
-        // Initialize background monitor if needed
         try {
           await backgroundMonitor.initialize();
         } catch (e) {
@@ -331,8 +333,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           }
         }
       }
-      
-      // Services initialized successfully
     } catch (e) {
       if (kDebugMode) {
         print('Service initialization error: $e');
@@ -341,26 +341,24 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     }
   }
 
-  // New method to check onboarding status
-  Future<bool> _isOnboardingCompleted() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool('onboarding_completed') ?? false;
-  }
-
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<bool>(
       future: _isOnboardingCompleted(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
-          // While waiting, show splash screen or loader
-          return MaterialApp(
-            theme: AppTheme.lightTheme,
-            darkTheme: AppTheme.darkTheme,
-            themeMode: ThemeMode.system,
-            home: const Scaffold(
-              body: Center(child: CircularProgressIndicator()),
-            ),
+          // While waiting, show splash screen or loader, respect user's theme choice
+          return Consumer<ThemeService>(
+            builder: (context, themeService, child) {
+              return MaterialApp(
+                theme: AppTheme.lightTheme,
+                darkTheme: AppTheme.darkTheme,
+                themeMode: themeService.themeMode,
+                home: const Scaffold(
+                  body: Center(child: CircularProgressIndicator()),
+                ),
+              );
+            },
           );
         }
         // If onboarding is completed, show SignupScreen (for users returning after a failed account creation),
@@ -370,10 +368,12 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             ? const SignupScreen()
             : const WelcomeOnboardingScreen();
 
-        return MaterialApp(
-          theme: AppTheme.lightTheme,
-          darkTheme: AppTheme.darkTheme,
-          themeMode: ThemeMode.system,
+        return Consumer<ThemeService>(
+          builder: (context, themeService, child) {
+            return MaterialApp(
+              theme: AppTheme.lightTheme,
+              darkTheme: AppTheme.darkTheme,
+              themeMode: themeService.themeMode,
           home: homeScreen,
           routes: {
             '/loan_calculator': (context) => const LoanCalculatorScreen(),
@@ -399,5 +399,5 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         );
       },
     );
-  }
-}
+  }}
+
