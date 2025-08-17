@@ -42,9 +42,10 @@ class DashboardContent extends StatelessWidget {
                   future: _loadDashboardData(dataService, profile.id),
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Scaffold(
-                        body: Center(child: CircularProgressIndicator()),
-                      );
+                        return Scaffold(
+                          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+                          body: const Center(child: CircularProgressIndicator()),
+                        );
                     }
 
                     final data = snapshot.data ?? DashboardData.empty();

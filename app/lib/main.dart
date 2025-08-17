@@ -101,6 +101,10 @@ void main() async {
   await Hive.openBox<Invoice>('invoices');
   await Hive.openBox<SyncQueueItem>('sync_queue');
 
+  // Initialize OfflineDataService so its box references are ready
+  final offlineDataService = OfflineDataService();
+  await offlineDataService.initialize();
+
   try {
     // Initialize environment configuration
     final envConfig = EnvironmentConfig.current();
@@ -196,7 +200,6 @@ void main() async {
     
     // Create API client with config
     final apiClient = ApiClient(config: apiConfig);
-    final offlineDataService = OfflineDataService();
     final goalTransactionService = stubs.GoalTransactionService(offlineDataService);
     final textRecognitionService = stubs.TextRecognitionService(offlineDataService);
     final csvUploadService = stubs.CSVUploadService(offlineDataService);
