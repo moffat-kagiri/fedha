@@ -395,9 +395,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             ),
             '/device_network_info': (context) => const DeviceInfoScreen(),
             '/ip_settings': (context) => const IpSettingsScreen(),
+            },
+            );
           },
         );
-      },
+      }
     );
-  }}
-
+  }
+}
