@@ -85,10 +85,15 @@ class LoanCalculator {
   }
 
   static double _calculateDerivative(double payment, double rate, double periods) {
-    if (rate.abs() < 1e-10) return -payment * periods * (periods + 1) / 2;
-    double factor1 = (1 - math.pow(1 + rate, -periods)) / (rate * rate);
-    double factor2 = periods * math.pow(1 + rate, -periods - 1) / rate;
-    return payment * (factor1 - factor2);
+    // Derivative of present value w.r.t rate for annuity PV = payment * (1 - (1+r)^-periods) / rate
+    if (rate.abs() < 1e-10) {
+      // When rate ~ 0, use Taylor-series approximation
+      return -payment * periods * (periods + 1) / 2;
+    }
+    final q = math.pow(1 + rate, -periods);
+    // numerator: d/dr [ (1 - q)/rate ] = (periods*rate*q/(1+rate) - (1 - q))
+    final numerator = periods * rate * q / (1 + rate) - (1 - q);
+    return payment * numerator / (rate * rate);
   }
   
   /// Calculate total interest paid over the life of a loan
