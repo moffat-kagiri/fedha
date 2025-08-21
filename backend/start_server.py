@@ -42,10 +42,11 @@ def get_local_ips():
 def main():
     parser = argparse.ArgumentParser(description="Start Django server with enhanced options.")
     parser.add_argument('--usb-debug', action='store_true', help='Show USB debug network IPs before starting server')
-    parser.add_argument('--host', default='127.0.0.1', help='Host address to bind (default: 127.0.0.1)')
+    parser.add_argument('--host', default='0.0.0.0', help='Host address to bind (default: 0.0.0.0 to allow LAN access)')
     parser.add_argument('--port', type=int, default=8000, help='Port number to bind (default: 8000)')
     parser.add_argument('--skip-migrate', action='store_true', help='Skip database migrations')
     parser.add_argument('--skip-checks', action='store_true', help='Skip Django system checks')
+    parser.add_argument('--cf-tunnel', action='store_true', help='Start a Cloudflare Tunnel after launching the server')
     args = parser.parse_args()
 
     python_exec = find_python()
@@ -70,7 +71,12 @@ def main():
     # Start the development server
     address = f"{args.host}:{args.port}"
     print(f"\nStarting Django development server at http://{address}/\n")
+    # Launch server
     run_command([python_exec, 'manage.py', 'runserver', address], description='Launching Django server')
+    # Optionally start Cloudflare Tunnel
+    if args.cf_tunnel:
+        print("\nStarting Cloudflare Tunnel for http://{address}...")
+        run_command(['cloudflared', 'tunnel', 'run', '--url', f'http://{address}'], description='Starting Cloudflare Tunnel')
 
 if __name__ == '__main__':
     main()

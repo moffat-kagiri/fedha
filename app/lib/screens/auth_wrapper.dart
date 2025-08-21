@@ -4,7 +4,9 @@ import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 import '../services/biometric_auth_service.dart';
 import '../services/permissions_service.dart';
+import 'package:fedha/services/api_client.dart';
 import '../theme/app_theme.dart';
+import '../utils/first_login_handler.dart';
 import 'welcome_onboarding_screen.dart';
 // Removed deprecated login_welcome_screen import
 import 'main_navigation.dart';
@@ -42,6 +44,21 @@ class _AuthWrapperState extends State<AuthWrapper> {
       if (mounted) {
         final authService = Provider.of<AuthService>(context, listen: false);
         await authService.initialize();
+        // Prompt first‐login actions (biometric setup, permissions)
+        if (authService.isLoggedIn() && await authService.isFirstLogin()) {
+          await FirstLoginHandler(context, authService).handleFirstLogin();
+        }
+        // Force manual login if backend is unreachable
+        final apiClient = Provider.of<ApiClient>(context, listen: false);
+        bool serverHealthy = false;
+        try {
+          serverHealthy = await apiClient.checkServerHealth();
+        } catch (_) {}
+        if (!serverHealthy) {
+          // Clear any restored session
+          await authService.logout();
+          await prefs.setBool('account_creation_attempted', false);
+        }
         
         // Initialize permissions service and check if we need to show permissions prompt
         final permissionsService = PermissionsService.instance;

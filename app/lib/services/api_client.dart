@@ -5,6 +5,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'package:flutter/foundation.dart'; // for kDebugMode
 import '../utils/logger.dart';
 import '../config/api_config.dart';
 
@@ -20,7 +21,11 @@ class ApiClient {
 	String? _overrideBase;
 	bool _usingFallback = false;
 
-	ApiClient({ApiConfig? config}) : _config = config ?? ApiConfig.production();
+ 	/// Use local or development config in debug mode to point at local server
+	ApiClient({ApiConfig? config}) : _config = config
+			  ?? (kDebugMode
+				  ? ApiConfig.development()
+				  : ApiConfig.production());
 
 	// Expose current config (read-only outside)
 	ApiConfig get config => _config;
@@ -38,7 +43,7 @@ class ApiClient {
 	Future<bool> checkServerHealth() async {
 		try {
 			final resp = await _http
-					.get(Uri.parse('$baseUrl/api/health/'), headers: _headers)
+					.get(Uri.parse(_config.healthCheckUrl), headers: _headers)
 					.timeout(const Duration(seconds: 5));
 			return resp.statusCode == 200;
 		} catch (e) {
@@ -51,7 +56,7 @@ class ApiClient {
 	Future<bool> healthCheck() => checkServerHealth();
 
 	Future<Map<String, dynamic>> login({required String email, required String password}) async {
-		final url = Uri.parse('$baseUrl/api/auth/login/');
+		final url = Uri.parse(_config.getEndpoint('api/auth/login/'));
 		try {
 			final resp = await _http
 					.post(url, headers: _headers, body: jsonEncode({'email': email, 'password': password}))
@@ -76,7 +81,7 @@ class ApiClient {
 		String? avatarPath,
 		String? deviceId, // accepted for compatibility, not sent currently
 	}) async {
-		final url = Uri.parse('$baseUrl/api/auth/register/');
+		final url = Uri.parse(_config.getEndpoint('api/auth/register/'));
 		final body = <String, dynamic>{
 			'first_name': firstName,
 			'last_name': lastName,
@@ -99,7 +104,7 @@ class ApiClient {
 	}
 
 	Future<bool> invalidateSession({bool clearLocalToken = true, String? userId, String? sessionToken}) async {
-		final url = Uri.parse('$baseUrl/api/auth/logout/');
+		final url = Uri.parse(_config.getEndpoint('api/auth/logout/'));
 		try {
 			final resp = await _http
 					.post(url, headers: _headers)
