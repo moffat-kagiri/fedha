@@ -5,7 +5,6 @@ import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:hive/hive.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
@@ -41,7 +40,6 @@ class AuthService extends ChangeNotifier {
   /// Initialize AuthService by restoring any existing session
   Future<void> initialize() async {
     // Open Hive box for profiles
-    _profileBox = await Hive.openBox<Profile>('profiles');
     // Attempt to restore last logged-in profile
     try {
       final storedId = await _secureStorage.read(key: 'current_profile_id');

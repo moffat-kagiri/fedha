@@ -4,6 +4,11 @@ import '../services/auth_service.dart';
 import '../services/api_client.dart';
 import '../utils/password_validator.dart';
 import '../widgets/profile_avatar_picker.dart';
+import 'permissions_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:fedha/screens/login_screen.dart';
+import 'biometric_lock_screen.dart';
+import 'main_navigation.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({Key? key}) : super(key: key);
@@ -91,12 +96,42 @@ class _SignupScreenState extends State<SignupScreen> {
       );
 
       if (success) {
-        // Signup successful, navigation will be handled by Consumer in AuthWrapper
+        // Signup successful: mark flag and move to permissions step
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('account_creation_attempted', true);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Account created successfully! Welcome to Fedha!'),
+              content: Text('Account created successfully! Please grant app permissions.'),
               backgroundColor: Theme.of(context).primaryColor,
+            ),
+          );
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => PermissionsScreen(
+                onPermissionsSet: () {
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => BiometricLockScreen(
+                        onAuthSuccess: () {
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(builder: (_) => const MainNavigation()),
+                          );
+                        },
+                        onSkip: () {
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(builder: (_) => const MainNavigation()),
+                          );
+                        },
+                      ),
+                    ),
+                  );
+                },
+              ),
             ),
           );
         }

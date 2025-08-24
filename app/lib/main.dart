@@ -1,7 +1,6 @@
 // lib/main.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
-import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'utils/logger.dart';
@@ -34,7 +33,6 @@ import 'services/enhanced_sync_service.dart';
 import 'services/connectivity_service_new.dart' as conn_svc;
 import 'services/sms_listener_service.dart';
 import 'services/permissions_service.dart';
-import 'utils/enum_adapters.dart' as enum_adapters;
 import 'theme/app_theme.dart';
 
 // Screens
@@ -50,6 +48,8 @@ import 'screens/loans_tracker_screen.dart';
 import 'screens/transaction_entry_unified_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/signup_screen.dart';
+import 'screens/biometric_lock_screen.dart';
+import 'screens/biometric_lock_screen.dart';
 import 'screens/test_profiles_screen.dart';
 import 'screens/connection_diagnostics_screen.dart';
 import 'screens/welcome_onboarding_screen.dart';
@@ -63,45 +63,13 @@ void main() async {
   AppLogger.init();
 
   // Initialize Hive
-  await Hive.initFlutter();
 
   // Register adapters
-  Hive.registerAdapter(TransactionAdapter());
   // Use custom adapter instead of generated one to ensure enum compatibility
-  Hive.registerAdapter(CustomTransactionCandidateAdapter());
-  Hive.registerAdapter(CategoryAdapter());
-  Hive.registerAdapter(ProfileAdapter());
-  Hive.registerAdapter(GoalAdapter());
-  Hive.registerAdapter(BudgetAdapter());
-  Hive.registerAdapter(ClientAdapter());
-  Hive.registerAdapter(InvoiceAdapter());
-  Hive.registerAdapter(SyncQueueItemAdapter());
   // Generated enum adapters
-  Hive.registerAdapter(ProfileTypeAdapter());
-  Hive.registerAdapter(GoalTypeAdapter());
-  Hive.registerAdapter(GoalStatusAdapter());
-  Hive.registerAdapter(TransactionTypeAdapter());
-  Hive.registerAdapter(PaymentMethodAdapter());
-  Hive.registerAdapter(TransactionCategoryAdapter());
-  Hive.registerAdapter(TransactionStatusAdapter());
-  Hive.registerAdapter(RecurringTypeAdapter());
-  Hive.registerAdapter(NotificationTypeAdapter());
-  Hive.registerAdapter(AccountTypeAdapter());
-  Hive.registerAdapter(InvoiceStatusAdapter());
-  Hive.registerAdapter(enum_adapters.BudgetPeriodAdapter());
-  Hive.registerAdapter(enum_adapters.BudgetStatusAdapter());
   // Register adapter for the custom InterestModel enum
-  Hive.registerAdapter(enum_adapters.InterestModelAdapter());
 
   // Open boxes
-  await Hive.openBox<Profile>('profiles');
-  await Hive.openBox<Transaction>('transactions');
-  await Hive.openBox<Goal>('goals');
-  await Hive.openBox<Budget>('budgets');
-  await Hive.openBox<Category>('categories');
-  await Hive.openBox<Client>('clients');
-  await Hive.openBox<Invoice>('invoices');
-  await Hive.openBox<SyncQueueItem>('sync_queue');
 
   // Initialize OfflineDataService so its box references are ready
   final offlineDataService = OfflineDataService();
@@ -115,26 +83,6 @@ void main() async {
     final authService = AuthService();
     await authService.initialize();
     
-    // Create test account for debugging in debug mode
-    if (kDebugMode) {
-      // Check if test account already exists to avoid duplicates
-      final testEmail = 'personal@test.com';
-      final testPassword = 'Password456';
-      
-      try {
-        AppLogger.getLogger('Main').info('Creating test account for debugging...');
-        await authService.signup(
-          firstName: 'Test',
-          lastName: 'User',
-          email: testEmail,
-          password: testPassword,
-        );
-        AppLogger.getLogger('Main').info('Test account created or already exists');
-      } catch (e) {
-        AppLogger.getLogger('Main').warning('Error creating test account: $e');
-        // Continue with app startup even if test account creation fails
-      }
-    }
     
     // Initialize permissions service
     final permissionsService = PermissionsService.instance;
@@ -189,54 +137,7 @@ void main() async {
         apiConfig = ApiConfig.development().copyWith(primaryApiUrl: bestConnectionUrl);
         logger.info('Using custom connection: $bestConnectionUrl');
       }
-    } else if (envConfig.isProduction) {
-      apiConfig = ApiConfig.production();
-      logger.info('Using production connection');
-    } else if (envConfig.type == EnvironmentType.staging) {
-      apiConfig = ApiConfig.production().copyWith(enableDebugLogging: true);
-      logger.info('Using staging connection with debug logging');
-    } else {
-      apiConfig = ApiConfig.development();
-      logger.info('Using default development connection');
-    }
-    
-    // Create API client with config
-    final apiClient = ApiClient(config: apiConfig);
-    final goalTransactionService = stubs.GoalTransactionService(offlineDataService);
-    final textRecognitionService = stubs.TextRecognitionService(offlineDataService);
-    final csvUploadService = stubs.CSVUploadService(offlineDataService);
-    final smsTransactionExtractor = stubs.SmsTransactionExtractor(offlineDataService);
-    final notificationService = stubs.NotificationService.instance;
-    
-    // Make sure we have a non-nullable instance
-    final biometricAuthService = BiometricAuthService.instance!;
-    await biometricAuthService.initialize();
-    
-  // Initialize SMS listener service
-  final smsListenerService = SmsListenerService.instance;
-  // Start SMS listener immediately
-  await smsListenerService.initialize();
-    
-    final syncService = EnhancedSyncService(
-      offlineDataService,
-      apiClient,
-    );
-    // Services already initialized above
-  final themeService = ThemeService.instance;
-    final currencyService = CurrencyService();
-    await currencyService.loadCurrency(); // Initialize currency service
-    final navigationService = stubs.NavigationService.instance;
-    final senderManagementService = stubs.SenderManagementService.instance;
-
-    // Initialize offline manager for local calculations and parsing
-    final offlineManager = stubs.OfflineManager();
-    await offlineManager.initialize();
-
-    // Initialize background transaction monitor (will be started after app loads)
-    final backgroundTransactionMonitor = stubs.BackgroundTransactionMonitor(
-      offlineDataService,
-      smsTransactionExtractor,
-    );
+    } 
 
     // We already have a connectivity service initialized above
     // No need to create it again
@@ -291,12 +192,40 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   Future<void>? _initializationFuture;
+  final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _initializationFuture = _initializeServices();
+  }
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.resumed) {
+      _promptBiometricOnResume();
+    }
+  }
+
+  Future<void> _promptBiometricOnResume() async {
+    final ctx = _navigatorKey.currentContext;
+    if (ctx == null) return;
+    final authService = Provider.of<AuthService>(ctx, listen: false);
+    final biometricService = BiometricAuthService.instance;
+    final biometricEnabled = await biometricService?.isBiometricEnabled() ?? false;
+    final hasValidSession = await biometricService?.hasValidBiometricSession() ?? false;
+    if (authService.isLoggedIn() && biometricEnabled && !hasValidSession) {
+      _navigatorKey.currentState?.push(
+        MaterialPageRoute(
+          builder: (_) => BiometricLockScreen(
+            onAuthSuccess: () {
+              _navigatorKey.currentState?.pop();
+            },
+          ),
+        ),
+      );
+    }
   }
 
   @override
@@ -371,11 +300,12 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         return Consumer<ThemeService>(
           builder: (context, themeService, child) {
             return MaterialApp(
+              navigatorKey: _navigatorKey,
               theme: AppTheme.lightTheme,
               darkTheme: AppTheme.darkTheme,
               themeMode: themeService.themeMode,
-          home: homeScreen,
-          routes: {
+              home: homeScreen,
+              routes: {
             '/loan_calculator': (context) => const LoanCalculatorScreen(),
             '/progressive_goal_wizard': (context) => const ProgressiveGoalWizardScreen(),
             '/add_goal': (context) => const AddGoalScreen(),

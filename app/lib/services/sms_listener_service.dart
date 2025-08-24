@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:flutter_sms_inbox/flutter_sms_inbox.dart' as inbox;
 import 'package:flutter/foundation.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:hive/hive.dart';
 import 'package:uuid/uuid.dart';
 import '../models/transaction.dart';
 import '../models/enums.dart';
@@ -175,6 +174,16 @@ class SmsListenerService extends ChangeNotifier {
     }
   }
   
+  /// Process a manually entered SMS string (iOS fallback)
+  Future<void> processManualSms(String rawMessage) async {
+    final msg = SmsMessage(
+      sender: '',
+      body: rawMessage,
+      timestamp: DateTime.now(),
+    );
+    _handleSmsReceived(msg.toMap());
+  }
+  
   /// Save a pending transaction to be reviewed
   Future<void> _savePendingTransaction(TransactionData transactionData) async {
     try {
@@ -202,7 +211,6 @@ class SmsListenerService extends ChangeNotifier {
       );
       
       // Save to pending transactions box
-      final pendingBox = await Hive.openBox<Transaction>('pending_transactions');
       await pendingBox.add(transaction);
       
       if (kDebugMode) {
@@ -223,7 +231,6 @@ class SmsListenerService extends ChangeNotifier {
     
     try {
       // Load categories
-      final categoriesBox = await Hive.openBox('categories');
       
       // Keywords for common categories
       final Map<String, List<String>> categoryKeywords = {

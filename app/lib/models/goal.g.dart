@@ -3,81 +3,69 @@
 part of 'goal.dart';
 
 // **************************************************************************
-// TypeAdapterGenerator
+// JsonSerializableGenerator
 // **************************************************************************
 
-class GoalAdapter extends TypeAdapter<Goal> {
-  @override
-  final int typeId = 5;
+Goal _$GoalFromJson(Map<String, dynamic> json) => Goal(
+  id: json['id'] as String,
+  name: json['name'] as String,
+  description: json['description'] as String?,
+  targetAmount: (json['targetAmount'] as num).toDouble(),
+  currentAmount: (json['currentAmount'] as num?)?.toDouble() ?? 0.0,
+  targetDate: DateTime.parse(json['targetDate'] as String),
+  priority: json['priority'] as String? ?? 'medium',
+  status: json['status'] as String? ?? 'active',
+  isActive: json['isActive'] as bool? ?? true,
+  createdAt: json['createdAt'] == null
+      ? null
+      : DateTime.parse(json['createdAt'] as String),
+  updatedAt: json['updatedAt'] == null
+      ? null
+      : DateTime.parse(json['updatedAt'] as String),
+  goalType:
+      $enumDecodeNullable(_$GoalTypeEnumMap, json['goalType']) ??
+      GoalType.savings,
+  currency: json['currency'] as String? ?? 'KES',
+  profileId: json['profileId'] as String?,
+  isSynced: json['isSynced'] as bool? ?? false,
+);
 
-  @override
-  Goal read(BinaryReader reader) {
-    final numOfFields = reader.readByte();
-    final fields = <int, dynamic>{
-      for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
-    };
-    return Goal(
-      id: fields[0] as String,
-      name: fields[1] as String,
-      description: fields[2] as String?,
-      targetAmount: fields[3] as double,
-      currentAmount: fields[4] as double,
-      targetDate: fields[5] as DateTime,
-      priority: fields[6] as String,
-      status: fields[7] as String,
-      isActive: fields[8] as bool,
-      createdAt: fields[9] as DateTime?,
-      updatedAt: fields[10] as DateTime?,
-      goalType: fields[11] as GoalType,
-      currency: fields[12] as String,
-      profileId: fields[13] as String?,
-      isSynced: fields[14] as bool,
-    );
-  }
+Map<String, dynamic> _$GoalToJson(Goal instance) => <String, dynamic>{
+  'id': instance.id,
+  'name': instance.name,
+  'description': instance.description,
+  'targetAmount': instance.targetAmount,
+  'currentAmount': instance.currentAmount,
+  'targetDate': instance.targetDate.toIso8601String(),
+  'priority': instance.priority,
+  'status': instance.status,
+  'isActive': instance.isActive,
+  'createdAt': instance.createdAt.toIso8601String(),
+  'updatedAt': instance.updatedAt.toIso8601String(),
+  'goalType': _$GoalTypeEnumMap[instance.goalType]!,
+  'currency': instance.currency,
+  'profileId': instance.profileId,
+  'isSynced': instance.isSynced,
+};
 
-  @override
-  void write(BinaryWriter writer, Goal obj) {
-    writer
-      ..writeByte(15)
-      ..writeByte(0)
-      ..write(obj.id)
-      ..writeByte(1)
-      ..write(obj.name)
-      ..writeByte(2)
-      ..write(obj.description)
-      ..writeByte(3)
-      ..write(obj.targetAmount)
-      ..writeByte(4)
-      ..write(obj.currentAmount)
-      ..writeByte(5)
-      ..write(obj.targetDate)
-      ..writeByte(6)
-      ..write(obj.priority)
-      ..writeByte(7)
-      ..write(obj.status)
-      ..writeByte(8)
-      ..write(obj.isActive)
-      ..writeByte(9)
-      ..write(obj.createdAt)
-      ..writeByte(10)
-      ..write(obj.updatedAt)
-      ..writeByte(11)
-      ..write(obj.goalType)
-      ..writeByte(12)
-      ..write(obj.currency)
-      ..writeByte(13)
-      ..write(obj.profileId)
-      ..writeByte(14)
-      ..write(obj.isSynced);
-  }
+const _$GoalTypeEnumMap = {
+  GoalType.savings: 'savings',
+  GoalType.debtReduction: 'debtReduction',
+  GoalType.insurance: 'insurance',
+  GoalType.emergencyFund: 'emergencyFund',
+  GoalType.investment: 'investment',
+  GoalType.other: 'other',
+};
 
-  @override
-  int get hashCode => typeId.hashCode;
+Budget _$BudgetFromJson(Map<String, dynamic> json) => Budget()
+  ..id = json['id'] as String
+  ..name = json['name'] as String
+  ..description = json['description'] as String?
+  ..budgetAmount = (json['budgetAmount'] as num).toDouble();
 
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is GoalAdapter &&
-          runtimeType == other.runtimeType &&
-          typeId == other.typeId;
-}
+Map<String, dynamic> _$BudgetToJson(Budget instance) => <String, dynamic>{
+  'id': instance.id,
+  'name': instance.name,
+  'description': instance.description,
+  'budgetAmount': instance.budgetAmount,
+};

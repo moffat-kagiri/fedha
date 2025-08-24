@@ -3,7 +3,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 import '../services/biometric_auth_service.dart';
-import '../services/permissions_service.dart';
 import 'package:fedha/services/api_client.dart';
 import '../theme/app_theme.dart';
 import '../utils/first_login_handler.dart';
@@ -11,7 +10,6 @@ import 'welcome_onboarding_screen.dart';
 // Removed deprecated login_welcome_screen import
 import 'main_navigation.dart';
 import 'biometric_lock_screen.dart';
-import 'permissions_screen.dart';
 import 'signup_screen.dart';
 import 'login_screen.dart' hide Theme;
 
@@ -26,7 +24,6 @@ class _AuthWrapperState extends State<AuthWrapper> {
   bool _isLoading = true;
   bool _onboardingCompleted = false;
   bool _needsBiometricAuth = false;
-  bool _needsPermissions = false;
   bool _accountCreationAttempted = false;
 
   @override
@@ -60,10 +57,6 @@ class _AuthWrapperState extends State<AuthWrapper> {
           await prefs.setBool('account_creation_attempted', false);
         }
         
-        // Initialize permissions service and check if we need to show permissions prompt
-        final permissionsService = PermissionsService.instance;
-        final needsPermissions = await permissionsService.shouldShowPermissionsPrompt();
-        
         final biometricService = BiometricAuthService.instance;
         final biometricEnabled = await biometricService?.isBiometricEnabled() ?? false;
         final hasValidSession = await biometricService?.hasValidBiometricSession() ?? false;
@@ -78,7 +71,6 @@ class _AuthWrapperState extends State<AuthWrapper> {
         setState(() {
           _onboardingCompleted = onboardingCompleted;
           _needsBiometricAuth = needsBiometric;
-          _needsPermissions = needsPermissions;
           _accountCreationAttempted = accountCreationAttempted;
           _isLoading = false;
         });
@@ -132,17 +124,6 @@ class _AuthWrapperState extends State<AuthWrapper> {
       return const WelcomeOnboardingScreen();
     }
     
-    // Show permissions screen if needed
-    if (_needsPermissions) {
-      return PermissionsScreen(
-        onPermissionsSet: () {
-          setState(() {
-            _needsPermissions = false;
-          });
-        },
-      );
-    }
-
     // Show biometric lock if needed
     if (_needsBiometricAuth) {
       return BiometricLockScreen(
@@ -164,11 +145,11 @@ class _AuthWrapperState extends State<AuthWrapper> {
       builder: (context, authService, child) {
         if (authService.isLoggedIn()) {
           return const MainNavigation();
-        } else if (_accountCreationAttempted) {
-          // If they've attempted to create an account before but failed, go straight to signup
+        } else if (!_accountCreationAttempted) {
+          // No account attempt yet: prompt signup first
           return const SignupScreen();
         } else {
-          // Directly show login screen (welcome login merged)
+          // After account creation attempt: present login screen
           return const LoginScreen();
         }
       },

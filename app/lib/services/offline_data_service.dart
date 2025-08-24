@@ -1,267 +1,120 @@
 import 'package:flutter/foundation.dart';
-import 'package:hive/hive.dart';
-import '../models/transaction.dart';
-import '../models/category.dart' as models;
-import '../models/goal.dart';
-import '../models/budget.dart';
-import '../models/profile.dart';
-import '../models/enums.dart';
-import '../models/client.dart';
-import '../models/invoice.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:fedha/data/app_database.dart';
+import 'package:fedha/models/transaction.dart' as dom;
+import 'package:fedha/models/goal.dart' as dom;
+import 'package:fedha/models/loan.dart' as dom;
+import 'package:drift/drift.dart' show Value;
 
-class OfflineDataService extends ChangeNotifier {
-  static OfflineDataService? _instance;
-  static OfflineDataService get instance => _instance ??= OfflineDataService._();
-  
-  OfflineDataService._();
-  
-  // Constructor for dependency injection
-  OfflineDataService() : this._();
+class OfflineDataService {
+  // SharedPreferences for simple flags/caches
+  late final SharedPreferences _prefs;
 
-  Box<Transaction>? _transactionBox;
-  Box<models.Category>? _categoryBox;
-  Box<Goal>? _goalBox;
-  Box<Budget>? _budgetBox;
-  Box<Profile>? _profileBox;
-  Box<Client>? _clientBox;
-  Box<Invoice>? _invoiceBox;
-
-  bool _isInitialized = false;
-  bool get isInitialized => _isInitialized;
-
-  Future<void> initialize() async {
-    if (_isInitialized) return;
-
-    try {
-      _transactionBox = await Hive.openBox<Transaction>('transactions');
-      _categoryBox = await Hive.openBox<models.Category>('categories');
-      _goalBox = await Hive.openBox<Goal>('goals');
-      _budgetBox = await Hive.openBox<Budget>('budgets');
-      _profileBox = await Hive.openBox<Profile>('profiles');
-      _clientBox = await Hive.openBox<Client>('clients');
-      _invoiceBox = await Hive.openBox<Invoice>('invoices');
-      
-      _isInitialized = true;
-      notifyListeners();
-    } catch (e) {
-      print('Error initializing OfflineDataService: $e');
-    }
+  OfflineDataService() {
+    SharedPreferences.getInstance().then((prefs) => _prefs = prefs);
   }
 
-  // Transaction methods
-  Future<void> saveTransaction(Transaction transaction) async {
-    await _transactionBox?.put(transaction.id, transaction);
-    notifyListeners();
-  }
-  
-  List<Transaction> getAllTransactions() {
-    return _transactionBox?.values.toList() ?? [];
+  bool get onboardingComplete =>
+    _prefs.getBool('onboarding_complete') ?? false;
+  set onboardingComplete(bool v) =>
+    _prefs.setBool('onboarding_complete', v);
+
+  bool get darkMode =>
+    _prefs.getBool('dark_mode') ?? false;
+  set darkMode(bool v) =>
+    _prefs.setBool('dark_mode', v);
+
+  // Drift DB for relational data
+  final AppDatabase _db = AppDatabase();
+
+  // Transactions
+  Future<void> saveTransaction(dom.Transaction tx) async {
+    final companion = TransactionsCompanion.insert(
+      amountMinor: Value(tx.amountMinor),
+      currency: tx.currency,
+      description: tx.description,
+      date: tx.date,
+      isExpense: Value(tx.isExpense),
+      rawSms: Value(tx.smsSource),
+      profileId: Value(tx.profileId),
+    );
+    await _db.insertTransaction(companion);
   }
 
-  Transaction? getTransaction(String id) {
-    return _transactionBox?.get(id);
-  }
-  
-  Future<List<Transaction>> fetchUnsyncedTransactions(String profileId) async {
-    final allTransactions = getAllTransactions();
-    return allTransactions
-        .where((t) => t.profileId == profileId && !t.isSynced)
-        .toList();
-  }
-  
-  // Alias for fetchUnsyncedTransactions to maintain compatibility with existing code
-  Future<List<Transaction>> getUnsyncedTransactions(String profileId) async {
-    return fetchUnsyncedTransactions(profileId);
-  }
-
-  Future<void> deleteTransaction(String id) async {
-    await _transactionBox?.delete(id);
-    notifyListeners();
+  Future<List<dom.Transaction>> getAllTransactions(int profileId) async {
+    final rows = await _db.getAllTransactions();
+    return rows
+      .where((r) => r.profileId == profileId)
+      .map((r) => dom.Transaction(
+        id: r.id,
+        amountMinor: r.amountMinor,
+        currency: r.currency,
+        description: r.description,
+        date: r.date,
+        isExpense: r.isExpense,
+        smsSource: r.rawSms ?? '',
+        profileId: r.profileId,
+      ))
+      .toList();
   }
 
-  Future<void> updateTransaction(Transaction transaction) async {
-    await _transactionBox?.put(transaction.id, transaction);
-    notifyListeners();
+  // Goals
+  Future<void> saveGoal(dom.Goal goal) async {
+    final companion = GoalsCompanion.insert(
+      title: goal.title,
+      targetMinor: Value(goal.targetMinor),
+      currency: goal.currency,
+      dueDate: goal.dueDate,
+      completed: Value(goal.completed),
+      profileId: Value(goal.profileId),
+    );
+    await _db.into(_db.goals).insert(companion);
   }
 
-  // Category methods
-  Future<void> saveCategory(models.Category category) async {
-    await _categoryBox?.put(category.id, category);
-    notifyListeners();
+  Future<List<dom.Goal>> getAllGoals(int profileId) async {
+    final rows = await _db.select(_db.goals).get();
+    return rows
+      .where((r) => r.profileId == profileId)
+      .map((r) => dom.Goal(
+        id: r.id,
+        title: r.title,
+        targetMinor: r.targetMinor,
+        currency: r.currency,
+        dueDate: r.dueDate,
+        completed: r.completed,
+        profileId: r.profileId,
+      ))
+      .toList();
   }
 
-  List<models.Category> getAllCategories() {
-    return _categoryBox?.values.toList() ?? [];
-  }
-  
-  // Overloaded method with profileId parameter
-  List<models.Category> getCategoriesForProfile(String profileId) {
-    return _categoryBox?.values.where((cat) => true).toList() ?? [];
-  }
-
-  models.Category? getCategory(String id) {
-    return _categoryBox?.get(id);
-  }
-
-  // Goal methods
-  Future<void> saveGoal(Goal goal) async {
-    await _goalBox?.put(goal.id, goal);
-    notifyListeners();
+  // Loans
+  Future<void> saveLoan(dom.Loan loan) async {
+    final companion = LoansCompanion.insert(
+      name: loan.name,
+      principalMinor: Value(loan.principalMinor),
+      currency: loan.currency,
+      interestRate: loan.interestRate,
+      startDate: loan.startDate,
+      endDate: loan.endDate,
+      profileId: loan.profileId,
+    );
+    await _db.into(_db.loans).insert(companion);
   }
 
-  Future<void> addGoal(Goal goal) async {
-    await saveGoal(goal);
-  }
-
-  List<Goal> getAllGoals() {
-    return _goalBox?.values.toList() ?? [];
-  }
-  
-  // Overloaded method with profileId parameter
-  List<Goal> getGoalsForProfile(String profileId) {
-    return _goalBox?.values.where((goal) => goal.profileId == profileId).toList() ?? [];
-  }
-
-  List<Goal> getActiveGoals([String? profileId]) {
-    final goals = getAllGoals().where((goal) => goal.status == 'active');
-    if (profileId != null) {
-      return goals.where((goal) => goal.profileId == profileId).toList();
-    }
-    return goals.toList();
-  }
-
-  Goal? getGoal(String id) {
-    return _goalBox?.get(id);
-  }
-
-  Future<void> deleteGoal(String id) async {
-    await _goalBox?.delete(id);
-    notifyListeners();
-  }
-
-  // Budget methods
-  Future<void> saveBudget(Budget budget) async {
-    await _budgetBox?.put(budget.id, budget);
-    notifyListeners();
-  }
-
-  Future<void> addBudget(Budget budget) async {
-    await saveBudget(budget);
-  }
-
-  List<Budget> getAllBudgets() {
-    return _budgetBox?.values.toList() ?? [];
-  }
-  
-  // Overloaded method with profileId parameter
-  List<Budget> getBudgetsForProfile(String profileId) {
-    return _budgetBox?.values.toList() ?? [];
-  }
-
-  Budget? getBudget(String id) {
-    return _budgetBox?.get(id);
-  }
-
-  Budget? getCurrentBudget() {
-    final budgets = getAllBudgets();
-    if (budgets.isEmpty) return null;
-    
-    final now = DateTime.now();
-    return budgets.where((b) => 
-      b.isActive && 
-      b.startDate.isBefore(now) && 
-      b.endDate.isAfter(now)
-    ).firstOrNull;
-  }
-
-  // Profile methods
-  Future<void> saveProfile(Profile profile) async {
-    await _profileBox?.put(profile.id, profile);
-    notifyListeners();
-  }
-
-  List<Profile> getAllProfiles() {
-    return _profileBox?.values.toList() ?? [];
-  }
-
-  Profile? getProfile(String id) {
-    return _profileBox?.get(id);
-  }
-
-  // Statistics methods
-  double getTotalExpenses() {
-    final transactions = getAllTransactions();
-    return transactions
-        .where((t) => t.type == TransactionType.expense)
-        .fold(0.0, (sum, t) => sum + t.amount);
-  }
-
-  double getTotalIncome() {
-    final transactions = getAllTransactions();
-    return transactions
-        .where((t) => t.type == TransactionType.income)
-        .fold(0.0, (sum, t) => sum + t.amount);
-  }
-
-  Map<String, double> getExpensesByCategory() {
-    final transactions = getAllTransactions();
-    final expenses = transactions.where((t) => t.type == TransactionType.expense);
-    
-    final Map<String, double> categoryTotals = {};
-    for (final transaction in expenses) {
-      categoryTotals[transaction.categoryId] = 
-          (categoryTotals[transaction.categoryId] ?? 0) + transaction.amount;
-    }
-    return categoryTotals;
-  }
-
-  // Client methods
-  Future<void> saveClient(Client client) async {
-    await _clientBox?.put(client.id, client);
-    notifyListeners();
-  }
-
-  List<Client> getAllClients() {
-    return _clientBox?.values.toList() ?? [];
-  }
-  
-  // Overloaded method with profileId parameter
-  List<Client> getClientsForProfile(String profileId) {
-    return _clientBox?.values.toList() ?? [];
-  }
-
-  Client? getClient(String id) {
-    return _clientBox?.get(id);
-  }
-  
-  // Invoice methods
-  Future<void> saveInvoice(Invoice invoice) async {
-    await _invoiceBox?.put(invoice.id, invoice);
-    notifyListeners();
-  }
-
-  List<Invoice> getAllInvoices() {
-    return _invoiceBox?.values.toList() ?? [];
-  }
-  
-  // Overloaded method with profileId parameter
-  List<Invoice> getInvoicesForProfile(String profileId) {
-    return _invoiceBox?.values.toList() ?? [];
-  }
-
-  Invoice? getInvoice(String id) {
-    return _invoiceBox?.get(id);
-  }
-
-  @override
-  void dispose() {
-    _transactionBox?.close();
-    _categoryBox?.close();
-    _goalBox?.close();
-    _budgetBox?.close();
-    _profileBox?.close();
-    _clientBox?.close();
-    _invoiceBox?.close();
-    super.dispose();
+  Future<List<dom.Loan>> getAllLoans(int profileId) async {
+    final rows = await _db.select(_db.loans).get();
+    return rows
+      .where((r) => r.profileId == profileId)
+      .map((r) => dom.Loan(
+        id: r.id,
+        name: r.name,
+        principalMinor: r.principalMinor,
+        currency: r.currency,
+        interestRate: r.interestRate,
+        startDate: r.startDate,
+        endDate: r.endDate,
+        profileId: r.profileId,
+      ))
+      .toList();
   }
 }

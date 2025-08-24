@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:hive/hive.dart';
 import 'package:provider/provider.dart';
 import '../models/transaction.dart';
 import '../services/sms_listener_service.dart';
@@ -44,7 +43,6 @@ class _SmsTransactionReviewScreenState extends State<SmsTransactionReviewScreen>
     });
 
     try {
-      final pendingBox = await Hive.openBox<Transaction>('pending_transactions');
       setState(() {
         _pendingTransactions = pendingBox.values.toList();
         _isLoading = false;
@@ -62,8 +60,6 @@ class _SmsTransactionReviewScreenState extends State<SmsTransactionReviewScreen>
   Future<void> _approveTransaction(Transaction transaction) async {
     try {
       // Get boxes
-      final pendingBox = await Hive.openBox<Transaction>('pending_transactions');
-      final transactionsBox = await Hive.openBox<Transaction>('transactions');
       
       // Approve transaction by moving it to the transactions box
       final approvedTransaction = Transaction(
@@ -104,7 +100,6 @@ class _SmsTransactionReviewScreenState extends State<SmsTransactionReviewScreen>
   
   Future<void> _rejectTransaction(Transaction transaction) async {
     try {
-      final pendingBox = await Hive.openBox<Transaction>('pending_transactions');
       await pendingBox.delete(transaction.key);
       
       // Reload pending transactions

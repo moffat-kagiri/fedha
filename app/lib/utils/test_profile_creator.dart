@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:hive_flutter/hive_flutter.dart';
 import 'package:uuid/uuid.dart';
 import 'package:logging/logging.dart';
 
@@ -16,7 +15,6 @@ class TestProfileCreator {
   /// Create a test personal profile
   static Future<String?> createPersonalProfile() async {
     try {
-      final Box<Profile> profilesBox = Hive.box<Profile>('profiles');
       final userId = uuid.v4();
       final sessionToken = uuid.v4();
       final now = DateTime.now();
@@ -57,7 +55,6 @@ class TestProfileCreator {
   /// Create a test business profile
   static Future<String?> createBusinessProfile() async {
     try {
-      final Box<Profile> profilesBox = Hive.box<Profile>('profiles');
       final userId = uuid.v4();
       final sessionToken = uuid.v4();
       final now = DateTime.now();
@@ -112,7 +109,6 @@ class TestProfileCreator {
   
   /// Show a list of all existing profiles
   static Future<List<Profile>> listAllProfiles() async {
-    final Box<Profile> profilesBox = Hive.box<Profile>('profiles');
     final profiles = <Profile>[];
     
     for (var i = 0; i < profilesBox.length; i++) {

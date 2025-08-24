@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:hive/hive.dart';
-import 'package:hive_flutter/hive_flutter.dart';
 import '../models/transaction_candidate.dart';
 import '../models/transaction.dart';
 import '../models/category.dart' as models;
@@ -47,7 +45,6 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
 
     try {
       // Load pending transactions from Hive
-      final pendingBox = await Hive.openBox<Transaction>('pending_transactions');
       
       // Convert transactions to candidates for review UI
       _pendingCandidates = pendingBox.values.map((transaction) {
@@ -171,7 +168,6 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
       final dataService = Provider.of<OfflineDataService>(context, listen: false);
       
       // Get the pending transaction
-      final pendingBox = await Hive.openBox<Transaction>('pending_transactions');
       final pendingTx = pendingBox.values.firstWhere((tx) => tx.id == candidate.id);
       
       // Move pending transaction to regular transactions box
@@ -216,7 +212,6 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
   Future<void> _rejectCandidate(TransactionCandidate candidate) async {
     try {
       // Remove from pending transactions
-      final pendingBox = await Hive.openBox<Transaction>('pending_transactions');
       final pendingKey = pendingBox.keys.firstWhere(
         (key) => pendingBox.get(key)?.id == candidate.id
       );
@@ -260,7 +255,37 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
+      floatingActionButton: FloatingActionButton(
+        child: const Icon(Icons.message),
+        tooltip: 'Enter SMS manually',
+        onPressed: () async {
+          final raw = await showDialog<String>(
+            context: context,
+            builder: (context) {
+              String input = '';
+              return AlertDialog(
+                title: const Text('Manual SMS Entry'),
+                content: TextField(
+                  autofocus: true,
+                  decoration: const InputDecoration(
+                    hintText: 'Paste SMS content here',
+                  ),
+                  onChanged: (v) => input = v,
+                  maxLines: 5,
+                ),
+                actions: [
+                  TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+                  ElevatedButton(onPressed: () => Navigator.pop(context, input), child: const Text('Submit')),
+                ],
+              );
+            },
+          );
+          if (raw != null && raw.trim().isNotEmpty) {
+            await SmsListenerService.instance.processManualSms(raw.trim());
+            _loadTransactionCandidates();
+          }
+        },
+      ),
       appBar: AppBar(
         title: const Text('SMS Review'),
         backgroundColor: const Color(0xFF007A39),
@@ -647,8 +672,10 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
     if (confidence >= 0.6) return Colors.orange;
     return Colors.red;
   }
+  // End of _SmsReviewScreenState
 }
 
+// Top-level dialog for editing SMS transaction candidates
 class _EditCandidateDialog extends StatefulWidget {
   final TransactionCandidate candidate;
 

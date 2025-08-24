@@ -3,66 +3,48 @@
 part of 'category.dart';
 
 // **************************************************************************
-// TypeAdapterGenerator
+// JsonSerializableGenerator
 // **************************************************************************
 
-class CategoryAdapter extends TypeAdapter<Category> {
-  @override
-  final int typeId = 3;
+Category _$CategoryFromJson(Map<String, dynamic> json) => Category(
+  id: json['id'] as String,
+  name: json['name'] as String,
+  description: json['description'] as String?,
+  color: json['color'] as String? ?? '#2196F3',
+  icon: json['icon'] as String? ?? 'category',
+  type: json['type'] as String? ?? 'expense',
+  isActive: json['isActive'] as bool? ?? true,
+  isSynced: json['isSynced'] as bool? ?? false,
+  createdAt: json['createdAt'] == null
+      ? null
+      : DateTime.parse(json['createdAt'] as String),
+  updatedAt: json['updatedAt'] == null
+      ? null
+      : DateTime.parse(json['updatedAt'] as String),
+);
 
-  @override
-  Category read(BinaryReader reader) {
-    final numOfFields = reader.readByte();
-    final fields = <int, dynamic>{
-      for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
-    };
-    return Category(
-      id: fields[0] as String,
-      name: fields[1] as String,
-      description: fields[2] as String?,
-      color: fields[3] as String,
-      icon: fields[4] as String,
-      type: fields[5] as String,
-      isActive: fields[6] as bool,
-      isSynced: fields[9] as bool,
-      createdAt: fields[7] as DateTime?,
-      updatedAt: fields[8] as DateTime?,
-    );
-  }
+Map<String, dynamic> _$CategoryToJson(Category instance) => <String, dynamic>{
+  'id': instance.id,
+  'name': instance.name,
+  'description': instance.description,
+  'color': instance.color,
+  'icon': instance.icon,
+  'type': instance.type,
+  'isActive': instance.isActive,
+  'createdAt': instance.createdAt.toIso8601String(),
+  'updatedAt': instance.updatedAt.toIso8601String(),
+  'isSynced': instance.isSynced,
+};
 
-  @override
-  void write(BinaryWriter writer, Category obj) {
-    writer
-      ..writeByte(10)
-      ..writeByte(0)
-      ..write(obj.id)
-      ..writeByte(1)
-      ..write(obj.name)
-      ..writeByte(2)
-      ..write(obj.description)
-      ..writeByte(3)
-      ..write(obj.color)
-      ..writeByte(4)
-      ..write(obj.icon)
-      ..writeByte(5)
-      ..write(obj.type)
-      ..writeByte(6)
-      ..write(obj.isActive)
-      ..writeByte(7)
-      ..write(obj.createdAt)
-      ..writeByte(8)
-      ..write(obj.updatedAt)
-      ..writeByte(9)
-      ..write(obj.isSynced);
-  }
+Budget _$BudgetFromJson(Map<String, dynamic> json) => Budget()
+  ..id = json['id'] as String
+  ..name = json['name'] as String
+  ..description = json['description'] as String?
+  ..budgetAmount = (json['budgetAmount'] as num).toDouble();
 
-  @override
-  int get hashCode => typeId.hashCode;
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is CategoryAdapter &&
-          runtimeType == other.runtimeType &&
-          typeId == other.typeId;
-}
+Map<String, dynamic> _$BudgetToJson(Budget instance) => <String, dynamic>{
+  'id': instance.id,
+  'name': instance.name,
+  'description': instance.description,
+  'budgetAmount': instance.budgetAmount,
+};

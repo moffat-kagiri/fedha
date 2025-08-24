@@ -3,66 +3,35 @@
 part of 'client.dart';
 
 // **************************************************************************
-// TypeAdapterGenerator
+// JsonSerializableGenerator
 // **************************************************************************
 
-class ClientAdapter extends TypeAdapter<Client> {
-  @override
-  final int typeId = 4;
+Client _$ClientFromJson(Map<String, dynamic> json) => Client(
+  id: json['id'] as String,
+  name: json['name'] as String,
+  email: json['email'] as String?,
+  phone: json['phone'] as String?,
+  address: json['address'] as String?,
+  notes: json['notes'] as String?,
+  isActive: json['isActive'] as bool? ?? true,
+  isSynced: json['isSynced'] as bool? ?? false,
+  createdAt: json['createdAt'] == null
+      ? null
+      : DateTime.parse(json['createdAt'] as String),
+  updatedAt: json['updatedAt'] == null
+      ? null
+      : DateTime.parse(json['updatedAt'] as String),
+);
 
-  @override
-  Client read(BinaryReader reader) {
-    final numOfFields = reader.readByte();
-    final fields = <int, dynamic>{
-      for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
-    };
-    return Client(
-      id: fields[0] as String,
-      name: fields[1] as String,
-      email: fields[2] as String?,
-      phone: fields[3] as String?,
-      address: fields[4] as String?,
-      notes: fields[5] as String?,
-      isActive: fields[6] as bool,
-      isSynced: fields[9] as bool,
-      createdAt: fields[7] as DateTime?,
-      updatedAt: fields[8] as DateTime?,
-    );
-  }
-
-  @override
-  void write(BinaryWriter writer, Client obj) {
-    writer
-      ..writeByte(10)
-      ..writeByte(0)
-      ..write(obj.id)
-      ..writeByte(1)
-      ..write(obj.name)
-      ..writeByte(2)
-      ..write(obj.email)
-      ..writeByte(3)
-      ..write(obj.phone)
-      ..writeByte(4)
-      ..write(obj.address)
-      ..writeByte(5)
-      ..write(obj.notes)
-      ..writeByte(6)
-      ..write(obj.isActive)
-      ..writeByte(7)
-      ..write(obj.createdAt)
-      ..writeByte(8)
-      ..write(obj.updatedAt)
-      ..writeByte(9)
-      ..write(obj.isSynced);
-  }
-
-  @override
-  int get hashCode => typeId.hashCode;
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is ClientAdapter &&
-          runtimeType == other.runtimeType &&
-          typeId == other.typeId;
-}
+Map<String, dynamic> _$ClientToJson(Client instance) => <String, dynamic>{
+  'id': instance.id,
+  'name': instance.name,
+  'email': instance.email,
+  'phone': instance.phone,
+  'address': instance.address,
+  'notes': instance.notes,
+  'isActive': instance.isActive,
+  'createdAt': instance.createdAt.toIso8601String(),
+  'updatedAt': instance.updatedAt.toIso8601String(),
+  'isSynced': instance.isSynced,
+};

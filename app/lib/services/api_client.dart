@@ -176,44 +176,6 @@ class ApiClient {
 
 	void dispose() => _http.close();
 
-	// ---------------- Compatibility / Legacy Stub Methods ----------------
-	// Older parts of the app still reference these richer features. We provide
-	// minimal no-op or pass-through implementations so compilation succeeds.
-
-	// Legacy name used by some services
-	Future<bool> checkServerConnection() => checkServerHealth();
-
-	// Older connectivity service expects this testConnection method
-	//Future<bool> testConnection() => checkServerHealth();
-
-	// Fallback server tracking (not yet re-implemented)
-	//bool get isUsingFallbackServer => false;
-	//void resetToPrimaryServer() {
-		// No-op: we only have a single configured base at the moment
-	//}
-
-	// Profile update stubs
-	//Future<Map<String, dynamic>> updateProfile({
-		//required String userId,
-		//required String sessionToken,
-		//required Map<String, dynamic> profileData,
-	//}) async {
-		// Would normally perform PATCH/PUT to server; return success optimistic
-		//return {'success': true};
-	///}
-
-	//Future<Map<String, dynamic>> updatePassword({
-		//required String userId,
-		//required String sessionToken,
-		//required String currentPassword,
-		//required String newPassword,
-	//}) async {
-		//return {'success': true};
-	//}
-
-	//Future<Map<String, dynamic>> requestPasswordReset({
-		//required String email,
-	//}) async {
-		//return {'success': true};
-	//}
+	// ...existing code above...
+	// No legacy stub methods remain
 }

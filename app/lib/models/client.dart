@@ -1,37 +1,17 @@
-import 'package:hive/hive.dart';
-
+import 'package:json_annotation/json_annotation.dart';
 part 'client.g.dart';
 
-@HiveType(typeId: 4)
-class Client extends HiveObject {
-  @HiveField(0)
+@JsonSerializable()
+class Client {
   String id;
-
-  @HiveField(1)
   String name;
-
-  @HiveField(2)
   String? email;
-
-  @HiveField(3)
   String? phone;
-
-  @HiveField(4)
   String? address;
-
-  @HiveField(5)
   String? notes;
-
-  @HiveField(6)
   bool isActive;
-
-  @HiveField(7)
   DateTime createdAt;
-
-  @HiveField(8)
   DateTime updatedAt;
-
-  @HiveField(9)
   bool isSynced;
 
   Client({
@@ -45,9 +25,8 @@ class Client extends HiveObject {
     this.isSynced = false,
     DateTime? createdAt,
     DateTime? updatedAt,
-  }) : 
-    createdAt = createdAt ?? DateTime.now(),
-    updatedAt = updatedAt ?? DateTime.now();
+  })  : createdAt = createdAt ?? DateTime.now(),
+        updatedAt = updatedAt ?? DateTime.now();
 
   Map<String, dynamic> toJson() {
     return {
@@ -74,12 +53,12 @@ class Client extends HiveObject {
       notes: json['notes'],
       isActive: json['is_active'] ?? json['isActive'] ?? true,
       isSynced: json['is_synced'] ?? json['isSynced'] ?? true,
-      createdAt: json['created_at'] != null 
-        ? DateTime.parse(json['created_at']) 
-        : DateTime.now(),
-      updatedAt: json['updated_at'] != null 
-        ? DateTime.parse(json['updated_at']) 
-        : DateTime.now(),
+      createdAt: json['created_at'] != null
+          ? DateTime.parse(json['created_at'])
+          : DateTime.now(),
+      updatedAt: json['updated_at'] != null
+          ? DateTime.parse(json['updated_at'])
+          : DateTime.now(),
     );
   }
 

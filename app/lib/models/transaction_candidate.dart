@@ -1,5 +1,5 @@
-import 'package:hive/hive.dart';
 import 'enums.dart';
+import 'package:json_annotation/json_annotation.dart';
 
 part 'transaction_candidate.g.dart';
 
@@ -28,45 +28,20 @@ TransactionStatus parseTransactionStatusString(String? statusStr) {
   }
 }
 
-@HiveType(typeId: 8)
-class TransactionCandidate extends HiveObject {
-  @HiveField(0)
+@JsonSerializable()
+class TransactionCandidate {
   String id;
-
-  @HiveField(1)
   String? rawText;
-
-  @HiveField(2)
   double amount;
-
-  @HiveField(3)
   String? description;
-
-  @HiveField(4)
   String? categoryId;
-
-  @HiveField(5)
   DateTime date;
-
-  @HiveField(6)
   TransactionType type;
-
-  @HiveField(7)
   TransactionStatus status;
-
-  @HiveField(8)
   double confidence; // 0.0 to 1.0
-
-  @HiveField(9)
   String? transactionId; // If approved and converted
-
-  @HiveField(10)
   Map<String, dynamic>? metadata;
-
-  @HiveField(11)
   DateTime createdAt;
-
-  @HiveField(12)
   DateTime updatedAt;
 
   TransactionCandidate({
@@ -192,12 +167,10 @@ class TransactionCandidate extends HiveObject {
 }
 
 // Custom type adapter - will be used if build_runner doesn't generate one
-class CustomTransactionCandidateAdapter extends TypeAdapter<TransactionCandidate> {
   @override
   final int typeId = 8;
 
   @override
-  TransactionCandidate read(BinaryReader reader) {
     final numOfFields = reader.readByte();
     final fields = <int, dynamic>{
       for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
@@ -225,7 +198,6 @@ class CustomTransactionCandidateAdapter extends TypeAdapter<TransactionCandidate
   }
 
   @override
-  void write(BinaryWriter writer, TransactionCandidate obj) {
     writer
       ..writeByte(13)
       ..writeByte(0)

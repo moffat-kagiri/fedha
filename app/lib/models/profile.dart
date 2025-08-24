@@ -1,70 +1,29 @@
-import 'package:hive/hive.dart';
 import 'package:json_annotation/json_annotation.dart';
 import 'enums.dart';
 
 part 'profile.g.dart';
 
 @JsonSerializable()
-@HiveType(typeId: 2)
 class Profile {
-  @HiveField(0)
   final String id;
-
-  @HiveField(1)
   final String name;
-
-  @HiveField(2)
   final String? email;
-
-  @HiveField(3)
   final ProfileType type;
-
-  @HiveField(4)
   final String password;
-  
-  @HiveField(5)
   final String baseCurrency;
-  
-  @HiveField(6)
   final String timezone;
-  
-  @HiveField(7)
   final DateTime createdAt;
-  
-  @HiveField(8)
   final DateTime? updatedAt;
-  
-  @HiveField(9)
   final bool isActive;
-  
-  @HiveField(10)
   final String? passwordHash;
-  
-  @HiveField(11)
   final DateTime lastLogin;
-  
-  @HiveField(12)
   final DateTime? lastSynced;
-  
-  @HiveField(13)
   final DateTime? lastModified;
-  
-  @HiveField(14)
   final String? sessionToken;
-  
-  @HiveField(15)
   final Map<String, dynamic>? preferences;
-  
-  @HiveField(16)
   final String? displayName;
-  
-  @HiveField(17)
   final String? phoneNumber;
-  
-  @HiveField(18)
   final String? photoUrl;
-  
-  @HiveField(19)
   final String? authToken;
 
   Profile({

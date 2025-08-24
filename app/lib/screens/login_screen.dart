@@ -12,6 +12,7 @@ import 'signup_screen.dart';
 import 'biometric_lock_screen.dart';
 import '../utils/first_login_handler.dart';
 import 'permissions_screen.dart';
+import '../services/sms_listener_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -196,6 +197,11 @@ class _LoginScreenState extends State<LoginScreen> {
         if (biometricService != null) {
           await biometricService.setBiometricSession();
         }
+        
+        // Start SMS listener for this profile
+        final smsService = SmsListenerService.instance;
+        smsService.setCurrentProfile(authService.currentProfile!.id);
+        await smsService.startListening();
         
         // Login successful, navigate to main screen
         Navigator.pushReplacement(
