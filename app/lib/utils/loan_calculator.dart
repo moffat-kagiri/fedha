@@ -223,9 +223,8 @@ class LoanCalculator {
       }
     }
     
-    // Convert periodic rate to effective annual percentage rate
-  double effectiveAnnual = (math.pow(1 + rate, paymentsPerYear) as double) - 1;
-    return effectiveAnnual * 100;
+  // Return nominal APR (periodic rate * number of periods per year)
+  return rate * paymentsPerYear * 100;
   }
 
   // Helper function to calculate present value
