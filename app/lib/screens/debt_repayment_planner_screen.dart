@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'loan_tracker_screen.dart';
+import 'loans_tracker_screen.dart';
 import 'loan_calculator_screen.dart';
 
 /// Debt Repayment Planner: combines loan tracker and calculator
@@ -22,7 +22,7 @@ class DebtRepaymentPlannerScreen extends StatelessWidget {
         ),
         body: const TabBarView(
           children: [
-            LoanTrackerScreen(),
+            LoansTrackerScreen(),
             LoanCalculatorScreen(),
           ],
         ),
