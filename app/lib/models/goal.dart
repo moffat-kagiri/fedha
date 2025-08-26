@@ -91,12 +91,3 @@ class Goal {
     return 'Goal(id: $id, name: $name, progress: ${progressPercentage.toStringAsFixed(1)}%)';
   }
 }
-
-@JsonSerializable()
-class Budget {
-   String id;
-   String name;
-   String? description;
-   double budgetAmount;
-   // … other fields, getters, constructors, toJson/fromJson, etc.
-}

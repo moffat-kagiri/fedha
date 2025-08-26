@@ -6,6 +6,7 @@ import 'enums.dart';
 part 'transaction.g.dart';
 
 @JsonSerializable(explicitToJson: true)
+class Transaction {
   String uuid;
   String id;
   double amount;

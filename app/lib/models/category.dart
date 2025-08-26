@@ -65,12 +65,3 @@ class Category {
     return 'Category(id: $id, name: $name, type: $type)';
   }
 }
-
-@JsonSerializable()
-class Budget {
-   String id;
-   String name;
-   String? description;
-   double budgetAmount;
-   // … other fields, getters, constructors, toJson/fromJson, etc.
-}
