@@ -148,21 +148,5 @@ class TransactionCandidate {
     return 'TransactionCandidate(id: $id, amount: $amount, type: $type, status: $status, confidence: $confidence)';
   }
   
-  // Helper methods for Hive type adapter
-  static String transactionTypeToString(TransactionType type) {
-    return type.toString().split('.').last;
-  }
-  
-  static TransactionType stringToTransactionType(String typeStr) {
-    return parseTransactionTypeString(typeStr);
-  }
-  
-  static String transactionStatusToString(TransactionStatus status) {
-    return status.toString().split('.').last;
-  }
-  
-  static TransactionStatus stringToTransactionStatus(String statusStr) {
-    return parseTransactionStatusString(statusStr);
-  }
 }
 

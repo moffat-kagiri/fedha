@@ -317,30 +317,33 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
+      backgroundColor: colorScheme.background,
       appBar: AppBar(
-        title: const Text(
-          'Transactions',
-          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black87),
-        ),
-        backgroundColor: Colors.white,
+        backgroundColor: colorScheme.primary,
         elevation: 0,
+        title: Text(
+          'Transactions',
+          style: textTheme.headline6?.copyWith(
+            color: colorScheme.onPrimary,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),
-          child: Container(height: 1, color: Colors.grey.shade200),
+          child: Container(height: 1, color: colorScheme.onSurface.withOpacity(0.12)),
         ),
         actions: [
           IconButton(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const TransactionEntryUnifiedScreen(),
-                ),
-              );
-            },
-            icon: const Icon(Icons.add, color: Color(0xFF007A39)),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const TransactionEntryUnifiedScreen(),
+              ),
+            ),
+            icon: Icon(Icons.add, color: colorScheme.onPrimary),
           ),
         ],
       ),
@@ -358,8 +361,10 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                   future: _loadTransactions(dataService, profile.id),
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Center(child: CircularProgressIndicator());
-                    }
+                        return Center(
+                          child: CircularProgressIndicator(color: colorScheme.primary),
+                        );
+                      }
 
                     final transactions = snapshot.data ?? [];
                     final filteredTransactions = _filterTransactions(

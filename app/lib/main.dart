@@ -42,7 +42,6 @@ import 'screens/progressive_goal_wizard_screen.dart';
 import 'screens/add_goal_screen.dart';
 import 'screens/create_budget_screen.dart';
 import 'screens/goals_screen.dart';
-import 'screens/sms_review_screen.dart';
 import 'screens/spending_overview_screen.dart';
 import 'screens/loans_tracker_screen.dart';
 import 'screens/transaction_entry_unified_screen.dart';
@@ -55,6 +54,8 @@ import 'screens/connection_diagnostics_screen.dart';
 import 'screens/welcome_onboarding_screen.dart';
 import 'device_network_info.dart';
 import 'ip_settings.dart';
+import 'screens/debt_repayment_planner_screen.dart';
+import 'screens/asset_protection_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -62,14 +63,7 @@ void main() async {
   // Initialize logging
   AppLogger.init();
 
-  // Initialize Hive
-
-  // Register adapters
-  // Use custom adapter instead of generated one to ensure enum compatibility
-  // Generated enum adapters
-  // Register adapter for the custom InterestModel enum
-
-  // Open boxes
+  // (Hive initialization removed in favor of Drift)
 
   // Initialize OfflineDataService so its box references are ready
   final offlineDataService = OfflineDataService();
@@ -115,8 +109,8 @@ void main() async {
       AppLogger.getLogger('Main').info('Best available connection: $bestConnectionUrl');
     }
     
-    // Configure API based on detection results
-    ApiConfig apiConfig;
+  // Configure API based on detection results
+  ApiConfig apiConfig;
     
     // Choose configuration based on the detected connection
     if (bestConnectionUrl != null) {
@@ -139,10 +133,22 @@ void main() async {
       }
     } 
 
-    // We already have a connectivity service initialized above
-    // No need to create it again
-    
-    runApp(
+  // Instantiate core services for DI
+  final apiClient = ApiClient(config: apiConfig);
+  final goalTransactionService = GoalTransactionService(offlineDataService);
+  final textRecognitionService = stubs.TextRecognitionService(offlineDataService);
+  final csvUploadService = stubs.CSVUploadService(offlineDataService);
+  final smsTransactionExtractor = stubs.SmsTransactionExtractor(offlineDataService);
+  final notificationService = stubs.NotificationService.instance;
+  final syncService = EnhancedSyncService(offlineDataService, apiClient);
+  final navigationService = stubs.NavigationService.instance;
+  final senderManagementService = stubs.SenderManagementService.instance;
+  final backgroundTransactionMonitor = stubs.BackgroundTransactionMonitor(offlineDataService, smsTransactionExtractor);
+  final biometricAuthService = BiometricAuthService.instance;
+  final themeService = ThemeService.instance;
+  final currencyService = CurrencyService();
+
+  runApp(
       MultiProvider(
         providers: [
           Provider<ApiClient>.value(value: apiClient),
@@ -311,7 +317,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             '/add_goal': (context) => const AddGoalScreen(),
             '/create_budget': (context) => const CreateBudgetScreen(),
             '/goals': (context) => const GoalsScreen(),
-            '/sms_review': (context) => const SmsReviewScreen(),
             '/add_transaction': (context) => const TransactionEntryUnifiedScreen(),
             '/transaction_entry': (context) => const TransactionEntryUnifiedScreen(),
             '/detailed_transaction_entry': (context) => const TransactionEntryUnifiedScreen(),
@@ -325,6 +330,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             ),
             '/device_network_info': (context) => const DeviceInfoScreen(),
             '/ip_settings': (context) => const IpSettingsScreen(),
+            '/debt_repayment_planner': (context) => const DebtRepaymentPlannerScreen(),
+            '/asset_protection': (context) => const AssetProtectionScreen(),
             },
             );
           },

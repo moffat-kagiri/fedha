@@ -13,7 +13,7 @@ part 'app_database.g.dart';
 class Transactions extends Table {
   IntColumn get id => integer().autoIncrement()();
 
-  RealColumn get amountMinor => real()().map(const _DecimalConverter());
+  RealColumn get amountMinor => real().map(const _DecimalConverter())();
   TextColumn get currency => text().withLength(min: 3, max: 3)();
   TextColumn get description => text()();
   DateTimeColumn get date => dateTime()();
@@ -37,21 +37,21 @@ class Goals extends Table {
 class Loans extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get name => text()();
-  RealColumn get principalMinor => real().map(const _DecimalConverter())();
-  TextColumn get currency => text().withLength(min: 3, max: 3)();
-  RealColumn get interestRate => real()(); // percent
+  IntColumn get principalMinor => integer()();
+  TextColumn get currency => text().withDefault(const Constant('KES'))();
+  RealColumn get interestRate => real().withDefault(const Constant(0.0))();
   DateTimeColumn get startDate => dateTime()();
   DateTimeColumn get endDate => dateTime()();
-  IntColumn get profileId => integer()();
+  IntColumn get profileId => integer().customConstraint('REFERENCES profiles(id)')();
 }
 
 /// Converter for storing Decimal amounts in a real column
 class _DecimalConverter extends TypeConverter<double, double> {
   const _DecimalConverter();
   @override
-  double mapToDart(double fromDb) => fromDb / 100; // e.g. cents→dollars
+  double fromSql(double fromDb) => fromDb / 100;
   @override
-  double mapToSql(double value) => value * 100; // dollars→cents
+  double toSql(double value) => value * 100;
 }
 
 @DriftDatabase(tables: [Transactions, Goals, Loans])
@@ -71,9 +71,17 @@ class AppDatabase extends _$AppDatabase {
   @override
   int get schemaVersion => 1;
 
-  // Add DAOs or helper methods here
+  // CRUD helpers for Transactions
   Future<int> insertTransaction(TransactionsCompanion companion) => into(transactions).insert(companion);
   Future<List<Transaction>> getAllTransactions() => select(transactions).get();
+
+  // CRUD helpers for Goals
+  Future<int> insertGoal(GoalsCompanion companion) => into(goals).insert(companion);
+  Future<List<GoalsData>> getAllGoals() => select(goals).get();
+
+  // CRUD helpers for Loans
+  Future<int> insertLoan(LoansCompanion companion) => into(loans).insert(companion);
+  Future<List<LoansData>> getAllLoans() => select(loans).get();
 }
 
 /// Opens a SQLCipher encrypted database, generating or retrieving a key from secure storage.

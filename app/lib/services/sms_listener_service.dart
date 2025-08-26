@@ -5,6 +5,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:uuid/uuid.dart';
 import '../models/transaction.dart';
 import '../models/enums.dart';
+import 'sms_transaction_extractor.dart';
 /// Internal SMS message model
 class SmsMessage {
   final String sender;
@@ -136,40 +137,37 @@ class SmsListenerService extends ChangeNotifier {
   
   /// Process received SMS message
   void _handleSmsReceived(Map<String, dynamic> data) {
-    try {
-      final message = SmsMessage.fromMap(data);
-      
-      // Check if it's a financial transaction
-      if (_isFinancialTransaction(message)) {
-        _recentMessages.insert(0, message);
-        
-        // Keep only recent messages (last 50)
-        if (_recentMessages.length > 50) {
-          _recentMessages = _recentMessages.take(50).toList();
-        }
-        
-        // Parse transaction
-        final transaction = parseTransaction(message);
-        if (transaction != null) {
-          // Save to pending transactions for review
-          _savePendingTransaction(transaction);
-          
-          // Notify listeners
-          _messageController?.add(message);
-          notifyListeners();
-          
-          if (kDebugMode) {
-            print('Financial transaction parsed: ${transaction.type} - ${transaction.amount} ${transaction.currency}');
-          }
-        }
-        
-        if (kDebugMode) {
-          print('Financial SMS detected: ${message.sender} - ${message.body}');
-        }
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error processing SMS: $e');
+    final message = SmsMessage.fromMap(data);
+
+    if (_isFinancialTransaction(message) && _currentProfileId != null) {
+      // Add to recent queue
+      _recentMessages.insert(0, message);
+
+      // Parse structured transaction data
+      final data = parseTransaction(message);
+      if (data != null) {
+        // Fallback: use extractor to find recipient if parser didn't
+        final extractor = SmsTransactionExtractor();
+        final recipient = data.recipient ?? extractor.extractRecipient(message.body);
+        final tx = Transaction(
+          amount: data.amount,
+          type: data.type.toLowerCase().contains('credit') ||
+                 data.type.toLowerCase().contains('received')
+              ? TransactionType.income
+              : TransactionType.expense,
+          date: data.timestamp,
+          profileId: _currentProfileId!,
+          smsSource: data.rawMessage,
+          reference: data.reference,
+          recipient: recipient,
+        );
+
+        // Persist transaction
+        unawaited(_offlineDataService.saveTransaction(tx));
+
+        // Notify any listeners/UI
+        _messageController?.add(message);
+        notifyListeners();
       }
     }
   }
@@ -488,3 +486,4 @@ class TransactionParser {
     );
   }
 }
+

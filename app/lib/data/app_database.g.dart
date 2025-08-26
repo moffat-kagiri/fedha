@@ -22,6 +22,15 @@ class $TransactionsTable extends Transactions
       'PRIMARY KEY AUTOINCREMENT',
     ),
   );
+  @override
+  late final GeneratedColumnWithTypeConverter<double, double> amountMinor =
+      GeneratedColumn<double>(
+        'amount_minor',
+        aliasedName,
+        false,
+        type: DriftSqlType.double,
+        requiredDuringInsert: true,
+      ).withConverter<double>($TransactionsTable.$converteramountMinor);
   static const VerificationMeta _currencyMeta = const VerificationMeta(
     'currency',
   );
@@ -95,6 +104,7 @@ class $TransactionsTable extends Transactions
   @override
   List<GeneratedColumn> get $columns => [
     id,
+    amountMinor,
     currency,
     description,
     date,
@@ -177,6 +187,12 @@ class $TransactionsTable extends Transactions
         DriftSqlType.int,
         data['${effectivePrefix}id'],
       )!,
+      amountMinor: $TransactionsTable.$converteramountMinor.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.double,
+          data['${effectivePrefix}amount_minor'],
+        )!,
+      ),
       currency: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}currency'],
@@ -208,10 +224,14 @@ class $TransactionsTable extends Transactions
   $TransactionsTable createAlias(String alias) {
     return $TransactionsTable(attachedDatabase, alias);
   }
+
+  static TypeConverter<double, double> $converteramountMinor =
+      const _DecimalConverter();
 }
 
 class Transaction extends DataClass implements Insertable<Transaction> {
   final int id;
+  final double amountMinor;
   final String currency;
   final String description;
   final DateTime date;
@@ -220,6 +240,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
   final int profileId;
   const Transaction({
     required this.id,
+    required this.amountMinor,
     required this.currency,
     required this.description,
     required this.date,
@@ -231,6 +252,11 @@ class Transaction extends DataClass implements Insertable<Transaction> {
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['id'] = Variable<int>(id);
+    {
+      map['amount_minor'] = Variable<double>(
+        $TransactionsTable.$converteramountMinor.toSql(amountMinor),
+      );
+    }
     map['currency'] = Variable<String>(currency);
     map['description'] = Variable<String>(description);
     map['date'] = Variable<DateTime>(date);
@@ -245,6 +271,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
   TransactionsCompanion toCompanion(bool nullToAbsent) {
     return TransactionsCompanion(
       id: Value(id),
+      amountMinor: Value(amountMinor),
       currency: Value(currency),
       description: Value(description),
       date: Value(date),
@@ -263,6 +290,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return Transaction(
       id: serializer.fromJson<int>(json['id']),
+      amountMinor: serializer.fromJson<double>(json['amountMinor']),
       currency: serializer.fromJson<String>(json['currency']),
       description: serializer.fromJson<String>(json['description']),
       date: serializer.fromJson<DateTime>(json['date']),
@@ -276,6 +304,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
       'id': serializer.toJson<int>(id),
+      'amountMinor': serializer.toJson<double>(amountMinor),
       'currency': serializer.toJson<String>(currency),
       'description': serializer.toJson<String>(description),
       'date': serializer.toJson<DateTime>(date),
@@ -287,6 +316,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
 
   Transaction copyWith({
     int? id,
+    double? amountMinor,
     String? currency,
     String? description,
     DateTime? date,
@@ -295,6 +325,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
     int? profileId,
   }) => Transaction(
     id: id ?? this.id,
+    amountMinor: amountMinor ?? this.amountMinor,
     currency: currency ?? this.currency,
     description: description ?? this.description,
     date: date ?? this.date,
@@ -305,6 +336,9 @@ class Transaction extends DataClass implements Insertable<Transaction> {
   Transaction copyWithCompanion(TransactionsCompanion data) {
     return Transaction(
       id: data.id.present ? data.id.value : this.id,
+      amountMinor: data.amountMinor.present
+          ? data.amountMinor.value
+          : this.amountMinor,
       currency: data.currency.present ? data.currency.value : this.currency,
       description: data.description.present
           ? data.description.value
@@ -320,6 +354,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
   String toString() {
     return (StringBuffer('Transaction(')
           ..write('id: $id, ')
+          ..write('amountMinor: $amountMinor, ')
           ..write('currency: $currency, ')
           ..write('description: $description, ')
           ..write('date: $date, ')
@@ -333,6 +368,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
   @override
   int get hashCode => Object.hash(
     id,
+    amountMinor,
     currency,
     description,
     date,
@@ -345,6 +381,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       identical(this, other) ||
       (other is Transaction &&
           other.id == this.id &&
+          other.amountMinor == this.amountMinor &&
           other.currency == this.currency &&
           other.description == this.description &&
           other.date == this.date &&
@@ -355,6 +392,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
 
 class TransactionsCompanion extends UpdateCompanion<Transaction> {
   final Value<int> id;
+  final Value<double> amountMinor;
   final Value<String> currency;
   final Value<String> description;
   final Value<DateTime> date;
@@ -363,6 +401,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
   final Value<int> profileId;
   const TransactionsCompanion({
     this.id = const Value.absent(),
+    this.amountMinor = const Value.absent(),
     this.currency = const Value.absent(),
     this.description = const Value.absent(),
     this.date = const Value.absent(),
@@ -372,18 +411,21 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
   });
   TransactionsCompanion.insert({
     this.id = const Value.absent(),
+    required double amountMinor,
     required String currency,
     required String description,
     required DateTime date,
     this.isExpense = const Value.absent(),
     this.rawSms = const Value.absent(),
     required int profileId,
-  }) : currency = Value(currency),
+  }) : amountMinor = Value(amountMinor),
+       currency = Value(currency),
        description = Value(description),
        date = Value(date),
        profileId = Value(profileId);
   static Insertable<Transaction> custom({
     Expression<int>? id,
+    Expression<double>? amountMinor,
     Expression<String>? currency,
     Expression<String>? description,
     Expression<DateTime>? date,
@@ -393,6 +435,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
+      if (amountMinor != null) 'amount_minor': amountMinor,
       if (currency != null) 'currency': currency,
       if (description != null) 'description': description,
       if (date != null) 'date': date,
@@ -404,6 +447,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
 
   TransactionsCompanion copyWith({
     Value<int>? id,
+    Value<double>? amountMinor,
     Value<String>? currency,
     Value<String>? description,
     Value<DateTime>? date,
@@ -413,6 +457,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
   }) {
     return TransactionsCompanion(
       id: id ?? this.id,
+      amountMinor: amountMinor ?? this.amountMinor,
       currency: currency ?? this.currency,
       description: description ?? this.description,
       date: date ?? this.date,
@@ -427,6 +472,11 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     final map = <String, Expression>{};
     if (id.present) {
       map['id'] = Variable<int>(id.value);
+    }
+    if (amountMinor.present) {
+      map['amount_minor'] = Variable<double>(
+        $TransactionsTable.$converteramountMinor.toSql(amountMinor.value),
+      );
     }
     if (currency.present) {
       map['currency'] = Variable<String>(currency.value);
@@ -453,6 +503,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
   String toString() {
     return (StringBuffer('TransactionsCompanion(')
           ..write('id: $id, ')
+          ..write('amountMinor: $amountMinor, ')
           ..write('currency: $currency, ')
           ..write('description: $description, ')
           ..write('date: $date, ')
@@ -950,15 +1001,17 @@ class $LoansTable extends Loans with TableInfo<$LoansTable, Loan> {
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _principalMinorMeta = const VerificationMeta(
+    'principalMinor',
+  );
   @override
-  late final GeneratedColumnWithTypeConverter<double, double> principalMinor =
-      GeneratedColumn<double>(
-        'principal_minor',
-        aliasedName,
-        false,
-        type: DriftSqlType.double,
-        requiredDuringInsert: true,
-      ).withConverter<double>($LoansTable.$converterprincipalMinor);
+  late final GeneratedColumn<int> principalMinor = GeneratedColumn<int>(
+    'principal_minor',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
   static const VerificationMeta _currencyMeta = const VerificationMeta(
     'currency',
   );
@@ -967,12 +1020,9 @@ class $LoansTable extends Loans with TableInfo<$LoansTable, Loan> {
     'currency',
     aliasedName,
     false,
-    additionalChecks: GeneratedColumn.checkTextLength(
-      minTextLength: 3,
-      maxTextLength: 3,
-    ),
     type: DriftSqlType.string,
-    requiredDuringInsert: true,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('KES'),
   );
   static const VerificationMeta _interestRateMeta = const VerificationMeta(
     'interestRate',
@@ -983,7 +1033,8 @@ class $LoansTable extends Loans with TableInfo<$LoansTable, Loan> {
     aliasedName,
     false,
     type: DriftSqlType.double,
-    requiredDuringInsert: true,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0.0),
   );
   static const VerificationMeta _startDateMeta = const VerificationMeta(
     'startDate',
@@ -1017,6 +1068,7 @@ class $LoansTable extends Loans with TableInfo<$LoansTable, Loan> {
     false,
     type: DriftSqlType.int,
     requiredDuringInsert: true,
+    $customConstraints: 'REFERENCES profiles(id)',
   );
   @override
   List<GeneratedColumn> get $columns => [
@@ -1052,13 +1104,22 @@ class $LoansTable extends Loans with TableInfo<$LoansTable, Loan> {
     } else if (isInserting) {
       context.missing(_nameMeta);
     }
+    if (data.containsKey('principal_minor')) {
+      context.handle(
+        _principalMinorMeta,
+        principalMinor.isAcceptableOrUnknown(
+          data['principal_minor']!,
+          _principalMinorMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_principalMinorMeta);
+    }
     if (data.containsKey('currency')) {
       context.handle(
         _currencyMeta,
         currency.isAcceptableOrUnknown(data['currency']!, _currencyMeta),
       );
-    } else if (isInserting) {
-      context.missing(_currencyMeta);
     }
     if (data.containsKey('interest_rate')) {
       context.handle(
@@ -1068,8 +1129,6 @@ class $LoansTable extends Loans with TableInfo<$LoansTable, Loan> {
           _interestRateMeta,
         ),
       );
-    } else if (isInserting) {
-      context.missing(_interestRateMeta);
     }
     if (data.containsKey('start_date')) {
       context.handle(
@@ -1112,12 +1171,10 @@ class $LoansTable extends Loans with TableInfo<$LoansTable, Loan> {
         DriftSqlType.string,
         data['${effectivePrefix}name'],
       )!,
-      principalMinor: $LoansTable.$converterprincipalMinor.fromSql(
-        attachedDatabase.typeMapping.read(
-          DriftSqlType.double,
-          data['${effectivePrefix}principal_minor'],
-        )!,
-      ),
+      principalMinor: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}principal_minor'],
+      )!,
       currency: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}currency'],
@@ -1145,15 +1202,12 @@ class $LoansTable extends Loans with TableInfo<$LoansTable, Loan> {
   $LoansTable createAlias(String alias) {
     return $LoansTable(attachedDatabase, alias);
   }
-
-  static TypeConverter<double, double> $converterprincipalMinor =
-      const _DecimalConverter();
 }
 
 class Loan extends DataClass implements Insertable<Loan> {
   final int id;
   final String name;
-  final double principalMinor;
+  final int principalMinor;
   final String currency;
   final double interestRate;
   final DateTime startDate;
@@ -1174,11 +1228,7 @@ class Loan extends DataClass implements Insertable<Loan> {
     final map = <String, Expression>{};
     map['id'] = Variable<int>(id);
     map['name'] = Variable<String>(name);
-    {
-      map['principal_minor'] = Variable<double>(
-        $LoansTable.$converterprincipalMinor.toSql(principalMinor),
-      );
-    }
+    map['principal_minor'] = Variable<int>(principalMinor);
     map['currency'] = Variable<String>(currency);
     map['interest_rate'] = Variable<double>(interestRate);
     map['start_date'] = Variable<DateTime>(startDate);
@@ -1208,7 +1258,7 @@ class Loan extends DataClass implements Insertable<Loan> {
     return Loan(
       id: serializer.fromJson<int>(json['id']),
       name: serializer.fromJson<String>(json['name']),
-      principalMinor: serializer.fromJson<double>(json['principalMinor']),
+      principalMinor: serializer.fromJson<int>(json['principalMinor']),
       currency: serializer.fromJson<String>(json['currency']),
       interestRate: serializer.fromJson<double>(json['interestRate']),
       startDate: serializer.fromJson<DateTime>(json['startDate']),
@@ -1222,7 +1272,7 @@ class Loan extends DataClass implements Insertable<Loan> {
     return <String, dynamic>{
       'id': serializer.toJson<int>(id),
       'name': serializer.toJson<String>(name),
-      'principalMinor': serializer.toJson<double>(principalMinor),
+      'principalMinor': serializer.toJson<int>(principalMinor),
       'currency': serializer.toJson<String>(currency),
       'interestRate': serializer.toJson<double>(interestRate),
       'startDate': serializer.toJson<DateTime>(startDate),
@@ -1234,7 +1284,7 @@ class Loan extends DataClass implements Insertable<Loan> {
   Loan copyWith({
     int? id,
     String? name,
-    double? principalMinor,
+    int? principalMinor,
     String? currency,
     double? interestRate,
     DateTime? startDate,
@@ -1310,7 +1360,7 @@ class Loan extends DataClass implements Insertable<Loan> {
 class LoansCompanion extends UpdateCompanion<Loan> {
   final Value<int> id;
   final Value<String> name;
-  final Value<double> principalMinor;
+  final Value<int> principalMinor;
   final Value<String> currency;
   final Value<double> interestRate;
   final Value<DateTime> startDate;
@@ -1329,23 +1379,21 @@ class LoansCompanion extends UpdateCompanion<Loan> {
   LoansCompanion.insert({
     this.id = const Value.absent(),
     required String name,
-    required double principalMinor,
-    required String currency,
-    required double interestRate,
+    required int principalMinor,
+    this.currency = const Value.absent(),
+    this.interestRate = const Value.absent(),
     required DateTime startDate,
     required DateTime endDate,
     required int profileId,
   }) : name = Value(name),
        principalMinor = Value(principalMinor),
-       currency = Value(currency),
-       interestRate = Value(interestRate),
        startDate = Value(startDate),
        endDate = Value(endDate),
        profileId = Value(profileId);
   static Insertable<Loan> custom({
     Expression<int>? id,
     Expression<String>? name,
-    Expression<double>? principalMinor,
+    Expression<int>? principalMinor,
     Expression<String>? currency,
     Expression<double>? interestRate,
     Expression<DateTime>? startDate,
@@ -1367,7 +1415,7 @@ class LoansCompanion extends UpdateCompanion<Loan> {
   LoansCompanion copyWith({
     Value<int>? id,
     Value<String>? name,
-    Value<double>? principalMinor,
+    Value<int>? principalMinor,
     Value<String>? currency,
     Value<double>? interestRate,
     Value<DateTime>? startDate,
@@ -1396,9 +1444,7 @@ class LoansCompanion extends UpdateCompanion<Loan> {
       map['name'] = Variable<String>(name.value);
     }
     if (principalMinor.present) {
-      map['principal_minor'] = Variable<double>(
-        $LoansTable.$converterprincipalMinor.toSql(principalMinor.value),
-      );
+      map['principal_minor'] = Variable<int>(principalMinor.value);
     }
     if (currency.present) {
       map['currency'] = Variable<String>(currency.value);
@@ -1454,6 +1500,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
 typedef $$TransactionsTableCreateCompanionBuilder =
     TransactionsCompanion Function({
       Value<int> id,
+      required double amountMinor,
       required String currency,
       required String description,
       required DateTime date,
@@ -1464,6 +1511,7 @@ typedef $$TransactionsTableCreateCompanionBuilder =
 typedef $$TransactionsTableUpdateCompanionBuilder =
     TransactionsCompanion Function({
       Value<int> id,
+      Value<double> amountMinor,
       Value<String> currency,
       Value<String> description,
       Value<DateTime> date,
@@ -1485,6 +1533,12 @@ class $$TransactionsTableFilterComposer
     column: $table.id,
     builder: (column) => ColumnFilters(column),
   );
+
+  ColumnWithTypeConverterFilters<double, double, double> get amountMinor =>
+      $composableBuilder(
+        column: $table.amountMinor,
+        builder: (column) => ColumnWithTypeConverterFilters(column),
+      );
 
   ColumnFilters<String> get currency => $composableBuilder(
     column: $table.currency,
@@ -1531,6 +1585,11 @@ class $$TransactionsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<double> get amountMinor => $composableBuilder(
+    column: $table.amountMinor,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get currency => $composableBuilder(
     column: $table.currency,
     builder: (column) => ColumnOrderings(column),
@@ -1573,6 +1632,12 @@ class $$TransactionsTableAnnotationComposer
   });
   GeneratedColumn<int> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<double, double> get amountMinor =>
+      $composableBuilder(
+        column: $table.amountMinor,
+        builder: (column) => column,
+      );
 
   GeneratedColumn<String> get currency =>
       $composableBuilder(column: $table.currency, builder: (column) => column);
@@ -1627,6 +1692,7 @@ class $$TransactionsTableTableManager
           updateCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
+                Value<double> amountMinor = const Value.absent(),
                 Value<String> currency = const Value.absent(),
                 Value<String> description = const Value.absent(),
                 Value<DateTime> date = const Value.absent(),
@@ -1635,6 +1701,7 @@ class $$TransactionsTableTableManager
                 Value<int> profileId = const Value.absent(),
               }) => TransactionsCompanion(
                 id: id,
+                amountMinor: amountMinor,
                 currency: currency,
                 description: description,
                 date: date,
@@ -1645,6 +1712,7 @@ class $$TransactionsTableTableManager
           createCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
+                required double amountMinor,
                 required String currency,
                 required String description,
                 required DateTime date,
@@ -1653,6 +1721,7 @@ class $$TransactionsTableTableManager
                 required int profileId,
               }) => TransactionsCompanion.insert(
                 id: id,
+                amountMinor: amountMinor,
                 currency: currency,
                 description: description,
                 date: date,
@@ -1918,9 +1987,9 @@ typedef $$LoansTableCreateCompanionBuilder =
     LoansCompanion Function({
       Value<int> id,
       required String name,
-      required double principalMinor,
-      required String currency,
-      required double interestRate,
+      required int principalMinor,
+      Value<String> currency,
+      Value<double> interestRate,
       required DateTime startDate,
       required DateTime endDate,
       required int profileId,
@@ -1929,7 +1998,7 @@ typedef $$LoansTableUpdateCompanionBuilder =
     LoansCompanion Function({
       Value<int> id,
       Value<String> name,
-      Value<double> principalMinor,
+      Value<int> principalMinor,
       Value<String> currency,
       Value<double> interestRate,
       Value<DateTime> startDate,
@@ -1955,11 +2024,10 @@ class $$LoansTableFilterComposer extends Composer<_$AppDatabase, $LoansTable> {
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnWithTypeConverterFilters<double, double, double> get principalMinor =>
-      $composableBuilder(
-        column: $table.principalMinor,
-        builder: (column) => ColumnWithTypeConverterFilters(column),
-      );
+  ColumnFilters<int> get principalMinor => $composableBuilder(
+    column: $table.principalMinor,
+    builder: (column) => ColumnFilters(column),
+  );
 
   ColumnFilters<String> get currency => $composableBuilder(
     column: $table.currency,
@@ -2006,7 +2074,7 @@ class $$LoansTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<double> get principalMinor => $composableBuilder(
+  ColumnOrderings<int> get principalMinor => $composableBuilder(
     column: $table.principalMinor,
     builder: (column) => ColumnOrderings(column),
   );
@@ -2052,11 +2120,10 @@ class $$LoansTableAnnotationComposer
   GeneratedColumn<String> get name =>
       $composableBuilder(column: $table.name, builder: (column) => column);
 
-  GeneratedColumnWithTypeConverter<double, double> get principalMinor =>
-      $composableBuilder(
-        column: $table.principalMinor,
-        builder: (column) => column,
-      );
+  GeneratedColumn<int> get principalMinor => $composableBuilder(
+    column: $table.principalMinor,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<String> get currency =>
       $composableBuilder(column: $table.currency, builder: (column) => column);
@@ -2106,7 +2173,7 @@ class $$LoansTableTableManager
               ({
                 Value<int> id = const Value.absent(),
                 Value<String> name = const Value.absent(),
-                Value<double> principalMinor = const Value.absent(),
+                Value<int> principalMinor = const Value.absent(),
                 Value<String> currency = const Value.absent(),
                 Value<double> interestRate = const Value.absent(),
                 Value<DateTime> startDate = const Value.absent(),
@@ -2126,9 +2193,9 @@ class $$LoansTableTableManager
               ({
                 Value<int> id = const Value.absent(),
                 required String name,
-                required double principalMinor,
-                required String currency,
-                required double interestRate,
+                required int principalMinor,
+                Value<String> currency = const Value.absent(),
+                Value<double> interestRate = const Value.absent(),
                 required DateTime startDate,
                 required DateTime endDate,
                 required int profileId,

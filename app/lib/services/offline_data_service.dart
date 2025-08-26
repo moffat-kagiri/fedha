@@ -118,3 +118,20 @@ class OfflineDataService {
       .toList();
   }
 }
+
+extension EmergencyFundX on OfflineDataService {
+  /// Returns the average monthly expense over the last [months] months,
+  /// or null if there isn’t at least one transaction in that window.
+  Future<double?> getAverageMonthlySpending(int profileId, {int months = 3}) async {
+    final since = DateTime.now().subtract(Duration(days: months * 30));
+    final all = await getAllTransactions(profileId);
+    final recentExpenses = all
+        .where((tx) =>
+            tx.type == TransactionType.expense && tx.date.isAfter(since))
+        .toList();
+    if (recentExpenses.isEmpty) return null;
+    final total = recentExpenses.fold<double>(
+        0, (sum, tx) => sum + tx.amount);
+    return total / months;
+  }
+}

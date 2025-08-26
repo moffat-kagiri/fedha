@@ -19,13 +19,12 @@ class AuthService extends ChangeNotifier {
   final _logger = AppLogger.getLogger('AuthService');
   final _uuid = Uuid();
 
-  Box<Profile>? _profileBox;
+  // Profile persistence moved to secure storage JSON
   Profile? _currentProfile;
   BiometricAuthService? _biometricService;
 
   AuthService([ApiClient? apiClient]) {
     _apiClient = apiClient ?? ApiClient();
-    // Optionally initialize biometric service here
     _biometricService = BiometricAuthService.instance;
     initialize();
   }
@@ -39,15 +38,12 @@ class AuthService extends ChangeNotifier {
 
   /// Initialize AuthService by restoring any existing session
   Future<void> initialize() async {
-    // Open Hive box for profiles
-    // Attempt to restore last logged-in profile
+    // Restore last logged-in profile from secure storage
     try {
-      final storedId = await _secureStorage.read(key: 'current_profile_id');
-      if (storedId != null) {
-        final storedProfile = _profileBox?.get(storedId);
-        if (storedProfile != null) {
-          _currentProfile = storedProfile;
-        }
+      final json = await _secureStorage.read(key: 'current_profile_data');
+      if (json != null) {
+        final data = jsonDecode(json) as Map<String, dynamic>;
+        _currentProfile = Profile.fromJson(data);
       }
     } catch (e) {
       _logger.warning('Failed to restore session: $e');
@@ -77,7 +73,11 @@ class AuthService extends ChangeNotifier {
         authToken: sessionToken,
         sessionToken: sessionToken,
       );
-      await _profileBox?.put(updatedProfile.id, updatedProfile);
+      // Persist updated profile JSON
+      await _secureStorage.write(
+        key: 'current_profile_data',
+        value: jsonEncode(updatedProfile.toJson()),
+      );
       await _secureStorage.write(key: 'session_token', value: sessionToken);
       _currentProfile = updatedProfile;
       notifyListeners();
@@ -97,13 +97,6 @@ class AuthService extends ChangeNotifier {
     String? avatarPath,
   }) async {
     try {
-      if (_profileBox == null) await initialize();
-      final existingProfiles = _profileBox?.values.cast<Profile>().toList() ?? [];
-      final emailExists = existingProfiles.any((profile) => (profile.email ?? '').toLowerCase() == email.toLowerCase());
-      if (emailExists) {
-        _logger.warning('Email already registered: $email');
-        return false;
-      }
       final deviceId = await _getOrCreateDeviceId();
       final sessionToken = _createSessionToken();
       final userId = _uuid.v4();
@@ -120,12 +113,15 @@ class AuthService extends ChangeNotifier {
         phoneNumber: phone ?? '',
         photoUrl: avatarPath ?? '',
       );
-      await _profileBox?.put(userId, updatedProfile);
-  await _secureStorage.write(key: 'current_profile_id', value: userId);
-  await _secureStorage.write(key: 'session_token', value: sessionToken);
-  // Persist that an account has been created
-  final prefs = await SharedPreferences.getInstance();
-  await prefs.setBool('account_creation_attempted', true);
+      // Persist new profile JSON
+      await _secureStorage.write(
+        key: 'current_profile_data',
+        value: jsonEncode(updatedProfile.toJson()),
+      );
+      await _secureStorage.write(key: 'session_token', value: sessionToken);
+      // Persist that an account has been created
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('account_creation_attempted', true);
       _currentProfile = updatedProfile;
       try {
         final isConnected = await _apiClient.checkServerHealth();
@@ -161,9 +157,9 @@ class AuthService extends ChangeNotifier {
           _logger.severe('Failed to invalidate server session: $e');
         }
       }
-      _currentProfile = null;
-      await _secureStorage.delete(key: 'current_profile_id');
-      await _secureStorage.delete(key: 'session_token');
+  _currentProfile = null;
+  await _secureStorage.delete(key: 'current_profile_data');
+  await _secureStorage.delete(key: 'session_token');
       notifyListeners();
       _logger.info('User logged out');
     } catch (e) {
@@ -175,7 +171,11 @@ class AuthService extends ChangeNotifier {
     if (_currentProfile == null) return false;
     try {
       final updatedProfile = _currentProfile!.copyWith(name: newName.trim());
-      await _profileBox?.put(_currentProfile!.id, updatedProfile);
+      // Persist updated profile JSON
+      await _secureStorage.write(
+        key: 'current_profile_data',
+        value: jsonEncode(updatedProfile.toJson()),
+      );
       _currentProfile = updatedProfile;
       notifyListeners();
       return true;
@@ -189,7 +189,11 @@ class AuthService extends ChangeNotifier {
     if (_currentProfile == null || (_currentProfile!.email ?? '').toLowerCase() == newEmail.trim().toLowerCase()) return false;
     try {
       final updatedProfile = _currentProfile!.copyWith(email: newEmail.trim());
-      await _profileBox?.put(_currentProfile!.id, updatedProfile);
+      // Persist updated profile JSON
+      await _secureStorage.write(
+        key: 'current_profile_data',
+        value: jsonEncode(updatedProfile.toJson()),
+      );
       _currentProfile = updatedProfile;
       notifyListeners();
       return true;
@@ -215,15 +219,6 @@ class AuthService extends ChangeNotifier {
     return base64Url.encode(values);
   }
 
-  Future<Box<Profile>> getProfileBox() async {
-    if (_profileBox == null) await initialize();
-    return _profileBox!;
-  }
-
-  void setCurrentProfile(Profile profile) {
-    _currentProfile = profile;
-    notifyListeners();
-  }
 
   Future<bool> changePassword({
     required String currentPassword,
@@ -250,7 +245,6 @@ class AuthService extends ChangeNotifier {
 
   Future<bool> createProfile(Map<String, dynamic> profileData) async {
     try {
-      if (_profileBox == null) await initialize();
       final userId = _uuid.v4();
       final sessionToken = _createSessionToken();
       final name = profileData['name'] as String;
@@ -269,8 +263,11 @@ class AuthService extends ChangeNotifier {
         baseCurrency: profileData['baseCurrency'] as String? ?? 'USD',
         timezone: profileData['timezone'] as String? ?? 'UTC',
       );
-      await _profileBox?.put(userId, updatedProfile);
-      await _secureStorage.write(key: 'current_profile_id', value: userId);
+      // Persist new profile
+      await _secureStorage.write(
+        key: 'current_profile_data',
+        value: jsonEncode(updatedProfile.toJson()),
+      );
       await _secureStorage.write(key: 'session_token', value: sessionToken);
       _currentProfile = updatedProfile;
       notifyListeners();

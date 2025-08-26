@@ -27,7 +27,9 @@ class DashboardContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<AuthService>(
+  final colorScheme = Theme.of(context).colorScheme;
+  final textTheme = Theme.of(context).textTheme;
+  return Consumer<AuthService>(
       builder: (context, authService, child) {
         final profile = authService.currentProfile;
         if (profile == null) {
@@ -43,15 +45,24 @@ class DashboardContent extends StatelessWidget {
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
                         return Scaffold(
-                          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-                          body: const Center(child: CircularProgressIndicator()),
+                          backgroundColor: colorScheme.background,
+                          body: Center(
+                            child: CircularProgressIndicator(
+                              color: colorScheme.primary,
+                            ),
+                          ),
                         );
                     }
 
                     final data = snapshot.data ?? DashboardData.empty();
 
                     return Scaffold(
-                      backgroundColor: Colors.grey.shade50,
+                      backgroundColor: colorScheme.background,
+                      appBar: AppBar(
+                        backgroundColor: colorScheme.primary,
+                        title: Text('Dashboard', style: textTheme.headline6?.copyWith(color: colorScheme.onPrimary)),
+                        elevation: 0,
+                      ),
                       body: SafeArea(
                         child: SingleChildScrollView(
                           padding: const EdgeInsets.all(16),

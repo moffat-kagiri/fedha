@@ -213,20 +213,3 @@ class BudgetLineItem {
   }
 }
 
-@JsonSerializable()
-class Budget {
-  String id;
-  String name;
-  String? description;
-  double budgetAmount;
-
-  Budget({
-    required this.id,
-    required this.name,
-    this.description,
-    required this.budgetAmount,
-  });
-
-  factory Budget.fromJson(Map<String, dynamic> json) => _$BudgetFromJson(json);
-  Map<String, dynamic> toJson() => _$BudgetToJson(this);
-}
