@@ -5,7 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:flutter/services.dart';  // for FilteringTextInputFormatter
 
 import '../models/transaction.dart';
-import '../models/goal.dart';
+import '../models/goal.dart' as dom_goal;
 import '../models/enums.dart';
 import '../services/offline_data_service.dart';
 import '../services/currency_service.dart';
@@ -35,8 +35,8 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
   TransactionType _selectedType = TransactionType.expense;
   String _selectedCategory = '';
   PaymentMethod _selectedPaymentMethod = PaymentMethod.cash;
-  Goal? _selectedGoal;
-  List<Goal> _goals = [];
+  dom_goal.Goal? _selectedGoal;
+  List<dom_goal.Goal> _goals = [];
   bool _isSaving = false;
   
   final Map<TransactionType, List<String>> _categories = {
@@ -645,8 +645,16 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
             // If this is a savings transaction, update the selected goal
             if (_selectedType == TransactionType.savings) {
               final dataService = Provider.of<OfflineDataService>(context, listen: false);
-              _selectedGoal = dataService.getAllGoals()
-                  .firstWhere((g) => g.name == value, orElse: () => null as Goal);
+              dataService.getAllGoals().then((goals) {
+                  for (var goal in goals) {
+                    if (goal.name == value) {
+                      setState(() {
+                        _selectedGoal = goal;
+                      });
+                      break;
+                    }
+                  }
+              });
             }
           });
         }
@@ -680,7 +688,7 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
       );
     }
     
-    return DropdownButtonFormField<Goal>(
+    return DropdownButtonFormField<dom_goal.Goal>(
       value: _selectedGoal ?? (_goals.isNotEmpty ? _goals.first : null),
       decoration: const InputDecoration(
         labelText: 'Select Goal',
@@ -688,12 +696,12 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
         contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       ),
       items: _goals.map((goal) {
-        return DropdownMenuItem<Goal>(
+        return DropdownMenuItem<dom_goal.Goal>(
           value: goal,
           child: Text(goal.name),
         );
       }).toList(),
-      onChanged: (Goal? value) {
+      onChanged: (dom_goal.Goal? value) {
         setState(() {
           _selectedGoal = value;
         });

@@ -37,13 +37,13 @@ class OfflineDataService {
   // Transactions
   Future<void> saveTransaction(dom_tx.Transaction tx) async {
     final companion = TransactionsCompanion.insert(
-  amountMinor: Value(tx.amount),
-      currency: Value(tx.paymentMethod == null ? 'KES' : tx.paymentMethod.toString()),
-      description: Value(tx.description ?? ''),
+      amountMinor: tx.amount,
+      currency: tx.paymentMethod == null ? 'KES' : tx.paymentMethod.toString(),
+      description: tx.description ?? '',
       date: tx.date,
       isExpense: Value(tx.isExpense),
       rawSms: Value(tx.smsSource),
-      profileId: Value(int.tryParse(tx.profileId) ?? 0),
+      profileId: int.tryParse(tx.profileId) ?? 0,
     );
     await _db.insertTransaction(companion);
   }
@@ -67,15 +67,20 @@ class OfflineDataService {
 
   // Goals
   Future<void> saveGoal(dom_goal.Goal goal) async {
-  final companion = GoalsCompanion.insert(
-      title: Value(goal.name),
-      targetMinor: Value(goal.targetAmount),
-      currency: Value(goal.currency),
-      dueDate: Value(goal.targetDate),
+    final companion = GoalsCompanion.insert(
+      title: goal.name,
+      targetMinor: goal.targetAmount,
+      currency: goal.currency,
+      dueDate: goal.targetDate,
       completed: Value(goal.status == 'completed'),
-      profileId: Value(int.tryParse(goal.profileId ?? '') ?? 0),
+      profileId: int.tryParse(goal.profileId ?? '') ?? 0,
     );
     await _db.insertGoal(companion);
+  }
+  
+  // Add missing method
+  Future<void> addGoal(dom_goal.Goal goal) async {
+    await saveGoal(goal);
   }
 
   Future<List<dom_goal.Goal>> getAllGoals([int profileId = 0]) async {
@@ -117,9 +122,9 @@ class OfflineDataService {
   Future<void> saveLoan(dom_loan.Loan loan) async {
     final companion = LoansCompanion.insert(
       name: loan.name,
-      principalMinor: Value(loan.principalMinor.toInt()),
-      currency: loan.currency,
-      interestRate: loan.interestRate,
+      principalMinor: loan.principalMinor.toInt(),
+      currency: Value(loan.currency),
+      interestRate: Value(loan.interestRate),
       startDate: loan.startDate,
       endDate: loan.endDate,
       profileId: loan.profileId,
@@ -142,6 +147,26 @@ class OfflineDataService {
          profileId: r.profileId,
        ))
        .toList();
+  }
+  
+  // Budgets
+  Future<void> saveBudget(dom_budget.Budget budget) async {
+    // TODO: Implement budget saving when Budgets table is added to the database
+    print('Budget saving not implemented yet: ${budget.name}');
+  }
+  
+  Future<void> addBudget(dom_budget.Budget budget) async {
+    await saveBudget(budget);
+  }
+  
+  Future<List<dom_budget.Budget>> getAllBudgets([int? profileId]) async {
+    // TODO: Implement when Budgets table is added
+    return [];
+  }
+  
+  Future<dom_budget.Budget?> getCurrentBudget(int profileId) async {
+    // TODO: Implement when Budgets table is added
+    return null;
   }
 
   // SMS-review helpers (pending transactions)
@@ -196,14 +221,14 @@ class OfflineDataService {
   /// Save a pending transaction to be reviewed
   Future<void> savePendingTransaction(dom_tx.Transaction tx) async {
     final companion = PendingTransactionsCompanion.insert(
-      id: Value(tx.id),
-      amountMinor: Value(tx.amount),
+      id: tx.id,
+      amountMinor: tx.amount,
       currency: Value(tx.paymentMethod?.toString() ?? 'KES'),
       description: Value(tx.description ?? ''),
       date: tx.date,
       isExpense: Value(tx.isExpense),
-      rawSms: Value(tx.smsSource),
-      profileId: Value(int.tryParse(tx.profileId) ?? 0),
+      rawSms: Value(tx.smsSource ?? ''),
+      profileId: int.tryParse(tx.profileId) ?? 0,
     );
     await _db.insertPending(companion);
   }

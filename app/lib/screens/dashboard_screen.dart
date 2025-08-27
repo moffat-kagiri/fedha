@@ -490,9 +490,9 @@ class DashboardContent extends StatelessWidget {
     );
   }
 
-  Widget _buildTransactionItem(Transaction transaction, CurrencyService currencyService, BuildContext context) {
-    IconData icon;
-    Color color;
+  Widget _buildTransactionItem(dom_tx.Transaction transaction, CurrencyService currencyService, BuildContext context) {
+    IconData icon = Icons.remove_circle; // Default
+    Color color = Colors.grey; // Default
     
     switch (transaction.type) {
       case TransactionType.income:
@@ -506,6 +506,9 @@ class DashboardContent extends StatelessWidget {
       case TransactionType.savings:
         icon = Icons.savings;
         color = Colors.blue;
+        break;
+      default:
+        // Keep defaults
         break;
     }
 

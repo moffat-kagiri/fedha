@@ -42,7 +42,7 @@ dependencies:
   # add relational DB
   drift: ^2.28.1
   drift_flutter: ^0.2.5
-  sqlite3_flutter_libs: ^0.5.39
+  # Use only one SQLite provider - sqlcipher_flutter_libs already includes sqlite3
   sqlcipher_flutter_libs: ^0.6.8
 
 dev_dependencies:

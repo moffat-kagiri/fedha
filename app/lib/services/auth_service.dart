@@ -29,9 +29,13 @@ class AuthService extends ChangeNotifier {
     initialize();
   }
 
-  // Getters
+  // Getters and setters
   Profile? get profile => _currentProfile;
   Profile? get currentProfile => _currentProfile;
+  set currentProfile(Profile? profile) {
+    _currentProfile = profile;
+    notifyListeners();
+  }
   BiometricAuthService? get biometricService => _biometricService;
 
   bool isLoggedIn() => _currentProfile != null;
