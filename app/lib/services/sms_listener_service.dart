@@ -5,6 +5,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:uuid/uuid.dart';
 import '../models/transaction.dart';
 import '../models/enums.dart';
+import '../models/category.dart' as models;
 import 'sms_transaction_extractor.dart';
 import '../services/offline_data_service.dart';
 
@@ -166,8 +167,8 @@ class SmsListenerService extends ChangeNotifier {
           recipient: recipient,
         );
 
-        // Persist transaction
-        unawaited(_offlineDataService.saveTransaction(tx));
+  // Persist pending transaction for review
+  unawaited(_offlineDataService.savePendingTransaction(tx));
 
         // Notify any listeners/UI
         _messageController?.add(message);
@@ -212,8 +213,8 @@ class SmsListenerService extends ChangeNotifier {
         recipient: transactionData.recipient,
       );
       
-      // Save to pending transactions box
-      await pendingBox.add(transaction);
+  // Save to pending transactions table via service
+  await _offlineDataService.savePendingTransaction(transaction);
       
       if (kDebugMode) {
         print('Saved pending transaction: ${transaction.id}');
@@ -255,31 +256,29 @@ class SmsListenerService extends ChangeNotifier {
         for (final keyword in entry.value) {
           if (searchText.contains(keyword)) {
             // Find matching category ID
-            for (final key in categoriesBox.keys) {
-              final category = categoriesBox.get(key);
-              if (category['name']?.toLowerCase() == entry.key) {
-                return key.toString();
-              }
-            }
+      // TODO: fetch categories via OfflineDataService
+      final cats = await _offlineDataService.getCategories(int.tryParse(_currentProfileId!) ?? 0);
+      final match = cats.firstWhere(
+        (c) => c.name.toLowerCase() == entry.key,
+        orElse: () => models.Category(id: '', name: ''));
+      if (match.id.isNotEmpty) return match.id;
           }
         }
       }
       
       // Fall back to default categories
       if (data.type == 'received' || data.type == 'credit') {
-        for (final key in categoriesBox.keys) {
-          final category = categoriesBox.get(key);
-          if (category['name']?.toLowerCase() == defaultIncomeCategory) {
-            return key.toString();
-          }
-        }
+  final cats = await _offlineDataService.getCategories(int.tryParse(_currentProfileId!) ?? 0);
+  return cats.firstWhere(
+    (c) => c.name.toLowerCase() == defaultIncomeCategory,
+    orElse: () => models.Category(id: '', name: ''))
+      .id;
       } else {
-        for (final key in categoriesBox.keys) {
-          final category = categoriesBox.get(key);
-          if (category['name']?.toLowerCase() == defaultExpenseCategory) {
-            return key.toString();
-          }
-        }
+  final cats = await _offlineDataService.getCategories(int.tryParse(_currentProfileId!) ?? 0);
+  return cats.firstWhere(
+    (c) => c.name.toLowerCase() == defaultExpenseCategory,
+    orElse: () => models.Category(id: '', name: ''))
+      .id;
       }
     } catch (e) {
       if (kDebugMode) {

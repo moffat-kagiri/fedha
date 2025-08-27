@@ -33,11 +33,24 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
   bool _showAdvancedFilters = false;
   Goal? _selectedGoalFilter; // Add goal filtering
   List<Goal> _availableGoals = [];
-  Future<List<Transaction>> _loadTransactions(
-    OfflineDataService dataService,
-    String profileId,
-  ) async {
-    return dataService.getAllTransactions();
+  
+  // Add futures for async data
+  late Future<List<Transaction>> _transactionsFuture;
+  late Future<List<Goal>> _goalsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    final dataService = Provider.of<OfflineDataService>(context, listen: false);
+    final profileId = int.tryParse(
+        Provider.of<AuthService>(context, listen: false)
+            .currentProfile
+            ?.id ?? '0') ?? 0;
+    _transactionsFuture = dataService.getAllTransactions(profileId);
+    _goalsFuture = dataService.getAllGoals(profileId);
+    _goalsFuture.then((goals) {
+      if (mounted) setState(() => _availableGoals = goals);
+    });
   }
 
   List<Transaction> _filterTransactions(List<Transaction> transactions) {
@@ -288,28 +301,6 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
   }
 
   @override
-  void initState() {
-    super.initState();
-    _loadGoals();
-  }
-
-  Future<void> _loadGoals() async {
-    final authService = Provider.of<AuthService>(context, listen: false);
-    final profileId = authService.currentProfile?.id;
-
-    if (profileId != null) {
-      final dataService = Provider.of<OfflineDataService>(
-        context,
-        listen: false,
-      );
-      final goals = dataService.getAllGoals();
-      setState(() {
-        _availableGoals = goals;
-      });
-    }
-  }
-
-  @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
@@ -326,7 +317,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
         elevation: 0,
         title: Text(
           'Transactions',
-          style: textTheme.headline6?.copyWith(
+          style: textTheme.titleLarge?.copyWith(
             color: colorScheme.onPrimary,
             fontWeight: FontWeight.bold,
           ),
@@ -347,50 +338,30 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
           ),
         ],
       ),
-      body: SafeArea(
-        child: Consumer<AuthService>(
-          builder: (context, authService, child) {
-            final profile = authService.currentProfile;
-            if (profile == null) {
-              return const Center(child: Text('Please log in'));
-            }
+      body: FutureBuilder<List<Transaction>>(
+        future: _transactionsFuture,
+        builder: (ctx, txSnap) {
+          if (txSnap.connectionState != ConnectionState.done) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          final transactions = txSnap.data ?? [];
+          final filtered = _filterTransactions(transactions);
 
-            return Consumer<OfflineDataService>(
-              builder: (context, dataService, child) {
-                return FutureBuilder<List<Transaction>>(
-                  future: _loadTransactions(dataService, profile.id),
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                        return Center(
-                          child: CircularProgressIndicator(color: colorScheme.primary),
-                        );
-                      }
+          return Column(
+            children: [
+              // Search and Filter Section
+              _buildSearchAndFilterSection(),
 
-                    final transactions = snapshot.data ?? [];
-                    final filteredTransactions = _filterTransactions(
-                      transactions,
-                    );
+              // Summary Cards
+              _buildSummaryCards(transactions),
 
-                    return Column(
-                      children: [
-                        // Search and Filter Section
-                        _buildSearchAndFilterSection(),
-
-                        // Summary Cards
-                        _buildSummaryCards(transactions),
-
-                        // Transactions List
-                        Expanded(
-                          child: _buildTransactionsList(filteredTransactions),
-                        ),
-                      ],
-                    );
-                  },
-                );
-              },
-            );
-          },
-        ),
+              // Transactions List
+              Expanded(
+                child: _buildTransactionsList(filtered),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

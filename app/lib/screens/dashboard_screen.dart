@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../services/auth_service.dart';
-import '../services/offline_data_service.dart';
+import 'package:fedha/services/auth_service.dart';
+import 'package:fedha/services/offline_data_service.dart';
+import 'package:fedha/models/goal.dart' as dom_goal;
+import 'package:fedha/models/transaction.dart' as dom_tx;
+import 'package:fedha/models/budget.dart' as dom_budget;
 import '../services/currency_service.dart';
 import '../services/sms_listener_service.dart';
-import '../models/goal.dart';
-import '../models/budget.dart';
-import '../models/transaction.dart';
 import '../models/enums.dart';
 import '../widgets/transaction_dialog.dart';
 import '../widgets/transaction_card.dart';
@@ -95,8 +95,9 @@ class DashboardContent extends StatelessWidget {
 
   Future<DashboardData> _loadDashboardData(OfflineDataService dataService, String profileId) async {
     try {
-      final goals = dataService.getAllGoals().toList();
-      final allTransactions = dataService.getAllTransactions().where((tx) => tx.profileId == profileId).toList();
+      final profileIdInt = int.tryParse(profileId) ?? 0;
+      final goals = await dataService.getAllGoals(profileIdInt);
+      final allTransactions = await dataService.getAllTransactions(profileIdInt);
       allTransactions.sort((a, b) => b.date.compareTo(a.date));
       final recentTransactions = allTransactions.take(5).toList();
       
@@ -300,7 +301,7 @@ class DashboardContent extends StatelessWidget {
     );
   }
 
-  Widget _buildGoalsSection(BuildContext context, CurrencyService currencyService, List<Goal> goals) {
+  Widget _buildGoalsSection(BuildContext context, CurrencyService currencyService, List<dom_goal.Goal> goals) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -349,7 +350,7 @@ class DashboardContent extends StatelessWidget {
     );
   }
 
-  Widget _buildGoalCard(Goal goal, CurrencyService currencyService, BuildContext context) {
+  Widget _buildGoalCard(dom_goal.Goal goal, CurrencyService currencyService, BuildContext context) {
     final progress = goal.targetAmount > 0 ? goal.currentAmount / goal.targetAmount : 0.0;
     
     return Card(
@@ -422,7 +423,7 @@ class DashboardContent extends StatelessWidget {
     }
   }
 
-  Widget _buildRecentTransactions(BuildContext context, CurrencyService currencyService, List<Transaction> transactions) {
+  Widget _buildRecentTransactions(BuildContext context, CurrencyService currencyService, List<dom_tx.Transaction> transactions) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -527,9 +528,9 @@ class DashboardContent extends StatelessWidget {
 }
 
 class DashboardData {
-  final List<Goal> goals;
-  final List<Transaction> recentTransactions;
-  final Budget? currentBudget;
+  final List<dom_goal.Goal> goals;
+  final List<dom_tx.Transaction> recentTransactions;
+  final dom_budget.Budget? currentBudget;
 
   DashboardData({
     required this.goals,

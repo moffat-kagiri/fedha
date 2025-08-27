@@ -36,7 +36,7 @@ class ToolsScreen extends StatelessWidget {
       appBar: AppBar(
         title: Text(
           'Financial Tools',
-          style: textTheme.headline6?.copyWith(
+          style: textTheme.titleLarge?.copyWith(
             color: Colors.white,
             fontWeight: FontWeight.bold,
           ),
@@ -76,7 +76,7 @@ class ToolsScreen extends StatelessWidget {
                             const SizedBox(height: 12),
                             Text(
                               tool['title'] as String,
-                              style: textTheme.subtitle1?.copyWith(
+                              style: textTheme.bodyLarge?.copyWith(
                                 fontWeight: FontWeight.w600,
                                 color: colorScheme.onSurface,
                               ),

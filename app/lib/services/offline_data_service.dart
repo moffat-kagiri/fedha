@@ -1,7 +1,7 @@
 // Removed Category conflict, no foundation features used
-// import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:drift/drift.dart' show Value;
+import 'package:drift/drift.dart';
 import 'package:fedha/data/app_database.dart';
 import 'package:fedha/models/transaction.dart' as dom_tx;
 import 'package:fedha/models/goal.dart' as dom_goal;
@@ -191,6 +191,21 @@ class OfflineDataService {
   Future<List<dom_cat.Category>> getCategories(int profileId) async {
     // TODO: fetch categories from DB
     return [];
+  }
+  
+  /// Save a pending transaction to be reviewed
+  Future<void> savePendingTransaction(dom_tx.Transaction tx) async {
+    final companion = PendingTransactionsCompanion.insert(
+      id: Value(tx.id),
+      amountMinor: Value(tx.amount),
+      currency: Value(tx.paymentMethod?.toString() ?? 'KES'),
+      description: Value(tx.description ?? ''),
+      date: tx.date,
+      isExpense: Value(tx.isExpense),
+      rawSms: Value(tx.smsSource),
+      profileId: Value(int.tryParse(tx.profileId) ?? 0),
+    );
+    await _db.insertPending(companion);
   }
 }
 

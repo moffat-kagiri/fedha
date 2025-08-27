@@ -95,7 +95,7 @@ class _TransactionEntryScreenState extends State<TransactionEntryScreen> {
         profileId: 'current_profile',
       );
 
-      dataService.saveTransaction(transaction);
+      await dataService.saveTransaction(transaction);
       
       if (mounted) {
         Navigator.pop(context, transaction);

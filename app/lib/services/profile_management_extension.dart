@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'dart:convert';
 import '../services/auth_service.dart';
 import '../services/api_client.dart';
 import '../models/profile.dart';
@@ -61,12 +62,15 @@ extension ProfileManagementExtension on AuthService {
   /// Update the local profile data
   Future<void> updateLocalProfile(Profile updatedProfile) async {
     try {
-      final profileBox = await getProfileBox();
-      await profileBox.put(updatedProfile.id, updatedProfile);
+      // Save to secure storage instead of Hive box
+      await _secureStorage.write(
+        key: 'current_profile_data',
+        value: jsonEncode(updatedProfile.toJson()),
+      );
       
       // Update the current profile if it's the one being edited
       if (profile?.id == updatedProfile.id) {
-        setCurrentProfile(updatedProfile);
+        _currentProfile = updatedProfile;
       }
       
       // Notify listeners of the update

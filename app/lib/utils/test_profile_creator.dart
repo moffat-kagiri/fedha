@@ -5,6 +5,7 @@ import 'package:logging/logging.dart';
 import '../models/profile.dart';
 import '../models/enums.dart';
 import '../utils/logger.dart';
+import '../services/auth_service.dart';
 
 /// A utility class for creating test profiles in the Fedha app.
 /// This can be called from anywhere in the app during development.
@@ -40,7 +41,16 @@ class TestProfileCreator {
         phoneNumber: '+254712345678',
       );
       
-      await profilesBox.put(userId, profile);
+      // Use AuthService instead of direct Hive box
+      final authService = AuthService();
+      await authService.signup(
+        firstName: 'John',
+        lastName: 'Doe',
+        email: 'john.doe@example.com',
+        password: 'Password123!',
+        phone: '+254712345678',
+      );
+      
       _logger.info("Created personal profile with ID: $userId");
       debugPrint("Created personal profile: ${profile.name} (${profile.email})");
       
@@ -84,7 +94,16 @@ class TestProfileCreator {
         displayName: 'Acme Corp',
       );
       
-      await profilesBox.put(userId, profile);
+      // Use AuthService instead of direct Hive box
+      final authService = AuthService();
+      await authService.signup(
+        firstName: 'Acme',
+        lastName: 'Corporation',
+        email: 'business@acme.com',
+        password: 'Password123!',
+        phone: '+254787654321',
+      );
+      
       _logger.info("Created business profile with ID: $userId");
       debugPrint("Created business profile: ${profile.name} (${profile.email})");
       
@@ -109,14 +128,17 @@ class TestProfileCreator {
   
   /// Show a list of all existing profiles
   static Future<List<Profile>> listAllProfiles() async {
+    // Since we no longer have direct box access, we can only access the current profile
     final profiles = <Profile>[];
     
-    for (var i = 0; i < profilesBox.length; i++) {
-      final profile = profilesBox.getAt(i);
-      if (profile != null) {
-        profiles.add(profile);
-        debugPrint("Profile ${i+1}: ${profile.name} (${profile.email}) - Type: ${profile.type}");
-      }
+    final authService = AuthService();
+    await authService.initialize(); // Ensure profile is loaded
+    
+    if (authService.currentProfile != null) {
+      profiles.add(authService.currentProfile!);
+      debugPrint("Current profile: ${authService.currentProfile!.name} (${authService.currentProfile!.email}) - Type: ${authService.currentProfile!.type}");
+    } else {
+      debugPrint("No profiles found");
     }
     
     return profiles;

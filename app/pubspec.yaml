@@ -7,6 +7,12 @@ repository: https://github.com/your-username/fedha
 homepage: https://fedha-project.example.com
 environment:
   sdk: '>=3.8.0 <4.0.0'
+  flutter: ">=3.19.0"
+
+# Explicitly specify platform support
+platforms:
+  android: null
+  ios: null
 dependencies:
   flutter:
     sdk: flutter
