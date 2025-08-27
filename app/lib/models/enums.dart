@@ -1,6 +1,7 @@
-import 'package:json_annotation/json_annotation.dart';
+// Removed json_annotation import and part directive since no generated code is needed for enums
+// import 'package:json_annotation/json_annotation.dart';
+// part 'enums.g.dart';
 
-part 'enums.g.dart';
 // Profile Types
 
 enum ProfileType {

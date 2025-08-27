@@ -7,6 +7,7 @@ import '../models/category.dart' as models;
 import '../models/enums.dart';
 import '../services/offline_data_service.dart';
 import '../services/sms_listener_service.dart';
+import '../services/auth_service.dart';
 
 class SmsReviewScreen extends StatefulWidget {
   const SmsReviewScreen({Key? key}) : super(key: key);
@@ -44,10 +45,12 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
     });
 
     try {
-      // Load pending transactions from Hive
-      
-      // Convert transactions to candidates for review UI
-      _pendingCandidates = pendingBox.values.map((transaction) {
+      // Load pending transactions via OfflineDataService
+      final dataService = Provider.of<OfflineDataService>(context, listen: false);
+      final authService = Provider.of<AuthService>(context, listen: false);
+      final profileId = int.tryParse(authService.currentProfile?.id ?? '') ?? 0;
+      final pendingTx = await dataService.getPendingTransactions(profileId);
+      _pendingCandidates = pendingTx.map((transaction) {
         return TransactionCandidate(
           id: transaction.id,
           rawText: transaction.smsSource ?? 'No SMS source available',
@@ -55,7 +58,7 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
           description: transaction.description,
           date: transaction.date,
           type: transaction.isExpense ? TransactionType.expense : TransactionType.income,
-          confidence: 0.9, // Default confidence
+          confidence: 0.9,
           metadata: {
             'recipient': transaction.recipient,
             'reference': transaction.reference,
@@ -166,26 +169,18 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
   Future<void> _approveCandidate(TransactionCandidate candidate) async {
     try {
       final dataService = Provider.of<OfflineDataService>(context, listen: false);
-      
-      // Get the pending transaction
-      final pendingTx = pendingBox.values.firstWhere((tx) => tx.id == candidate.id);
-      
-      // Move pending transaction to regular transactions box
-      pendingTx.isPending = false;
-      
-      // Save to regular transactions
-      await dataService.saveTransaction(pendingTx);
-      
-      // Remove from pending box
-      final pendingKey = pendingBox.keys.firstWhere(
-        (key) => pendingBox.get(key)?.id == candidate.id
-      );
-      await pendingBox.delete(pendingKey);
-      
-      // Update candidate status for UI
+      final authService = Provider.of<AuthService>(context, listen: false);
+      final profileId = int.tryParse(authService.currentProfile?.id ?? '') ?? 0;
+      // Find transaction candidate in pending list
+      final tx = (await dataService.getPendingTransactions(profileId))
+          .firstWhere((t) => t.id == candidate.id);
+      // Approve: save to regular DB and delete from pending
+      await dataService.approvePendingTransaction(tx);
+      await dataService.deletePendingTransaction(tx.id);
+
       final updatedCandidate = candidate.copyWith(
         status: TransactionStatus.completed,
-        transactionId: pendingTx.id,
+        transactionId: tx.id,
       );
 
       setState(() {
@@ -211,20 +206,15 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
 
   Future<void> _rejectCandidate(TransactionCandidate candidate) async {
     try {
-      // Remove from pending transactions
-      final pendingKey = pendingBox.keys.firstWhere(
-        (key) => pendingBox.get(key)?.id == candidate.id
-      );
-      await pendingBox.delete(pendingKey);
-      
+      final dataService = Provider.of<OfflineDataService>(context, listen: false);
+      // Delete pending transaction
+      await dataService.deletePendingTransaction(int.parse(candidate.id));
       // Update UI
-      final updatedCandidate = candidate.copyWith(status: TransactionStatus.cancelled);
-      
+      final updated = candidate.copyWith(status: TransactionStatus.cancelled);
       setState(() {
         _pendingCandidates.removeWhere((c) => c.id == candidate.id);
-        _reviewedCandidates.add(updatedCandidate);
+        _reviewedCandidates.add(updated);
       });
-  
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('❌ Transaction rejected'),

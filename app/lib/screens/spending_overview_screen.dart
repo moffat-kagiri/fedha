@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../services/offline_data_service.dart';
 import '../models/transaction.dart';
 import '../models/enums.dart';
+import '../services/auth_service.dart';
 
 class SpendingOverviewScreen extends StatefulWidget {
   const SpendingOverviewScreen({Key? key}) : super(key: key);
@@ -23,13 +24,19 @@ class _SpendingOverviewScreenState extends State<SpendingOverviewScreen> {
         backgroundColor: const Color(0xFF007A39),
         foregroundColor: Colors.white,
       ),
-      body: Consumer<OfflineDataService>(
-        builder: (context, dataService, child) {
-          final transactions = dataService.getAllTransactions()
-              .where((t) => t.type == TransactionType.expense)
-              .toList();
-          
-          if (transactions.isEmpty) {
+      body: FutureBuilder<List<Transaction>>(
+        future: Provider.of<OfflineDataService>(context, listen: false)
+            .getAllTransactions(int.tryParse(Provider.of<AuthService>(context, listen: false)
+                    .currentProfile?.id ?? '') ?? 0),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState != ConnectionState.done) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          final txs = snapshot.data
+                  ?.where((t) => t.type == TransactionType.expense)
+                  .toList() ?? [];
+           
+          if (txs.isEmpty) {
             return _buildEmptyState();
           }
           
@@ -40,11 +47,11 @@ class _SpendingOverviewScreenState extends State<SpendingOverviewScreen> {
               children: [
                 _buildTimeRangeSelector(),
                 const SizedBox(height: 24),
-                _buildSummaryCard(transactions),
+                _buildSummaryCard(txs),
                 const SizedBox(height: 24),
-                _buildCategoryBreakdown(transactions),
+                _buildCategoryBreakdown(txs),
                 const SizedBox(height: 24),
-                _buildRecentTransactions(transactions),
+                _buildRecentTransactions(txs),
               ],
             ),
           );

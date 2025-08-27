@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/offline_data_service.dart';
+import '../services/auth_service.dart';
 import '../models/goal.dart';
 import 'add_goal_screen.dart';
 import 'progressive_goal_wizard_screen.dart';
@@ -73,9 +74,15 @@ class _GoalsScreenState extends State<GoalsScreen> {
           ),
         ],
       ),
-      body: Consumer<OfflineDataService>(
-        builder: (context, dataService, child) {
-          final goals = dataService.getAllGoals();
+      body: FutureBuilder<List<Goal>>(
+        future: Provider.of<OfflineDataService>(context, listen: false)
+            .getAllGoals(int.tryParse(Provider.of<AuthService>(context, listen: false)
+                    .currentProfile?.id ?? '') ?? 0),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState != ConnectionState.done) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          final goals = snapshot.data ?? [];
           
           if (goals.isEmpty) {
             return _buildEmptyState();

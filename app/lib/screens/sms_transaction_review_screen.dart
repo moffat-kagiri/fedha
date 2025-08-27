@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../models/transaction.dart';
 import '../services/sms_listener_service.dart';
 import '../services/auth_service.dart';
+import '../services/offline_data_service.dart';
 import '../models/enums.dart'; // This should contain TransactionType
 
 class SmsTransactionReviewScreen extends StatefulWidget {
@@ -43,8 +44,12 @@ class _SmsTransactionReviewScreenState extends State<SmsTransactionReviewScreen>
     });
 
     try {
+      final dataService = Provider.of<OfflineDataService>(context, listen: false);
+      final authService = Provider.of<AuthService>(context, listen: false);
+      final profileId = int.tryParse(authService.currentProfile?.id ?? '') ?? 0;
+      final pending = await dataService.getPendingTransactions(profileId);
       setState(() {
-        _pendingTransactions = pendingBox.values.toList();
+        _pendingTransactions = pending;
         _isLoading = false;
       });
     } catch (e) {
@@ -59,33 +64,12 @@ class _SmsTransactionReviewScreenState extends State<SmsTransactionReviewScreen>
 
   Future<void> _approveTransaction(Transaction transaction) async {
     try {
-      // Get boxes
-      
-      // Approve transaction by moving it to the transactions box
-      final approvedTransaction = Transaction(
-        id: transaction.id,
-        uuid: transaction.uuid,
-        amount: transaction.amount,
-        type: transaction.type,
-        categoryId: transaction.categoryId,
-        date: transaction.date,
-        description: transaction.description,
-        notes: transaction.notes,
-        profileId: transaction.profileId,
-        smsSource: transaction.smsSource,
-        reference: transaction.reference,
-        recipient: transaction.recipient,
-        isPending: false,
-        updatedAt: DateTime.now(),
-      );
-      
-      // Add to transactions box
-      await transactionsBox.put(transaction.id, approvedTransaction);
-      
-      // Remove from pending box
-      await pendingBox.delete(transaction.key);
-      
-      // Reload pending transactions
+      final dataService = Provider.of<OfflineDataService>(context, listen: false);
+      // Save to official transactions
+      await dataService.approvePendingTransaction(transaction);
+      // Remove from pending
+      await dataService.deletePendingTransaction(int.tryParse(transaction.id) ?? 0);
+      // Refresh list
       await _loadPendingTransactions();
       
       ScaffoldMessenger.of(context).showSnackBar(
@@ -100,9 +84,8 @@ class _SmsTransactionReviewScreenState extends State<SmsTransactionReviewScreen>
   
   Future<void> _rejectTransaction(Transaction transaction) async {
     try {
-      await pendingBox.delete(transaction.key);
-      
-      // Reload pending transactions
+      final dataService = Provider.of<OfflineDataService>(context, listen: false);
+      await dataService.deletePendingTransaction(int.tryParse(transaction.id) ?? 0);
       await _loadPendingTransactions();
       
       ScaffoldMessenger.of(context).showSnackBar(

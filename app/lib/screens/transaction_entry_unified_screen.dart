@@ -9,6 +9,7 @@ import '../models/goal.dart';
 import '../models/enums.dart';
 import '../services/offline_data_service.dart';
 import '../services/currency_service.dart';
+import '../services/auth_service.dart';
 
 class TransactionEntryUnifiedScreen extends StatefulWidget {
   final Transaction? editingTransaction;
@@ -63,31 +64,42 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
     
     // Add listener to amount field for formatting
     _amountController.addListener(_formatAmount);
-    // Load goals for savings
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final dataService = Provider.of<OfflineDataService>(context, listen: false);
-      final loaded = dataService.getAllGoals();
-      setState(() {
-        _goals = loaded;
-        if (_selectedType == TransactionType.savings) {
-          // default to first goal if none selected
-          _selectedGoal ??= _goals.isNotEmpty ? _goals.first : null;
-        }
-      });
-    });
     
-    // Populate savings goals for 'savings' type
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final dataService = Provider.of<OfflineDataService>(context, listen: false);
-      final goals = dataService.getAllGoals();
-      setState(() {
-        _categories[TransactionType.savings] = goals.map((g) => g.name).toList();
-        // Default goal selection for new savings
-        if (_selectedType == TransactionType.savings && _selectedGoal == null && goals.isNotEmpty) {
-          _selectedGoal = goals.first;
-        }
-      });
-    });
+    // Load goals for savings - now using async/await pattern
+    _loadGoals();
+  }
+  
+  Future<void> _loadGoals() async {
+    final dataService = Provider.of<OfflineDataService>(context, listen: false);
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final profileId = int.tryParse(authService.currentProfile?.id ?? '0') ?? 0;
+    
+    try {
+      final loaded = await dataService.getAllGoals(profileId);
+      
+      if (mounted) {
+        setState(() {
+          _goals = loaded;
+          
+          // Populate savings category list with goal names
+          _categories[TransactionType.savings] = loaded.map((g) => g.name).toList();
+          
+          // Default to first goal if in savings mode and none selected
+          if (_selectedType == TransactionType.savings && _selectedGoal == null && loaded.isNotEmpty) {
+            _selectedGoal = loaded.first;
+          }
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error loading goals: ${e.toString()}'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    }
   }
 
   void _formatAmount() {
@@ -151,16 +163,8 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
       _selectedPaymentMethod = transaction.paymentMethod!;
     }
     
-    // Load goal for savings transaction
-    if (transaction.type == TransactionType.savings && transaction.goalId != null) {
-      // We'll load the goal in build using Provider
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        final dataService = Provider.of<OfflineDataService>(context, listen: false);
-        setState(() {
-          _selectedGoal = dataService.getGoal(transaction.goalId!);
-        });
-      });
-    }
+    // Goal for savings transactions will be loaded when _goals are loaded
+    // in _loadGoals() method which is called from initState
   }
 
   @override
@@ -257,6 +261,8 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
 
     try {
       final dataService = Provider.of<OfflineDataService>(context, listen: false);
+      final authService = Provider.of<AuthService>(context, listen: false);
+      final profileId = authService.currentProfile?.id ?? '0';
       
       final transaction = Transaction(
         id: widget.editingTransaction?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
@@ -270,10 +276,10 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
         date: _selectedDate,
         goalId: _selectedType == TransactionType.savings ? _selectedGoal?.id : null,
         paymentMethod: _selectedPaymentMethod,
-        profileId: 'current_profile', // This should come from your auth service
+        profileId: profileId,
       );
 
-      dataService.saveTransaction(transaction);
+      await dataService.saveTransaction(transaction);
       
       if (mounted) {
         Navigator.pop(context, transaction);
@@ -329,11 +335,15 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
     
     if (!confirm) return;
     
+    setState(() {
+      _isSaving = true; // Reuse saving indicator for deletion
+    });
+    
     try {
       final dataService = Provider.of<OfflineDataService>(context, listen: false);
       
       if (widget.editingTransaction != null) {
-        dataService.deleteTransaction(widget.editingTransaction!.id);
+        await dataService.deleteTransaction(widget.editingTransaction!.id);
         
         if (mounted) {
           Navigator.pop(context, 'deleted');
@@ -353,6 +363,12 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+        });
       }
     }
   }
@@ -648,8 +664,24 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
   
   /// Build goal selector when type is savings
   Widget _buildGoalSelector() {
+    if (_goals.isEmpty) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Loading goals...'),
+          const SizedBox(height: 8),
+          const LinearProgressIndicator(),
+          const SizedBox(height: 8),
+          OutlinedButton(
+            onPressed: _loadGoals,
+            child: const Text('Retry'),
+          ),
+        ],
+      );
+    }
+    
     return DropdownButtonFormField<Goal>(
-      value: _selectedGoal,
+      value: _selectedGoal ?? (_goals.isNotEmpty ? _goals.first : null),
       decoration: const InputDecoration(
         labelText: 'Select Goal',
         border: OutlineInputBorder(),

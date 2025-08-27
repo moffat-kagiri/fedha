@@ -109,8 +109,8 @@ void main() async {
       AppLogger.getLogger('Main').info('Best available connection: $bestConnectionUrl');
     }
     
-  // Configure API based on detection results
-  ApiConfig apiConfig;
+    // Configure API based on detection results
+    ApiConfig apiConfig;
     
     // Choose configuration based on the detected connection
     if (bestConnectionUrl != null) {
@@ -131,11 +131,13 @@ void main() async {
         apiConfig = ApiConfig.development().copyWith(primaryApiUrl: bestConnectionUrl);
         logger.info('Using custom connection: $bestConnectionUrl');
       }
-    } 
+    } else {
+      apiConfig = ApiConfig.development();
+    }
 
   // Instantiate core services for DI
   final apiClient = ApiClient(config: apiConfig);
-  final goalTransactionService = GoalTransactionService(offlineDataService);
+  final goalTransactionService = stubs.GoalTransactionService(offlineDataService);
   final textRecognitionService = stubs.TextRecognitionService(offlineDataService);
   final csvUploadService = stubs.CSVUploadService(offlineDataService);
   final smsTransactionExtractor = stubs.SmsTransactionExtractor(offlineDataService);
@@ -144,7 +146,7 @@ void main() async {
   final navigationService = stubs.NavigationService.instance;
   final senderManagementService = stubs.SenderManagementService.instance;
   final backgroundTransactionMonitor = stubs.BackgroundTransactionMonitor(offlineDataService, smsTransactionExtractor);
-  final biometricAuthService = BiometricAuthService.instance;
+  final biometricAuthService = BiometricAuthService.instance!;
   final themeService = ThemeService.instance;
   final currencyService = CurrencyService();
 
@@ -152,14 +154,14 @@ void main() async {
       MultiProvider(
         providers: [
           Provider<ApiClient>.value(value: apiClient),
-          ChangeNotifierProvider<OfflineDataService>.value(value: offlineDataService),
+          Provider<OfflineDataService>.value(value: offlineDataService),
           Provider<conn_svc.ConnectivityService>.value(value: connectivityService),
           Provider<stubs.GoalTransactionService>.value(value: goalTransactionService),
           Provider<stubs.TextRecognitionService>.value(value: textRecognitionService),
           Provider<stubs.CSVUploadService>.value(value: csvUploadService),
           Provider<stubs.SmsTransactionExtractor>.value(value: smsTransactionExtractor),
           Provider<stubs.NotificationService>.value(value: notificationService),
-          ChangeNotifierProvider<SmsListenerService>.value(value: SmsListenerService.instance),
+          Provider<SmsListenerService>.value(value: SmsListenerService.instance),
           Provider<EnhancedSyncService>.value(value: syncService),
           Provider<stubs.NavigationService>.value(value: navigationService),
           Provider<stubs.SenderManagementService>.value(value: senderManagementService),
@@ -167,8 +169,8 @@ void main() async {
           Provider<BiometricAuthService>.value(value: biometricAuthService),
           ChangeNotifierProvider<PermissionsService>.value(value: permissionsService),
           ChangeNotifierProvider<AuthService>.value(value: authService),
-          ChangeNotifierProvider(create: (_) => themeService),
-          ChangeNotifierProvider<CurrencyService>.value(value: currencyService),
+          Provider<ThemeService>.value(value: themeService),
+          Provider<CurrencyService>.value(value: currencyService),
         ],
         child: const MyApp(),
       ),

@@ -1068,7 +1068,6 @@ class $LoansTable extends Loans with TableInfo<$LoansTable, Loan> {
     false,
     type: DriftSqlType.int,
     requiredDuringInsert: true,
-    $customConstraints: 'REFERENCES profiles(id)',
   );
   @override
   List<GeneratedColumn> get $columns => [
@@ -1480,12 +1479,538 @@ class LoansCompanion extends UpdateCompanion<Loan> {
   }
 }
 
+class $PendingTransactionsTable extends PendingTransactions
+    with TableInfo<$PendingTransactionsTable, PendingTransaction> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PendingTransactionsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<double, double> amountMinor =
+      GeneratedColumn<double>(
+        'amount_minor',
+        aliasedName,
+        false,
+        type: DriftSqlType.double,
+        requiredDuringInsert: true,
+      ).withConverter<double>($PendingTransactionsTable.$converteramountMinor);
+  static const VerificationMeta _currencyMeta = const VerificationMeta(
+    'currency',
+  );
+  @override
+  late final GeneratedColumn<String> currency = GeneratedColumn<String>(
+    'currency',
+    aliasedName,
+    false,
+    additionalChecks: GeneratedColumn.checkTextLength(
+      minTextLength: 3,
+      maxTextLength: 3,
+    ),
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('KES'),
+  );
+  static const VerificationMeta _descriptionMeta = const VerificationMeta(
+    'description',
+  );
+  @override
+  late final GeneratedColumn<String> description = GeneratedColumn<String>(
+    'description',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _dateMeta = const VerificationMeta('date');
+  @override
+  late final GeneratedColumn<DateTime> date = GeneratedColumn<DateTime>(
+    'date',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _isExpenseMeta = const VerificationMeta(
+    'isExpense',
+  );
+  @override
+  late final GeneratedColumn<bool> isExpense = GeneratedColumn<bool>(
+    'is_expense',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_expense" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _rawSmsMeta = const VerificationMeta('rawSms');
+  @override
+  late final GeneratedColumn<String> rawSms = GeneratedColumn<String>(
+    'raw_sms',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _profileIdMeta = const VerificationMeta(
+    'profileId',
+  );
+  @override
+  late final GeneratedColumn<int> profileId = GeneratedColumn<int>(
+    'profile_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    amountMinor,
+    currency,
+    description,
+    date,
+    isExpense,
+    rawSms,
+    profileId,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'pending_transactions';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<PendingTransaction> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('currency')) {
+      context.handle(
+        _currencyMeta,
+        currency.isAcceptableOrUnknown(data['currency']!, _currencyMeta),
+      );
+    }
+    if (data.containsKey('description')) {
+      context.handle(
+        _descriptionMeta,
+        description.isAcceptableOrUnknown(
+          data['description']!,
+          _descriptionMeta,
+        ),
+      );
+    }
+    if (data.containsKey('date')) {
+      context.handle(
+        _dateMeta,
+        date.isAcceptableOrUnknown(data['date']!, _dateMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_dateMeta);
+    }
+    if (data.containsKey('is_expense')) {
+      context.handle(
+        _isExpenseMeta,
+        isExpense.isAcceptableOrUnknown(data['is_expense']!, _isExpenseMeta),
+      );
+    }
+    if (data.containsKey('raw_sms')) {
+      context.handle(
+        _rawSmsMeta,
+        rawSms.isAcceptableOrUnknown(data['raw_sms']!, _rawSmsMeta),
+      );
+    }
+    if (data.containsKey('profile_id')) {
+      context.handle(
+        _profileIdMeta,
+        profileId.isAcceptableOrUnknown(data['profile_id']!, _profileIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_profileIdMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  PendingTransaction map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PendingTransaction(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      amountMinor: $PendingTransactionsTable.$converteramountMinor.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.double,
+          data['${effectivePrefix}amount_minor'],
+        )!,
+      ),
+      currency: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}currency'],
+      )!,
+      description: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}description'],
+      ),
+      date: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}date'],
+      )!,
+      isExpense: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_expense'],
+      )!,
+      rawSms: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}raw_sms'],
+      ),
+      profileId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}profile_id'],
+      )!,
+    );
+  }
+
+  @override
+  $PendingTransactionsTable createAlias(String alias) {
+    return $PendingTransactionsTable(attachedDatabase, alias);
+  }
+
+  static TypeConverter<double, double> $converteramountMinor =
+      const _DecimalConverter();
+}
+
+class PendingTransaction extends DataClass
+    implements Insertable<PendingTransaction> {
+  final String id;
+  final double amountMinor;
+  final String currency;
+  final String? description;
+  final DateTime date;
+  final bool isExpense;
+  final String? rawSms;
+  final int profileId;
+  const PendingTransaction({
+    required this.id,
+    required this.amountMinor,
+    required this.currency,
+    this.description,
+    required this.date,
+    required this.isExpense,
+    this.rawSms,
+    required this.profileId,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    {
+      map['amount_minor'] = Variable<double>(
+        $PendingTransactionsTable.$converteramountMinor.toSql(amountMinor),
+      );
+    }
+    map['currency'] = Variable<String>(currency);
+    if (!nullToAbsent || description != null) {
+      map['description'] = Variable<String>(description);
+    }
+    map['date'] = Variable<DateTime>(date);
+    map['is_expense'] = Variable<bool>(isExpense);
+    if (!nullToAbsent || rawSms != null) {
+      map['raw_sms'] = Variable<String>(rawSms);
+    }
+    map['profile_id'] = Variable<int>(profileId);
+    return map;
+  }
+
+  PendingTransactionsCompanion toCompanion(bool nullToAbsent) {
+    return PendingTransactionsCompanion(
+      id: Value(id),
+      amountMinor: Value(amountMinor),
+      currency: Value(currency),
+      description: description == null && nullToAbsent
+          ? const Value.absent()
+          : Value(description),
+      date: Value(date),
+      isExpense: Value(isExpense),
+      rawSms: rawSms == null && nullToAbsent
+          ? const Value.absent()
+          : Value(rawSms),
+      profileId: Value(profileId),
+    );
+  }
+
+  factory PendingTransaction.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PendingTransaction(
+      id: serializer.fromJson<String>(json['id']),
+      amountMinor: serializer.fromJson<double>(json['amountMinor']),
+      currency: serializer.fromJson<String>(json['currency']),
+      description: serializer.fromJson<String?>(json['description']),
+      date: serializer.fromJson<DateTime>(json['date']),
+      isExpense: serializer.fromJson<bool>(json['isExpense']),
+      rawSms: serializer.fromJson<String?>(json['rawSms']),
+      profileId: serializer.fromJson<int>(json['profileId']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'amountMinor': serializer.toJson<double>(amountMinor),
+      'currency': serializer.toJson<String>(currency),
+      'description': serializer.toJson<String?>(description),
+      'date': serializer.toJson<DateTime>(date),
+      'isExpense': serializer.toJson<bool>(isExpense),
+      'rawSms': serializer.toJson<String?>(rawSms),
+      'profileId': serializer.toJson<int>(profileId),
+    };
+  }
+
+  PendingTransaction copyWith({
+    String? id,
+    double? amountMinor,
+    String? currency,
+    Value<String?> description = const Value.absent(),
+    DateTime? date,
+    bool? isExpense,
+    Value<String?> rawSms = const Value.absent(),
+    int? profileId,
+  }) => PendingTransaction(
+    id: id ?? this.id,
+    amountMinor: amountMinor ?? this.amountMinor,
+    currency: currency ?? this.currency,
+    description: description.present ? description.value : this.description,
+    date: date ?? this.date,
+    isExpense: isExpense ?? this.isExpense,
+    rawSms: rawSms.present ? rawSms.value : this.rawSms,
+    profileId: profileId ?? this.profileId,
+  );
+  PendingTransaction copyWithCompanion(PendingTransactionsCompanion data) {
+    return PendingTransaction(
+      id: data.id.present ? data.id.value : this.id,
+      amountMinor: data.amountMinor.present
+          ? data.amountMinor.value
+          : this.amountMinor,
+      currency: data.currency.present ? data.currency.value : this.currency,
+      description: data.description.present
+          ? data.description.value
+          : this.description,
+      date: data.date.present ? data.date.value : this.date,
+      isExpense: data.isExpense.present ? data.isExpense.value : this.isExpense,
+      rawSms: data.rawSms.present ? data.rawSms.value : this.rawSms,
+      profileId: data.profileId.present ? data.profileId.value : this.profileId,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PendingTransaction(')
+          ..write('id: $id, ')
+          ..write('amountMinor: $amountMinor, ')
+          ..write('currency: $currency, ')
+          ..write('description: $description, ')
+          ..write('date: $date, ')
+          ..write('isExpense: $isExpense, ')
+          ..write('rawSms: $rawSms, ')
+          ..write('profileId: $profileId')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    amountMinor,
+    currency,
+    description,
+    date,
+    isExpense,
+    rawSms,
+    profileId,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PendingTransaction &&
+          other.id == this.id &&
+          other.amountMinor == this.amountMinor &&
+          other.currency == this.currency &&
+          other.description == this.description &&
+          other.date == this.date &&
+          other.isExpense == this.isExpense &&
+          other.rawSms == this.rawSms &&
+          other.profileId == this.profileId);
+}
+
+class PendingTransactionsCompanion extends UpdateCompanion<PendingTransaction> {
+  final Value<String> id;
+  final Value<double> amountMinor;
+  final Value<String> currency;
+  final Value<String?> description;
+  final Value<DateTime> date;
+  final Value<bool> isExpense;
+  final Value<String?> rawSms;
+  final Value<int> profileId;
+  final Value<int> rowid;
+  const PendingTransactionsCompanion({
+    this.id = const Value.absent(),
+    this.amountMinor = const Value.absent(),
+    this.currency = const Value.absent(),
+    this.description = const Value.absent(),
+    this.date = const Value.absent(),
+    this.isExpense = const Value.absent(),
+    this.rawSms = const Value.absent(),
+    this.profileId = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  PendingTransactionsCompanion.insert({
+    required String id,
+    required double amountMinor,
+    this.currency = const Value.absent(),
+    this.description = const Value.absent(),
+    required DateTime date,
+    this.isExpense = const Value.absent(),
+    this.rawSms = const Value.absent(),
+    required int profileId,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       amountMinor = Value(amountMinor),
+       date = Value(date),
+       profileId = Value(profileId);
+  static Insertable<PendingTransaction> custom({
+    Expression<String>? id,
+    Expression<double>? amountMinor,
+    Expression<String>? currency,
+    Expression<String>? description,
+    Expression<DateTime>? date,
+    Expression<bool>? isExpense,
+    Expression<String>? rawSms,
+    Expression<int>? profileId,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (amountMinor != null) 'amount_minor': amountMinor,
+      if (currency != null) 'currency': currency,
+      if (description != null) 'description': description,
+      if (date != null) 'date': date,
+      if (isExpense != null) 'is_expense': isExpense,
+      if (rawSms != null) 'raw_sms': rawSms,
+      if (profileId != null) 'profile_id': profileId,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  PendingTransactionsCompanion copyWith({
+    Value<String>? id,
+    Value<double>? amountMinor,
+    Value<String>? currency,
+    Value<String?>? description,
+    Value<DateTime>? date,
+    Value<bool>? isExpense,
+    Value<String?>? rawSms,
+    Value<int>? profileId,
+    Value<int>? rowid,
+  }) {
+    return PendingTransactionsCompanion(
+      id: id ?? this.id,
+      amountMinor: amountMinor ?? this.amountMinor,
+      currency: currency ?? this.currency,
+      description: description ?? this.description,
+      date: date ?? this.date,
+      isExpense: isExpense ?? this.isExpense,
+      rawSms: rawSms ?? this.rawSms,
+      profileId: profileId ?? this.profileId,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (amountMinor.present) {
+      map['amount_minor'] = Variable<double>(
+        $PendingTransactionsTable.$converteramountMinor.toSql(
+          amountMinor.value,
+        ),
+      );
+    }
+    if (currency.present) {
+      map['currency'] = Variable<String>(currency.value);
+    }
+    if (description.present) {
+      map['description'] = Variable<String>(description.value);
+    }
+    if (date.present) {
+      map['date'] = Variable<DateTime>(date.value);
+    }
+    if (isExpense.present) {
+      map['is_expense'] = Variable<bool>(isExpense.value);
+    }
+    if (rawSms.present) {
+      map['raw_sms'] = Variable<String>(rawSms.value);
+    }
+    if (profileId.present) {
+      map['profile_id'] = Variable<int>(profileId.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PendingTransactionsCompanion(')
+          ..write('id: $id, ')
+          ..write('amountMinor: $amountMinor, ')
+          ..write('currency: $currency, ')
+          ..write('description: $description, ')
+          ..write('date: $date, ')
+          ..write('isExpense: $isExpense, ')
+          ..write('rawSms: $rawSms, ')
+          ..write('profileId: $profileId, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
   late final $TransactionsTable transactions = $TransactionsTable(this);
   late final $GoalsTable goals = $GoalsTable(this);
   late final $LoansTable loans = $LoansTable(this);
+  late final $PendingTransactionsTable pendingTransactions =
+      $PendingTransactionsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -1494,6 +2019,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     transactions,
     goals,
     loans,
+    pendingTransactions,
   ];
 }
 
@@ -2231,6 +2757,285 @@ typedef $$LoansTableProcessedTableManager =
       Loan,
       PrefetchHooks Function()
     >;
+typedef $$PendingTransactionsTableCreateCompanionBuilder =
+    PendingTransactionsCompanion Function({
+      required String id,
+      required double amountMinor,
+      Value<String> currency,
+      Value<String?> description,
+      required DateTime date,
+      Value<bool> isExpense,
+      Value<String?> rawSms,
+      required int profileId,
+      Value<int> rowid,
+    });
+typedef $$PendingTransactionsTableUpdateCompanionBuilder =
+    PendingTransactionsCompanion Function({
+      Value<String> id,
+      Value<double> amountMinor,
+      Value<String> currency,
+      Value<String?> description,
+      Value<DateTime> date,
+      Value<bool> isExpense,
+      Value<String?> rawSms,
+      Value<int> profileId,
+      Value<int> rowid,
+    });
+
+class $$PendingTransactionsTableFilterComposer
+    extends Composer<_$AppDatabase, $PendingTransactionsTable> {
+  $$PendingTransactionsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<double, double, double> get amountMinor =>
+      $composableBuilder(
+        column: $table.amountMinor,
+        builder: (column) => ColumnWithTypeConverterFilters(column),
+      );
+
+  ColumnFilters<String> get currency => $composableBuilder(
+    column: $table.currency,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get date => $composableBuilder(
+    column: $table.date,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isExpense => $composableBuilder(
+    column: $table.isExpense,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get rawSms => $composableBuilder(
+    column: $table.rawSms,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get profileId => $composableBuilder(
+    column: $table.profileId,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$PendingTransactionsTableOrderingComposer
+    extends Composer<_$AppDatabase, $PendingTransactionsTable> {
+  $$PendingTransactionsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get amountMinor => $composableBuilder(
+    column: $table.amountMinor,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get currency => $composableBuilder(
+    column: $table.currency,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get date => $composableBuilder(
+    column: $table.date,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isExpense => $composableBuilder(
+    column: $table.isExpense,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get rawSms => $composableBuilder(
+    column: $table.rawSms,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get profileId => $composableBuilder(
+    column: $table.profileId,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$PendingTransactionsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PendingTransactionsTable> {
+  $$PendingTransactionsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<double, double> get amountMinor =>
+      $composableBuilder(
+        column: $table.amountMinor,
+        builder: (column) => column,
+      );
+
+  GeneratedColumn<String> get currency =>
+      $composableBuilder(column: $table.currency, builder: (column) => column);
+
+  GeneratedColumn<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get date =>
+      $composableBuilder(column: $table.date, builder: (column) => column);
+
+  GeneratedColumn<bool> get isExpense =>
+      $composableBuilder(column: $table.isExpense, builder: (column) => column);
+
+  GeneratedColumn<String> get rawSms =>
+      $composableBuilder(column: $table.rawSms, builder: (column) => column);
+
+  GeneratedColumn<int> get profileId =>
+      $composableBuilder(column: $table.profileId, builder: (column) => column);
+}
+
+class $$PendingTransactionsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $PendingTransactionsTable,
+          PendingTransaction,
+          $$PendingTransactionsTableFilterComposer,
+          $$PendingTransactionsTableOrderingComposer,
+          $$PendingTransactionsTableAnnotationComposer,
+          $$PendingTransactionsTableCreateCompanionBuilder,
+          $$PendingTransactionsTableUpdateCompanionBuilder,
+          (
+            PendingTransaction,
+            BaseReferences<
+              _$AppDatabase,
+              $PendingTransactionsTable,
+              PendingTransaction
+            >,
+          ),
+          PendingTransaction,
+          PrefetchHooks Function()
+        > {
+  $$PendingTransactionsTableTableManager(
+    _$AppDatabase db,
+    $PendingTransactionsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PendingTransactionsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PendingTransactionsTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$PendingTransactionsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<double> amountMinor = const Value.absent(),
+                Value<String> currency = const Value.absent(),
+                Value<String?> description = const Value.absent(),
+                Value<DateTime> date = const Value.absent(),
+                Value<bool> isExpense = const Value.absent(),
+                Value<String?> rawSms = const Value.absent(),
+                Value<int> profileId = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PendingTransactionsCompanion(
+                id: id,
+                amountMinor: amountMinor,
+                currency: currency,
+                description: description,
+                date: date,
+                isExpense: isExpense,
+                rawSms: rawSms,
+                profileId: profileId,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required double amountMinor,
+                Value<String> currency = const Value.absent(),
+                Value<String?> description = const Value.absent(),
+                required DateTime date,
+                Value<bool> isExpense = const Value.absent(),
+                Value<String?> rawSms = const Value.absent(),
+                required int profileId,
+                Value<int> rowid = const Value.absent(),
+              }) => PendingTransactionsCompanion.insert(
+                id: id,
+                amountMinor: amountMinor,
+                currency: currency,
+                description: description,
+                date: date,
+                isExpense: isExpense,
+                rawSms: rawSms,
+                profileId: profileId,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$PendingTransactionsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $PendingTransactionsTable,
+      PendingTransaction,
+      $$PendingTransactionsTableFilterComposer,
+      $$PendingTransactionsTableOrderingComposer,
+      $$PendingTransactionsTableAnnotationComposer,
+      $$PendingTransactionsTableCreateCompanionBuilder,
+      $$PendingTransactionsTableUpdateCompanionBuilder,
+      (
+        PendingTransaction,
+        BaseReferences<
+          _$AppDatabase,
+          $PendingTransactionsTable,
+          PendingTransaction
+        >,
+      ),
+      PendingTransaction,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -2241,4 +3046,6 @@ class $AppDatabaseManager {
       $$GoalsTableTableManager(_db, _db.goals);
   $$LoansTableTableManager get loans =>
       $$LoansTableTableManager(_db, _db.loans);
+  $$PendingTransactionsTableTableManager get pendingTransactions =>
+      $$PendingTransactionsTableTableManager(_db, _db.pendingTransactions);
 }

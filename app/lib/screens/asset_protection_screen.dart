@@ -100,7 +100,7 @@ class _AssetProtectionScreenState extends State<AssetProtectionScreen> {
               const SizedBox(height: 24),
               Text(
                 'Healthcare Insurance:',
-                style: Theme.of(context).textTheme.subtitle1,
+                style: Theme.of(context).textTheme.titleMedium,
               ),
               Text(
                 '1–5% of monthly income: Ksh ${healthcareMin.toStringAsFixed(2)} - ${healthcareMax.toStringAsFixed(2)}/mo',
@@ -108,7 +108,7 @@ class _AssetProtectionScreenState extends State<AssetProtectionScreen> {
               const SizedBox(height: 16),
               Text(
                 'Life Assurance:',
-                style: Theme.of(context).textTheme.subtitle1,
+                style: Theme.of(context).textTheme.titleMedium,
               ),
               Text(
                 'Cover: Ksh ${lifeCover.toStringAsFixed(0)} (x$coverMultiplier annual income)',
@@ -119,7 +119,7 @@ class _AssetProtectionScreenState extends State<AssetProtectionScreen> {
               const SizedBox(height: 16),
               Text(
                 'Motor Insurance:',
-                style: Theme.of(context).textTheme.subtitle1,
+                style: Theme.of(context).textTheme.titleMedium,
               ),
               Text(
                 'Estimated premium: Ksh ${motorPremiumMonthly.toStringAsFixed(2)}/mo',
@@ -127,7 +127,7 @@ class _AssetProtectionScreenState extends State<AssetProtectionScreen> {
               const SizedBox(height: 16),
               Text(
                 'Home Insurance:',
-                style: Theme.of(context).textTheme.subtitle1,
+                style: Theme.of(context).textTheme.titleMedium,
               ),
               Text(
                 'Estimated premium: Ksh ${homePremiumMonthly.toStringAsFixed(2)}/mo',

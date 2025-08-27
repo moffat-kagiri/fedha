@@ -7,7 +7,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 
-part 'app_database.g.dart';
+ part 'app_database.g.dart';
 
 /// Table for storing transactions with an encrypted relational schema.
 class Transactions extends Table {
@@ -42,7 +42,22 @@ class Loans extends Table {
   RealColumn get interestRate => real().withDefault(const Constant(0.0))();
   DateTimeColumn get startDate => dateTime()();
   DateTimeColumn get endDate => dateTime()();
-  IntColumn get profileId => integer().customConstraint('REFERENCES profiles(id)')();
+  // Removed invalid foreign key constraint; just store profileId
+  IntColumn get profileId => integer()();
+}
+
+/// Table for storing SMS-derived pending transactions prior to user review.
+class PendingTransactions extends Table {
+  TextColumn get id => text()();
+  RealColumn get amountMinor => real().map(const _DecimalConverter())();
+  TextColumn get currency => text().withLength(min: 3, max: 3).withDefault(const Constant('KES'))();
+  TextColumn get description => text().nullable()();
+  DateTimeColumn get date => dateTime()();
+  BoolColumn get isExpense => boolean().withDefault(const Constant(true))();
+  TextColumn get rawSms => text().nullable()();
+  IntColumn get profileId => integer()();
+  @override
+  Set<Column> get primaryKey => {id};
 }
 
 /// Converter for storing Decimal amounts in a real column
@@ -54,7 +69,7 @@ class _DecimalConverter extends TypeConverter<double, double> {
   double toSql(double value) => value * 100;
 }
 
-@DriftDatabase(tables: [Transactions, Goals, Loans])
+@DriftDatabase(tables: [Transactions, Goals, Loans, PendingTransactions])
 class AppDatabase extends _$AppDatabase {
   // Singleton instance
   AppDatabase._internal(QueryExecutor e) : super(e);
@@ -74,14 +89,23 @@ class AppDatabase extends _$AppDatabase {
   // CRUD helpers for Transactions
   Future<int> insertTransaction(TransactionsCompanion companion) => into(transactions).insert(companion);
   Future<List<Transaction>> getAllTransactions() => select(transactions).get();
+  Future<int> deleteTransactionById(int id) => 
+    (delete(transactions)..where((tbl) => tbl.id.equals(id))).go();
 
   // CRUD helpers for Goals
   Future<int> insertGoal(GoalsCompanion companion) => into(goals).insert(companion);
-  Future<List<GoalsData>> getAllGoals() => select(goals).get();
+  Future<List<Goal>> getAllGoals() => select(goals).get();
 
   // CRUD helpers for Loans
   Future<int> insertLoan(LoansCompanion companion) => into(loans).insert(companion);
-  Future<List<LoansData>> getAllLoans() => select(loans).get();
+  Future<List<Loan>> getAllLoans() => select(loans).get();
+  
+  // CRUD helpers for pending SMS transactions
+  Future<int> insertPending(PendingTransactionsCompanion companion) => into(pendingTransactions).insert(companion);
+  Future<List<PendingTransaction>> getAllPending(int profileId) =>
+    (select(pendingTransactions)..where((tbl) => tbl.profileId.equals(profileId))).get();
+  Future<int> deletePending(String id) =>
+    (delete(pendingTransactions)..where((tbl) => tbl.id.equals(id))).go();
 }
 
 /// Opens a SQLCipher encrypted database, generating or retrieving a key from secure storage.
@@ -101,8 +125,8 @@ LazyDatabase _openEncryptedConnection() {
     // Open SQLite database with SQLCipher key
     return NativeDatabase(
       file,
-      setup: (db) async {
-        await db.execute('PRAGMA key = "${key}"');
+      setup: (db) {
+        db.execute('PRAGMA key = "${key}"');
       },
     );
   });

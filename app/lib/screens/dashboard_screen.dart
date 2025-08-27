@@ -60,7 +60,7 @@ class DashboardContent extends StatelessWidget {
                       backgroundColor: colorScheme.background,
                       appBar: AppBar(
                         backgroundColor: colorScheme.primary,
-                        title: Text('Dashboard', style: textTheme.headline6?.copyWith(color: colorScheme.onPrimary)),
+                        title: Text('Dashboard', style: textTheme.titleLarge?.copyWith(color: colorScheme.onPrimary)),
                         elevation: 0,
                       ),
                       body: SafeArea(

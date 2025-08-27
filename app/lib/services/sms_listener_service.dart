@@ -6,6 +6,8 @@ import 'package:uuid/uuid.dart';
 import '../models/transaction.dart';
 import '../models/enums.dart';
 import 'sms_transaction_extractor.dart';
+import '../services/offline_data_service.dart';
+
 /// Internal SMS message model
 class SmsMessage {
   final String sender;
@@ -42,6 +44,7 @@ class SmsListenerService extends ChangeNotifier {
   final inbox.SmsQuery _query = inbox.SmsQuery();
   Timer? _pollTimer;
   StreamController<SmsMessage>? _messageController;
+  final OfflineDataService _offlineDataService = OfflineDataService();
   
   bool _isListening = false;
   List<SmsMessage> _recentMessages = [];
@@ -155,6 +158,7 @@ class SmsListenerService extends ChangeNotifier {
                  data.type.toLowerCase().contains('received')
               ? TransactionType.income
               : TransactionType.expense,
+          categoryId: '',
           date: data.timestamp,
           profileId: _currentProfileId!,
           smsSource: data.rawMessage,
