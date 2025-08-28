@@ -36,7 +36,7 @@ class _LoginScreenState extends State<LoginScreen> {
   void initState() {
     super.initState();
     _loadSavedEmail();
-    // _checkRequirements removed to prevent auto-login bypass
+    _checkRequirements();
     _checkBiometricAvailability();
   }
 
@@ -78,6 +78,66 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     } catch (e) {
       // Biometric not available
+    }
+  }
+
+  // Auto-login and permission check on startup
+  Future<void> _checkRequirements() async {
+    // Check for permissions prompt
+    final permissionsService = PermissionsService.instance;
+    final needsPermissions = await permissionsService.shouldShowPermissionsPrompt();
+    if (needsPermissions && mounted) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => PermissionsScreen(
+            onPermissionsSet: (ctx) {
+              Navigator.pushReplacement(
+                ctx,
+                MaterialPageRoute(builder: (_) => const LoginScreen()),
+              );
+            },
+          ),
+        ),
+      );
+      return;
+    }
+    // Check for biometric session
+    final authService = Provider.of<AuthService>(context, listen: false);
+    await authService.initialize();
+    if (authService.isLoggedIn()) {
+      final biometricService = BiometricAuthService.instance;
+      final biometricEnabled = await biometricService?.isBiometricEnabled() ?? false;
+      final hasValid = await biometricService?.hasValidBiometricSession() ?? false;
+      if (biometricEnabled && !hasValid && mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => BiometricLockScreen(
+              onAuthSuccess: () {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (_) => const MainNavigation()),
+                );
+              },
+              onSkip: () {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (_) => const MainNavigation()),
+                );
+              },
+            ),
+          ),
+        );
+        return;
+      }
+      // Already logged in
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const MainNavigation()),
+        );
+      }
     }
   }
 
