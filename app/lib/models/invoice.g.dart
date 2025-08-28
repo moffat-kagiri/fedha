@@ -3,75 +3,43 @@
 part of 'invoice.dart';
 
 // **************************************************************************
-// TypeAdapterGenerator
+// JsonSerializableGenerator
 // **************************************************************************
 
-class InvoiceAdapter extends TypeAdapter<Invoice> {
-  @override
-  final int typeId = 7;
+Invoice _$InvoiceFromJson(Map<String, dynamic> json) => Invoice(
+  id: json['id'] as String,
+  invoiceNumber: json['invoiceNumber'] as String,
+  clientId: json['clientId'] as String,
+  amount: (json['amount'] as num).toDouble(),
+  currency: json['currency'] as String? ?? 'KES',
+  issueDate: DateTime.parse(json['issueDate'] as String),
+  dueDate: DateTime.parse(json['dueDate'] as String),
+  status: json['status'] as String? ?? 'draft',
+  description: json['description'] as String?,
+  notes: json['notes'] as String?,
+  isActive: json['isActive'] as bool? ?? true,
+  isSynced: json['isSynced'] as bool? ?? false,
+  createdAt: json['createdAt'] == null
+      ? null
+      : DateTime.parse(json['createdAt'] as String),
+  updatedAt: json['updatedAt'] == null
+      ? null
+      : DateTime.parse(json['updatedAt'] as String),
+);
 
-  @override
-  Invoice read(BinaryReader reader) {
-    final numOfFields = reader.readByte();
-    final fields = <int, dynamic>{
-      for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
-    };
-    return Invoice(
-      id: fields[0] as String,
-      invoiceNumber: fields[1] as String,
-      clientId: fields[2] as String,
-      amount: fields[3] as double,
-      currency: fields[4] as String,
-      issueDate: fields[5] as DateTime,
-      dueDate: fields[6] as DateTime,
-      status: fields[7] as String,
-      description: fields[8] as String?,
-      notes: fields[9] as String?,
-      isActive: fields[10] as bool,
-      createdAt: fields[11] as DateTime?,
-      updatedAt: fields[12] as DateTime?,
-    );
-  }
-
-  @override
-  void write(BinaryWriter writer, Invoice obj) {
-    writer
-      ..writeByte(13)
-      ..writeByte(0)
-      ..write(obj.id)
-      ..writeByte(1)
-      ..write(obj.invoiceNumber)
-      ..writeByte(2)
-      ..write(obj.clientId)
-      ..writeByte(3)
-      ..write(obj.amount)
-      ..writeByte(4)
-      ..write(obj.currency)
-      ..writeByte(5)
-      ..write(obj.issueDate)
-      ..writeByte(6)
-      ..write(obj.dueDate)
-      ..writeByte(7)
-      ..write(obj.status)
-      ..writeByte(8)
-      ..write(obj.description)
-      ..writeByte(9)
-      ..write(obj.notes)
-      ..writeByte(10)
-      ..write(obj.isActive)
-      ..writeByte(11)
-      ..write(obj.createdAt)
-      ..writeByte(12)
-      ..write(obj.updatedAt);
-  }
-
-  @override
-  int get hashCode => typeId.hashCode;
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is InvoiceAdapter &&
-          runtimeType == other.runtimeType &&
-          typeId == other.typeId;
-}
+Map<String, dynamic> _$InvoiceToJson(Invoice instance) => <String, dynamic>{
+  'id': instance.id,
+  'invoiceNumber': instance.invoiceNumber,
+  'clientId': instance.clientId,
+  'amount': instance.amount,
+  'currency': instance.currency,
+  'issueDate': instance.issueDate.toIso8601String(),
+  'dueDate': instance.dueDate.toIso8601String(),
+  'status': instance.status,
+  'description': instance.description,
+  'notes': instance.notes,
+  'isActive': instance.isActive,
+  'createdAt': instance.createdAt.toIso8601String(),
+  'updatedAt': instance.updatedAt.toIso8601String(),
+  'isSynced': instance.isSynced,
+};

@@ -1,9 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../services/offline_data_service.dart';
 import '../models/transaction.dart';
-import '../models/goal.dart';
-import '../models/category.dart';
 import '../widgets/quick_transaction_entry.dart';
 
 class AddTransactionScreen extends StatefulWidget {
@@ -22,7 +18,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final PageController _pageController = PageController();
-  int _currentTab = 0;
+  // Current tab is managed by TabController
 
   @override
   void initState() {
@@ -30,9 +26,6 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
     _tabController = TabController(length: 3, vsync: this);
     _tabController.addListener(() {
       if (_tabController.indexIsChanging) {
-        setState(() {
-          _currentTab = _tabController.index;
-        });
         _pageController.animateToPage(
           _tabController.index,
           duration: const Duration(milliseconds: 300),
@@ -88,9 +81,6 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
       body: PageView(
         controller: _pageController,
         onPageChanged: (index) {
-          setState(() {
-            _currentTab = index;
-          });
           _tabController.animateTo(index);
         },
         children: [
@@ -116,7 +106,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: const Color(0xFF007A39).withOpacity(0.1),
+              color: const Color.fromRGBO(0, 122, 57, 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
             child: const Row(
@@ -158,7 +148,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.blue.withOpacity(0.1),
+              color: const Color.fromRGBO(33, 150, 243, 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
             child: const Row(
@@ -195,7 +185,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.orange.withOpacity(0.1),
+              color: const Color.fromRGBO(255, 152, 0, 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
             child: const Row(
@@ -231,7 +221,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: const Color.fromRGBO(0, 0, 0, 0.05),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -291,7 +281,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: const Color.fromRGBO(0, 0, 0, 0.05),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),

@@ -1,93 +1,72 @@
-import 'package:hive/hive.dart';
-
-part 'enums.g.dart';
+// Removed json_annotation import and part directive since no generated code is needed for enums
+// import 'package:json_annotation/json_annotation.dart';
+// part 'enums.g.dart';
 
 // Profile Types
-@HiveType(typeId: 20)
+
 enum ProfileType {
-  @HiveField(0)
   personal,
-  @HiveField(1)
   business,
-  @HiveField(2)
   family,
-  @HiveField(3)
   student
 }
 
 // Goal Types
-@HiveType(typeId: 21)
+
 enum GoalType {
-  @HiveField(0)
   savings,
-  @HiveField(1)
   debtReduction,
-  @HiveField(2)
-  investment,
-  @HiveField(3)
-  expenseReduction,
-  @HiveField(4)
+  insurance,
   emergencyFund,
-  @HiveField(5)
-  incomeIncrease,
-  @HiveField(6)
-  retirement,
-  @HiveField(7)
-  other
+  investment,
+  other,
 }
 
 // Goal Status
-@HiveType(typeId: 22)
+
 enum GoalStatus {
-  @HiveField(0)
   active,
-  @HiveField(1)
   completed,
-  @HiveField(2)
   paused,
-  @HiveField(3)
   cancelled
 }
 
 // Transaction Types
-@HiveType(typeId: 23)
+
 enum TransactionType {
-  @HiveField(0)
   income,
-  @HiveField(1)
   expense,
-  @HiveField(2)
-  transfer,
-  @HiveField(3)
-  savings
+  savings,
+}
+
+// Payment Methods
+
+enum PaymentMethod {
+  cash,
+  card,
+  bank,
+  mobile,
+  online,
+  cheque
 }
 
 // Transaction Categories
-@HiveType(typeId: 24)
+
 enum TransactionCategory {
-  @HiveField(0)
   food,
-  @HiveField(1)
   transport,
-  @HiveField(2)
   entertainment,
-  @HiveField(3)
   utilities,
-  @HiveField(4)
   healthcare,
-  @HiveField(5)
   shopping,
-  @HiveField(6)
   education,
-  @HiveField(7)
   business,
-  @HiveField(8)
   investment,
-  @HiveField(9)
   other
 }
 
 // Budget Periods
+
 enum BudgetPeriod {
   daily,
   weekly,
@@ -97,6 +76,7 @@ enum BudgetPeriod {
 }
 
 // Budget Status
+
 enum BudgetStatus {
   active,
   inactive,
@@ -105,12 +85,65 @@ enum BudgetStatus {
 }
 
 // Invoice Status
+
 enum InvoiceStatus {
   draft,
   sent,
   paid,
   overdue,
   cancelled
+}
+
+// Transaction Status
+
+enum TransactionStatus {
+  pending,
+  completed,
+  failed,
+  cancelled,
+  refunded
+}
+
+// Recurring Type
+
+enum RecurringType {
+  daily,
+  weekly,
+  biweekly,
+  monthly,
+  quarterly,
+  yearly
+}
+
+// Notification Type
+
+enum NotificationType {
+  transactionAlert,
+  budgetWarning,
+  goalProgress,
+  billReminder,
+  accountUpdate,
+  securityAlert
+}
+
+// Account Type
+
+enum AccountType {
+  cash,
+  bankAccount,
+  creditCard,
+  investment,
+  loan,
+  savings,
+  mobile
+}
+
+// Interest calculation models
+
+enum InterestModel {
+  simple,
+  compound,
+  reducingBalance,
 }
 
 // Invoice Line Item
@@ -180,3 +213,4 @@ class BudgetLineItem {
     );
   }
 }
+

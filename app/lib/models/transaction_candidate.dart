@@ -1,46 +1,47 @@
-import 'package:hive/hive.dart';
+import 'enums.dart';
+import 'package:json_annotation/json_annotation.dart';
 
 part 'transaction_candidate.g.dart';
 
-@HiveType(typeId: 8)
-class TransactionCandidate extends HiveObject {
-  @HiveField(0)
+// Helper functions for enum conversion - used by generated adapters
+TransactionType parseTransactionTypeString(String? typeStr) {
+  if (typeStr == null) return TransactionType.expense;
+  
+  switch (typeStr.toLowerCase()) {
+    case 'income': return TransactionType.income;
+    case 'savings': return TransactionType.savings;
+    case 'expense':
+    default: return TransactionType.expense;
+  }
+}
+
+TransactionStatus parseTransactionStatusString(String? statusStr) {
+  if (statusStr == null) return TransactionStatus.pending;
+  
+  switch (statusStr.toLowerCase()) {
+    case 'completed': return TransactionStatus.completed;
+    case 'failed': return TransactionStatus.failed;
+    case 'cancelled': return TransactionStatus.cancelled;
+    case 'refunded': return TransactionStatus.refunded;
+    case 'pending':
+    default: return TransactionStatus.pending;
+  }
+}
+
+@JsonSerializable()
+class TransactionCandidate {
   String id;
-
-  @HiveField(1)
   String? rawText;
-
-  @HiveField(2)
   double amount;
-
-  @HiveField(3)
   String? description;
-
-  @HiveField(4)
   String? categoryId;
-
-  @HiveField(5)
   DateTime date;
-
-  @HiveField(6)
-  String type; // 'income', 'expense'
-
-  @HiveField(7)
-  String status; // 'pending', 'approved', 'rejected'
-
-  @HiveField(8)
+  TransactionType type;
+  TransactionStatus status;
   double confidence; // 0.0 to 1.0
-
-  @HiveField(9)
   String? transactionId; // If approved and converted
-
-  @HiveField(10)
   Map<String, dynamic>? metadata;
-
-  @HiveField(11)
   DateTime createdAt;
-
-  @HiveField(12)
   DateTime updatedAt;
 
   TransactionCandidate({
@@ -51,7 +52,7 @@ class TransactionCandidate extends HiveObject {
     this.categoryId,
     required this.date,
     required this.type,
-    this.status = 'pending',
+    this.status = TransactionStatus.pending,
     this.confidence = 0.5,
     this.transactionId,
     this.metadata,
@@ -61,9 +62,9 @@ class TransactionCandidate extends HiveObject {
     createdAt = createdAt ?? DateTime.now(),
     updatedAt = updatedAt ?? DateTime.now();
 
-  bool get isPending => status == 'pending';
-  bool get isApproved => status == 'approved';
-  bool get isRejected => status == 'rejected';
+  bool get isPending => status == TransactionStatus.pending;
+  bool get isApproved => status == TransactionStatus.completed;
+  bool get isRejected => status == TransactionStatus.cancelled;
   bool get isHighConfidence => confidence >= 0.8;
   bool get isLowConfidence => confidence < 0.5;
 
@@ -75,8 +76,8 @@ class TransactionCandidate extends HiveObject {
       'description': description,
       'category_id': categoryId,
       'date': date.toIso8601String(),
-      'type': type,
-      'status': status,
+      'type': type.toString().split('.').last,
+      'status': status.toString().split('.').last,
       'confidence': confidence,
       'transaction_id': transactionId,
       'metadata': metadata,
@@ -95,8 +96,12 @@ class TransactionCandidate extends HiveObject {
       date: json['date'] != null 
         ? DateTime.parse(json['date']) 
         : DateTime.now(),
-      type: json['type'] ?? 'expense',
-      status: json['status'] ?? 'pending',
+      type: json['type'] is String 
+        ? parseTransactionTypeString(json['type']) 
+        : TransactionType.expense,
+      status: json['status'] is String 
+        ? parseTransactionStatusString(json['status']) 
+        : TransactionStatus.pending,
       confidence: (json['confidence'] ?? 0.5).toDouble(),
       transactionId: json['transaction_id'],
       metadata: json['metadata'] as Map<String, dynamic>?,
@@ -116,8 +121,8 @@ class TransactionCandidate extends HiveObject {
     String? description,
     String? categoryId,
     DateTime? date,
-    String? type,
-    String? status,
+    TransactionType? type,
+    TransactionStatus? status,
     double? confidence,
     String? transactionId,
     Map<String, dynamic>? metadata,
@@ -142,4 +147,6 @@ class TransactionCandidate extends HiveObject {
   String toString() {
     return 'TransactionCandidate(id: $id, amount: $amount, type: $type, status: $status, confidence: $confidence)';
   }
+  
 }
+

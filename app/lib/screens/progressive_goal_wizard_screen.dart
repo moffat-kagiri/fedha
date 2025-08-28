@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../models/goal.dart';
 import '../models/enums.dart';
 import '../services/offline_data_service.dart';
+import '../theme/app_theme.dart';
 
 class ProgressiveGoalWizardScreen extends StatefulWidget {
   const ProgressiveGoalWizardScreen({Key? key}) : super(key: key);
@@ -110,128 +111,143 @@ class _ProgressiveGoalWizardScreenState extends State<ProgressiveGoalWizardScree
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text('Goal Wizard'),
-        backgroundColor: const Color(0xFF007A39),
-        foregroundColor: Colors.white,
-        elevation: 0,
+        title: Text(
+          'Goal Wizard',
+          style: Theme.of(context).textTheme.headlineMedium,
+        ),
+        backgroundColor: Theme.of(context).primaryColor,
       ),
-      body: Column(
-        children: [
-          // Progress indicator
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: const BoxDecoration(
-              color: Color(0xFF007A39),
-              borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Set your SMART goals',
+              style: Theme.of(context).textTheme.headlineMedium,
             ),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    Text(
-                      'Step ${_currentPage + 1} of $_totalPages',
-                      style: const TextStyle(color: Colors.white70, fontSize: 14),
+            const SizedBox(height: 8),
+            Text(
+              'Follow the steps below to refine your goals.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 16),
+            // Progress indicator
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: const BoxDecoration(
+                color: Color(0xFF007A39),
+                borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        'Step ${_currentPage + 1} of $_totalPages',
+                        style: const TextStyle(color: Colors.white70, fontSize: 14),
+                      ),
+                      const Spacer(),
+                      Text(
+                        '${((_currentPage + 1) / _totalPages * 100).round()}% Complete',
+                        style: const TextStyle(color: Colors.white70, fontSize: 14),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  LinearProgressIndicator(
+                    value: (_currentPage + 1) / _totalPages,
+                    backgroundColor: Colors.white.withValues(red: 255, green: 255, blue: 255, alpha: 0.3),
+                    valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                ],
+              ),
+            ),
+            
+            // Page content
+            Expanded(
+              child: PageView(
+                controller: _pageController,
+                onPageChanged: (page) {
+                  setState(() {
+                    _currentPage = page;
+                  });
+                },
+                children: [
+                  _buildWelcomePage(),
+                  _buildSpecificPage(),
+                  _buildFinancialProfilePage(),
+                  _buildMeasurablePage(),
+                  _buildAchievableRealisticPage(),
+                  _buildTimeBoundPage(),
+                ],
+              ),
+            ),
+            
+            // Navigation buttons
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.grey.withValues(red: 158, green: 158, blue: 158, alpha: 0.1),
+                    blurRadius: 10,
+                    offset: const Offset(0, -2),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  if (_currentPage > 0)
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: _previousPage,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF007A39),
+                          side: const BorderSide(color: Color(0xFF007A39)),
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                        ),
+                        child: const Text('Previous'),
+                      ),
                     ),
-                    const Spacer(),
-                    Text(
-                      '${((_currentPage + 1) / _totalPages * 100).round()}% Complete',
-                      style: const TextStyle(color: Colors.white70, fontSize: 14),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                LinearProgressIndicator(
-                  value: (_currentPage + 1) / _totalPages,
-                  backgroundColor: Colors.white.withOpacity(0.3),
-                  valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
-                ),
-              ],
-            ),
-          ),
-          
-          // Page content
-          Expanded(
-            child: PageView(
-              controller: _pageController,
-              onPageChanged: (page) {
-                setState(() {
-                  _currentPage = page;
-                });
-              },
-              children: [
-                _buildWelcomePage(),
-                _buildSpecificPage(),
-                _buildFinancialProfilePage(),
-                _buildMeasurablePage(),
-                _buildAchievableRealisticPage(),
-                _buildTimeBoundPage(),
-              ],
-            ),
-          ),
-          
-          // Navigation buttons
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.grey.withOpacity(0.1),
-                  blurRadius: 10,
-                  offset: const Offset(0, -2),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                if (_currentPage > 0)
+                  if (_currentPage > 0) const SizedBox(width: 16),
                   Expanded(
-                    child: OutlinedButton(
-                      onPressed: _previousPage,
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFF007A39),
-                        side: const BorderSide(color: Color(0xFF007A39)),
+                    child: ElevatedButton(
+                      onPressed: _currentPage == _totalPages - 1 
+                          ? (_isCreating ? null : _createGoal)
+                          : _nextPage,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF007A39),
+                        foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 16),
                       ),
-                      child: const Text('Previous'),
-                    ),
-                  ),
-                if (_currentPage > 0) const SizedBox(width: 16),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: _currentPage == _totalPages - 1 
-                        ? (_isCreating ? null : _createGoal)
-                        : _nextPage,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF007A39),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                    ),
-                    child: _isCreating
-                        ? const Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      child: _isCreating
+                          ? const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                  ),
                                 ),
-                              ),
-                              SizedBox(width: 8),
-                              Text('Creating...'),
-                            ],
-                          )
-                        : Text(_currentPage == _totalPages - 1 ? 'Create SMART Goal' : 'Next'),
+                                SizedBox(width: 8),
+                                Text('Creating...'),
+                              ],
+                            )
+                          : Text(_currentPage == _totalPages - 1 ? 'Create SMART Goal' : 'Next'),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -266,9 +282,9 @@ class _ProgressiveGoalWizardScreenState extends State<ProgressiveGoalWizardScree
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: const Color(0xFF007A39).withOpacity(0.1),
+              color: const Color(0xFF007A39).withValues(red: 0, green: 122, blue: 57, alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFF007A39).withOpacity(0.3)),
+              border: Border.all(color: const Color(0xFF007A39).withValues(red: 0, green: 122, blue: 57, alpha: 0.3)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -363,7 +379,7 @@ class _ProgressiveGoalWizardScreenState extends State<ProgressiveGoalWizardScree
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     color: _goalType == type 
-                        ? const Color(0xFF007A39).withOpacity(0.1)
+                        ? const Color(0xFF007A39).withValues(red: 0, green: 122, blue: 57, alpha: 0.1)
                         : Colors.white,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
@@ -592,9 +608,9 @@ class _ProgressiveGoalWizardScreenState extends State<ProgressiveGoalWizardScree
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF007A39).withOpacity(0.1),
+                  color: const Color(0xFF007A39).withValues(red: 0, green: 122, blue: 57, alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFF007A39).withOpacity(0.3)),
+                  border: Border.all(color: const Color(0xFF007A39).withValues(red: 0, green: 122, blue: 57, alpha: 0.3)),
                 ),
                 child: Column(
                   children: [
@@ -685,9 +701,9 @@ class _ProgressiveGoalWizardScreenState extends State<ProgressiveGoalWizardScree
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: const Color(0xFF007A39).withOpacity(0.1),
+                color: const Color(0xFF007A39).withValues(red: 0, green: 122, blue: 57, alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFF007A39).withOpacity(0.3)),
+                border: Border.all(color: const Color(0xFF007A39).withValues(red: 0, green: 122, blue: 57, alpha: 0.3)),
               ),
               child: Column(
                 children: [
@@ -1017,9 +1033,9 @@ class _ProgressiveGoalWizardScreenState extends State<ProgressiveGoalWizardScree
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: const Color(0xFF007A39).withOpacity(0.1),
+              color: const Color(0xFF007A39).withValues(red: 0, green: 122, blue: 57, alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFF007A39).withOpacity(0.3)),
+              border: Border.all(color: const Color(0xFF007A39).withValues(red: 0, green: 122, blue: 57, alpha: 0.3)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1150,14 +1166,10 @@ class _ProgressiveGoalWizardScreenState extends State<ProgressiveGoalWizardScree
         return Icons.money_off;
       case GoalType.investment:
         return Icons.trending_up;
-      case GoalType.expenseReduction:
-        return Icons.trending_down;
       case GoalType.emergencyFund:
         return Icons.security;
-      case GoalType.incomeIncrease:
-        return Icons.attach_money;
-      case GoalType.retirement:
-        return Icons.account_balance;
+      case GoalType.insurance:
+        return Icons.health_and_safety;
       case GoalType.other:
         return Icons.flag;
     }
@@ -1171,14 +1183,10 @@ class _ProgressiveGoalWizardScreenState extends State<ProgressiveGoalWizardScree
         return 'Debt Reduction';
       case GoalType.investment:
         return 'Investment Goal';
-      case GoalType.expenseReduction:
-        return 'Expense Reduction';
       case GoalType.emergencyFund:
         return 'Emergency Fund';
-      case GoalType.incomeIncrease:
-        return 'Income Increase';
-      case GoalType.retirement:
-        return 'Retirement Planning';
+      case GoalType.insurance:
+        return 'Insurance Goal';
       case GoalType.other:
         return 'Other Goal';
     }
@@ -1192,14 +1200,10 @@ class _ProgressiveGoalWizardScreenState extends State<ProgressiveGoalWizardScree
         return 'Pay off loans or credit card debt';
       case GoalType.investment:
         return 'Invest money for long-term growth';
-      case GoalType.expenseReduction:
-        return 'Reduce monthly spending in specific areas';
       case GoalType.emergencyFund:
         return 'Build an emergency fund for unexpected expenses';
-      case GoalType.incomeIncrease:
-        return 'Increase your monthly income';
-      case GoalType.retirement:
-        return 'Save for retirement or pension';
+      case GoalType.insurance:
+        return 'Save for insurance premiums or build a coverage reserve';
       case GoalType.other:
         return 'Any other financial goal';
     }
@@ -1213,14 +1217,10 @@ class _ProgressiveGoalWizardScreenState extends State<ProgressiveGoalWizardScree
         return 'Focus on high-interest debt first. Calculate total debt including interest.';
       case GoalType.investment:
         return 'Consider your risk tolerance and investment timeline for this amount.';
-      case GoalType.expenseReduction:
-        return 'Track current spending first, then set a realistic reduction target.';
       case GoalType.emergencyFund:
         return 'Aim for 3-6 months of living expenses. Start with Ksh 50,000 if you\'re just beginning.';
-      case GoalType.incomeIncrease:
-        return 'Consider skills development, side hustles, or career advancement opportunities.';
-      case GoalType.retirement:
-        return 'Start early! Even small amounts compound significantly over time.';
+      case GoalType.insurance:
+        return 'Plan for annual premiums or future coverage needs; spread cost monthly.';
       case GoalType.other:
         return 'Make sure your goal amount is specific and well-researched.';
     }

@@ -1,46 +1,20 @@
-import 'package:hive/hive.dart';
-
+import 'package:json_annotation/json_annotation.dart';
 part 'sync_queue_item.g.dart';
 
-@HiveType(typeId: 9)
-class SyncQueueItem extends HiveObject {
-  @HiveField(0)
+@JsonSerializable()
+class SyncQueueItem {
   String id;
-
-  @HiveField(1)
   String action; // 'create', 'update', 'delete'
-
-  @HiveField(2)
   String entityType; // 'transaction', 'goal', 'budget', etc.
-
-  @HiveField(3)
   String entityId;
-
-  @HiveField(4)
   Map<String, dynamic> data;
-
-  @HiveField(5)
   String status; // 'pending', 'processing', 'completed', 'failed'
-
-  @HiveField(6)
   int retryCount;
-
-  @HiveField(7)
   int maxRetries;
-
-  @HiveField(8)
   String? errorMessage;
-
-  @HiveField(9)
   DateTime createdAt;
-
-  @HiveField(10)
   DateTime updatedAt;
-
-  @HiveField(11)
   DateTime? nextRetryAt;
-
-  @HiveField(12)
   int priority; // Higher number = higher priority
 
   SyncQueueItem({

@@ -6,7 +6,7 @@ import '../models/enums.dart';
 import '../services/offline_data_service.dart';
 
 class AddGoalScreen extends StatefulWidget {
-  const AddGoalScreen({Key? key}) : super(key: key);
+  const AddGoalScreen({super.key});
 
   @override
   State<AddGoalScreen> createState() => _AddGoalScreenState();

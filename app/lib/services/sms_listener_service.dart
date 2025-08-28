@@ -1,6 +1,40 @@
 import 'dart:async';
-import 'package:flutter/services.dart';
+import 'package:flutter_sms_inbox/flutter_sms_inbox.dart' as inbox;
 import 'package:flutter/foundation.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:uuid/uuid.dart';
+import '../models/transaction.dart';
+import '../models/enums.dart';
+import '../models/category.dart' as models;
+import 'sms_transaction_extractor.dart';
+import '../services/offline_data_service.dart';
+
+/// Internal SMS message model
+class SmsMessage {
+  final String sender;
+  final String body;
+  final DateTime timestamp;
+
+  SmsMessage({
+    required this.sender,
+    required this.body,
+    required this.timestamp,
+  });
+
+  Map<String, dynamic> toMap() => {
+        'sender': sender,
+        'body': body,
+        'timestamp': timestamp.millisecondsSinceEpoch,
+      };
+
+  factory SmsMessage.fromMap(Map<String, dynamic> map) {
+    return SmsMessage(
+      sender: map['sender'] as String? ?? '',
+      body: map['body'] as String? ?? '',
+      timestamp: DateTime.fromMillisecondsSinceEpoch(map['timestamp'] as int? ?? 0),
+    );
+  }
+}
 
 class SmsListenerService extends ChangeNotifier {
   static SmsListenerService? _instance;
@@ -8,8 +42,10 @@ class SmsListenerService extends ChangeNotifier {
   
   SmsListenerService._();
   
-  static const MethodChannel _channel = MethodChannel('sms_listener');
+  final inbox.SmsQuery _query = inbox.SmsQuery();
+  Timer? _pollTimer;
   StreamController<SmsMessage>? _messageController;
+  final OfflineDataService _offlineDataService = OfflineDataService();
   
   bool _isListening = false;
   List<SmsMessage> _recentMessages = [];
@@ -23,120 +59,243 @@ class SmsListenerService extends ChangeNotifier {
   List<SmsMessage> get recentMessages => List.unmodifiable(_recentMessages);
   bool get isListening => _isListening;
   
-  /// Initialize the SMS listener service
-  Future<bool> initialize() async {
+  /// Check for SMS permission and request it if needed
+  Future<bool> checkAndRequestPermissions() async {
     try {
-      if (kIsWeb) {
-        // Web doesn't support SMS
-        print('SMS listener not supported on web');
-        return false;
+      // Check if SMS permission is granted
+      var status = await Permission.sms.status;
+      
+      // If not granted, request permission
+      if (!status.isGranted) {
+        status = await Permission.sms.request();
       }
       
-      // Set up method channel handler
-      _channel.setMethodCallHandler(_handleMethodCall);
-      
-      // For development, simulate initialization success
       if (kDebugMode) {
-        print('SMS listener initialized (development mode)');
-        return true;
+        print('SMS permission status: ${status.name}');
       }
       
-      // In production, this would initialize native SMS listener
-      final result = await _channel.invokeMethod('initialize');
-      return result == true;
+      // Return whether permission is granted
+      return status.isGranted;
     } catch (e) {
-      print('Error initializing SMS listener: $e');
+      if (kDebugMode) {
+        print('Error checking SMS permissions: $e');
+      }
       return false;
     }
   }
   
-  /// Start listening for SMS messages
-  Future<void> startListening() async {
-    if (_isListening) return;
-    
+  /// Initialize the SMS listener service
+  Future<bool> initialize() async {
     try {
+      if (!await checkAndRequestPermissions()) return false;
+      // Poll SMS inbox every 10 seconds
+      DateTime? lastTimestamp;
+      _pollTimer = Timer.periodic(const Duration(seconds: 10), (_) async {
+        // Poll SMS messages from inbox
+        if (kDebugMode) print('Polling SMS inbox...');
+        final List<inbox.SmsMessage> raw = await _query.querySms(
+          count: 20,
+          sort: true,
+        );
+        if (kDebugMode) print('Retrieved ${raw.length} SMS messages');
+        for (var nativeMsg in raw) {
+          // plugin returns DateTime or int? ensure a DateTime
+          final DateTime msgTime = nativeMsg.date is DateTime
+              ? nativeMsg.date as DateTime
+              : DateTime.fromMillisecondsSinceEpoch((nativeMsg.date as int?) ?? 0);
+          if (lastTimestamp == null || msgTime.isAfter(lastTimestamp!)) {
+            lastTimestamp = msgTime;
+            final msg = SmsMessage(
+              sender: nativeMsg.address ?? '',
+              body: nativeMsg.body ?? '',
+              timestamp: msgTime,
+            );
+            if (kDebugMode) print('Evaluating SMS: sender=${msg.sender}, body=${msg.body}');
+            final isFin = _isFinancialTransaction(msg);
+            if (kDebugMode) print('Is financial transaction: $isFin');
+            if (isFin) {
+              _handleSmsReceived(msg.toMap());
+            }
+          }
+        }
+      });
+      _isListening = true;
+      notifyListeners();
       if (kDebugMode) {
-        // Simulate starting in development
-        _isListening = true;
-        print('SMS listener started (development mode)');
-        _simulateIncomingMessages();
-        notifyListeners();
-        return;
+        print('SMS listener started via flutter_sms_inbox');
       }
-      
-      final result = await _channel.invokeMethod('startListening');
-      if (result == true) {
-        _isListening = true;
-        print('SMS listener started successfully');
-        notifyListeners();
-      }
+      return true;
     } catch (e) {
-      print('Error starting SMS listener: $e');
+      if (kDebugMode) print('Error initializing SMS listener: $e');
+      return false;
     }
+  }
+  /// Alias to start listening for SMS transactions
+  Future<bool> startListening() async {
+    return initialize();
+  }
+  /// Stop polling SMS inbox
+  Future<void> stopListening() async {
+    _pollTimer?.cancel();
+    _isListening = false;
+    notifyListeners();
   }
   
-  /// Stop listening for SMS messages
-  Future<void> stopListening() async {
-    if (!_isListening) return;
-    
-    try {
-      if (kDebugMode) {
-        _isListening = false;
-        print('SMS listener stopped (development mode)');
-        notifyListeners();
-        return;
-      }
-      
-      final result = await _channel.invokeMethod('stopListening');
-      if (result == true) {
-        _isListening = false;
-        print('SMS listener stopped successfully');
-        notifyListeners();
-      }
-    } catch (e) {
-      print('Error stopping SMS listener: $e');
-    }
-  }
   
   void setCurrentProfile(String profileId) {
     _currentProfileId = profileId;
     print('SMS listener profile set to: $profileId');
   }
   
-  /// Handle incoming method calls from native code
-  Future<void> _handleMethodCall(MethodCall call) async {
-    switch (call.method) {
-      case 'onSmsReceived':
-        _handleSmsReceived(call.arguments);
-        break;
-      default:
-        print('Unhandled method call: ${call.method}');
-    }
-  }
   
   /// Process received SMS message
   void _handleSmsReceived(Map<String, dynamic> data) {
-    try {
-      final message = SmsMessage.fromMap(data);
-      
-      // Check if it's a financial transaction
-      if (_isFinancialTransaction(message)) {
-        _recentMessages.insert(0, message);
-        
-        // Keep only recent messages (last 50)
-        if (_recentMessages.length > 50) {
-          _recentMessages = _recentMessages.take(50).toList();
-        }
-        
-        // Notify listeners
+    final message = SmsMessage.fromMap(data);
+
+    if (_isFinancialTransaction(message) && _currentProfileId != null) {
+      // Add to recent queue
+      _recentMessages.insert(0, message);
+
+      // Parse structured transaction data
+      final data = parseTransaction(message);
+      if (data != null) {
+        // Fallback: use extractor to find recipient if parser didn't
+        final extractor = SmsTransactionExtractor();
+        final recipient = data.recipient ?? extractor.extractRecipient(message.body);
+        final tx = Transaction(
+          amount: data.amount,
+          type: data.type.toLowerCase().contains('credit') ||
+                 data.type.toLowerCase().contains('received')
+              ? TransactionType.income
+              : TransactionType.expense,
+          categoryId: '',
+          date: data.timestamp,
+          profileId: _currentProfileId!,
+          smsSource: data.rawMessage,
+          reference: data.reference,
+          recipient: recipient,
+        );
+
+  // Persist pending transaction for review
+  unawaited(_offlineDataService.savePendingTransaction(tx));
+
+        // Notify any listeners/UI
         _messageController?.add(message);
         notifyListeners();
-        
-        print('Financial SMS detected: ${message.sender} - ${message.body}');
+      }
+    }
+  }
+  
+  /// Process a manually entered SMS string (iOS fallback)
+  Future<void> processManualSms(String rawMessage) async {
+    final msg = SmsMessage(
+      sender: '',
+      body: rawMessage,
+      timestamp: DateTime.now(),
+    );
+    _handleSmsReceived(msg.toMap());
+  }
+  
+  /// Save a pending transaction to be reviewed
+  Future<void> _savePendingTransaction(TransactionData transactionData) async {
+    try {
+      if (_currentProfileId == null) {
+        if (kDebugMode) {
+          print('No current profile set, cannot save transaction');
+        }
+        return;
+      }
+      
+      // Create a transaction entry
+      final transaction = Transaction(
+        type: TransactionType.expense, // Default to expense for SMS transactions
+        profileId: _currentProfileId ?? '',
+        id: const Uuid().v4(),
+        amount: transactionData.amount,
+        date: transactionData.timestamp,
+        description: 'SMS: ${transactionData.type ?? ""} via ${transactionData.source}',
+        categoryId: (await _guessCategory(transactionData)) ?? 'uncategorized',
+        isRecurring: false,
+        notes: 'Auto-detected from SMS',
+        smsSource: transactionData.rawMessage,
+        reference: transactionData.reference,
+        recipient: transactionData.recipient,
+      );
+      
+  // Save to pending transactions table via service
+  await _offlineDataService.savePendingTransaction(transaction);
+      
+      if (kDebugMode) {
+        print('Saved pending transaction: ${transaction.id}');
       }
     } catch (e) {
-      print('Error processing SMS: $e');
+      if (kDebugMode) {
+        print('Error saving pending transaction: $e');
+      }
     }
+  }
+  
+  /// Guess transaction category based on content
+  Future<String?> _guessCategory(TransactionData data) async {
+    // Default categories
+    const defaultIncomeCategory = 'income';
+    const defaultExpenseCategory = 'expense';
+    
+    try {
+      // Load categories
+      
+      // Keywords for common categories
+      final Map<String, List<String>> categoryKeywords = {
+        'food': ['restaurant', 'food', 'cafe', 'coffee', 'grocery', 'supermarket'],
+        'transport': ['uber', 'taxi', 'fare', 'transport', 'travel', 'car', 'petrol', 'fuel'],
+        'shopping': ['shop', 'store', 'mall', 'market', 'buy', 'purchase'],
+        'entertainment': ['movie', 'cinema', 'theatre', 'event', 'ticket', 'concert'],
+        'utility': ['bill', 'water', 'electricity', 'internet', 'wifi', 'utility'],
+        'rent': ['rent', 'house', 'apartment', 'accommodation'],
+        'salary': ['salary', 'payment', 'wage', 'income', 'payday'],
+      };
+      
+      // Check transaction description and recipient for keywords
+      final String searchText = [
+        data.rawMessage.toLowerCase(),
+        data.recipient?.toLowerCase() ?? '',
+      ].join(' ');
+      
+      for (final entry in categoryKeywords.entries) {
+        for (final keyword in entry.value) {
+          if (searchText.contains(keyword)) {
+            // Find matching category ID
+      // TODO: fetch categories via OfflineDataService
+      final cats = await _offlineDataService.getCategories(int.tryParse(_currentProfileId!) ?? 0);
+      final match = cats.firstWhere(
+        (c) => c.name.toLowerCase() == entry.key,
+        orElse: () => models.Category(id: '', name: ''));
+      if (match.id.isNotEmpty) return match.id;
+          }
+        }
+      }
+      
+      // Fall back to default categories
+      if (data.type == 'received' || data.type == 'credit') {
+  final cats = await _offlineDataService.getCategories(int.tryParse(_currentProfileId!) ?? 0);
+  return cats.firstWhere(
+    (c) => c.name.toLowerCase() == defaultIncomeCategory,
+    orElse: () => models.Category(id: '', name: ''))
+      .id;
+      } else {
+  final cats = await _offlineDataService.getCategories(int.tryParse(_currentProfileId!) ?? 0);
+  return cats.firstWhere(
+    (c) => c.name.toLowerCase() == defaultExpenseCategory,
+    orElse: () => models.Category(id: '', name: ''))
+      .id;
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error guessing category: $e');
+      }
+    }
+    
+    return null;
   }
   
   /// Simulate incoming messages for development
@@ -215,58 +374,6 @@ class SmsListenerService extends ChangeNotifier {
       print('Error parsing transaction: $e');
       return null;
     }
-  }
-  
-  /// Get recent financial messages
-  List<SmsMessage> getRecentFinancialMessages({int limit = 20}) {
-    return _recentMessages.take(limit).toList();
-  }
-  
-  /// Clear message history
-  void clearHistory() {
-    _recentMessages.clear();
-    notifyListeners();
-  }
-  
-  @override
-  void dispose() {
-    _messageController?.close();
-    _messageController = null;
-    _isListening = false;
-    _recentMessages.clear();
-    super.dispose();
-  }
-}
-
-class SmsMessage {
-  final String sender;
-  final String body;
-  final DateTime timestamp;
-  final String? address;
-  
-  SmsMessage({
-    required this.sender,
-    required this.body,
-    required this.timestamp,
-    this.address,
-  });
-  
-  factory SmsMessage.fromMap(Map<String, dynamic> map) {
-    return SmsMessage(
-      sender: map['sender'] ?? '',
-      body: map['body'] ?? '',
-      timestamp: DateTime.fromMillisecondsSinceEpoch(map['timestamp'] ?? 0),
-      address: map['address'],
-    );
-  }
-  
-  Map<String, dynamic> toMap() {
-    return {
-      'sender': sender,
-      'body': body,
-      'timestamp': timestamp.millisecondsSinceEpoch,
-      'address': address,
-    };
   }
 }
 
@@ -391,3 +498,4 @@ class TransactionParser {
     );
   }
 }
+

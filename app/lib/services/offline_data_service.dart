@@ -1,189 +1,253 @@
+// Removed Category conflict, no foundation features used
 import 'package:flutter/foundation.dart';
-import 'package:hive/hive.dart';
-import '../models/transaction.dart';
-import '../models/category.dart' as models;
-import '../models/goal.dart';
-import '../models/budget.dart';
-import '../models/profile.dart';
-import '../models/enums.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:drift/drift.dart';
+import 'package:fedha/data/app_database.dart';
+import 'package:fedha/models/transaction.dart' as dom_tx;
+import 'package:fedha/models/goal.dart' as dom_goal;
+import 'package:fedha/models/loan.dart' as dom_loan;
+import 'package:fedha/models/enums.dart' show TransactionType;
+import 'package:fedha/models/category.dart' as dom_cat;
+import 'package:fedha/models/budget.dart' as dom_budget;
 
-class OfflineDataService extends ChangeNotifier {
-  static OfflineDataService? _instance;
-  static OfflineDataService get instance => _instance ??= OfflineDataService._();
-  
-  OfflineDataService._();
-  
-  // Constructor for dependency injection
-  OfflineDataService() : this._();
+class OfflineDataService {
+  // SharedPreferences for simple flags/caches
+  late final SharedPreferences _prefs;
 
-  Box<Transaction>? _transactionBox;
-  Box<models.Category>? _categoryBox;
-  Box<Goal>? _goalBox;
-  Box<Budget>? _budgetBox;
-  Box<Profile>? _profileBox;
+  OfflineDataService();
 
-  bool _isInitialized = false;
-  bool get isInitialized => _isInitialized;
-
+  /// Initialize SharedPreferences instance
   Future<void> initialize() async {
-    if (_isInitialized) return;
-
-    try {
-      _transactionBox = await Hive.openBox<Transaction>('transactions');
-      _categoryBox = await Hive.openBox<models.Category>('categories');
-      _goalBox = await Hive.openBox<Goal>('goals');
-      _budgetBox = await Hive.openBox<Budget>('budgets');
-      _profileBox = await Hive.openBox<Profile>('profiles');
-      
-      _isInitialized = true;
-      notifyListeners();
-    } catch (e) {
-      print('Error initializing OfflineDataService: $e');
-    }
+    _prefs = await SharedPreferences.getInstance();
   }
 
-  // Transaction methods
-  Future<void> saveTransaction(Transaction transaction) async {
-    await _transactionBox?.put(transaction.id, transaction);
-    notifyListeners();
+  bool get onboardingComplete =>
+    _prefs.getBool('onboarding_complete') ?? false;
+  set onboardingComplete(bool v) =>
+    _prefs.setBool('onboarding_complete', v);
+
+  bool get darkMode =>
+    _prefs.getBool('dark_mode') ?? false;
+  set darkMode(bool v) =>
+    _prefs.setBool('dark_mode', v);
+
+  // Drift DB for relational data
+  final AppDatabase _db = AppDatabase();
+
+  // Transactions
+  Future<void> saveTransaction(dom_tx.Transaction tx) async {
+    final companion = TransactionsCompanion.insert(
+      amountMinor: tx.amount,
+      currency: tx.paymentMethod == null ? 'KES' : tx.paymentMethod.toString(),
+      description: tx.description ?? '',
+      categoryId: Value(tx.categoryId),
+      date: tx.date,
+      isExpense: Value(tx.isExpense),
+      rawSms: Value(tx.smsSource),
+      profileId: int.tryParse(tx.profileId) ?? 0,
+    );
+    await _db.insertTransaction(companion);
   }
 
-  List<Transaction> getAllTransactions() {
-    return _transactionBox?.values.toList() ?? [];
+  // Allow calling without profileId
+  Future<List<dom_tx.Transaction>> getAllTransactions([int profileId = 0]) async {
+    final rows = await _db.getAllTransactions();
+    return rows
+      .where((r) => r.profileId == profileId)
+      .map((r) => dom_tx.Transaction(
+        amount: r.amountMinor,
+        type: r.isExpense ? TransactionType.expense : TransactionType.income,
+        categoryId: r.categoryId,
+        description: r.description,
+        date: r.date,
+        smsSource: r.rawSms ?? '',
+        profileId: r.profileId.toString(),
+      ))
+      .toList();
   }
 
-  Transaction? getTransaction(String id) {
-    return _transactionBox?.get(id);
+  // Goals
+  Future<void> saveGoal(dom_goal.Goal goal) async {
+    final companion = GoalsCompanion.insert(
+      title: goal.name,
+      targetMinor: goal.targetAmount,
+      currency: goal.currency,
+      dueDate: goal.targetDate,
+      completed: Value(goal.status == 'completed'),
+      profileId: int.tryParse(goal.profileId ?? '') ?? 0,
+    );
+    await _db.insertGoal(companion);
   }
-
-  Future<void> deleteTransaction(String id) async {
-    await _transactionBox?.delete(id);
-    notifyListeners();
-  }
-
-  Future<void> updateTransaction(Transaction transaction) async {
-    await _transactionBox?.put(transaction.id, transaction);
-    notifyListeners();
-  }
-
-  // Category methods
-  Future<void> saveCategory(models.Category category) async {
-    await _categoryBox?.put(category.id, category);
-    notifyListeners();
-  }
-
-  List<models.Category> getAllCategories() {
-    return _categoryBox?.values.toList() ?? [];
-  }
-
-  models.Category? getCategory(String id) {
-    return _categoryBox?.get(id);
-  }
-
-  // Goal methods
-  Future<void> saveGoal(Goal goal) async {
-    await _goalBox?.put(goal.id, goal);
-    notifyListeners();
-  }
-
-  Future<void> addGoal(Goal goal) async {
+  
+  // Add missing method
+  Future<void> addGoal(dom_goal.Goal goal) async {
     await saveGoal(goal);
   }
 
-  List<Goal> getAllGoals() {
-    return _goalBox?.values.toList() ?? [];
+  Future<List<dom_goal.Goal>> getAllGoals([int profileId = 0]) async {
+    final rows = await _db.getAllGoals();
+    return rows
+      .where((r) => r.profileId == profileId)
+      .map((r) => dom_goal.Goal(
+        id: r.id.toString(),
+        name: r.title,
+        targetAmount: r.targetMinor,
+        targetDate: r.dueDate,
+        currency: r.currency,
+        profileId: r.profileId.toString(),
+        status: r.completed ? 'completed' : 'active',
+        isActive: !r.completed,
+      ))
+      .toList();
+  }
+  
+  Future<dom_goal.Goal?> getGoal(String goalId) async {
+    final rows = await _db.getAllGoals();
+    final matches = rows.where((r) => r.id.toString() == goalId).toList();
+    if (matches.isEmpty) return null;
+    
+    final r = matches.first;
+    return dom_goal.Goal(
+      id: r.id.toString(),
+      name: r.title,
+      targetAmount: r.targetMinor,
+      targetDate: r.dueDate,
+      currency: r.currency,
+      profileId: r.profileId.toString(),
+      status: r.completed ? 'completed' : 'active',
+      isActive: !r.completed,
+    );
   }
 
-  List<Goal> getActiveGoals() {
-    return getAllGoals().where((goal) => goal.status == 'active').toList();
+  // Loans
+  Future<void> saveLoan(dom_loan.Loan loan) async {
+    final companion = LoansCompanion.insert(
+      name: loan.name,
+      principalMinor: loan.principalMinor.toInt(),
+      currency: Value(loan.currency),
+      interestRate: Value(loan.interestRate),
+      startDate: loan.startDate,
+      endDate: loan.endDate,
+      profileId: loan.profileId,
+    );
+    await _db.into(_db.loans).insert(companion);
   }
 
-  Goal? getGoal(String id) {
-    return _goalBox?.get(id);
+  Future<List<dom_loan.Loan>> getAllLoans(int profileId) async {
+     final rows = await _db.select(_db.loans).get();
+     return rows
+       .where((r) => r.profileId == profileId)
+  .map((r) => dom_loan.Loan(
+         id: r.id,
+         name: r.name,
+         principalMinor: r.principalMinor.toDouble(),
+         currency: r.currency,
+         interestRate: r.interestRate,
+         startDate: r.startDate,
+         endDate: r.endDate,
+         profileId: r.profileId,
+       ))
+       .toList();
   }
-
-  Future<void> deleteGoal(String id) async {
-    await _goalBox?.delete(id);
-    notifyListeners();
+  
+  // Budgets
+  Future<void> saveBudget(dom_budget.Budget budget) async {
+    // TODO: Implement budget saving when Budgets table is added to the database
+    print('Budget saving not implemented yet: ${budget.name}');
   }
-
-  // Budget methods
-  Future<void> saveBudget(Budget budget) async {
-    await _budgetBox?.put(budget.id, budget);
-    notifyListeners();
-  }
-
-  Future<void> addBudget(Budget budget) async {
+  
+  Future<void> addBudget(dom_budget.Budget budget) async {
     await saveBudget(budget);
   }
-
-  List<Budget> getAllBudgets() {
-    return _budgetBox?.values.toList() ?? [];
+  
+  Future<List<dom_budget.Budget>> getAllBudgets([int? profileId]) async {
+    // TODO: Implement when Budgets table is added
+    return [];
+  }
+  
+  Future<dom_budget.Budget?> getCurrentBudget(int profileId) async {
+    // TODO: Implement when Budgets table is added
+    return null;
   }
 
-  Budget? getBudget(String id) {
-    return _budgetBox?.get(id);
+  // SMS-review helpers (pending transactions)
+  /// Returns a list of transactions pending review for a given profile.
+  Future<List<dom_tx.Transaction>> getPendingTransactions(int profileId) async {
+    final rows = await _db.getAllPending(profileId);
+  return rows.map((r) => dom_tx.Transaction(
+      id: r.id,
+      amount: r.amountMinor,
+      type: r.isExpense ? TransactionType.expense : TransactionType.income,
+      categoryId: '',
+      description: r.description ?? '',
+      date: r.date,
+      smsSource: r.rawSms ?? '',
+      profileId: r.profileId.toString(),
+      isPending: true,
+      isExpense: r.isExpense,
+    )).toList();
   }
 
-  Budget? getCurrentBudget() {
-    final budgets = getAllBudgets();
-    if (budgets.isEmpty) return null;
-    
-    final now = DateTime.now();
-    return budgets.where((b) => 
-      b.isActive && 
-      b.startDate.isBefore(now) && 
-      b.endDate.isAfter(now)
-    ).firstOrNull;
+  /// Approves a pending transaction (adds it to main transactions).
+  Future<void> approvePendingTransaction(dom_tx.Transaction tx) async {
+    // Insert into main transactions, then remove pending
+    await saveTransaction(tx);
+    await _db.deletePending(tx.id);
   }
 
-  // Profile methods
-  Future<void> saveProfile(Profile profile) async {
-    await _profileBox?.put(profile.id, profile);
-    notifyListeners();
+  /// Deletes a pending transaction by ID.
+  Future<void> deletePendingTransaction(String id) async {
+    await _db.deletePending(id);
   }
 
-  List<Profile> getAllProfiles() {
-    return _profileBox?.values.toList() ?? [];
-  }
-
-  Profile? getProfile(String id) {
-    return _profileBox?.get(id);
-  }
-
-  // Statistics methods
-  double getTotalExpenses() {
-    final transactions = getAllTransactions();
-    return transactions
-        .where((t) => t.type == TransactionType.expense)
-        .fold(0.0, (sum, t) => sum + t.amount);
-  }
-
-  double getTotalIncome() {
-    final transactions = getAllTransactions();
-    return transactions
-        .where((t) => t.type == TransactionType.income)
-        .fold(0.0, (sum, t) => sum + t.amount);
-  }
-
-  Map<String, double> getExpensesByCategory() {
-    final transactions = getAllTransactions();
-    final expenses = transactions.where((t) => t.type == TransactionType.expense);
-    
-    final Map<String, double> categoryTotals = {};
-    for (final transaction in expenses) {
-      categoryTotals[transaction.categoryId] = 
-          (categoryTotals[transaction.categoryId] ?? 0) + transaction.amount;
+  /// Delete transaction from database by ID
+  Future<void> deleteTransaction(String id) async {
+    // Convert String ID to int if needed
+    int? numericId = int.tryParse(id);
+    if (numericId != null) {
+      await _db.deleteTransactionById(numericId);
+    } else {
+      // Handle legacy string IDs or provide fallback
+      // This might be needed during migration
+      throw Exception('Invalid transaction ID format');
     }
-    return categoryTotals;
   }
 
-  void dispose() {
-    _transactionBox?.close();
-    _categoryBox?.close();
-    _goalBox?.close();
-    _budgetBox?.close();
-    _profileBox?.close();
-    super.dispose();
+  /// Returns all categories for a profile.
+  Future<List<dom_cat.Category>> getCategories(int profileId) async {
+    // TODO: fetch categories from DB
+    return [];
+  }
+  
+  /// Save a pending transaction to be reviewed
+  Future<void> savePendingTransaction(dom_tx.Transaction tx) async {
+    final companion = PendingTransactionsCompanion.insert(
+      id: tx.id,
+      amountMinor: tx.amount,
+      currency: Value(tx.paymentMethod?.toString() ?? 'KES'),
+      description: Value(tx.description ?? ''),
+      date: tx.date,
+      isExpense: Value(tx.isExpense),
+      rawSms: Value(tx.smsSource ?? ''),
+      profileId: int.tryParse(tx.profileId) ?? 0,
+    );
+    await _db.insertPending(companion);
+  }
+}
+
+extension EmergencyFundX on OfflineDataService {
+  /// Returns the average monthly expense over the last [months] months,
+  /// or null if there isn’t at least one transaction in that window.
+  Future<double?> getAverageMonthlySpending(int profileId, {int months = 3}) async {
+    final since = DateTime.now().subtract(Duration(days: months * 30));
+    final all = await getAllTransactions(profileId);
+    final recentExpenses = all
+        .where((tx) =>
+            tx.type == TransactionType.expense && tx.date.isAfter(since))
+        .toList();
+    if (recentExpenses.isEmpty) return null;
+    final total = recentExpenses.fold<double>(
+        0, (sum, tx) => sum + tx.amount);
+    return total / months;
   }
 }

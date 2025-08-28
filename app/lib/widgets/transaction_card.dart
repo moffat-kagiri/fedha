@@ -163,8 +163,6 @@ class TransactionCard extends StatelessWidget {
         return (Icons.remove_circle, Colors.red);
       case TransactionType.savings:
         return (Icons.savings, Colors.blue);
-      case TransactionType.transfer:
-        return (Icons.swap_horiz, Colors.orange);
     }
   }
 

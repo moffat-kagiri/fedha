@@ -3,72 +3,41 @@
 part of 'budget.dart';
 
 // **************************************************************************
-// TypeAdapterGenerator
+// JsonSerializableGenerator
 // **************************************************************************
 
-class BudgetAdapter extends TypeAdapter<Budget> {
-  @override
-  final int typeId = 6;
+Budget _$BudgetFromJson(Map<String, dynamic> json) => Budget(
+  id: json['id'] as String,
+  name: json['name'] as String,
+  description: json['description'] as String?,
+  budgetAmount: (json['budgetAmount'] as num).toDouble(),
+  spentAmount: (json['spentAmount'] as num?)?.toDouble() ?? 0.0,
+  categoryId: json['categoryId'] as String,
+  period: json['period'] as String? ?? 'monthly',
+  isSynced: json['isSynced'] as bool? ?? false,
+  startDate: DateTime.parse(json['startDate'] as String),
+  endDate: DateTime.parse(json['endDate'] as String),
+  isActive: json['isActive'] as bool? ?? true,
+  createdAt: json['createdAt'] == null
+      ? null
+      : DateTime.parse(json['createdAt'] as String),
+  updatedAt: json['updatedAt'] == null
+      ? null
+      : DateTime.parse(json['updatedAt'] as String),
+);
 
-  @override
-  Budget read(BinaryReader reader) {
-    final numOfFields = reader.readByte();
-    final fields = <int, dynamic>{
-      for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
-    };
-    return Budget(
-      id: fields[0] as String,
-      name: fields[1] as String,
-      description: fields[2] as String?,
-      budgetAmount: fields[3] as double,
-      spentAmount: fields[4] as double,
-      categoryId: fields[5] as String,
-      period: fields[6] as String,
-      startDate: fields[7] as DateTime,
-      endDate: fields[8] as DateTime,
-      isActive: fields[9] as bool,
-      createdAt: fields[10] as DateTime?,
-      updatedAt: fields[11] as DateTime?,
-    );
-  }
-
-  @override
-  void write(BinaryWriter writer, Budget obj) {
-    writer
-      ..writeByte(12)
-      ..writeByte(0)
-      ..write(obj.id)
-      ..writeByte(1)
-      ..write(obj.name)
-      ..writeByte(2)
-      ..write(obj.description)
-      ..writeByte(3)
-      ..write(obj.budgetAmount)
-      ..writeByte(4)
-      ..write(obj.spentAmount)
-      ..writeByte(5)
-      ..write(obj.categoryId)
-      ..writeByte(6)
-      ..write(obj.period)
-      ..writeByte(7)
-      ..write(obj.startDate)
-      ..writeByte(8)
-      ..write(obj.endDate)
-      ..writeByte(9)
-      ..write(obj.isActive)
-      ..writeByte(10)
-      ..write(obj.createdAt)
-      ..writeByte(11)
-      ..write(obj.updatedAt);
-  }
-
-  @override
-  int get hashCode => typeId.hashCode;
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is BudgetAdapter &&
-          runtimeType == other.runtimeType &&
-          typeId == other.typeId;
-}
+Map<String, dynamic> _$BudgetToJson(Budget instance) => <String, dynamic>{
+  'id': instance.id,
+  'name': instance.name,
+  'description': instance.description,
+  'budgetAmount': instance.budgetAmount,
+  'spentAmount': instance.spentAmount,
+  'categoryId': instance.categoryId,
+  'period': instance.period,
+  'startDate': instance.startDate.toIso8601String(),
+  'endDate': instance.endDate.toIso8601String(),
+  'isActive': instance.isActive,
+  'createdAt': instance.createdAt.toIso8601String(),
+  'updatedAt': instance.updatedAt.toIso8601String(),
+  'isSynced': instance.isSynced,
+};

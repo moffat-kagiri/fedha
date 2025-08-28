@@ -1,36 +1,18 @@
-import 'package:hive/hive.dart';
-
+import 'package:json_annotation/json_annotation.dart';
 part 'category.g.dart';
 
-@HiveType(typeId: 3)
-class Category extends HiveObject {
-  @HiveField(0)
-  String id;
-
-  @HiveField(1)
-  String name;
-
-  @HiveField(2)
-  String? description;
-
-  @HiveField(3)
-  String color;
-
-  @HiveField(4)
-  String icon;
-
-  @HiveField(5)
-  String type; // 'income' or 'expense'
-
-  @HiveField(6)
-  bool isActive;
-
-  @HiveField(7)
-  DateTime createdAt;
-
-  @HiveField(8)
-  DateTime updatedAt;
-
+@JsonSerializable()
+class Category {
+  String id;  
+  String name;  
+  String? description;  
+  String color;  
+  String icon;  
+  String type; // 'income' or 'expense'  
+  bool isActive;  
+  DateTime createdAt;  
+  DateTime updatedAt;  
+  bool isSynced;
   Category({
     required this.id,
     required this.name,
@@ -39,6 +21,7 @@ class Category extends HiveObject {
     this.icon = 'category',
     this.type = 'expense',
     this.isActive = true,
+    this.isSynced = false,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) : 

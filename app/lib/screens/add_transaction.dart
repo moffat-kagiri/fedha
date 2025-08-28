@@ -56,7 +56,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
         context,
         listen: false,
       );
-      final goals = await dataService.getActiveGoals(profileId);
+      // getActiveGoals returns List<Goal>, not Future<List<Goal>>
+      final goals = dataService.getActiveGoals(profileId);
       setState(() {
         _availableGoals = goals;
       });
@@ -68,10 +69,18 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     final profileId = authService.currentProfile?.id;
 
     if (profileId != null) {
-      final suggested = await _goalService.getSuggestedGoals(
-        profileId,
-        _descriptionController.text,
+      // Create a temporary transaction object to find suggested goals
+      final tempTransaction = Transaction(
+        amount: double.tryParse(_amountController.text) ?? 0.0,
+        type: _selectedType,
+        categoryId: _selectedCategory.toString().split('.').last,
+        profileId: profileId,
+        description: _descriptionController.text,
+        date: _selectedDate,
       );
+      
+      // getSuggestedGoals returns a List<Goal>, not a Future<List<Goal>>
+      final suggested = _goalService.getSuggestedGoals(tempTransaction);
       setState(() {
         _suggestedGoals = suggested;
       });
@@ -300,67 +309,75 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   }
 
   Future<void> _saveTransaction() async {
-    if (_formKey.currentState!.validate()) {
-      final authService = Provider.of<AuthService>(context, listen: false);
-      final profileId = authService.currentProfile?.id;
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+    
+    // Store services before any async operations
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final profileId = authService.currentProfile?.id;
+    final dataService = Provider.of<OfflineDataService>(context, listen: false);
 
-      if (profileId == null) {
+    if (profileId == null) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Please log in to add transactions')),
         );
-        return;
+      }
+      return;
+    }
+
+    try {
+      // Create the transaction object first
+      Transaction transaction;
+
+      if (_selectedType == TransactionType.savings && _selectedGoal?.id != null) {
+        // Use the goal transaction service for savings
+        transaction = await _goalService.createSavingsTransaction(
+          amount: double.parse(_amountController.text),
+          goalId: _selectedGoal!.id,
+          description: _descriptionController.text.isEmpty ? null : _descriptionController.text,
+          categoryId: _selectedCategory.toString().split('.').last,
+        );
+      } else {
+        // Regular transaction creation
+        transaction = Transaction(
+          amount: double.parse(_amountController.text),
+          type: _selectedType,
+          categoryId: _selectedCategory.toString().split('.').last,
+          category: _selectedCategory,
+          date: _selectedDate,
+          description:
+              _descriptionController.text.isEmpty
+                  ? null
+                  : _descriptionController.text,
+          notes: _notesController.text.isEmpty ? null : _notesController.text,
+          profileId: profileId,
+        );
+
+        await dataService.saveTransaction(transaction);
       }
 
-      try {
-        if (_selectedType == TransactionType.savings) {
-          // Use the goal transaction service for savings
-          final transaction = await _goalService.createSavingsTransaction(
-            profileId: profileId,
-            amount: double.parse(_amountController.text),
-            category: _selectedCategory,
-            date: _selectedDate,
-            description:
-                _descriptionController.text.isEmpty
-                    ? null
-                    : _descriptionController.text,
-            notes: _notesController.text.isEmpty ? null : _notesController.text,
-            goalId: _selectedGoal?.id,
-          );
-          Navigator.pop(context, transaction);
-        } else {
-          // Regular transaction creation
-          final transaction = Transaction(
-            amount: double.parse(_amountController.text),
-            type: _selectedType,
-            category: _selectedCategory,
-            date: _selectedDate,
-            description:
-                _descriptionController.text.isEmpty
-                    ? null
-                    : _descriptionController.text,
-            notes: _notesController.text.isEmpty ? null : _notesController.text,
-            profileId: profileId,
-          );
-
-          final dataService = Provider.of<OfflineDataService>(
-            context,
-            listen: false,
-          );
-          await dataService.saveTransaction(transaction);
-          Navigator.pop(context, transaction);
-        }
-
+      // Now handle the UI updates if still mounted
+      if (mounted) {
+        // Create the success message
+        final successMessage = _selectedType == TransactionType.savings && _selectedGoal != null
+            ? 'Transaction saved and added to ${_selectedGoal!.name}'
+            : 'Transaction saved successfully';
+            
+        // Show success message
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              _selectedType == TransactionType.savings && _selectedGoal != null
-                  ? 'Transaction saved and added to ${_selectedGoal!.name}'
-                  : 'Transaction saved successfully',
-            ),
+            content: Text(successMessage),
             backgroundColor: Colors.green,
           ),
         );
-      } catch (e) {
+        
+        // Return to previous screen with the transaction
+        Navigator.pop(context, transaction);
+      }
+    } catch (e) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error saving transaction: $e'),

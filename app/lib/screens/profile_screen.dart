@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 import '../services/currency_service.dart';
 import '../services/theme_service.dart' as theme_svc;
+import '../services/profile_management_extension.dart';
+import '../services/biometric_auth_extension.dart';
 import '../models/profile.dart';
 import '../utils/password_validator.dart';
 
@@ -62,7 +64,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       children: [
                         CircleAvatar(
                           radius: 50,
-                          backgroundColor: Colors.white.withOpacity(0.2),
+                          backgroundColor: Colors.white.withValues(red: 255, green: 255, blue: 255, alpha: 0.2),
                           child: const Icon(
                             Icons.person,
                             size: 60,
@@ -111,7 +113,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         vertical: 8,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
+                        color: Colors.white.withValues(red: 255, green: 255, blue: 255, alpha: 0.2),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Row(
@@ -314,7 +316,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       leading: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: const Color(0xFF007A39).withOpacity(0.1),
+          color: const Color(0xFF007A39).withValues(red: 0, green: 122, blue: 57, alpha: 0.1),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Icon(icon, color: const Color(0xFF007A39), size: 20),
@@ -1094,8 +1096,8 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
     try {
       final authService = Provider.of<AuthService>(context, listen: false);
       final success = await authService.changePassword(
-        currentPassword,
-        newPassword,
+        currentPassword: currentPassword,
+        newPassword: newPassword,
       );
       if (success) {
         if (mounted) {

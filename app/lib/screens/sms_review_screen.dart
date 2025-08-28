@@ -6,6 +6,8 @@ import '../models/transaction.dart';
 import '../models/category.dart' as models;
 import '../models/enums.dart';
 import '../services/offline_data_service.dart';
+import '../services/sms_listener_service.dart';
+import '../services/auth_service.dart';
 
 class SmsReviewScreen extends StatefulWidget {
   const SmsReviewScreen({Key? key}) : super(key: key);
@@ -25,6 +27,10 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _loadTransactionCandidates();
+    // Reload candidates whenever a new SMS is processed
+    SmsListenerService.instance.messageStream.listen((_) {
+      _loadTransactionCandidates();
+    });
   }
 
   @override
@@ -39,14 +45,33 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
     });
 
     try {
-      // For demo purposes, create some sample transaction candidates
-      _pendingCandidates = _createSampleCandidates();
-      _reviewedCandidates = [];
+      // Load pending transactions via OfflineDataService
+      final dataService = Provider.of<OfflineDataService>(context, listen: false);
+      final authService = Provider.of<AuthService>(context, listen: false);
+      final profileId = int.tryParse(authService.currentProfile?.id ?? '') ?? 0;
+      final pendingTx = await dataService.getPendingTransactions(profileId);
+      _pendingCandidates = pendingTx.map((transaction) {
+        return TransactionCandidate(
+          id: transaction.id,
+          rawText: transaction.smsSource ?? 'No SMS source available',
+          amount: transaction.amount,
+          description: transaction.description,
+          date: transaction.date,
+          type: transaction.isExpense ? TransactionType.expense : TransactionType.income,
+          confidence: 0.9,
+          metadata: {
+            'recipient': transaction.recipient,
+            'reference': transaction.reference,
+            'category_id': transaction.categoryId,
+          },
+        );
+      }).toList();
       
-      // In a real implementation, you would load from Hive or backend
-      // final dataService = Provider.of<OfflineDataService>(context, listen: false);
-      // _pendingCandidates = await dataService.getPendingTransactionCandidates();
-      // _reviewedCandidates = await dataService.getReviewedTransactionCandidates();
+      // Sort by date (newest first)
+      _pendingCandidates.sort((a, b) => b.date.compareTo(a.date));
+      
+      // Load reviewed transactions (keep this sample data for now)
+      _reviewedCandidates = [];
       
     } catch (e) {
       if (mounted) {
@@ -73,7 +98,7 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
         amount: 1205.00, // Including transaction cost
         description: 'MPESA to John Doe',
         date: now.subtract(const Duration(hours: 2)),
-        type: 'expense',
+        type: TransactionType.expense,
         confidence: 0.95,
         metadata: {
           'recipient': 'John Doe',
@@ -88,7 +113,7 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
         amount: 5000.00,
         description: 'Payment from Jane Smith',
         date: now.subtract(const Duration(hours: 5)),
-        type: 'income',
+        type: TransactionType.income,
         confidence: 0.88,
         metadata: {
           'sender': 'Jane Smith',
@@ -102,7 +127,7 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
         amount: 850.00,
         description: 'Grocery shopping at Nakumatt',
         date: now.subtract(const Duration(hours: 8)),
-        type: 'expense',
+        type: TransactionType.expense,
         confidence: 0.92,
         metadata: {
           'merchant': 'Nakumatt',
@@ -116,7 +141,7 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
         amount: 100.00,
         description: 'Airtime purchase',
         date: now.subtract(const Duration(hours: 12)),
-        type: 'expense',
+        type: TransactionType.expense,
         confidence: 0.90,
         metadata: {
           'phone_number': '0722123456',
@@ -130,7 +155,7 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
         amount: 45000.00,
         description: 'Salary payment',
         date: now.subtract(const Duration(days: 1)),
-        type: 'income',
+        type: TransactionType.income,
         confidence: 0.98,
         metadata: {
           'balance_after': 58500.00,
@@ -144,24 +169,18 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
   Future<void> _approveCandidate(TransactionCandidate candidate) async {
     try {
       final dataService = Provider.of<OfflineDataService>(context, listen: false);
-      
-      // Create a transaction from the candidate
-      final transaction = Transaction(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        amount: candidate.amount,
-        description: candidate.description ?? 'SMS Transaction',
-        categoryId: candidate.categoryId ?? 'default_category',
-        profileId: 'default', // Default profile ID
-        date: candidate.date,
-        type: candidate.type == 'income' ? TransactionType.income : TransactionType.expense,
-      );
+      final authService = Provider.of<AuthService>(context, listen: false);
+      final profileId = int.tryParse(authService.currentProfile?.id ?? '') ?? 0;
+      // Find transaction candidate in pending list
+      final tx = (await dataService.getPendingTransactions(profileId))
+          .firstWhere((t) => t.id == candidate.id);
+      // Approve: save to regular DB and delete from pending
+      await dataService.approvePendingTransaction(tx);
+  await dataService.deletePendingTransaction(tx.id.toString());
 
-      await dataService.saveTransaction(transaction);
-
-      // Update candidate status
       final updatedCandidate = candidate.copyWith(
-        status: 'approved',
-        transactionId: transaction.id,
+        status: TransactionStatus.completed,
+        transactionId: tx.id,
       );
 
       setState(() {
@@ -186,19 +205,30 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
   }
 
   Future<void> _rejectCandidate(TransactionCandidate candidate) async {
-    final updatedCandidate = candidate.copyWith(status: 'rejected');
-    
-    setState(() {
-      _pendingCandidates.removeWhere((c) => c.id == candidate.id);
-      _reviewedCandidates.add(updatedCandidate);
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('❌ Transaction rejected'),
-        backgroundColor: Colors.orange,
-      ),
-    );
+    try {
+      final dataService = Provider.of<OfflineDataService>(context, listen: false);
+      // Delete pending transaction
+  await dataService.deletePendingTransaction(candidate.id);
+      // Update UI
+      final updated = candidate.copyWith(status: TransactionStatus.cancelled);
+      setState(() {
+        _pendingCandidates.removeWhere((c) => c.id == candidate.id);
+        _reviewedCandidates.add(updated);
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('❌ Transaction rejected'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error rejecting transaction: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   Future<void> _editAndApprove(TransactionCandidate candidate) async {
@@ -215,7 +245,37 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
+      floatingActionButton: FloatingActionButton(
+        child: const Icon(Icons.message),
+        tooltip: 'Enter SMS manually',
+        onPressed: () async {
+          final raw = await showDialog<String>(
+            context: context,
+            builder: (context) {
+              String input = '';
+              return AlertDialog(
+                title: const Text('Manual SMS Entry'),
+                content: TextField(
+                  autofocus: true,
+                  decoration: const InputDecoration(
+                    hintText: 'Paste SMS content here',
+                  ),
+                  onChanged: (v) => input = v,
+                  maxLines: 5,
+                ),
+                actions: [
+                  TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+                  ElevatedButton(onPressed: () => Navigator.pop(context, input), child: const Text('Submit')),
+                ],
+              );
+            },
+          );
+          if (raw != null && raw.trim().isNotEmpty) {
+            await SmsListenerService.instance.processManualSms(raw.trim());
+            _loadTransactionCandidates();
+          }
+        },
+      ),
       appBar: AppBar(
         title: const Text('SMS Review'),
         backgroundColor: const Color(0xFF007A39),
@@ -237,6 +297,12 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
             ),
           ],
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _loadTransactionCandidates,
+          ),
+        ],
       ),
       body: _isLoading
           ? const Center(
@@ -356,7 +422,7 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
+            color: Colors.grey.withValues(red: 158, green: 158, blue: 158, alpha: 0.1),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -368,14 +434,14 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: _getConfidenceColor(candidate.confidence).withOpacity(0.1),
+              color: _getConfidenceColor(candidate.confidence).withAlpha(26), // 0.1 opacity = ~26 alpha
               borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
             ),
             child: Row(
               children: [
                 Icon(
-                  candidate.type == 'income' ? Icons.trending_up : Icons.trending_down,
-                  color: candidate.type == 'income' ? Colors.green : Colors.red,
+                  candidate.type == TransactionType.income ? Icons.trending_up : Icons.trending_down,
+                  color: candidate.type == TransactionType.income ? Colors.green : Colors.red,
                   size: 24,
                 ),
                 const SizedBox(width: 8),
@@ -408,7 +474,7 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
-                        color: candidate.type == 'income' ? Colors.green : Colors.red,
+                        color: candidate.type == TransactionType.income ? Colors.green : Colors.red,
                       ),
                     ),
                     Container(
@@ -490,7 +556,7 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
                       return Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF007A39).withOpacity(0.1),
+                          color: const Color(0xFF007A39).withAlpha(26), // 0.1 opacity = ~26 alpha
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
@@ -596,8 +662,10 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
     if (confidence >= 0.6) return Colors.orange;
     return Colors.red;
   }
+  // End of _SmsReviewScreenState
 }
 
+// Top-level dialog for editing SMS transaction candidates
 class _EditCandidateDialog extends StatefulWidget {
   final TransactionCandidate candidate;
 
@@ -622,7 +690,7 @@ class _EditCandidateDialogState extends State<_EditCandidateDialog> {
     _descriptionController = TextEditingController(
       text: widget.candidate.description ?? '',
     );
-    _selectedType = widget.candidate.type;
+    _selectedType = widget.candidate.type == TransactionType.income ? 'income' : 'expense';
     _selectedDate = widget.candidate.date;
   }
 
@@ -661,19 +729,19 @@ class _EditCandidateDialogState extends State<_EditCandidateDialog> {
               ],
             ),
             const SizedBox(height: 16),
-            DropdownButtonFormField<String>(
-              value: _selectedType,
+            DropdownButtonFormField<TransactionType>(
+              value: _selectedType == 'income' ? TransactionType.income : TransactionType.expense,
               decoration: const InputDecoration(
                 labelText: 'Type',
                 border: OutlineInputBorder(),
               ),
-              items: const [
-                DropdownMenuItem(value: 'income', child: Text('Income')),
-                DropdownMenuItem(value: 'expense', child: Text('Expense')),
+              items: [
+                DropdownMenuItem(value: TransactionType.income, child: const Text('Income')),
+                DropdownMenuItem(value: TransactionType.expense, child: const Text('Expense')),
               ],
               onChanged: (value) {
                 setState(() {
-                  _selectedType = value!;
+                  _selectedType = value == TransactionType.income ? 'income' : 'expense';
                 });
               },
             ),
@@ -722,7 +790,7 @@ class _EditCandidateDialogState extends State<_EditCandidateDialog> {
             final updatedCandidate = widget.candidate.copyWith(
               amount: double.tryParse(_amountController.text) ?? widget.candidate.amount,
               description: _descriptionController.text.trim(),
-              type: _selectedType,
+              type: _selectedType == 'income' ? TransactionType.income : TransactionType.expense,
               date: _selectedDate,
             );
             Navigator.pop(context, updatedCandidate);

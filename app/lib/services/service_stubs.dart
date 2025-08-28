@@ -1,6 +1,11 @@
 // Stub services for missing functionality
 
+import 'dart:async';
+import 'package:uuid/uuid.dart';
 import 'offline_data_service.dart';
+import '../models/transaction.dart' as dom_tx;
+import '../models/goal.dart' as dom_goal;
+import '../models/enums.dart';
 
 class TextRecognitionService {
   final OfflineDataService _offlineService;
@@ -60,17 +65,43 @@ class GoalTransactionService {
   GoalTransactionService(this._offlineService);
   
   Future<void> createSavingsTransaction(String goalId, double amount) async {
-    // Placeholder
+    final transaction = dom_tx.Transaction(
+      id: const Uuid().v4(),
+      amount: amount,
+      type: TransactionType.savings,
+      categoryId: '',
+      date: DateTime.now(),
+      profileId: '0', // Default profile
+      goalId: goalId,
+    );
+    
+    await _offlineService.saveTransaction(transaction);
   }
 
-  List<Map<String, dynamic>> getSuggestedGoals() {
-    // Placeholder
-    return [];
+  Future<List<dom_goal.Goal>> getSuggestedGoals() async {
+    // Return the user's goals from the DB
+    return await _offlineService.getAllGoals(0);
   }
 
-  Map<String, dynamic> getGoalProgressSummary(String goalId) {
-    // Placeholder
-    return {};
+  Future<Map<String, dynamic>> getGoalProgressSummary(String goalId) async {
+    final goal = await _offlineService.getGoal(goalId);
+    if (goal == null) return {'progress': 0.0};
+    
+    // Get all transactions for this goal
+    final transactions = await _offlineService.getAllTransactions(0);
+    final goalTransactions = transactions.where((t) => 
+        t.goalId == goalId && t.type == TransactionType.savings).toList();
+    
+    // Calculate progress
+    final totalSaved = goalTransactions.fold<double>(
+        0, (sum, tx) => sum + tx.amount);
+        
+    return {
+      'goal': goal,
+      'progress': goal.targetAmount > 0 ? totalSaved / goal.targetAmount : 0.0,
+      'totalSaved': totalSaved,
+      'transactions': goalTransactions,
+    };
   }
 }
 

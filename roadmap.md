@@ -1,5 +1,39 @@
-# Fedha Financial App - Development Roadmap
-## Updated: June 24, 2025
+# Fedha Roadmap
+## Updated: August 24, 2025
+
+## ✅ Phase 1–4: Core & Polish (Complete)
+All foundational features—authentication, offline sync, loan calculators, Android SMS ingestion, biometric security, UI/UX polish—completed as of June 24, 2025.
+
+### ⚠️ Follow-Up Items
+- iOS SMS manual-entry fallback UI exists but is not wired into the listener stream.
+- Remove any hard-coded test account credentials from code and documentation.
+
+---
+
+## 🚧 Phase 5: Language-Model SMS Parsing (Active)
+**Primary Focus:** Integrate GPT/Claude API for intelligent SMS transaction parsing  
+**Timeline:** 2–3 weeks for MVP, 4–6 weeks for production readiness.
+
+---
+
+## 🏗️ Phase 6: Firebase Migration (Next)
+**Priority:** High—critical for cloud sync and scalability  
+**Timeline:** 3–4 weeks after Phase 5.
+
+---
+
+## 🚀 Phase 7: Business Features (Future)
+**Priority:** High—invoicing, analytics, subscription billing  
+**Timeline:** 6–8 weeks, can run in parallel with Phase 6.
+
+---
+
+## 📊 Development Strategy
+1. Language-Model SMS Parsing (40% effort)
+2. Firebase Auth & Firestore Migration (30% effort)
+3. Business-grade Features (30% effort)
+# Fedha Roadmap
+## Updated: August 24, 2025
 
 ### 🎯 Project Overview
 Fedha is a comprehensive financial management application designed for the Kenyan market, featuring real-time SMS transaction ingestion, intelligent expense tracking, and advanced financial planning tools.

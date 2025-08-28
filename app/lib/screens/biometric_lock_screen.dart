@@ -48,19 +48,22 @@ class _BiometricLockScreenState extends State<BiometricLockScreen> with TickerPr
 
   Future<void> _attemptAuth() async {
     if (_isAuthenticating) return;
-    
     setState(() {
       _isAuthenticating = true;
       _errorMessage = null;
     });
-
     try {
-      final biometricService = BiometricAuthService.instance;
-      final result = await biometricService.authenticateWithBiometric(
-        'Please verify your identity to access Fedha',
+      final authService = BiometricAuthService.instance;
+      if (authService == null) {
+        setState(() {
+          _errorMessage = 'Biometric service unavailable';
+        });
+        return;
+      }
+      final success = await authService.authenticateWithBiometric(
+        'Please authenticate to continue',
       );
-
-      if (result) {
+      if (success) {
         widget.onAuthSuccess();
       } else {
         setState(() {
@@ -69,7 +72,7 @@ class _BiometricLockScreenState extends State<BiometricLockScreen> with TickerPr
       }
     } catch (e) {
       setState(() {
-        _errorMessage = 'Authentication error: ${e.toString()}';
+        _errorMessage = 'Authentication error: $e';
       });
     } finally {
       setState(() {

@@ -1,152 +1,128 @@
-import 'package:hive/hive.dart';
-import 'package:crypto/crypto.dart';
-import 'dart:convert';
+import 'package:json_annotation/json_annotation.dart';
 import 'enums.dart';
 
 part 'profile.g.dart';
 
-@HiveType(typeId: 1)
-class Profile extends HiveObject {
-  @HiveField(0)
-  String id;
-
-  @HiveField(1)
-  String name;
-
-  @HiveField(2)
-  String? email;
-
-  @HiveField(3)
-  ProfileType type;
-
-  @HiveField(4)
-  String pin;
-
-  @HiveField(5)
-  String baseCurrency;
-
-  @HiveField(6)
-  String timezone;
-
-  @HiveField(7)
-  DateTime createdAt;
-
-  @HiveField(8)
-  DateTime updatedAt;
-
-  @HiveField(9)
-  bool isActive;
-
-  @HiveField(10)
-  String? passwordHash;
-
-  @HiveField(11)
-  DateTime? lastLogin;
+@JsonSerializable()
+class Profile {
+  final String id;
+  final String name;
+  final String? email;
+  final ProfileType type;
+  final String password;
+  final String baseCurrency;
+  final String timezone;
+  final DateTime createdAt;
+  final DateTime? updatedAt;
+  final bool isActive;
+  final String? passwordHash;
+  final DateTime lastLogin;
+  final DateTime? lastSynced;
+  final DateTime? lastModified;
+  final String? sessionToken;
+  final Map<String, dynamic>? preferences;
+  final String? displayName;
+  final String? phoneNumber;
+  final String? photoUrl;
+  final String? authToken;
 
   Profile({
     required this.id,
     required this.name,
     this.email,
     required this.type,
-    required this.pin,
-    this.baseCurrency = 'KES',
-    this.timezone = 'GMT+3',
-    DateTime? createdAt,
-    DateTime? updatedAt,
-    this.isActive = true,
+    required this.password,
+    required this.baseCurrency,
+    required this.timezone,
+    required this.createdAt,
+    this.updatedAt,
+    required this.isActive,
     this.passwordHash,
-    this.lastLogin,
-  }) : 
-    createdAt = createdAt ?? DateTime.now(),
-    updatedAt = updatedAt ?? DateTime.now();
-
-  // Password hashing utility
-  static String hashPassword(String password) {
-    final bytes = utf8.encode(password);
-    final digest = sha256.convert(bytes);
-    return digest.toString();
+    required this.lastLogin,
+    this.lastSynced,
+    this.lastModified,
+    this.sessionToken,
+    this.preferences,
+    this.displayName,
+    this.phoneNumber,
+    this.photoUrl,
+    this.authToken,
+  }) {
+    // Ensure either email or phoneNumber is provided
+    assert(email != null || phoneNumber != null, 
+      'Either email or phoneNumber must be provided');
   }
 
-  // Password verification
-  bool verifyPassword(String password) {
-    if (passwordHash == null) return false;
-    return passwordHash == hashPassword(password);
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'name': name,
-      'email': email,
-      'profile_type': type.name,
-      'pin': pin,
-      'base_currency': baseCurrency,
-      'timezone': timezone,
-      'created_at': createdAt.toIso8601String(),
-      'updated_at': updatedAt.toIso8601String(),
-      'password_hash': passwordHash,
-      'is_active': isActive,
-    };
-  }
-
-  factory Profile.fromJson(Map<String, dynamic> json) {
-    return Profile(
-      id: json['id'] ?? json['user_id'] ?? '',
-      name: json['name'] ?? '',
-      email: json['email'],
-      type: ProfileType.values.firstWhere(
-        (e) => e.name == (json['profile_type'] ?? json['profileType'] ?? 'personal'),
-        orElse: () => ProfileType.personal,
-      ),
-      pin: json['pin'] ?? '',
-      baseCurrency: json['base_currency'] ?? json['baseCurrency'] ?? 'KES',
-      timezone: json['timezone'] ?? 'GMT+3',
-      createdAt: json['created_at'] != null 
-        ? DateTime.parse(json['created_at']) 
-        : DateTime.now(),
-      updatedAt: json['updated_at'] != null 
-        ? DateTime.parse(json['updated_at']) 
-        : DateTime.now(),
-      isActive: json['is_active'] ?? json['isActive'] ?? true,
-      passwordHash: json['password_hash'],
-      lastLogin: json['last_login'] != null 
-        ? DateTime.parse(json['last_login']) 
-        : null,
-    );
-  }
+  factory Profile.fromJson(Map<String, dynamic> json) => _$ProfileFromJson(json);
+  Map<String, dynamic> toJson() => _$ProfileToJson(this);
 
   Profile copyWith({
-    String? id,
     String? name,
     String? email,
     ProfileType? type,
-    String? pin,
+    String? password,
     String? baseCurrency,
     String? timezone,
-    DateTime? createdAt,
     DateTime? updatedAt,
     bool? isActive,
     String? passwordHash,
     DateTime? lastLogin,
+    DateTime? lastSynced,
+    DateTime? lastModified,
+    String? sessionToken,
+    Map<String, dynamic>? preferences,
+    String? displayName,
+    String? phoneNumber,
+    String? photoUrl,
+    String? authToken,
   }) {
     return Profile(
-      id: id ?? this.id,
+      id: id,
       name: name ?? this.name,
       email: email ?? this.email,
       type: type ?? this.type,
-      pin: pin ?? this.pin,
+      password: password ?? this.password,
       baseCurrency: baseCurrency ?? this.baseCurrency,
       timezone: timezone ?? this.timezone,
-      createdAt: createdAt ?? this.createdAt,
+      createdAt: createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       isActive: isActive ?? this.isActive,
       passwordHash: passwordHash ?? this.passwordHash,
       lastLogin: lastLogin ?? this.lastLogin,
+      lastSynced: lastSynced ?? this.lastSynced,
+      lastModified: lastModified ?? this.lastModified,
+      sessionToken: sessionToken ?? this.sessionToken,
+      preferences: preferences ?? this.preferences,
+      displayName: displayName ?? this.displayName,
+      phoneNumber: phoneNumber ?? this.phoneNumber,
+      photoUrl: photoUrl ?? this.photoUrl,
+      authToken: authToken ?? this.authToken,
     );
   }
-
-  @override
-  String toString() {
-    return 'Profile(id: $id, name: $name, email: $email, type: $type)';
+  
+  // Factory method to create a default profile
+  factory Profile.defaultProfile({
+    required String id,
+    required String name,
+    String? email,
+    String? phoneNumber,
+    required String password,
+  }) {
+    assert(email != null || phoneNumber != null,
+      'Either email or phoneNumber must be provided');
+    
+    return Profile(
+      id: id,
+      name: name,
+      email: email,
+      phoneNumber: phoneNumber,
+      type: ProfileType.personal,
+      password: password,
+      baseCurrency: 'KES',
+      timezone: 'Africa/Nairobi',
+      createdAt: DateTime.now(),
+      isActive: true,
+      lastLogin: DateTime.now(),
+    );
   }
 }

@@ -3,6 +3,12 @@ import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 import '../services/api_client.dart';
 import '../utils/password_validator.dart';
+import '../widgets/profile_avatar_picker.dart';
+import 'permissions_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:fedha/screens/login_screen.dart';
+import 'biometric_lock_screen.dart';
+import 'main_navigation.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({Key? key}) : super(key: key);
@@ -16,9 +22,11 @@ class _SignupScreenState extends State<SignupScreen> {
   final _firstNameController = TextEditingController();
   final _lastNameController = TextEditingController();
   final _emailController = TextEditingController();
+  final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   
+  String? _avatarPath;
   bool _isLoading = false;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
@@ -32,9 +40,16 @@ class _SignupScreenState extends State<SignupScreen> {
     _firstNameController.dispose();
     _lastNameController.dispose();
     _emailController.dispose();
+    _phoneController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
+  }
+
+  void _updateAvatarPath(String? path) {
+    setState(() {
+      _avatarPath = path;
+    });
   }
 
   Future<void> _signup() async {
@@ -54,38 +69,20 @@ class _SignupScreenState extends State<SignupScreen> {
       _errorMessage = null;
     });
 
-    // Check server health first
-    final healthCheck = await ApiClient.checkServerHealth();
+    final apiClient = ApiClient();
     
-    if (!healthCheck['isConnected']) {
+    // Check server health first
+    final isHealthy = await apiClient.checkServerHealth();
+    
+    if (!isHealthy) {
       setState(() {
         _isLoading = false;
-        _errorMessage = '${healthCheck['message']}. Please try again later.';
+        _errorMessage = 'Could not connect to server. Please check your connection and try again later.';
       });
       return;
     }
 
-    if (!healthCheck['canCreateProfile']) {
-      setState(() {
-        _isLoading = false;
-        _errorMessage = 'Service temporarily unavailable. Please try again later.';
-      });
-      return;
-    }
-
-    // Validate if profile can be created
-    final validationResult = await ApiClient.validateProfileCreation(
-      email: _emailController.text.trim(),
-    );
-
-    if (!validationResult['canCreate']) {
-      setState(() {
-        _isLoading = false;
-        _errorMessage = validationResult['message'];
-      });
-      return;
-    }
-
+    // Server is healthy, proceed with registration
     try {
       final authService = Provider.of<AuthService>(context, listen: false);
       
@@ -93,16 +90,48 @@ class _SignupScreenState extends State<SignupScreen> {
         firstName: _firstNameController.text.trim(),
         lastName: _lastNameController.text.trim(),
         email: _emailController.text.trim(),
+        phone: _phoneController.text.trim(),
         password: _passwordController.text,
+        avatarPath: _avatarPath,
       );
 
       if (success) {
-        // Signup successful, navigation will be handled by Consumer in AuthWrapper
+        // Signup successful: mark flag and move to permissions step
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('account_creation_attempted', true);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Account created successfully! Welcome to Fedha!'),
-              backgroundColor: Color(0xFF007A39),
+            SnackBar(
+              content: Text('Account created successfully! Please grant app permissions.'),
+              backgroundColor: Theme.of(context).primaryColor,
+            ),
+          );
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => PermissionsScreen(
+                onPermissionsSet: (ctx) {
+                  Navigator.pushReplacement(
+                    ctx,
+                    MaterialPageRoute(
+                      builder: (_) => BiometricLockScreen(
+                        onAuthSuccess: () {
+                          Navigator.pushReplacement(
+                            ctx,
+                            MaterialPageRoute(builder: (_) => const MainNavigation()),
+                          );
+                        },
+                        onSkip: () {
+                          Navigator.pushReplacement(
+                            ctx,
+                            MaterialPageRoute(builder: (_) => const MainNavigation()),
+                          );
+                        },
+                      ),
+                    ),
+                  );
+                },
+              ),
             ),
           );
         }
@@ -124,44 +153,21 @@ class _SignupScreenState extends State<SignupScreen> {
     }
   }
 
-  Widget _buildPasswordRequirement(String text, bool isMet) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Row(
-        children: [
-          Icon(
-            isMet ? Icons.check_circle : Icons.radio_button_unchecked,
-            size: 16,
-            color: isMet ? Colors.green : Colors.grey,
-          ),
-          const SizedBox(width: 8),
-          Text(
-            text,
-            style: TextStyle(
-              fontSize: 12,
-              color: isMet ? Colors.green : Colors.grey,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final currentPassword = _passwordController.text;
     final passwordStrength = _passwordValidator.validatePassword(currentPassword);
 
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Color(0xFF007A39)),
-        title: const Text(
+        iconTheme: IconThemeData(color: Theme.of(context).primaryColor),
+  title: Text(
           'Create Account',
           style: TextStyle(
-            color: Color(0xFF007A39),
+            color: Theme.of(context).primaryColor,
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -194,7 +200,19 @@ class _SignupScreenState extends State<SignupScreen> {
                   textAlign: TextAlign.center,
                 ),
                 
-                const SizedBox(height: 32),
+                const SizedBox(height: 24),
+                
+                // Profile Avatar Picker
+                Center(
+                  child: ProfileAvatarPicker(
+                    radius: 50,
+                    onImageSelected: _updateAvatarPath,
+                    avatarPath: _avatarPath,
+                    placeholderIcon: Icons.person,
+                  ),
+                ),
+
+                const SizedBox(height: 24),
                 
                 // Error Message
                 if (_errorMessage != null)
@@ -310,16 +328,42 @@ class _SignupScreenState extends State<SignupScreen> {
                 
                 const SizedBox(height: 16),
                 
+                // Phone Field
+                TextFormField(
+                  controller: _phoneController,
+                  decoration: InputDecoration(
+                    labelText: 'Phone Number',
+                    hintText: 'Enter your phone number',
+                    prefixIcon: const Icon(Icons.phone_outlined, color: Color(0xFF007A39)),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: Color(0xFF007A39), width: 2),
+                    ),
+                  ),
+                  keyboardType: TextInputType.phone,
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Please enter your phone number';
+                    }
+                    if (value.trim().length < 10) {
+                      return 'Please enter a valid phone number';
+                    }
+                    return null;
+                  },
+                ),
+                
+                const SizedBox(height: 16),
+                
                 // Password Field
                 TextFormField(
                   controller: _passwordController,
                   obscureText: _obscurePassword,
-                  onChanged: (value) {
-                    setState(() {}); // Rebuild to update password requirements
-                  },
                   decoration: InputDecoration(
                     labelText: 'Password',
-                    hintText: 'Create a secure password',
+                    hintText: 'Create a strong password',
                     prefixIcon: const Icon(Icons.lock_outline, color: Color(0xFF007A39)),
                     suffixIcon: IconButton(
                       icon: Icon(
@@ -344,59 +388,25 @@ class _SignupScreenState extends State<SignupScreen> {
                     if (value == null || value.isEmpty) {
                       return 'Please enter a password';
                     }
-                    final validation = _passwordValidator.validatePassword(value);
-                    if (!validation.isValid) {
-                      return 'Password does not meet security requirements';
+                    if (value.length < 8) {
+                      return 'Password must be at least 8 characters';
+                    }
+                    if (!_passwordValidator.hasMinimumRequirements(value)) {
+                      return 'Password must include uppercase, lowercase, number, and special character';
                     }
                     return null;
                   },
                 ),
                 
-                // Password Requirements
-                if (currentPassword.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.blue.shade50,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.blue.shade200),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Password Strength: ${passwordStrength.strength.toUpperCase()}',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: passwordStrength.isValid ? Colors.green : Colors.orange,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        _buildPasswordRequirement(
-                          'At least 8 characters',
-                          passwordStrength.hasMinLength,
-                        ),
-                        _buildPasswordRequirement(
-                          'Contains uppercase letter',
-                          passwordStrength.hasUppercase,
-                        ),
-                        _buildPasswordRequirement(
-                          'Contains lowercase letter',
-                          passwordStrength.hasLowercase,
-                        ),
-                        _buildPasswordRequirement(
-                          'Contains number',
-                          passwordStrength.hasNumber,
-                        ),
-                        _buildPasswordRequirement(
-                          'Contains special character',
-                          passwordStrength.hasSpecialChar,
-                        ),
-                      ],
+                // Password Strength Indicator
+                if (currentPassword.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      'Password Strength: ${passwordStrength.strengthLabel}',
+                      style: const TextStyle(fontSize: 14, color: Colors.grey),
                     ),
                   ),
-                ],
                 
                 const SizedBox(height: 16),
                 
@@ -406,7 +416,7 @@ class _SignupScreenState extends State<SignupScreen> {
                   obscureText: _obscureConfirmPassword,
                   decoration: InputDecoration(
                     labelText: 'Confirm Password',
-                    hintText: 'Re-enter your password',
+                    hintText: 'Confirm your password',
                     prefixIcon: const Icon(Icons.lock_outline, color: Color(0xFF007A39)),
                     suffixIcon: IconButton(
                       icon: Icon(
@@ -438,125 +448,114 @@ class _SignupScreenState extends State<SignupScreen> {
                   },
                 ),
                 
-                const SizedBox(height: 16),
+                const SizedBox(height: 24),
                 
-                // Terms and Conditions
+                // Terms and Conditions Checkbox
                 Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Checkbox(
-                      value: _acceptTerms,
-                      onChanged: (value) {
-                        setState(() {
-                          _acceptTerms = value ?? false;
-                          if (_acceptTerms) {
-                            _errorMessage = null;
-                          }
-                        });
-                      },
-                      activeColor: const Color(0xFF007A39),
-                    ),
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () {
+                    SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: Checkbox(
+                        value: _acceptTerms,
+                        activeColor: Theme.of(context).primaryColor,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        onChanged: (value) {
                           setState(() {
-                            _acceptTerms = !_acceptTerms;
-                            if (_acceptTerms) {
-                              _errorMessage = null;
-                            }
+                            _acceptTerms = value ?? false;
                           });
                         },
-                        child: Padding(
-                          padding: const EdgeInsets.only(top: 12),
-                          child: RichText(
-                            text: const TextSpan(
-                              style: TextStyle(color: Colors.black87, fontSize: 14),
-                              children: [
-                                TextSpan(text: 'I agree to the '),
-                                TextSpan(
-                                  text: 'Terms and Conditions',
-                                  style: TextStyle(
-                                    color: Color(0xFF007A39),
-                                    fontWeight: FontWeight.bold,
-                                    decoration: TextDecoration.underline,
-                                  ),
-                                ),
-                                TextSpan(text: ' and '),
-                                TextSpan(
-                                  text: 'Privacy Policy',
-                                  style: TextStyle(
-                                    color: Color(0xFF007A39),
-                                    fontWeight: FontWeight.bold,
-                                    decoration: TextDecoration.underline,
-                                  ),
-                                ),
-                              ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text.rich(
+                        TextSpan(
+                          text: 'I agree to the ',
+                          style: const TextStyle(fontSize: 14),
+                          children: [
+                            TextSpan(
+                              text: 'Terms of Service',
+                              style: const TextStyle(
+                                color: Color(0xFF007A39),
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
-                          ),
+                            const TextSpan(text: ' and '),
+                            TextSpan(
+                              text: 'Privacy Policy',
+                              style: const TextStyle(
+                                color: Color(0xFF007A39),
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
                   ],
                 ),
                 
-                const SizedBox(height: 24),
+                const SizedBox(height: 32),
                 
                 // Create Account Button
-                SizedBox(
-                  height: 56,
-                  child: ElevatedButton(
-                    onPressed: _isLoading ? null : _signup,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF007A39),
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      elevation: 2,
+                ElevatedButton(
+                  onPressed: _isLoading ? null : _signup,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF007A39),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    child: _isLoading
-                        ? const Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                                ),
-                              ),
-                              SizedBox(width: 8),
-                              Text('Creating Account...'),
-                            ],
-                          )
-                        : const Text(
-                            'Create Account',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
+                    elevation: 0,
+                  ),
+          child: _isLoading
+            ? SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 3,
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                           ),
-                  ),
+                        )
+                      : const Text(
+                          'Create Account',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                 ),
                 
-                const SizedBox(height: 16),
+                const SizedBox(height: 24),
                 
-                // Back to Login
-                Center(
-                  child: TextButton(
-                    onPressed: () {
-                      Navigator.pop(context);
-                    },
-                    child: const Text(
-                      'Already have an account? Sign In',
+                // Sign In Link
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      'Already have an account? ',
                       style: TextStyle(
-                        color: Color(0xFF007A39),
-                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
                       ),
                     ),
-                  ),
+                    TextButton(
+                      onPressed: () {
+                        Navigator.pushNamed(context, '/login');
+                      },
+                      child: Text(
+                        'Sign In',
+                        style: TextStyle(
+                          color: Theme.of(context).primaryColor,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
+                const SizedBox(height: 16),
               ],
             ),
           ),

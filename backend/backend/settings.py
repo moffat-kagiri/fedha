@@ -31,7 +31,8 @@ ALLOWED_HOSTS = [
     '10.0.2.2',  # Android emulator
     '192.168.100.6',  # Your current local IP for USB debugging
     '0.0.0.0',  # Development server binding
-    '7a9a-41-209-9-54.ngrok-free.app'  # ngrok (if still used)
+    '7a9a-41-209-9-54.ngrok-free.app',  # ngrok (if still used)
+    'place-jd-telecom-hi.trycloudflare.com'  # Cloudflare tunnel domain
 ]
 
 

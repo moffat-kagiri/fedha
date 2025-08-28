@@ -172,7 +172,7 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
                 const SizedBox(height: 8),
                 LinearProgressIndicator(
                   value: (_currentPage + 1) / _totalPages,
-                  backgroundColor: Colors.white.withOpacity(0.3),
+                  backgroundColor: Colors.white.withValues(red: 255, green: 255, blue: 255, alpha: 0.3),
                   valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
                 ),
               ],
@@ -204,7 +204,7 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
               color: Colors.white,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.grey.withOpacity(0.1),
+                  color: Colors.grey.withValues(red: 158, green: 158, blue: 158, alpha: 0.1),
                   blurRadius: 10,
                   offset: const Offset(0, -2),
                 ),
@@ -292,9 +292,9 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: const Color(0xFF007A39).withOpacity(0.1),
+              color: const Color(0xFF007A39).withValues(red: 0, green: 122, blue: 57, alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFF007A39).withOpacity(0.3)),
+              border: Border.all(color: const Color(0xFF007A39).withValues(red: 0, green: 122, blue: 57, alpha: 0.3)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -476,9 +476,9 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: const Color(0xFF007A39).withOpacity(0.1),
+              color: const Color(0xFF007A39).withValues(red: 0, green: 122, blue: 57, alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFF007A39).withOpacity(0.3)),
+              border: Border.all(color: const Color(0xFF007A39).withValues(red: 0, green: 122, blue: 57, alpha: 0.3)),
             ),
             child: Column(
               children: [
@@ -616,7 +616,7 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
               border: Border.all(color: Colors.grey.shade200),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.grey.withOpacity(0.1),
+                  color: Colors.grey.withValues(red: 158, green: 158, blue: 158, alpha: 0.1),
                   blurRadius: 8,
                   offset: const Offset(0, 2),
                 ),
@@ -736,9 +736,9 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: const Color(0xFF007A39).withOpacity(0.1),
+              color: const Color(0xFF007A39).withValues(red: 0, green: 122, blue: 57, alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFF007A39).withOpacity(0.3)),
+              border: Border.all(color: const Color(0xFF007A39).withValues(red: 0, green: 122, blue: 57, alpha: 0.3)),
             ),
             child: Column(
               children: [

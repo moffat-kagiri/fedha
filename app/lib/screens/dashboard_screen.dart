@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
+import '../theme/app_theme.dart';
 import 'package:provider/provider.dart';
-import '../services/auth_service.dart';
-import '../services/offline_data_service.dart';
+import 'package:fedha/services/auth_service.dart';
+import 'package:fedha/services/offline_data_service.dart';
+import 'package:fedha/models/goal.dart' as dom_goal;
+import 'package:fedha/models/transaction.dart' as dom_tx;
+import 'package:fedha/models/budget.dart' as dom_budget;
 import '../services/currency_service.dart';
 import '../services/sms_listener_service.dart';
-import '../models/goal.dart';
-import '../models/budget.dart';
-import '../models/transaction.dart';
+import '../services/permissions_service.dart';
 import '../models/enums.dart';
 import '../widgets/transaction_dialog.dart';
 import '../widgets/transaction_card.dart';
@@ -27,7 +29,9 @@ class DashboardContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<AuthService>(
+  final colorScheme = Theme.of(context).colorScheme;
+  final textTheme = Theme.of(context).textTheme;
+  return Consumer<AuthService>(
       builder: (context, authService, child) {
         final profile = authService.currentProfile;
         if (profile == null) {
@@ -42,15 +46,25 @@ class DashboardContent extends StatelessWidget {
                   future: _loadDashboardData(dataService, profile.id),
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Scaffold(
-                        body: Center(child: CircularProgressIndicator()),
-                      );
+                        return Scaffold(
+                          backgroundColor: colorScheme.background,
+                          body: Center(
+                            child: CircularProgressIndicator(
+                              color: colorScheme.primary,
+                            ),
+                          ),
+                        );
                     }
 
                     final data = snapshot.data ?? DashboardData.empty();
 
                     return Scaffold(
-                      backgroundColor: Colors.grey.shade50,
+                      backgroundColor: colorScheme.background,
+                        appBar: AppBar(
+                          backgroundColor: FedhaColors.primaryGreen,
+                        title: Text('Dashboard', style: textTheme.titleLarge?.copyWith(color: colorScheme.onPrimary)),
+                        elevation: 0,
+                      ),
                       body: SafeArea(
                         child: SingleChildScrollView(
                           padding: const EdgeInsets.all(16),
@@ -83,8 +97,9 @@ class DashboardContent extends StatelessWidget {
 
   Future<DashboardData> _loadDashboardData(OfflineDataService dataService, String profileId) async {
     try {
-      final goals = dataService.getAllGoals().where((goal) => goal.profileId == profileId).toList();
-      final allTransactions = dataService.getAllTransactions().where((tx) => tx.profileId == profileId).toList();
+      final profileIdInt = int.tryParse(profileId) ?? 0;
+      final goals = await dataService.getAllGoals(profileIdInt);
+      final allTransactions = await dataService.getAllTransactions(profileIdInt);
       allTransactions.sort((a, b) => b.date.compareTo(a.date));
       final recentTransactions = allTransactions.take(5).toList();
       
@@ -188,7 +203,7 @@ class DashboardContent extends StatelessWidget {
       title: 'Financial Overview',
       items: summaryItems,
       onTap: () {
-        // Navigate to detailed financial overview
+        Navigator.pushNamed(context, '/create_budget');
       },
     );
   }
@@ -236,8 +251,23 @@ class DashboardContent extends StatelessWidget {
         icon: Icons.sms,
         color: Colors.blue,
         onTap: () async {
-          // Initialize SMS listener if not already running
+          // Request SMS permission before starting listener
+          final permissionsService = Provider.of<PermissionsService>(context, listen: false);
+          final granted = await permissionsService.requestSmsPermission();
+          if (!granted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('SMS permission required to review messages'),
+                backgroundColor: Colors.red,
+              ),
+            );
+            return;
+          }
+          // Set current profile for SMS listener
           final smsService = SmsListenerService.instance;
+          final authService = Provider.of<AuthService>(context, listen: false);
+          smsService.setCurrentProfile(authService.currentProfile?.id ?? '');
+          // Initialize SMS listener if not already running
           if (!smsService.isListening) {
             await smsService.initialize();
             await smsService.startListening();
@@ -288,7 +318,7 @@ class DashboardContent extends StatelessWidget {
     );
   }
 
-  Widget _buildGoalsSection(BuildContext context, CurrencyService currencyService, List<Goal> goals) {
+  Widget _buildGoalsSection(BuildContext context, CurrencyService currencyService, List<dom_goal.Goal> goals) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -337,7 +367,7 @@ class DashboardContent extends StatelessWidget {
     );
   }
 
-  Widget _buildGoalCard(Goal goal, CurrencyService currencyService, BuildContext context) {
+  Widget _buildGoalCard(dom_goal.Goal goal, CurrencyService currencyService, BuildContext context) {
     final progress = goal.targetAmount > 0 ? goal.currentAmount / goal.targetAmount : 0.0;
     
     return Card(
@@ -403,18 +433,14 @@ class DashboardContent extends StatelessWidget {
         return Icons.security;
       case GoalType.debtReduction:
         return Icons.money_off;
-      case GoalType.expenseReduction:
-        return Icons.trending_down;
-      case GoalType.incomeIncrease:
-        return Icons.attach_money;
-      case GoalType.retirement:
-        return Icons.elderly;
+      case GoalType.insurance:
+        return Icons.health_and_safety;
       case GoalType.other:
         return Icons.flag;
     }
   }
 
-  Widget _buildRecentTransactions(BuildContext context, CurrencyService currencyService, List<Transaction> transactions) {
+  Widget _buildRecentTransactions(BuildContext context, CurrencyService currencyService, List<dom_tx.Transaction> transactions) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -481,9 +507,9 @@ class DashboardContent extends StatelessWidget {
     );
   }
 
-  Widget _buildTransactionItem(Transaction transaction, CurrencyService currencyService, BuildContext context) {
-    IconData icon;
-    Color color;
+  Widget _buildTransactionItem(dom_tx.Transaction transaction, CurrencyService currencyService, BuildContext context) {
+    IconData icon = Icons.remove_circle; // Default
+    Color color = Colors.grey; // Default
     
     switch (transaction.type) {
       case TransactionType.income:
@@ -498,9 +524,8 @@ class DashboardContent extends StatelessWidget {
         icon = Icons.savings;
         color = Colors.blue;
         break;
-      case TransactionType.transfer:
-        icon = Icons.swap_horiz;
-        color = Colors.orange;
+      default:
+        // Keep defaults
         break;
     }
 
@@ -523,9 +548,9 @@ class DashboardContent extends StatelessWidget {
 }
 
 class DashboardData {
-  final List<Goal> goals;
-  final List<Transaction> recentTransactions;
-  final Budget? currentBudget;
+  final List<dom_goal.Goal> goals;
+  final List<dom_tx.Transaction> recentTransactions;
+  final dom_budget.Budget? currentBudget;
 
   DashboardData({
     required this.goals,

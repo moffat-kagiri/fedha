@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/app_theme.dart';
 import 'package:provider/provider.dart';
 import '../models/transaction.dart';
 import '../models/transaction_candidate.dart';
@@ -7,8 +8,7 @@ import '../models/enums.dart';
 import '../services/auth_service.dart';
 import '../services/offline_data_service.dart';
 import '../utils/profile_transaction_utils.dart';
-import 'add_transaction_screen.dart';
-import '../widgets/quick_transaction_entry.dart';
+import 'transaction_entry_unified_screen.dart';
 import '../widgets/transaction_dialog.dart';
 import '../widgets/transaction_card.dart';
 
@@ -34,11 +34,24 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
   bool _showAdvancedFilters = false;
   Goal? _selectedGoalFilter; // Add goal filtering
   List<Goal> _availableGoals = [];
-  Future<List<Transaction>> _loadTransactions(
-    OfflineDataService dataService,
-    String profileId,
-  ) async {
-    return dataService.getAllTransactions();
+  
+  // Add futures for async data
+  late Future<List<Transaction>> _transactionsFuture;
+  late Future<List<Goal>> _goalsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    final dataService = Provider.of<OfflineDataService>(context, listen: false);
+    final profileId = int.tryParse(
+        Provider.of<AuthService>(context, listen: false)
+            .currentProfile
+            ?.id ?? '0') ?? 0;
+    _transactionsFuture = dataService.getAllTransactions(profileId);
+    _goalsFuture = dataService.getAllGoals(profileId);
+    _goalsFuture.then((goals) {
+      if (mounted) setState(() => _availableGoals = goals);
+    });
   }
 
   List<Transaction> _filterTransactions(List<Transaction> transactions) {
@@ -289,28 +302,6 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
   }
 
   @override
-  void initState() {
-    super.initState();
-    _loadGoals();
-  }
-
-  Future<void> _loadGoals() async {
-    final authService = Provider.of<AuthService>(context, listen: false);
-    final profileId = authService.currentProfile?.id;
-
-    if (profileId != null) {
-      final dataService = Provider.of<OfflineDataService>(
-        context,
-        listen: false,
-      );
-      final goals = dataService.getAllGoals();
-      setState(() {
-        _availableGoals = goals;
-      });
-    }
-  }
-
-  @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
@@ -318,75 +309,60 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
+      backgroundColor: colorScheme.background,
       appBar: AppBar(
-        title: const Text(
-          'Transactions',
-          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black87),
-        ),
-        backgroundColor: Colors.white,
+        backgroundColor: FedhaColors.primaryGreen,
         elevation: 0,
+        title: Text(
+          'Transactions',
+          style: textTheme.titleLarge?.copyWith(
+            color: colorScheme.onPrimary,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),
-          child: Container(height: 1, color: Colors.grey.shade200),
+          child: Container(height: 1, color: colorScheme.onSurface.withOpacity(0.12)),
         ),
         actions: [
           IconButton(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const AddTransactionScreen(),
-                ),
-              );
-            },
-            icon: const Icon(Icons.add, color: Color(0xFF007A39)),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const TransactionEntryUnifiedScreen(),
+              ),
+            ),
+            icon: Icon(Icons.add, color: colorScheme.onPrimary),
           ),
         ],
       ),
-      body: SafeArea(
-        child: Consumer<AuthService>(
-          builder: (context, authService, child) {
-            final profile = authService.currentProfile;
-            if (profile == null) {
-              return const Center(child: Text('Please log in'));
-            }
+      body: FutureBuilder<List<Transaction>>(
+        future: _transactionsFuture,
+        builder: (ctx, txSnap) {
+          if (txSnap.connectionState != ConnectionState.done) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          final transactions = txSnap.data ?? [];
+          final filtered = _filterTransactions(transactions);
 
-            return Consumer<OfflineDataService>(
-              builder: (context, dataService, child) {
-                return FutureBuilder<List<Transaction>>(
-                  future: _loadTransactions(dataService, profile.id),
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Center(child: CircularProgressIndicator());
-                    }
+          return Column(
+            children: [
+              // Search and Filter Section
+              _buildSearchAndFilterSection(),
 
-                    final transactions = snapshot.data ?? [];
-                    final filteredTransactions = _filterTransactions(
-                      transactions,
-                    );
+              // Summary Cards
+              _buildSummaryCards(transactions),
 
-                    return Column(
-                      children: [
-                        // Search and Filter Section
-                        _buildSearchAndFilterSection(),
-
-                        // Summary Cards
-                        _buildSummaryCards(transactions),
-
-                        // Transactions List
-                        Expanded(
-                          child: _buildTransactionsList(filteredTransactions),
-                        ),
-                      ],
-                    );
-                  },
-                );
-              },
-            );
-          },
-        ),
+              // Transactions List
+              Expanded(
+                child: _buildTransactionsList(filtered),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -460,7 +436,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                                 },
                                 selectedColor: const Color(
                                   0xFF007A39,
-                                ).withOpacity(0.2),
+                                ).withValues(red: 0, green: 122, blue: 57, alpha: 0.2),
                                 checkmarkColor: const Color(0xFF007A39),
                               ),
                             );
@@ -858,9 +834,9 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(red: color.r * 255.0, green: color.g * 255.0, blue: color.b * 255.0, alpha: 25.5),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(red: color.r * 255.0, green: color.g * 255.0, blue: color.b * 255.0, alpha: 76.5)),
       ),
       child: Column(
         children: [
@@ -940,11 +916,6 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
         icon = Icons.savings;
         prefix = '-';
         break;
-      case TransactionType.transfer:
-        color = Colors.orange;
-        icon = Icons.swap_horiz;
-        prefix = '';
-        break;
     }
 
     return Card(
@@ -957,7 +928,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
           width: 48,
           height: 48,
           decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
+            color: color.withValues(red: color.r * 255.0, green: color.g * 255.0, blue: color.b * 255.0, alpha: 25.5),
             borderRadius: BorderRadius.circular(24),
           ),
           child: Icon(icon, color: color),

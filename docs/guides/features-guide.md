@@ -19,6 +19,12 @@ This document provides implementation details and guidance for key features in t
    - [Overview](#biometric-overview)
    - [Implementation](#biometric-implementation)
    - [Security Considerations](#security-considerations)
+   
+4. [SMS Transaction Capture](#sms-transaction-capture)
+   - [Overview](#sms-overview)
+   - [Implementation](#sms-implementation)
+   - [Transaction Parsing](#transaction-parsing)
+   - [User Review Process](#user-review-process)
 
 ---
 
@@ -161,13 +167,13 @@ The `tryAutoLogin` method attempts to restore a session:
 Future<LoginResult> tryAutoLogin() async {
   // Check if persistent login is enabled
   if (!persistentLoginEnabled) {
-    return LoginResult.error('Persistent login is disabled');
+    return LoginResult.error(message: 'Persistent login is disabled');
   }
   
   // Get and validate saved session
   final session = AuthSession.fromJson(Map<String, dynamic>.from(sessionJson));
   if (!session.isValid) {
-    return LoginResult.error('Session expired');
+    return LoginResult.error(message: 'Session expired');
   }
   
   // Get profile and restore session
@@ -235,6 +241,234 @@ if (authenticated) {
 <a id="security-considerations"></a>
 
 ### Security Considerations
+
+Biometric data is stored securely using the device's secure storage and is never transmitted to servers.
+
+---
+
+## SMS Transaction Capture
+<a id="sms-overview"></a>
+
+### Overview
+
+The SMS transaction capture feature automatically detects financial SMS messages from banks and mobile money services, extracts transaction details, and presents them to users for review before adding to their financial records.
+
+<a id="sms-implementation"></a>
+
+### Implementation
+
+#### 1. Native SMS Listener
+
+The app uses a native Android implementation to intercept SMS messages:
+
+```kotlin
+// SmsReaderPlugin.kt
+class SmsReaderPlugin implements FlutterPlugin, MethodCallHandler, EventChannel.StreamHandler {
+    // ...
+    private void registerSmsReceiver() {
+        if (smsReceiver == null && context != null) {
+            smsReceiver = new BroadcastReceiver() {
+                @Override
+                public void onReceive(Context context, Intent intent) {
+                    if (intent.getAction().equals("android.provider.Telephony.SMS_RECEIVED")) {
+                        // Extract SMS details and send to Flutter
+                        // ...
+                    }
+                }
+            };
+            
+            IntentFilter filter = new IntentFilter("android.provider.Telephony.SMS_RECEIVED");
+            filter.setPriority(IntentFilter.SYSTEM_HIGH_PRIORITY);
+            context.registerReceiver(smsReceiver, filter);
+        }
+    }
+}
+```
+
+#### 2. Flutter Integration
+
+The Flutter side receives SMS events through method and event channels:
+
+```dart
+// sms_listener_service.dart
+class SmsListenerService extends ChangeNotifier {
+  static const MethodChannel _channel = MethodChannel('sms_listener');
+  static const EventChannel _eventChannel = EventChannel('sms_listener_events');
+  
+  Future<bool> initialize() async {
+    // Set up event channel listener
+    _eventChannelSubscription = _eventChannel.receiveBroadcastStream().listen(
+      (event) => _handleSmsReceived(Map<String, dynamic>.from(event as Map)),
+      onError: (error) => print('SMS event channel error: $error')
+    );
+    
+    // Initialize native SMS listener
+    final result = await _channel.invokeMethod('initialize');
+    return result == true;
+  }
+}
+```
+
+#### 3. Permission Handling
+
+```dart
+Future<bool> checkAndRequestPermissions() async {
+  // Check if SMS permission is granted
+  var status = await Permission.sms.status;
+  
+  // If not granted, request permission
+  if (!status.isGranted) {
+    status = await Permission.sms.request();
+  }
+  
+  return status.isGranted;
+}
+```
+
+<a id="transaction-parsing"></a>
+
+### Transaction Parsing
+
+The SMS content is parsed using pattern matching to extract transaction details:
+
+```dart
+static TransactionData? _parseMpesaTransaction(SmsMessage message) {
+  final body = message.body;
+  
+  // Extract amount
+  final amountRegex = RegExp(r'Ksh([\d,]+\.?\d*)');
+  final amountMatch = amountRegex.firstMatch(body);
+  if (amountMatch == null) return null;
+  
+  final amountStr = amountMatch.group(1)?.replaceAll(',', '');
+  final amount = double.tryParse(amountStr ?? '');
+  
+  // Determine transaction type and extract other details
+  String type = 'unknown';
+  if (body.toLowerCase().contains('sent to')) {
+    type = 'sent';
+    // Extract recipient...
+  } else if (body.toLowerCase().contains('received from')) {
+    type = 'received';
+    // Extract sender...
+  }
+  
+  // Create transaction data object
+  return TransactionData(
+    type: type,
+    amount: amount!,
+    currency: 'KES',
+    // Other fields...
+  );
+}
+```
+
+<a id="user-review-process"></a>
+
+### User Review Process
+
+Extracted transactions are not automatically added to the user's records. Instead, they're stored as pending transactions for user review:
+
+```dart
+Future<void> _savePendingTransaction(TransactionData data) async {
+  final transaction = Transaction(
+    id: const Uuid().v4(),
+    amount: data.amount,
+    description: 'SMS: ${data.type} via ${data.source}',
+    categoryId: await _guessCategory(data),
+    date: data.timestamp,
+    isExpense: data.type == 'sent' || data.type == 'withdrawal',
+    profileId: _currentProfileId,
+    smsSource: data.rawMessage,
+    isPending: true, // Mark for user review
+  );
+  
+  // Save to pending transactions box
+  final pendingBox = await Hive.openBox<Transaction>('pending_transactions');
+  await pendingBox.add(transaction);
+}
+```
+
+The user review process allows users to:
+1. Verify transaction details
+2. Assign categories 
+3. Add notes
+4. Approve or reject the transaction
+
+### Integration with Other Features
+
+The SMS transaction capture can be integrated with other parts of the app:
+
+#### 1. Navigation
+
+To open the SMS transaction review screen from other parts of the app:
+
+```dart
+Navigator.of(context).push(
+  MaterialPageRoute(
+    builder: (context) => const SmsReviewScreen(),
+  ),
+);
+```
+
+#### 2. Transaction Badge Indicators
+
+To show how many pending transactions are waiting for review:
+
+```dart
+ValueListenableBuilder<Box<Transaction>>(
+  valueListenable: Hive.box<Transaction>('pending_transactions').listenable(),
+  builder: (context, box, _) {
+    final pendingCount = box.values.length;
+    return Badge(
+      showBadge: pendingCount > 0,
+      badgeContent: Text('$pendingCount'),
+      child: const Icon(Icons.message),
+    );
+  },
+);
+```
+
+#### 3. Starting/Stopping the SMS Listener
+
+To control when the service is listening for SMS messages:
+
+```dart
+final smsService = SmsListenerService.instance;
+
+// Check permissions and start listening
+Future<void> startSmsMonitoring() async {
+  final hasPermissions = await smsService.checkAndRequestPermissions();
+  
+  if (hasPermissions) {
+    await smsService.startListening();
+    print('SMS monitoring started');
+  } else {
+    // Show permission denied UI
+  }
+}
+
+// Stop listening
+Future<void> stopSmsMonitoring() async {
+  await smsService.stopListening();
+}
+```
+
+#### 4. Subscribing to SMS Events
+
+To receive notifications when new SMS transactions are detected:
+
+```dart
+void setupSmsSubscription() {
+  smsService.messageStream.listen((message) {
+    // Show notification or update UI
+    NotificationService.instance.showNotification(
+      'New Transaction Detected',
+      'A new transaction of KES ${formatAmount(transaction.amount)} has been detected.',
+    );
+  });
+}
+```
 
 1. Biometric authentication is tied to individual profiles
 2. User can enable/disable biometric login at any time

@@ -1,51 +1,25 @@
-import 'package:hive/hive.dart';
 import 'enums.dart';
+import 'package:json_annotation/json_annotation.dart';
 
 part 'goal.g.dart';
 
-@HiveType(typeId: 5)
-class Goal extends HiveObject {
-  @HiveField(0)
+@JsonSerializable()
+class Goal {
   String id;
-
-  @HiveField(1)
   String name;
-
-  @HiveField(2)
   String? description;
-
-  @HiveField(3)
   double targetAmount;
-
-  @HiveField(4)
   double currentAmount;
-
-  @HiveField(5)
   DateTime targetDate;
-
-  @HiveField(6)
   String priority; // 'high', 'medium', 'low'
-
-  @HiveField(7)
   String status; // 'active', 'completed', 'paused'
-
-  @HiveField(8)
   bool isActive;
-
-  @HiveField(9)
   DateTime createdAt;
-
-  @HiveField(10)
   DateTime updatedAt;
-
-  @HiveField(11)
   GoalType goalType;
-
-  @HiveField(12)
   String currency;
-
-  @HiveField(13)
   String? profileId;
+  bool isSynced;
 
   Goal({
     required this.id,
@@ -62,6 +36,7 @@ class Goal extends HiveObject {
     this.goalType = GoalType.savings,
     this.currency = 'KES',
     this.profileId,
+    this.isSynced = false,
   }) : 
     createdAt = createdAt ?? DateTime.now(),
     updatedAt = updatedAt ?? DateTime.now();

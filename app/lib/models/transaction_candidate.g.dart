@@ -3,75 +3,61 @@
 part of 'transaction_candidate.dart';
 
 // **************************************************************************
-// TypeAdapterGenerator
+// JsonSerializableGenerator
 // **************************************************************************
 
-class TransactionCandidateAdapter extends TypeAdapter<TransactionCandidate> {
-  @override
-  final int typeId = 8;
+TransactionCandidate _$TransactionCandidateFromJson(
+  Map<String, dynamic> json,
+) => TransactionCandidate(
+  id: json['id'] as String,
+  rawText: json['rawText'] as String?,
+  amount: (json['amount'] as num).toDouble(),
+  description: json['description'] as String?,
+  categoryId: json['categoryId'] as String?,
+  date: DateTime.parse(json['date'] as String),
+  type: $enumDecode(_$TransactionTypeEnumMap, json['type']),
+  status:
+      $enumDecodeNullable(_$TransactionStatusEnumMap, json['status']) ??
+      TransactionStatus.pending,
+  confidence: (json['confidence'] as num?)?.toDouble() ?? 0.5,
+  transactionId: json['transactionId'] as String?,
+  metadata: json['metadata'] as Map<String, dynamic>?,
+  createdAt: json['createdAt'] == null
+      ? null
+      : DateTime.parse(json['createdAt'] as String),
+  updatedAt: json['updatedAt'] == null
+      ? null
+      : DateTime.parse(json['updatedAt'] as String),
+);
 
-  @override
-  TransactionCandidate read(BinaryReader reader) {
-    final numOfFields = reader.readByte();
-    final fields = <int, dynamic>{
-      for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
-    };
-    return TransactionCandidate(
-      id: fields[0] as String,
-      rawText: fields[1] as String?,
-      amount: fields[2] as double,
-      description: fields[3] as String?,
-      categoryId: fields[4] as String?,
-      date: fields[5] as DateTime,
-      type: fields[6] as String,
-      status: fields[7] as String,
-      confidence: fields[8] as double,
-      transactionId: fields[9] as String?,
-      metadata: (fields[10] as Map?)?.cast<String, dynamic>(),
-      createdAt: fields[11] as DateTime?,
-      updatedAt: fields[12] as DateTime?,
-    );
-  }
+Map<String, dynamic> _$TransactionCandidateToJson(
+  TransactionCandidate instance,
+) => <String, dynamic>{
+  'id': instance.id,
+  'rawText': instance.rawText,
+  'amount': instance.amount,
+  'description': instance.description,
+  'categoryId': instance.categoryId,
+  'date': instance.date.toIso8601String(),
+  'type': _$TransactionTypeEnumMap[instance.type]!,
+  'status': _$TransactionStatusEnumMap[instance.status]!,
+  'confidence': instance.confidence,
+  'transactionId': instance.transactionId,
+  'metadata': instance.metadata,
+  'createdAt': instance.createdAt.toIso8601String(),
+  'updatedAt': instance.updatedAt.toIso8601String(),
+};
 
-  @override
-  void write(BinaryWriter writer, TransactionCandidate obj) {
-    writer
-      ..writeByte(13)
-      ..writeByte(0)
-      ..write(obj.id)
-      ..writeByte(1)
-      ..write(obj.rawText)
-      ..writeByte(2)
-      ..write(obj.amount)
-      ..writeByte(3)
-      ..write(obj.description)
-      ..writeByte(4)
-      ..write(obj.categoryId)
-      ..writeByte(5)
-      ..write(obj.date)
-      ..writeByte(6)
-      ..write(obj.type)
-      ..writeByte(7)
-      ..write(obj.status)
-      ..writeByte(8)
-      ..write(obj.confidence)
-      ..writeByte(9)
-      ..write(obj.transactionId)
-      ..writeByte(10)
-      ..write(obj.metadata)
-      ..writeByte(11)
-      ..write(obj.createdAt)
-      ..writeByte(12)
-      ..write(obj.updatedAt);
-  }
+const _$TransactionTypeEnumMap = {
+  TransactionType.income: 'income',
+  TransactionType.expense: 'expense',
+  TransactionType.savings: 'savings',
+};
 
-  @override
-  int get hashCode => typeId.hashCode;
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is TransactionCandidateAdapter &&
-          runtimeType == other.runtimeType &&
-          typeId == other.typeId;
-}
+const _$TransactionStatusEnumMap = {
+  TransactionStatus.pending: 'pending',
+  TransactionStatus.completed: 'completed',
+  TransactionStatus.failed: 'failed',
+  TransactionStatus.cancelled: 'cancelled',
+  TransactionStatus.refunded: 'refunded',
+};
