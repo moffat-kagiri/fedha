@@ -35,12 +35,14 @@ import 'services/connectivity_service_new.dart' as conn_svc;
 import 'services/sms_listener_service.dart';
 import 'services/permissions_service.dart';
 import 'theme/app_theme.dart';
+import 'services/risk_assessment_service.dart';
 
 // Screens
 import 'screens/auth_wrapper.dart';
 // import 'screens/loan_calculator_screen.dart'; // Replaced with investment calculator
 import 'screens/progressive_goal_wizard_screen.dart';
 import 'screens/investment_calculator_screen.dart';
+import 'screens/investment_irr_calculator_screen.dart';
 import 'screens/add_goal_screen.dart';
 import 'screens/create_budget_screen.dart';
 import 'screens/goals_screen.dart';
@@ -50,7 +52,7 @@ import 'screens/transaction_entry_unified_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/signup_screen.dart';
 import 'screens/biometric_lock_screen.dart';
-import 'screens/biometric_lock_screen.dart';
+import 'screens/loan_calculator_screen.dart';
 import 'screens/test_profiles_screen.dart';
 import 'screens/connection_diagnostics_screen.dart';
 import 'screens/welcome_onboarding_screen.dart';
@@ -58,6 +60,7 @@ import 'device_network_info.dart';
 import 'ip_settings.dart';
 import 'screens/debt_repayment_planner_screen.dart';
 import 'screens/asset_protection_screen.dart';
+import 'screens/emergency_fund_screen.dart';
 import 'screens/sms_review_screen.dart';
 
 void main() async {
@@ -83,11 +86,9 @@ void main() async {
     await authService.initialize();
     
     
-  // Initialize permissions service and request SMS permission
+  // Initialize permissions service (dialogs will be prompted after UI is ready)
   final permissionsService = PermissionsService.instance;
   await permissionsService.initialize();
-  // Prompt all required permissions on startup (SMS, notifications, storage, camera)
-  await permissionsService.requestAllPermissions();
     
     // Initialize API configuration based on environment
     // Import the connection manager at the top of the file:
@@ -157,6 +158,10 @@ void main() async {
   final themeService = ThemeService.instance;
   final currencyService = CurrencyService();
 
+  // Initialize local risk assessment database and service
+  final db = await AppDatabase.openOnDevice();
+  final riskAssessmentService = RiskAssessmentService(db);
+
   runApp(
       MultiProvider(
         providers: [
@@ -180,6 +185,7 @@ void main() async {
           ChangeNotifierProvider<AuthService>.value(value: authService),
           ChangeNotifierProvider<ThemeService>.value(value: themeService),
           Provider<CurrencyService>.value(value: currencyService),
+          Provider<RiskAssessmentService>.value(value: riskAssessmentService),
         ],
         child: const MyApp(),
       ),
@@ -216,6 +222,13 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _initializationFuture = _initializeServices();
+    // After first frame, prompt for any missing permissions when UI is ready
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final permissionsService = Provider.of<PermissionsService>(context, listen: false);
+      if (await permissionsService.shouldShowPermissionsPrompt()) {
+        await permissionsService.requestAllPermissions();
+      }
+    });
   }
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
@@ -336,12 +349,14 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
               themeMode: themeService.themeMode,
               home: const AuthWrapper(),
               routes: {
-            '/investment_calculator': (context) => const InvestmentCalculatorScreen(),
+              '/investment_calculator': (context) => const InvestmentCalculatorScreen(),
+              '/investment_irr_calculator': (context) => const InvestmentIRRCalculatorScreen(),
             '/progressive_goal_wizard': (context) => const ProgressiveGoalWizardScreen(),
             '/add_goal': (context) => const AddGoalScreen(),
             '/create_budget': (context) => const CreateBudgetScreen(),
             '/goals': (context) => const GoalsScreen(),
             '/add_transaction': (context) => const TransactionEntryUnifiedScreen(),
+            '/loan_calculator': (context) => const LoanCalculatorScreen(),
             '/transaction_entry': (context) => const TransactionEntryUnifiedScreen(),
             '/detailed_transaction_entry': (context) => const TransactionEntryUnifiedScreen(),
             '/login': (context) => const LoginScreen(),
@@ -356,6 +371,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             '/ip_settings': (context) => const IpSettingsScreen(),
             '/debt_repayment_planner': (context) => const DebtRepaymentPlannerScreen(),
             '/asset_protection': (context) => const AssetProtectionScreen(),
+            '/emergency-fund': (context) => const EmergencyFundScreen(),
             '/sms_review': (context) => const SmsReviewScreen(),
             },
             );

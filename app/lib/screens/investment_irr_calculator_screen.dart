@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'dart:math';
+import '../utils/investment_calculator.dart';
 
 class InvestmentIRRCalculatorScreen extends StatefulWidget {
   const InvestmentIRRCalculatorScreen({super.key});
@@ -24,27 +24,17 @@ class _InvestmentIRRCalculatorScreenState extends State<InvestmentIRRCalculatorS
   void _calculateIRR() {
     if (!_formKey.currentState!.validate()) return;
     final double initial = double.parse(_initialInvestmentController.text);
-    final flows = _cashFlowsController.text.split(',').map((e) => double.parse(e.trim())).toList();
-
-    double npv(double rate) {
-      double sum = -initial;
-      for (int i = 0; i < flows.length; i++) {
-        sum += flows[i] / pow(1 + rate, i + 1);
-      }
-      return sum;
-    }
-
-    double x0 = 0.1;
-    for (int i = 0; i < 20; i++) {
-      final f = npv(x0);
-      final df = (npv(x0 + 1e-6) - f) / 1e-6;
-      x0 = x0 - f / df;
-    }
+    final flows = _cashFlowsController.text
+        .split(',')
+        .map((e) => double.parse(e.trim()))
+        .toList();
+    // Prepend negative initial
+    final cashFlows = [-initial, ...flows];
+    final result = InvestmentCalculator.irr(cashFlows);
     setState(() {
-      _irr = x0;
+      _irr = result;
     });
   }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(

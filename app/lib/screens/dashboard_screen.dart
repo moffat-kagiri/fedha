@@ -263,8 +263,11 @@ class DashboardContent extends StatelessWidget {
             );
             return;
           }
-          // Initialize SMS listener if not already running
+          // Set current profile for SMS listener
           final smsService = SmsListenerService.instance;
+          final authService = Provider.of<AuthService>(context, listen: false);
+          smsService.setCurrentProfile(authService.currentProfile?.id ?? '');
+          // Initialize SMS listener if not already running
           if (!smsService.isListening) {
             await smsService.initialize();
             await smsService.startListening();

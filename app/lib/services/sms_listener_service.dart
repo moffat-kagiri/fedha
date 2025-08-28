@@ -92,10 +92,12 @@ class SmsListenerService extends ChangeNotifier {
       DateTime? lastTimestamp;
       _pollTimer = Timer.periodic(const Duration(seconds: 10), (_) async {
         // Poll SMS messages from inbox
+        if (kDebugMode) print('Polling SMS inbox...');
         final List<inbox.SmsMessage> raw = await _query.querySms(
           count: 20,
           sort: true,
         );
+        if (kDebugMode) print('Retrieved ${raw.length} SMS messages');
         for (var nativeMsg in raw) {
           // plugin returns DateTime or int? ensure a DateTime
           final DateTime msgTime = nativeMsg.date is DateTime
@@ -108,13 +110,20 @@ class SmsListenerService extends ChangeNotifier {
               body: nativeMsg.body ?? '',
               timestamp: msgTime,
             );
-            _handleSmsReceived(msg.toMap());
+            if (kDebugMode) print('Evaluating SMS: sender=${msg.sender}, body=${msg.body}');
+            final isFin = _isFinancialTransaction(msg);
+            if (kDebugMode) print('Is financial transaction: $isFin');
+            if (isFin) {
+              _handleSmsReceived(msg.toMap());
+            }
           }
         }
       });
       _isListening = true;
       notifyListeners();
-      if (kDebugMode) print('SMS listener started via flutter_sms_inbox');
+      if (kDebugMode) {
+        print('SMS listener started via flutter_sms_inbox');
+      }
       return true;
     } catch (e) {
       if (kDebugMode) print('Error initializing SMS listener: $e');

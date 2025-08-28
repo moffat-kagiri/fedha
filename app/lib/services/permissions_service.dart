@@ -49,10 +49,17 @@ class PermissionsService extends ChangeNotifier {
   Future<void> checkPermissionsStatus() async {
     if (Platform.isAndroid) {
       _smsPermissionGranted = await Permission.sms.isGranted;
+      // Storage: either legacy storage or Android 13+ media permissions
+      final legacyStorage = await Permission.storage.isGranted;
+      bool mediaStorage = false;
+      try {
+        mediaStorage = await Permission.photos.isGranted && await Permission.videos.isGranted;
+      } catch (_) {}
+      _storagePermissionGranted = legacyStorage || mediaStorage;
+    } else {
+      _storagePermissionGranted = await Permission.storage.isGranted;
     }
-    
     _notificationsPermissionGranted = await Permission.notification.isGranted;
-    _storagePermissionGranted = await Permission.storage.isGranted;
     _cameraPermissionGranted = await Permission.camera.isGranted;
     
     notifyListeners();
@@ -80,10 +87,24 @@ class PermissionsService extends ChangeNotifier {
   
   /// Request storage permissions
   Future<bool> requestStoragePermission() async {
-    final status = await Permission.storage.request();
-    _storagePermissionGranted = status.isGranted;
+    if (Platform.isAndroid) {
+      // On Android 13+, request media permissions instead of legacy storage
+      bool granted = false;
+      try {
+        final photos = await Permission.photos.request();
+        final videos = await Permission.videos.request();
+        granted = photos.isGranted && videos.isGranted;
+      } catch (_) {
+        // Fallback to legacy storage
+        final status = await Permission.storage.request();
+        granted = status.isGranted;
+      }
+      _storagePermissionGranted = granted;
+    } else {
+      final status = await Permission.storage.request();
+      _storagePermissionGranted = status.isGranted;
+    }
     notifyListeners();
-    
     return _storagePermissionGranted;
   }
   
@@ -100,23 +121,30 @@ class PermissionsService extends ChangeNotifier {
   Future<Map<String, bool>> requestAllPermissions() async {
     Map<String, bool> results = {};
     
-    // Request notifications permission
-    results['notifications'] = await requestNotificationsPermission();
-    
-    // Request SMS permission on Android
+    // Request SMS permissions on Android
     if (Platform.isAndroid) {
       results['sms'] = await requestSmsPermission();
     }
-    
-    // Request storage permission
-    results['storage'] = await requestStoragePermission();
-    
     // Request camera permission
     results['camera'] = await requestCameraPermission();
-    
-    // Mark permissions prompt as shown
-    await markPermissionsPromptShown();
-    
+    // Request storage permission
+    results['storage'] = await requestStoragePermission();
+    // On Android 13+, request granular media permissions
+    try {
+      final photosStatus = await Permission.photos.request();
+      results['photos'] = photosStatus.isGranted;
+      final videosStatus = await Permission.videos.request();
+      results['videos'] = videosStatus.isGranted;
+    } catch (_) {
+      // If granular media perms not supported, ignore
+    }
+    // Request notification permission last
+    results['notifications'] = await requestNotificationsPermission();
+    // Optionally mark prompt shown only if all core permissions granted
+    final coreGranted = _smsPermissionGranted && _storagePermissionGranted && _cameraPermissionGranted;
+    if (coreGranted) {
+      await markPermissionsPromptShown();
+    }
     return results;
   }
   
@@ -141,8 +169,11 @@ class PermissionsService extends ChangeNotifier {
     await checkPermissionsStatus();
     
     // If any required permission is not granted, we should show the prompt
-    if (Platform.isAndroid && !_smsPermissionGranted) return true;
-    if (!_notificationsPermissionGranted) return true;
+  if (Platform.isAndroid && !_smsPermissionGranted) return true;
+  if (!_notificationsPermissionGranted) return true;
+  // Prompt if storage or camera not granted
+  if (!_storagePermissionGranted) return true;
+  if (!_cameraPermissionGranted) return true;
     
     return false;
   }

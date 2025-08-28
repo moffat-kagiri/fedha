@@ -56,8 +56,18 @@ class ToolsScreen extends StatelessWidget {
                 mainAxisSpacing: 16,
                 childAspectRatio: 0.9,
                 children: tools.map((tool) {
-                  return GestureDetector(
-                    onTap: () => Navigator.pushNamed(context, tool['route'] as String),
+                  // Single InkWell for the tool card
+                  return InkWell(
+                    borderRadius: BorderRadius.circular(12),
+                    onTap: () {
+                      final route = tool['route'] as String;
+                      Navigator.pushNamed(context, route);
+                      if (route == '/emergency-fund') {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Opening Emergency Fund Calculator...')),
+                        );
+                      }
+                    },
                     child: Card(
                       color: colorScheme.surface,
                       shape: RoundedRectangleBorder(
@@ -89,8 +99,8 @@ class ToolsScreen extends StatelessWidget {
                     ),
                   );
                 }).toList(),
-              ),
-            ),
+              ), // close GridView.count
+            ), // close Expanded
             const SizedBox(height: 16),
             Text(
               'More tools coming soon...',

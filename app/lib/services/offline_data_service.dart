@@ -40,6 +40,7 @@ class OfflineDataService {
       amountMinor: tx.amount,
       currency: tx.paymentMethod == null ? 'KES' : tx.paymentMethod.toString(),
       description: tx.description ?? '',
+      categoryId: Value(tx.categoryId),
       date: tx.date,
       isExpense: Value(tx.isExpense),
       rawSms: Value(tx.smsSource),
@@ -56,7 +57,7 @@ class OfflineDataService {
       .map((r) => dom_tx.Transaction(
         amount: r.amountMinor,
         type: r.isExpense ? TransactionType.expense : TransactionType.income,
-        categoryId: '',
+        categoryId: r.categoryId,
         description: r.description,
         date: r.date,
         smsSource: r.rawSms ?? '',

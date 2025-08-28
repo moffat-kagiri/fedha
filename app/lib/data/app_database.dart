@@ -13,8 +13,10 @@ class Transactions extends Table {
   IntColumn get id => integer().autoIncrement()();
 
   RealColumn get amountMinor => real().map(const _DecimalConverter())();
-  TextColumn get currency => text().withLength(min: 3, max: 3)();
+  TextColumn get currency => text()();
   TextColumn get description => text()();
+  // Persist category chosen by user
+  TextColumn get categoryId => text().withDefault(const Constant(''))();
   DateTimeColumn get date => dateTime()();
   BoolColumn get isExpense => boolean().withDefault(const Constant(true))();
   TextColumn get rawSms => text().nullable()();
@@ -26,7 +28,7 @@ class Goals extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get title => text()();
   RealColumn get targetMinor => real().map(const _DecimalConverter())();
-  TextColumn get currency => text().withLength(min: 3, max: 3)();
+  TextColumn get currency => text()();
   DateTimeColumn get dueDate => dateTime()();
   BoolColumn get completed => boolean().withDefault(const Constant(false))();
   IntColumn get profileId => integer()();
@@ -49,7 +51,7 @@ class Loans extends Table {
 class PendingTransactions extends Table {
   TextColumn get id => text()();
   RealColumn get amountMinor => real().map(const _DecimalConverter())();
-  TextColumn get currency => text().withLength(min: 3, max: 3).withDefault(const Constant('KES'))();
+  TextColumn get currency => text().withDefault(const Constant('KES'))();
   TextColumn get description => text().nullable()();
   DateTimeColumn get date => dateTime()();
   BoolColumn get isExpense => boolean().withDefault(const Constant(true))();

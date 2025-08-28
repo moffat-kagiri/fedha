@@ -52,16 +52,14 @@ class BiometricAuthService {
   // This is the actual authentication method
   Future<bool> authenticateWithBiometric(String reason) async {
     try {
-      if (!await isAvailable()) {
-        _logger.warning('Biometric authentication not available');
-        return false;
-      }
+  // Attempt authentication directly; LocalAuthentication will handle availability
       
       final authenticated = await _localAuth.authenticate(
         localizedReason: reason,
         options: const AuthenticationOptions(
           stickyAuth: true,
-          biometricOnly: true,
+          biometricOnly: false,       // allow device PIN/passcode fallback
+          useErrorDialogs: true,      // show system error dialogs
         ),
       );
       
@@ -98,12 +96,9 @@ class BiometricAuthService {
     }
   }
   
+  /// Check if biometric authentication can be attempted (device supports biometrics and/or passcode)
   Future<bool> isAvailable() async {
-    final canAuth = await canAuthenticate();
-    if (!canAuth) return false;
-    
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_biometricEnabledKey) ?? false;
+    return await canAuthenticate();
   }
   
   Future<void> setBiometricEnabled(bool enabled) async {

@@ -36,8 +36,7 @@ class _LoginScreenState extends State<LoginScreen> {
   void initState() {
     super.initState();
     _loadSavedEmail();
-    _checkRequirements();
-    _checkBiometricAvailability();
+    // Biometric and session checks are handled in AuthWrapper
   }
 
   @override
@@ -182,21 +181,35 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
 
       if (result.success) {
-        // Set up biometric auth if available
+        // Set up biometric session and enable biometrics for future logins
         final biometricService = BiometricAuthService.instance;
         if (biometricService != null) {
           await biometricService.setBiometricSession();
+          await biometricService.setBiometricEnabled(true);
         }
-        
-        // Start SMS listener for this profile
+        // Start SMS listener
         final smsService = SmsListenerService.instance;
         smsService.setCurrentProfile(authService.currentProfile!.id);
         await smsService.startListening();
-        
-        // Login successful, navigate to main screen
+        // After login, prompt fingerprint or skip, then go home
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => const MainNavigation()),
+          MaterialPageRoute(
+            builder: (_) => BiometricLockScreen(
+              onAuthSuccess: () {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (_) => const MainNavigation()),
+                );
+              },
+              onSkip: () {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (_) => const MainNavigation()),
+                );
+              },
+            ),
+          ),
         );
         
         // If this is the user's first login, show first login prompts

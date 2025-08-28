@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../services/risk_assessment_service.dart';
 
 class InvestmentRiskAssessmentScreen extends StatefulWidget {
-  const InvestmentRiskAssessmentScreen({super.key});
+  final RiskAssessmentService? service;
+
+  const InvestmentRiskAssessmentScreen({super.key, this.service});
 
   @override
   State<InvestmentRiskAssessmentScreen> createState() => _InvestmentRiskAssessmentScreenState();
@@ -11,10 +15,39 @@ class _InvestmentRiskAssessmentScreenState extends State<InvestmentRiskAssessmen
   // Form state
   final _formKey = GlobalKey<FormState>();
   String? _selectedGoal;
-  double _incomeRatio = 50; // % of income from business/employment
-  double _desiredReturnRatio = 50; // desired investment income % of current income
-  double _timeHorizon = 5; // in years
+  double _incomeRatio = 50;
+  double _desiredReturnRatio = 50;
+  double _timeHorizon = 5;
+  int? _lossToleranceIndex;
+  int? _experienceIndex;
+  int? _volatilityReactionIndex;
+  int? _liquidityNeedIndex;
+  int _emergencyFundMonths = 3;
   double _riskScore = 0;
+  late RiskAssessmentService? _service;
+
+  @override
+  void initState() {
+    super.initState();
+    _service = widget.service;
+    _computeScore();
+  }
+
+  // Recalculate risk score based on current answers
+  void _computeScore() {
+    _riskScore = RiskAssessmentService.computeScore(
+      selectedGoal: _selectedGoal,
+      incomeRatio: _incomeRatio,
+      desiredReturnRatio: _desiredReturnRatio,
+      timeHorizon: _timeHorizon,
+      lossToleranceIndex: _lossToleranceIndex,
+      experienceIndex: _experienceIndex,
+      volatilityReactionIndex: _volatilityReactionIndex,
+      liquidityNeedIndex: _liquidityNeedIndex,
+      emergencyFundMonths: _emergencyFundMonths,
+    );
+    setState(() {});
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -68,7 +101,7 @@ class _InvestmentRiskAssessmentScreenState extends State<InvestmentRiskAssessmen
               ),
               const SizedBox(height: 24),
               ElevatedButton(
-                onPressed: () {
+                onPressed: () async {
                   if (!_formKey.currentState!.validate()) return;
                   // Map goal to score
                   final goalMap = {
@@ -82,6 +115,27 @@ class _InvestmentRiskAssessmentScreenState extends State<InvestmentRiskAssessmen
                   final horizonScore = (_timeHorizon / 30.0) * 100.0;
                   final score = (goalScore + _incomeRatio + _desiredReturnRatio + horizonScore) / 4.0;
                   setState(() => _riskScore = score);
+                  // Save assessment
+                  final service = Provider.of<RiskAssessmentService>(context, listen: false);
+                  await service.saveAssessment(
+                    goal: _selectedGoal,
+                    incomeRatio: _incomeRatio,
+                    desiredReturnRatio: _desiredReturnRatio,
+                    timeHorizon: _timeHorizon.toInt(),
+                    lossToleranceIndex: _lossToleranceIndex,
+                    experienceIndex: _experienceIndex,
+                    volatilityReactionIndex: _volatilityReactionIndex,
+                    liquidityNeedIndex: _liquidityNeedIndex,
+                    emergencyFundMonths: _emergencyFundMonths,
+                  );
+                  // Show risk score confirmation
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Your risk appetite score is ${_riskScore.toStringAsFixed(0)}%'),
+                      duration: const Duration(seconds: 2),
+                    ),
+                  );
+                  // Navigate to IRR calculator
                   Navigator.pushNamed(
                     context,
                     '/investment_irr_calculator',
