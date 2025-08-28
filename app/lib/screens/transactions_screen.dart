@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/app_theme.dart';
 import 'package:provider/provider.dart';
 import '../models/transaction.dart';
 import '../models/transaction_candidate.dart';
@@ -313,7 +314,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     return Scaffold(
       backgroundColor: colorScheme.background,
       appBar: AppBar(
-        backgroundColor: colorScheme.primary,
+        backgroundColor: FedhaColors.primaryGreen,
         elevation: 0,
         title: Text(
           'Transactions',

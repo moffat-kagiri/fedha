@@ -42,8 +42,8 @@ dependencies:
   # add relational DB
   drift: ^2.28.1
   drift_flutter: ^0.2.5
-  # Use only one SQLite provider - sqlcipher_flutter_libs already includes sqlite3
-  sqlcipher_flutter_libs: ^0.6.8
+  # Use basic SQLite for now
+  sqlite3_flutter_libs: ^0.5.39
 
 dev_dependencies:
   flutter_lints: ^6.0.0
@@ -52,6 +52,7 @@ dev_dependencies:
   drift_dev: ^2.28.1
   flutter_test:
     sdk: flutter
+  flutter_launcher_icons: ^0.14.4
 
 flutter:
   uses-material-design: true
@@ -68,8 +69,8 @@ flutter:
       fonts:
         - asset: assets/fonts/calibri.ttf
 
-flutter_launcher_icons:
-  android: "launcher_icon"
+flutter_icons:
+  android: true
   ios: true
   image_path: "assets/icons/app_icon.png"
   min_sdk_android: 21

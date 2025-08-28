@@ -62,8 +62,6 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
       _selectedCategory = _categories[_selectedType]!.first;
     }
     
-    // Add listener to amount field for formatting
-    _amountController.addListener(_formatAmount);
     
     // Load goals for savings - now using async/await pattern
     _loadGoals();
@@ -169,8 +167,7 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
 
   @override
   void dispose() {
-    _amountController.removeListener(_formatAmount);
-    _amountController.dispose();
+  _amountController.dispose();
     _descriptionController.dispose();
     super.dispose();
   }
@@ -264,9 +261,13 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
       final authService = Provider.of<AuthService>(context, listen: false);
       final profileId = authService.currentProfile?.id ?? '0';
       
+      // Format amount with two decimal points before parsing
+      String raw = _getAmountValue();
+      double amount = double.parse(raw);
+      String formattedAmount = amount.toStringAsFixed(2);
       final transaction = Transaction(
         id: widget.editingTransaction?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
-        amount: double.parse(_getAmountValue()),
+        amount: double.parse(formattedAmount),
         description: _descriptionController.text.trim(),
         type: _selectedType,
         categoryId: _selectedType == TransactionType.savings && _selectedGoal != null 
@@ -411,8 +412,8 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
                     controller: _amountController,
                     decoration: InputDecoration(
                       labelText: 'Amount',
-                      hintText: '0.00',
-                      prefixText: '${currencyService.currentSymbol} ',
+                      hintText: '0',
+                       prefixText: '${currencyService.currentSymbol} ',
                       border: const OutlineInputBorder(),
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 16,

@@ -176,7 +176,7 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
           .firstWhere((t) => t.id == candidate.id);
       // Approve: save to regular DB and delete from pending
       await dataService.approvePendingTransaction(tx);
-      await dataService.deletePendingTransaction(tx.id);
+  await dataService.deletePendingTransaction(tx.id.toString());
 
       final updatedCandidate = candidate.copyWith(
         status: TransactionStatus.completed,
@@ -208,7 +208,7 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
     try {
       final dataService = Provider.of<OfflineDataService>(context, listen: false);
       // Delete pending transaction
-      await dataService.deletePendingTransaction(int.parse(candidate.id));
+  await dataService.deletePendingTransaction(candidate.id);
       // Update UI
       final updated = candidate.copyWith(status: TransactionStatus.cancelled);
       setState(() {

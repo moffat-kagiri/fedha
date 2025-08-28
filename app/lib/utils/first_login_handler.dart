@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../services/auth_service.dart';
+import '../services/permissions_service.dart';
 
 /// Handler for first login prompts like biometric setup and permissions
 class FirstLoginHandler {
@@ -11,18 +12,17 @@ class FirstLoginHandler {
   
   /// Shows all required first-login prompts in sequence
   Future<void> handleFirstLogin() async {
-    if (!await _authService.isFirstLogin()) {
-      return; // Not a first login, exit
-    }
+    if (!await _authService.isFirstLogin()) return;
     
-    // Show biometric setup prompt if needed
+    // Biometric setup prompt
     if (await _authService.shouldShowBiometricPrompt()) {
       await _showBiometricSetupPrompt();
     }
     
-    // Show permissions prompt
-    if (await _authService.shouldShowPermissionsPrompt()) {
-      await _showPermissionsPrompt();
+    // Permissions prompt (SMS, notifications, storage, camera)
+    final permissionsService = PermissionsService.instance;
+    if (await permissionsService.shouldShowPermissionsPrompt()) {
+      await _showPermissionsPrompt(permissionsService);
     }
     
     // Mark first login as completed
@@ -66,7 +66,7 @@ class FirstLoginHandler {
   }
   
   /// Shows a dialog to prompt permissions
-  Future<void> _showPermissionsPrompt() async {
+  Future<void> _showPermissionsPrompt(PermissionsService permissionsService) async {
     final bool? requestPermissions = await showDialog<bool>(
       context: _context,
       barrierDismissible: false,
@@ -95,23 +95,14 @@ class FirstLoginHandler {
     );
     
     // Mark permissions prompt as shown
-    await _authService.markPermissionsPromptShown();
+    await permissionsService.markPermissionsPromptShown();
     
-    // Request permissions if user agreed
+    // Request all app permissions if user agreed
     if (requestPermissions == true) {
-      await _requestAppPermissions();
+      await permissionsService.requestAllPermissions();
     }
   }
   
   /// Request all required app permissions
-  Future<void> _requestAppPermissions() async {
-    // Request SMS permission
-    await Permission.sms.request();
-    
-    // Request phone permission
-    await Permission.phone.request();
-    
-    // Request notification permission
-    await Permission.notification.request();
-  }
+  // Permissions request replaced by PermissionsService.requestAllPermissions()
 }

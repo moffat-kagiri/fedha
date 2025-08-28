@@ -3,7 +3,6 @@ import 'dart:math';
 
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 
@@ -108,26 +107,13 @@ class AppDatabase extends _$AppDatabase {
     (delete(pendingTransactions)..where((tbl) => tbl.id.equals(id))).go();
 }
 
-/// Opens a SQLCipher encrypted database, generating or retrieving a key from secure storage.
+/// Opens a regular SQLite database without encryption for now
 LazyDatabase _openEncryptedConnection() {
   return LazyDatabase(() async {
     final docs = await getApplicationDocumentsDirectory();
     final file = File(p.join(docs.path, 'fedha.sqlite'));
-    const storage = FlutterSecureStorage();
-    // Retrieve or generate encryption key
-    var key = await storage.read(key: 'sqlcipher_key');
-    if (key == null) {
-      final rnd = Random.secure();
-      final bytes = List<int>.generate(32, (_) => rnd.nextInt(256));
-      key = bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
-      await storage.write(key: 'sqlcipher_key', value: key);
-    }
-    // Open SQLite database with SQLCipher key
-    return NativeDatabase(
-      file,
-      setup: (db) {
-        db.execute('PRAGMA key = "${key}"');
-      },
-    );
+    
+    // Open a normal SQLite database without encryption
+    return NativeDatabase(file);
   });
 }

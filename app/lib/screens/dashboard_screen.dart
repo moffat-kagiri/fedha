@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/app_theme.dart';
 import 'package:provider/provider.dart';
 import 'package:fedha/services/auth_service.dart';
 import 'package:fedha/services/offline_data_service.dart';
@@ -7,6 +8,7 @@ import 'package:fedha/models/transaction.dart' as dom_tx;
 import 'package:fedha/models/budget.dart' as dom_budget;
 import '../services/currency_service.dart';
 import '../services/sms_listener_service.dart';
+import '../services/permissions_service.dart';
 import '../models/enums.dart';
 import '../widgets/transaction_dialog.dart';
 import '../widgets/transaction_card.dart';
@@ -58,8 +60,8 @@ class DashboardContent extends StatelessWidget {
 
                     return Scaffold(
                       backgroundColor: colorScheme.background,
-                      appBar: AppBar(
-                        backgroundColor: colorScheme.primary,
+                        appBar: AppBar(
+                          backgroundColor: FedhaColors.primaryGreen,
                         title: Text('Dashboard', style: textTheme.titleLarge?.copyWith(color: colorScheme.onPrimary)),
                         elevation: 0,
                       ),
@@ -249,6 +251,18 @@ class DashboardContent extends StatelessWidget {
         icon: Icons.sms,
         color: Colors.blue,
         onTap: () async {
+          // Request SMS permission before starting listener
+          final permissionsService = Provider.of<PermissionsService>(context, listen: false);
+          final granted = await permissionsService.requestSmsPermission();
+          if (!granted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('SMS permission required to review messages'),
+                backgroundColor: Colors.red,
+              ),
+            );
+            return;
+          }
           // Initialize SMS listener if not already running
           final smsService = SmsListenerService.instance;
           if (!smsService.isListening) {

@@ -36,7 +36,7 @@ class _LoginScreenState extends State<LoginScreen> {
   void initState() {
     super.initState();
     _loadSavedEmail();
-    _checkRequirements();
+    // _checkRequirements removed to prevent auto-login bypass
     _checkBiometricAvailability();
   }
 
@@ -48,76 +48,6 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   // Check if biometric or permissions are needed before showing login
-  Future<void> _checkRequirements() async {
-    // Check for permissions needs
-    final permissionsService = PermissionsService.instance;
-    final needsPermissions = await permissionsService.shouldShowPermissionsPrompt();
-    
-    if (needsPermissions) {
-      if (mounted) {
-        Navigator.pushReplacement(
-          context, 
-          MaterialPageRoute(
-            builder: (context) => PermissionsScreen(
-              onPermissionsSet: () {
-                // Return to login after permissions
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (context) => const LoginScreen()),
-                );
-              },
-            ),
-          ),
-        );
-      }
-      return;
-    }
-    
-    // Check if user is returning and needs biometric auth
-    final authService = Provider.of<AuthService>(context, listen: false);
-    await authService.initialize();
-    
-    if (authService.isLoggedIn()) {
-      final biometricService = BiometricAuthService.instance;
-      final biometricEnabled = await biometricService?.isBiometricEnabled() ?? false;
-      final hasValidSession = await biometricService?.hasValidBiometricSession() ?? false;
-      
-      if (biometricEnabled && !hasValidSession) {
-        if (mounted) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (context) => BiometricLockScreen(
-                onAuthSuccess: () {
-                  // Navigate to main app after successful biometric auth
-                  Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(builder: (context) => const MainNavigation()),
-                  );
-                },
-                onSkip: () {
-                  // Optional: Allow skipping in development
-                  Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(builder: (context) => const MainNavigation()),
-                  );
-                },
-              ),
-            ),
-          );
-        }
-        return;
-      }
-      
-      // User is already logged in and no biometric needed, go to main app
-      if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const MainNavigation()),
-        );
-      }
-    }
-  }
 
   Future<void> _loadSavedEmail() async {
     final prefs = await SharedPreferences.getInstance();

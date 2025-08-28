@@ -5,7 +5,7 @@ import 'dart:io';
 import '../services/permissions_service.dart';
 
 class PermissionsScreen extends StatefulWidget {
-  final VoidCallback onPermissionsSet;
+  final void Function(BuildContext) onPermissionsSet;
   
   const PermissionsScreen({
     Key? key,
@@ -62,8 +62,8 @@ class _PermissionsScreenState extends State<PermissionsScreen> {
       // Update status
       await _checkPermissions();
       
-      // Mark as done
-      widget.onPermissionsSet();
+  // Mark as done
+  widget.onPermissionsSet(context);
     } finally {
       if (mounted) {
         setState(() {
@@ -127,7 +127,7 @@ class _PermissionsScreenState extends State<PermissionsScreen> {
               const SizedBox(height: 16),
               TextButton(
                 onPressed: () {
-                  widget.onPermissionsSet();
+                  widget.onPermissionsSet(context);
                 },
                 child: Text(
                   'Skip for Now',

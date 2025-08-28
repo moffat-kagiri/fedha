@@ -68,7 +68,7 @@ class _SmsTransactionReviewScreenState extends State<SmsTransactionReviewScreen>
       // Save to official transactions
       await dataService.approvePendingTransaction(transaction);
       // Remove from pending
-      await dataService.deletePendingTransaction(int.tryParse(transaction.id) ?? 0);
+  await dataService.deletePendingTransaction(transaction.id);
       // Refresh list
       await _loadPendingTransactions();
       
@@ -85,7 +85,7 @@ class _SmsTransactionReviewScreenState extends State<SmsTransactionReviewScreen>
   Future<void> _rejectTransaction(Transaction transaction) async {
     try {
       final dataService = Provider.of<OfflineDataService>(context, listen: false);
-      await dataService.deletePendingTransaction(int.tryParse(transaction.id) ?? 0);
+  await dataService.deletePendingTransaction(transaction.id);
       await _loadPendingTransactions();
       
       ScaffoldMessenger.of(context).showSnackBar(

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/app_theme.dart';
 
 class ToolsScreen extends StatelessWidget {
   const ToolsScreen({Key? key}) : super(key: key);
@@ -10,9 +11,9 @@ class ToolsScreen extends StatelessWidget {
 
     final tools = [
       {
-        'title': 'Loan Calculator',
-        'icon': Icons.calculate,
-        'route': '/loan_calculator',
+        'title': 'Investment Calculator',
+        'icon': Icons.show_chart,
+        'route': '/investment_calculator',
       },
       {
         'title': 'Emergency Fund',
@@ -34,14 +35,14 @@ class ToolsScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: colorScheme.background,
       appBar: AppBar(
-        title: Text(
+  backgroundColor: FedhaColors.primaryGreen,
+  title: Text(
           'Financial Tools',
           style: textTheme.titleLarge?.copyWith(
-            color: Colors.white,
+            color: colorScheme.onPrimary,
             fontWeight: FontWeight.bold,
           ),
         ),
-        backgroundColor: colorScheme.primary,
         elevation: 0,
       ),
       body: Padding(

@@ -52,7 +52,11 @@ class AuthService extends ChangeNotifier {
     } catch (e) {
       _logger.warning('Failed to restore session: $e');
     }
-    _logger.info('AuthService initialized, currentProfile: ${_currentProfile?.id}');
+  _logger.info('AuthService initialized, currentProfile: ${_currentProfile?.id}');
+  // Force logout on app start to prevent bypassing login
+  _currentProfile = null;
+  await _secureStorage.delete(key: 'current_profile_data');
+  await _secureStorage.delete(key: 'session_token');
   }
 
   Future<void> _restoreLastProfile() async {

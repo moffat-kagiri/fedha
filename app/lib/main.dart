@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'utils/logger.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 // Models
 import 'models/profile.dart';
@@ -37,8 +38,9 @@ import 'theme/app_theme.dart';
 
 // Screens
 import 'screens/auth_wrapper.dart';
-import 'screens/loan_calculator_screen.dart';
+// import 'screens/loan_calculator_screen.dart'; // Replaced with investment calculator
 import 'screens/progressive_goal_wizard_screen.dart';
+import 'screens/investment_calculator_screen.dart';
 import 'screens/add_goal_screen.dart';
 import 'screens/create_budget_screen.dart';
 import 'screens/goals_screen.dart';
@@ -56,9 +58,12 @@ import 'device_network_info.dart';
 import 'ip_settings.dart';
 import 'screens/debt_repayment_planner_screen.dart';
 import 'screens/asset_protection_screen.dart';
+import 'screens/sms_review_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Disable Provider debug type check for Listenable/Stream types
+  Provider.debugCheckInvalidValueType = null;
   
   // Initialize logging
   AppLogger.init();
@@ -78,9 +83,11 @@ void main() async {
     await authService.initialize();
     
     
-    // Initialize permissions service
-    final permissionsService = PermissionsService.instance;
-    await permissionsService.initialize();
+  // Initialize permissions service and request SMS permission
+  final permissionsService = PermissionsService.instance;
+  await permissionsService.initialize();
+  // Prompt all required permissions on startup (SMS, notifications, storage, camera)
+  await permissionsService.requestAllPermissions();
     
     // Initialize API configuration based on environment
     // Import the connection manager at the top of the file:
@@ -161,7 +168,9 @@ void main() async {
           Provider<stubs.CSVUploadService>.value(value: csvUploadService),
           Provider<stubs.SmsTransactionExtractor>.value(value: smsTransactionExtractor),
           Provider<stubs.NotificationService>.value(value: notificationService),
-          Provider<SmsListenerService>.value(value: SmsListenerService.instance),
+          ChangeNotifierProvider<SmsListenerService>.value(
+            value: SmsListenerService.instance,
+          ),
           Provider<EnhancedSyncService>.value(value: syncService),
           Provider<stubs.NavigationService>.value(value: navigationService),
           Provider<stubs.SenderManagementService>.value(value: senderManagementService),
@@ -169,7 +178,7 @@ void main() async {
           Provider<BiometricAuthService>.value(value: biometricAuthService),
           ChangeNotifierProvider<PermissionsService>.value(value: permissionsService),
           ChangeNotifierProvider<AuthService>.value(value: authService),
-          Provider<ThemeService>.value(value: themeService),
+          ChangeNotifierProvider<ThemeService>.value(value: themeService),
           Provider<CurrencyService>.value(value: currencyService),
         ],
         child: const MyApp(),
@@ -253,7 +262,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     try {
       final offlineService = Provider.of<OfflineDataService>(context, listen: false);
       final authService = Provider.of<AuthService>(context, listen: false);
-      final smsListenerService = Provider.of<stubs.SmsListenerService>(context, listen: false);
+      final smsListenerService = Provider.of<SmsListenerService>(context, listen: false);
       final backgroundMonitor = Provider.of<stubs.BackgroundTransactionMonitor>(context, listen: false);
 
       await offlineService.initialize();
@@ -291,8 +300,21 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                 theme: AppTheme.lightTheme,
                 darkTheme: AppTheme.darkTheme,
                 themeMode: themeService.themeMode,
-                home: const Scaffold(
-                  body: Center(child: CircularProgressIndicator()),
+                home: Scaffold(
+                  body: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // App logo
+                        SvgPicture.asset(
+                          'assets/icons/fedha_logo.svg',
+                          height: 100,
+                        ),
+                        const SizedBox(height: 24),
+                        const CircularProgressIndicator(),
+                      ],
+                    ),
+                  ),
                 ),
               );
             },
@@ -312,9 +334,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
               theme: AppTheme.lightTheme,
               darkTheme: AppTheme.darkTheme,
               themeMode: themeService.themeMode,
-              home: homeScreen,
+              home: const AuthWrapper(),
               routes: {
-            '/loan_calculator': (context) => const LoanCalculatorScreen(),
+            '/investment_calculator': (context) => const InvestmentCalculatorScreen(),
             '/progressive_goal_wizard': (context) => const ProgressiveGoalWizardScreen(),
             '/add_goal': (context) => const AddGoalScreen(),
             '/create_budget': (context) => const CreateBudgetScreen(),
@@ -334,6 +356,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             '/ip_settings': (context) => const IpSettingsScreen(),
             '/debt_repayment_planner': (context) => const DebtRepaymentPlannerScreen(),
             '/asset_protection': (context) => const AssetProtectionScreen(),
+            '/sms_review': (context) => const SmsReviewScreen(),
             },
             );
           },
