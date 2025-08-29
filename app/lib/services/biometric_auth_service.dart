@@ -27,8 +27,9 @@ class BiometricAuthService {
   final _sessionTokenKey = 'biometric_session_token';
   final _biometricAuthKey = 'biometric_auth_key';
   
-  // Session duration (in hours)
-  final _sessionDurationHours = 24;
+  // Session duration in minutes - determines how long auth session remains valid after successful biometric auth
+  // Set to 5 minutes to avoid immediate re-prompt on resume
+  final _sessionDurationMinutes = 5;
 
   Future<void> initialize() async {
     _logger.info('Initializing BiometricAuthService');
@@ -87,7 +88,7 @@ class BiometricAuthService {
       final authTime = DateTime.fromMillisecondsSinceEpoch(lastAuthTime);
       final now = DateTime.now();
       
-      final sessionExpiry = authTime.add(Duration(hours: _sessionDurationHours));
+  final sessionExpiry = authTime.add(Duration(minutes: _sessionDurationMinutes));
       
       return now.isBefore(sessionExpiry);
     } catch (e) {
@@ -113,8 +114,9 @@ class BiometricAuthService {
   
   Future<bool> isBiometricEnabled() async {
     try {
-      final isAvail = await isAvailable();
-      return isAvail;
+      final prefs = await SharedPreferences.getInstance();
+      // User must explicitly enable biometric in settings
+      return prefs.getBool(_biometricEnabledKey) ?? false;
     } catch (e) {
       _logger.severe('Error checking if biometric is enabled: $e');
       return false;

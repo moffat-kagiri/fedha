@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/risk_assessment_service.dart';
+import 'package:drift/drift.dart' show OrderingTerm, OrderingMode;
 import 'investment_irr_calculator_screen.dart';
 import 'investment_recommendations_screen.dart';
 import 'investment_risk_assessment_screen.dart';
@@ -13,7 +14,7 @@ class InvestmentCalculatorScreen extends StatefulWidget {
 }
 
 class _InvestmentCalculatorScreenState extends State<InvestmentCalculatorScreen> {
-  late Future<RiskAssessmentsData?> _latestRiskFuture;
+  late Future<RiskAssessment?> _latestRiskFuture;
 
   @override
   void initState() {
@@ -21,11 +22,11 @@ class _InvestmentCalculatorScreenState extends State<InvestmentCalculatorScreen>
     _latestRiskFuture = _loadLatestAssessment();
   }
 
-  Future<RiskAssessmentsData?> _loadLatestAssessment() async {
+  Future<RiskAssessment?> _loadLatestAssessment() async {
     final service = Provider.of<RiskAssessmentService>(context, listen: false);
-    final rows = await service.db.select(service.db.riskAssessments)
+    final query = service.db.select(service.db.riskAssessments)
       ..orderBy([(t) => OrderingTerm(expression: t.createdAt, mode: OrderingMode.desc)]);
-    final list = await rows.get();
+    final list = await query.get();
     return list.isNotEmpty ? list.first : null;
   }
 
@@ -34,7 +35,7 @@ class _InvestmentCalculatorScreenState extends State<InvestmentCalculatorScreen>
     final textTheme = Theme.of(context).textTheme;
     return Scaffold(
       appBar: AppBar(title: const Text('Investment Calculator')),
-      body: FutureBuilder<RiskAssessmentsData?>(
+      body: FutureBuilder<RiskAssessment?>(
         future: _latestRiskFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) {

@@ -49,15 +49,23 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
       final dataService = Provider.of<OfflineDataService>(context, listen: false);
       final authService = Provider.of<AuthService>(context, listen: false);
       final profileId = int.tryParse(authService.currentProfile?.id ?? '') ?? 0;
-      final pendingTx = await dataService.getPendingTransactions(profileId);
-      _pendingCandidates = pendingTx.map((transaction) {
+      final pendingTxList = await dataService.getPendingTransactions(profileId);
+      _pendingCandidates = pendingTxList.map((transaction) {
+        final raw = transaction.smsSource ?? '';
+        final lower = raw.toLowerCase();
+        // Determine type by keywords
+        final txType = lower.contains('sent')
+            ? TransactionType.expense
+            : lower.contains('received')
+                ? TransactionType.income
+                : (transaction.isExpense ? TransactionType.expense : TransactionType.income);
         return TransactionCandidate(
           id: transaction.id,
-          rawText: transaction.smsSource ?? 'No SMS source available',
+          rawText: raw.isNotEmpty ? raw : 'No SMS source available',
           amount: transaction.amount,
           description: transaction.description,
           date: transaction.date,
-          type: transaction.isExpense ? TransactionType.expense : TransactionType.income,
+          type: txType,
           confidence: 0.9,
           metadata: {
             'recipient': transaction.recipient,
@@ -172,11 +180,22 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
       final authService = Provider.of<AuthService>(context, listen: false);
       final profileId = int.tryParse(authService.currentProfile?.id ?? '') ?? 0;
       // Find transaction candidate in pending list
-      final tx = (await dataService.getPendingTransactions(profileId))
-          .firstWhere((t) => t.id == candidate.id);
-      // Approve: save to regular DB and delete from pending
+      // Build a Transaction domain object using edited candidate details
+      final tx = Transaction(
+        id: candidate.id,
+        amount: candidate.amount,
+        description: candidate.description ?? '',
+        date: candidate.date,
+        smsSource: candidate.rawText,
+        // categoryId persists empty or original if provided
+        categoryId: candidate.categoryId ?? '',
+        type: candidate.type,
+        isExpense: candidate.type == TransactionType.expense,
+        profileId: profileId.toString(),
+      );
+      // Approve: save to main transactions and remove from pending
       await dataService.approvePendingTransaction(tx);
-  await dataService.deletePendingTransaction(tx.id.toString());
+      await dataService.deletePendingTransaction(candidate.id);
 
       final updatedCandidate = candidate.copyWith(
         status: TransactionStatus.completed,

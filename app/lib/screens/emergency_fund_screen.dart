@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../services/offline_data_service.dart';
 import '../models/goal.dart';
 import '../theme/app_theme.dart';
+import '../services/auth_service.dart';
 import 'emergency_fund_calculator_screen.dart';
 
 class EmergencyFundScreen extends StatefulWidget {
@@ -34,8 +35,9 @@ class _EmergencyFundScreenState extends State<EmergencyFundScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final auth = Provider.of<AuthService>(context, listen: false);
     final svc = Provider.of<OfflineDataService>(context, listen: false);
-    final profileId = svc.currentProfileId;
+    final profileId = int.tryParse(auth.currentProfile?.id ?? '') ?? 0;
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       // Header section
@@ -99,17 +101,20 @@ class _EmergencyFundScreenState extends State<EmergencyFundScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => const EmergencyFundCalculatorScreen(),
-            ),
-          );
-        },
-        icon: const Icon(Icons.calculate),
-        label: const Text('Calculate'),
+      floatingActionButton: SafeArea(
+        minimum: const EdgeInsets.only(bottom: 24),
+        child: FloatingActionButton.extended(
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const EmergencyFundCalculatorScreen(),
+              ),
+            );
+          },
+          icon: const Icon(Icons.calculate),
+          label: const Text('Calculate'),
+        ),
       ),
     );
   }

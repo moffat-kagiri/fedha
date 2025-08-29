@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:drift/drift.dart';
@@ -234,8 +235,8 @@ class RiskAssessmentService {
       emergencyFundMonths: Value(emergencyFundMonths),
       riskScore: Value(score),
       profile: Value(profile),
-      allocationJson: Value(allocation.isNotEmpty ? allocation.toString() : null),
-      answersJson: Value(answers.toString()),
+  allocationJson: Value(allocation.isNotEmpty ? jsonEncode(allocation) : null),
+  answersJson: Value(jsonEncode(answers)),
     );
 
     return await db.into(db.riskAssessments).insert(companion);
@@ -251,5 +252,22 @@ class RiskAssessmentService {
   final row = await query.getSingleOrNull();
   // `getSingleOrNull` already returns a RiskAssessment DataClass
   return row;
+  }
+
+  /// Retrieve the latest assessment with parsed allocation and answers
+  Future<RiskAssessment?> getDetailedLatest(String? userId) async {
+    final row = await getLatestForUser(userId);
+    if (row == null) return null;
+    // row.profile already parsed
+    // Parse allocationJson
+    final allocation = row.allocationJson != null
+      ? Map<String, int>.from(jsonDecode(row.allocationJson!))
+      : recommendedAllocation(row.profile!);
+    // Parse answers
+    final answers = row.answersJson != null
+      ? Map<String, dynamic>.from(jsonDecode(row.answersJson!))
+      : {};
+    // We could wrap into a DTO if needed, but return original with JSON fields
+    return row;
   }
 }

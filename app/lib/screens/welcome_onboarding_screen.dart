@@ -58,10 +58,10 @@ class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     return Scaffold(
-      backgroundColor: theme.primaryColor,
+      backgroundColor: theme.colorScheme.primaryContainer.withOpacity(0.1),
       body: SafeArea(
         child: Column(
-          children: [
+            children: [
             // Progress indicator
             Container(
               padding: const EdgeInsets.all(20),
@@ -183,22 +183,30 @@ class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
             width: 100,
             height: 100,
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.onPrimary.withAlpha((0.2 * 255).round()),
+              color: Theme.of(context).colorScheme.primaryContainer,
               borderRadius: BorderRadius.circular(50),
             ),
             child: Icon(
-              Icons.attach_money,
+              Icons.pie_chart,
               size: 50,
-              color: Theme.of(context).colorScheme.onPrimary,
+              color: Theme.of(context).colorScheme.onPrimaryContainer,
             ),
           ),
           const SizedBox(height: 40),
           Text(
-            'Your Personal Finance Assistant 🚀',
+            'Budget Smarter',
             style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: Theme.of(context).colorScheme.onPrimary,
-            ),
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).colorScheme.onBackground,
+                ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Create budgets, track spending, and reach your savings goals.',
+            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  color: Theme.of(context).colorScheme.onBackground.withOpacity(0.7),
+                ),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 20),
@@ -225,30 +233,33 @@ class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
             width: 100,
             height: 100,
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.onPrimary.withAlpha((0.2 * 255).round()),
+              color: Theme.of(context).colorScheme.primaryContainer,
               borderRadius: BorderRadius.circular(50),
             ),
             child: Icon(
               Icons.money_off,
               size: 50,
-              color: Theme.of(context).colorScheme.onPrimary,
+              color: Theme.of(context).colorScheme.onPrimaryContainer,
             ),
           ),
           const SizedBox(height: 40),
           Text(
-            'Borrow Smartly 🌱',
-            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: Theme.of(context).colorScheme.onPrimary,
-            ),
+            'Borrow Smartly',
+            style: Theme.of(context)
+                .textTheme
+                .headlineSmall
+                ?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).colorScheme.onBackground,
+                ),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
           Text(
-            'Understand your debt levels and plan strategies to reduce them.',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: Theme.of(context).colorScheme.onPrimary.withAlpha((0.7 * 255).round()),
-            ),
+            'Analyze debts and plan paydown strategies for financial freedom.',
+            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  color: Theme.of(context).colorScheme.onBackground.withOpacity(0.7),
+                ),
             textAlign: TextAlign.center,
           ),
         ],
@@ -267,30 +278,33 @@ class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
             width: 100,
             height: 100,
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.onPrimary.withAlpha((0.2 * 255).round()),
+              color: Theme.of(context).colorScheme.primaryContainer,
               borderRadius: BorderRadius.circular(50),
             ),
             child: Icon(
-              Icons.track_changes,
+              Icons.insights,
               size: 50,
-              color: Theme.of(context).colorScheme.onPrimary,
+              color: Theme.of(context).colorScheme.onPrimaryContainer,
             ),
           ),
           const SizedBox(height: 40),
           Text(
-            'Track Transactions 📊',
-            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: Theme.of(context).colorScheme.onPrimary,
-            ),
+            'Track Progress',
+            style: Theme.of(context)
+                .textTheme
+                .headlineSmall
+                ?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).colorScheme.onBackground,
+                ),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
           Text(
-            'Monitor every expense and income with real-time updates.',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: Theme.of(context).colorScheme.onPrimary.withAlpha((0.7 * 255).round()),
-            ),
+            'Stay informed with real-time spending and income analytics.',
+            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  color: Theme.of(context).colorScheme.onBackground.withOpacity(0.7),
+                ),
             textAlign: TextAlign.center,
           ),
         ],
