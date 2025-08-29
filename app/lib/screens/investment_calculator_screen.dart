@@ -1,122 +1,125 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../services/risk_assessment_service.dart';
 import 'investment_irr_calculator_screen.dart';
 import 'investment_recommendations_screen.dart';
 import 'investment_risk_assessment_screen.dart';
 
-class InvestmentCalculatorScreen extends StatelessWidget {
+class InvestmentCalculatorScreen extends StatefulWidget {
   const InvestmentCalculatorScreen({Key? key}) : super(key: key);
 
   @override
+  _InvestmentCalculatorScreenState createState() => _InvestmentCalculatorScreenState();
+}
+
+class _InvestmentCalculatorScreenState extends State<InvestmentCalculatorScreen> {
+  late Future<RiskAssessmentsData?> _latestRiskFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _latestRiskFuture = _loadLatestAssessment();
+  }
+
+  Future<RiskAssessmentsData?> _loadLatestAssessment() async {
+    final service = Provider.of<RiskAssessmentService>(context, listen: false);
+    final rows = await service.db.select(service.db.riskAssessments)
+      ..orderBy([(t) => OrderingTerm(expression: t.createdAt, mode: OrderingMode.desc)]);
+    final list = await rows.get();
+    return list.isNotEmpty ? list.first : null;
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
     return Scaffold(
       appBar: AppBar(title: const Text('Investment Calculator')),
-      body: Center(
-        child: ElevatedButton(
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const InvestmentRiskAssessmentScreen(),
+      body: FutureBuilder<RiskAssessmentsData?>(
+        future: _latestRiskFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState != ConnectionState.done) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          final assessment = snapshot.data;
+          if (assessment == null) {
+            // No prior assessment
+            return Center(
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const InvestmentRiskAssessmentScreen()),
+                  ).then((_) {
+                    setState(() {
+                      _latestRiskFuture = _loadLatestAssessment();
+                    });
+                  });
+                },
+                child: const Text('Start Investment Assessment'),
               ),
             );
-          },
-          child: const Text('Start Investment Assessment'),
-        ),
-      ),
-    );
-  }
-}
-
-class RiskAppetiteTab extends StatelessWidget {
-  const RiskAppetiteTab({Key? key}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: const [
-            Icon(Icons.assessment, size: 64, color: Colors.blue),
-            SizedBox(height: 16),
-            Text(
-              'Risk Appetite Assessment',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+          }
+          // Has assessment: show profile and calculators
+          final profile = RiskAssessmentService.profileFromScore(assessment.riskScore);
+          return Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Card(
+                  color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Text(
+                      'Your Risk Profile: $profile',
+                      style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const InvestmentRiskAssessmentScreen()),
+                    ).then((_) {
+                      setState(() {
+                        _latestRiskFuture = _loadLatestAssessment();
+                      });
+                    });
+                  },
+                  icon: const Icon(Icons.assessment),
+                  label: const Text('Re-assess Risk'),
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const InvestmentIRRCalculatorScreen()),
+                    );
+                  },
+                  icon: const Icon(Icons.show_chart),
+                  label: const Text('IRR Calculator'),
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => InvestmentRecommendationsScreen(
+                        riskScore: assessment.riskScore,
+                      )),
+                    );
+                  },
+                  icon: const Icon(Icons.lightbulb),
+                  label: const Text('Recommendations'),
+                ),
+              ],
             ),
-            SizedBox(height: 8),
-            Text(
-              'Assess your risk appetite to determine suitable investment strategies.',
-              textAlign: TextAlign.center,
-            ),
-            // TODO: Implement questionnaire
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class IRRCalculatorTab extends StatefulWidget {
-  const IRRCalculatorTab({Key? key}) : super(key: key);
-
-  @override
-  State<IRRCalculatorTab> createState() => _IRRCalculatorTabState();
-}
-
-class _IRRCalculatorTabState extends State<IRRCalculatorTab> {
-  // TODO: Implement IRR calculation logic with cash flow inputs
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: const [
-          Icon(Icons.show_chart, size: 64, color: Colors.green),
-          SizedBox(height: 16),
-          Text(
-            'IRR Calculator',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-            textAlign: TextAlign.center,
-          ),
-          SizedBox(height: 8),
-          Text(
-            'Enter your cash flows to calculate the Internal Rate of Return.',
-            textAlign: TextAlign.center,
-          ),
-          // TODO: Add input fields for cash flows and calculate IRR
-        ],
-      ),
-    );
-  }
-}
-
-class InvestmentResourcesTab extends StatelessWidget {
-  const InvestmentResourcesTab({Key? key}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: const [
-            Icon(Icons.info, size: 64, color: Colors.orange),
-            SizedBox(height: 16),
-            Text(
-              'Investment Resources',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-            ),
-            SizedBox(height: 8),
-            Text(
-              'Based on your risk appetite, recommended profit margins and investment vehicles will be shown here.',
-              textAlign: TextAlign.center,
-            ),
-            // TODO: Fetch and display resource recommendations
-          ],
-        ),
+          );
+        },
       ),
     );
   }

@@ -45,17 +45,13 @@ class _AuthWrapperState extends State<AuthWrapper> {
         if (authService.isLoggedIn() && await authService.isFirstLogin()) {
           await FirstLoginHandler(context, authService).handleFirstLogin();
         }
-        // Force manual login if backend is unreachable
+        // Check backend health but do not force logout when offline
         final apiClient = Provider.of<ApiClient>(context, listen: false);
         bool serverHealthy = false;
         try {
           serverHealthy = await apiClient.checkServerHealth();
         } catch (_) {}
-        if (!serverHealthy) {
-          // Clear any restored session
-          await authService.logout();
-          await prefs.setBool('account_creation_attempted', false);
-        }
+        // Retain session even if offline
         
         final biometricService = BiometricAuthService.instance;
         final biometricEnabled = await biometricService?.isBiometricEnabled() ?? false;

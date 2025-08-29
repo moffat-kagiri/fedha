@@ -1,4 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../theme/app_theme.dart';
+import '../services/risk_assessment_service.dart';
+
+import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 
 class ToolsScreen extends StatelessWidget {
@@ -28,15 +33,15 @@ class ToolsScreen extends StatelessWidget {
       {
         'title': 'Asset Protection',
         'icon': Icons.umbrella,
-        'route': '/asset_protection',
+        'route': '/asset_protection_intro',
       },
     ];
 
     return Scaffold(
       backgroundColor: colorScheme.background,
       appBar: AppBar(
-  backgroundColor: FedhaColors.primaryGreen,
-  title: Text(
+        backgroundColor: FedhaColors.primaryGreen,
+        title: Text(
           'Financial Tools',
           style: textTheme.titleLarge?.copyWith(
             color: colorScheme.onPrimary,
@@ -56,11 +61,10 @@ class ToolsScreen extends StatelessWidget {
                 mainAxisSpacing: 16,
                 childAspectRatio: 0.9,
                 children: tools.map((tool) {
-                  // Single InkWell for the tool card
+                  final route = tool['route'] as String;
                   return InkWell(
                     borderRadius: BorderRadius.circular(12),
                     onTap: () {
-                      final route = tool['route'] as String;
                       Navigator.pushNamed(context, route);
                       if (route == '/emergency-fund') {
                         ScaffoldMessenger.of(context).showSnackBar(
@@ -99,8 +103,8 @@ class ToolsScreen extends StatelessWidget {
                     ),
                   );
                 }).toList(),
-              ), // close GridView.count
-            ), // close Expanded
+              ),
+            ),
             const SizedBox(height: 16),
             Text(
               'More tools coming soon...',
@@ -111,6 +115,85 @@ class ToolsScreen extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+                              style: textTheme.bodyLarge?.copyWith(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+                Expanded(
+                  child: GridView.count(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 16,
+                    mainAxisSpacing: 16,
+                    childAspectRatio: 0.9,
+                    children: tools.map((tool) {
+                      // Single InkWell for the tool card
+                      return InkWell(
+                        borderRadius: BorderRadius.circular(12),
+                        onTap: () {
+                          final route = tool['route'] as String;
+                          Navigator.pushNamed(context, route);
+                          if (route == '/emergency-fund') {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Opening Emergency Fund Calculator...')),
+                            );
+                          }
+                        },
+                        child: Card(
+                          color: colorScheme.surface,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 4,
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  tool['icon'] as IconData,
+                                  size: 40,
+                                  color: colorScheme.primary,
+                                ),
+                                const SizedBox(height: 12),
+                                Text(
+                                  tool['title'] as String,
+                                  style: textTheme.bodyLarge?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                    color: colorScheme.onSurface,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'More tools coming soon...',
+                  style: textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onBackground.withOpacity(0.6),
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
