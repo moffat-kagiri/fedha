@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/transaction.dart';
 import '../models/category.dart';
+import '../models/enums.dart';
 import '../services/offline_data_service.dart';
 import 'package:provider/provider.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -35,8 +36,8 @@ class CategoryAnalyticsSheet extends StatelessWidget {
 
               final categoryData = snapshot.data!;
               final totalAmount = transactions
-                  .map((t) => t.type == TransactionType.expense ? t.amount : 0)
-                  .reduce((a, b) => a + b);
+                  .map((t) => t.type == TransactionType.expense ? t.amount : 0.0)
+                  .reduce((a, b) => a + b).toDouble();
 
               return Column(
                 children: [
@@ -129,7 +130,7 @@ class CategoryAnalyticsSheet extends StatelessWidget {
 
       return PieChartSectionData(
         color: Color(int.parse(category.colorKey.replaceAll('#', '0xff'))),
-        value: amount,
+        value: amount.toDouble(),
         title: '${(percentage * 100).toStringAsFixed(0)}%',
         radius: 100,
         titleStyle: const TextStyle(

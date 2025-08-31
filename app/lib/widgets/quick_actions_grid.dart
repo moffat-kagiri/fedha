@@ -80,7 +80,7 @@ class QuickActionCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: action.color.withOpacity(0.1),
+                  color: action.color.withAlpha(25),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(action.icon, color: action.color, size: 20),

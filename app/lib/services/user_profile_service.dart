@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:drift/drift.dart';
 import '../data/app_database.dart';
 
 class UserProfileService extends ChangeNotifier {
@@ -35,7 +36,7 @@ class UserProfileService extends ChangeNotifier {
     _currentProfile = await _db.getUserProfileByAuthId(authId);
     notifyListeners();
     
-    return id;
+    // No need to return anything since return type is Future<void>
   }
   
   // Update profile

@@ -8,6 +8,19 @@ import 'package:path/path.dart' as p;
 
  part 'app_database.g.dart';
 
+// View extensions for tables
+extension CategoryViewExtension on Category {
+  Color get colorValue {
+    // Convert hex color string to Color
+    final colorKey = this.colorKey;
+    if (colorKey.startsWith('#')) {
+      return Color(int.parse('0xFF${colorKey.substring(1)}'));
+    } else {
+      return Colors.grey; // Default color
+    }
+  }
+}
+
 /// Table for storing transactions with an encrypted relational schema.
 class Transactions extends Table {
   IntColumn get id => integer().autoIncrement()();
@@ -157,6 +170,8 @@ class Budgets extends Table {
   DateTimeColumn get endDate => dateTime()();
   // Whether this is a recurring budget
   BoolColumn get isRecurring => boolean().withDefault(const Constant(false))();
+  // Current spent amount in minor units
+  RealColumn get spentAmount => real().map(const _DecimalConverter()).withDefault(const Constant(0.0))();
   // The profile this budget belongs to
   IntColumn get profileId => integer()();
 }
@@ -175,6 +190,37 @@ class _DecimalConverter extends TypeConverter<double, double> {
   UserProfiles, AppSettings, Notifications
 ])
 class AppDatabase extends _$AppDatabase {
+  // Stream to watch all transactions
+  Stream<List<Transaction>> watchAllTransactions() =>
+      (select(transactions)).watch();
+      
+  // Stream to watch a specific category
+  Stream<Category?> watchCategory(int id) =>
+      (select(categories)..where((c) => c.id.equals(id))).watchSingleOrNull();
+
+  // Get unsynced transactions
+  Future<List<Transaction>> getUnsyncedTransactions() =>
+      (select(transactions)..where((t) => t.synced.equals(false))).get();
+
+  // Get categories for profile
+  Future<List<Category>> getCategoriesForProfile(int profileId) =>
+      (select(categories)..where((c) => c.profileId.equals(profileId))).get();
+
+  // Get goals for profile  
+  Future<List<Goal>> getGoalsForProfile(int profileId) =>
+      (select(goals)..where((g) => g.profileId.equals(profileId))).get();
+
+  // Get budgets for profile
+  Future<List<Budget>> getBudgetsForProfile(int profileId) =>
+      (select(budgets)..where((b) => b.profileId.equals(profileId))).get();
+
+  // Get clients for profile
+  Future<List<Client>> getClientsForProfile(int profileId) =>
+      (select(clients)..where((c) => c.profileId.equals(profileId))).get();
+
+  // Get invoices for profile
+  Future<List<Invoice>> getInvoicesForProfile(int profileId) =>
+      (select(invoices)..where((i) => i.profileId.equals(profileId))).get();
   // Singleton instance
   AppDatabase._internal(QueryExecutor e) : super(e);
 
@@ -189,6 +235,15 @@ class AppDatabase extends _$AppDatabase {
 
   @override
   int get schemaVersion => 2;
+
+  // Watch all budgets
+  Stream<List<Budget>> watchAllBudgets() {
+    return (select(budgets)
+      ..orderBy([
+        (t) => OrderingTerm(expression: t.startDate, mode: OrderingMode.desc),
+      ]))
+      .watch();
+  }
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -323,6 +378,8 @@ class AppDatabase extends _$AppDatabase {
   Future<int> deleteOldNotifications(DateTime before) =>
     (delete(notifications)..where((tbl) => tbl.scheduledFor.isSmallerThanValue(before)))
       .go();
+
+  Future<int> deletePendingTransaction(int id) =>
     (delete(pendingTransactions)..where((tbl) => tbl.id.equals(id))).go();
 
   // Category operations
@@ -351,8 +408,8 @@ class AppDatabase extends _$AppDatabase {
   Future<Budget?> getCurrentBudget(int profileId) =>
       (select(budgets)
         ..where((b) => b.profileId.equals(profileId))
-        ..where((b) => b.startDate.lessOrEqual(currentDate()))
-        ..where((b) => b.endDate.greaterOrEqual(currentDate()))
+        ..where((b) => b.startDate <= currentDate())
+        ..where((b) => b.endDate >= currentDate())
       ).getSingleOrNull();
 
   Future<int> deleteBudget(int id) =>

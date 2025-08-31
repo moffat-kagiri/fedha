@@ -1,3 +1,4 @@
+import 'package:drift/drift.dart';
 import '../models/goal.dart';
 import '../models/transaction.dart';
 import '../models/enums.dart';
@@ -12,21 +13,21 @@ class GoalTransactionService {
     final goal = _offlineService.getGoal(goalId);
     if (goal == null) return;
 
-    final updatedGoal = Goal(
-      id: goal.id,
-      name: goal.name,
-      description: goal.description,
-      targetAmount: goal.targetAmount,
-      currentAmount: goal.currentAmount + amount,
-      targetDate: goal.targetDate,
-      priority: goal.priority,
-      status: goal.status,
-      isActive: goal.isActive,
-      goalType: goal.goalType,
-      currency: goal.currency,
-      profileId: goal.profileId,
-      createdAt: goal.createdAt,
-      updatedAt: DateTime.now(),
+    final updatedGoal = GoalsCompanion(
+      id: Value(goal.id),
+      name: Value(goal.name),
+      description: Value(goal.description),
+      targetAmount: Value(goal.targetAmount),
+      currentAmount: Value(goal.currentAmount + amount),
+      targetDate: Value(goal.targetDate),
+      priority: Value(goal.priority),
+      status: Value(goal.status),
+      isActive: Value(goal.isActive),
+      goalType: Value(goal.goalType),
+      currency: Value(goal.currency),
+      profileId: Value(goal.profileId),
+      createdAt: Value(goal.createdAt),
+      updatedAt: Value(DateTime.now()),
     );
 
     await _offlineService.saveGoal(updatedGoal);
@@ -59,21 +60,21 @@ class GoalTransactionService {
     final goal = _offlineService.getGoal(goalId);
     if (goal == null) return;
 
-    final updatedGoal = Goal(
-      id: goal.id,
-      name: goal.name,
-      description: goal.description,
-      targetAmount: goal.targetAmount,
-      currentAmount: goal.currentAmount,
-      targetDate: goal.targetDate,
-      priority: goal.priority,
-      status: 'completed',
-      isActive: goal.isActive,
-      goalType: goal.goalType,
-      currency: goal.currency,
-      profileId: goal.profileId,
-      createdAt: goal.createdAt,
-      updatedAt: DateTime.now(),
+    final updatedGoal = GoalsCompanion(
+      id: Value(goal.id),
+      name: Value(goal.name),
+      description: Value(goal.description),
+      targetAmount: Value(goal.targetAmount),
+      currentAmount: Value(goal.currentAmount),
+      targetDate: Value(goal.targetDate),
+      priority: Value(goal.priority),
+      status: const Value('completed'),
+      isActive: Value(goal.isActive),
+      goalType: Value(goal.goalType),
+      currency: Value(goal.currency),
+      profileId: Value(goal.profileId),
+      createdAt: Value(goal.createdAt),
+      updatedAt: Value(DateTime.now()),
     );
 
     await _offlineService.saveGoal(updatedGoal);
@@ -100,14 +101,14 @@ class GoalTransactionService {
     String? categoryId,
   }) async {
     final goal = _offlineService.getGoal(goalId);
-    final transaction = Transaction(
-      amount: amount,
-      type: TransactionType.income,
-      categoryId: categoryId ?? 'savings',
-      date: DateTime.now(),
-      description: description ?? 'Savings for ${goal?.name ?? "goal"}',
-      goalId: goalId,
-      profileId: 'default',
+    final transaction = TransactionsCompanion(
+      amount: Value(amount),
+      type: Value(TransactionType.income),
+      categoryId: Value(categoryId ?? 'savings'),
+      date: Value(DateTime.now()),
+      description: Value(description ?? 'Savings for ${goal?.name ?? "goal"}'),
+      goalId: Value(goalId),
+      profileId: const Value('default'),
     );
     
     await _offlineService.saveTransaction(transaction);

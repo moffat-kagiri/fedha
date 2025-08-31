@@ -2,9 +2,9 @@
 
 import 'dart:async';
 import 'package:uuid/uuid.dart';
+import 'package:drift/drift.dart';
 import 'offline_data_service.dart';
-import '../models/transaction.dart' as dom_tx;
-import '../models/goal.dart' as dom_goal;
+import '../data/app_database.dart';
 import '../models/enums.dart';
 
 class TextRecognitionService {
@@ -64,43 +64,46 @@ class GoalTransactionService {
   
   GoalTransactionService(this._offlineService);
   
-  Future<void> createSavingsTransaction(String goalId, double amount) async {
-    final transaction = dom_tx.Transaction(
-      id: const Uuid().v4(),
-      amount: amount,
-      type: TransactionType.savings,
-      categoryId: '',
-      date: DateTime.now(),
-      profileId: '0', // Default profile
-      goalId: goalId,
+  Future<void> createSavingsTransaction(int goalId, double amount) async {
+    await _offlineService.saveTransaction(
+      TransactionsCompanion.insert(
+        amountMinor: amount,
+        isExpense: false,
+        date: DateTime.now(),
+        profileId: 1, // Default profile
+        categoryId: goalId.toString(),
+        description: 'Goal Savings Transaction',
+        currency: 'KES',
+        rawSms: const Value.absent(),
+      )
     );
-    
-    await _offlineService.saveTransaction(transaction);
   }
 
-  Future<List<dom_goal.Goal>> getSuggestedGoals() async {
-    // Return the user's goals from the DB
-    return await _offlineService.getAllGoals(0);
+  Future<List<Goal>> getSuggestedGoals() async {
+    // Return the user's active goals from the DB
+    final goals = await _offlineService.getAllGoals();
+    return goals.where((goal) => !goal.completed).toList();
   }
 
-  Future<Map<String, dynamic>> getGoalProgressSummary(String goalId) async {
+  Future<Map<String, dynamic>> getGoalProgressSummary(int goalId) async {
     final goal = await _offlineService.getGoal(goalId);
     if (goal == null) return {'progress': 0.0};
     
     // Get all transactions for this goal
-    final transactions = await _offlineService.getAllTransactions(0);
-    final goalTransactions = transactions.where((t) => 
-        t.goalId == goalId && t.type == TransactionType.savings).toList();
+    final transactions = await _offlineService.getTransactions();
+    final goalTransactions = transactions.where((tx) => 
+        !tx.isExpense && tx.categoryId == goalId.toString()).toList();
     
     // Calculate progress
     final totalSaved = goalTransactions.fold<double>(
-        0, (sum, tx) => sum + tx.amount);
+        0, (sum, tx) => sum + tx.amountMinor);
+    final targetAmount = goal.targetMinor;
         
     return {
       'goal': goal,
-      'progress': goal.targetAmount > 0 ? totalSaved / goal.targetAmount : 0.0,
-      'totalSaved': totalSaved,
-      'transactions': goalTransactions,
+      'progress': targetAmount > 0 ? (totalSaved / targetAmount) : 0.0,
+      'totalSaved': totalSaved / 100.0, // Convert minor units to major
+      'transactions': transactions,
     };
   }
 }

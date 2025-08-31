@@ -2578,6 +2578,16 @@ class $BudgetsTable extends Budgets with TableInfo<$BudgetsTable, Budget> {
     ),
     defaultValue: const Constant(false),
   );
+  @override
+  late final GeneratedColumnWithTypeConverter<double, double> spentAmount =
+      GeneratedColumn<double>(
+        'spent_amount',
+        aliasedName,
+        false,
+        type: DriftSqlType.double,
+        requiredDuringInsert: false,
+        defaultValue: const Constant(0.0),
+      ).withConverter<double>($BudgetsTable.$converterspentAmount);
   static const VerificationMeta _profileIdMeta = const VerificationMeta(
     'profileId',
   );
@@ -2599,6 +2609,7 @@ class $BudgetsTable extends Budgets with TableInfo<$BudgetsTable, Budget> {
     startDate,
     endDate,
     isRecurring,
+    spentAmount,
     profileId,
   ];
   @override
@@ -2712,6 +2723,12 @@ class $BudgetsTable extends Budgets with TableInfo<$BudgetsTable, Budget> {
         DriftSqlType.bool,
         data['${effectivePrefix}is_recurring'],
       )!,
+      spentAmount: $BudgetsTable.$converterspentAmount.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.double,
+          data['${effectivePrefix}spent_amount'],
+        )!,
+      ),
       profileId: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}profile_id'],
@@ -2726,6 +2743,8 @@ class $BudgetsTable extends Budgets with TableInfo<$BudgetsTable, Budget> {
 
   static TypeConverter<double, double> $converterlimitMinor =
       const _DecimalConverter();
+  static TypeConverter<double, double> $converterspentAmount =
+      const _DecimalConverter();
 }
 
 class Budget extends DataClass implements Insertable<Budget> {
@@ -2737,6 +2756,7 @@ class Budget extends DataClass implements Insertable<Budget> {
   final DateTime startDate;
   final DateTime endDate;
   final bool isRecurring;
+  final double spentAmount;
   final int profileId;
   const Budget({
     required this.id,
@@ -2747,6 +2767,7 @@ class Budget extends DataClass implements Insertable<Budget> {
     required this.startDate,
     required this.endDate,
     required this.isRecurring,
+    required this.spentAmount,
     required this.profileId,
   });
   @override
@@ -2766,6 +2787,11 @@ class Budget extends DataClass implements Insertable<Budget> {
     map['start_date'] = Variable<DateTime>(startDate);
     map['end_date'] = Variable<DateTime>(endDate);
     map['is_recurring'] = Variable<bool>(isRecurring);
+    {
+      map['spent_amount'] = Variable<double>(
+        $BudgetsTable.$converterspentAmount.toSql(spentAmount),
+      );
+    }
     map['profile_id'] = Variable<int>(profileId);
     return map;
   }
@@ -2782,6 +2808,7 @@ class Budget extends DataClass implements Insertable<Budget> {
       startDate: Value(startDate),
       endDate: Value(endDate),
       isRecurring: Value(isRecurring),
+      spentAmount: Value(spentAmount),
       profileId: Value(profileId),
     );
   }
@@ -2800,6 +2827,7 @@ class Budget extends DataClass implements Insertable<Budget> {
       startDate: serializer.fromJson<DateTime>(json['startDate']),
       endDate: serializer.fromJson<DateTime>(json['endDate']),
       isRecurring: serializer.fromJson<bool>(json['isRecurring']),
+      spentAmount: serializer.fromJson<double>(json['spentAmount']),
       profileId: serializer.fromJson<int>(json['profileId']),
     );
   }
@@ -2815,6 +2843,7 @@ class Budget extends DataClass implements Insertable<Budget> {
       'startDate': serializer.toJson<DateTime>(startDate),
       'endDate': serializer.toJson<DateTime>(endDate),
       'isRecurring': serializer.toJson<bool>(isRecurring),
+      'spentAmount': serializer.toJson<double>(spentAmount),
       'profileId': serializer.toJson<int>(profileId),
     };
   }
@@ -2828,6 +2857,7 @@ class Budget extends DataClass implements Insertable<Budget> {
     DateTime? startDate,
     DateTime? endDate,
     bool? isRecurring,
+    double? spentAmount,
     int? profileId,
   }) => Budget(
     id: id ?? this.id,
@@ -2838,6 +2868,7 @@ class Budget extends DataClass implements Insertable<Budget> {
     startDate: startDate ?? this.startDate,
     endDate: endDate ?? this.endDate,
     isRecurring: isRecurring ?? this.isRecurring,
+    spentAmount: spentAmount ?? this.spentAmount,
     profileId: profileId ?? this.profileId,
   );
   Budget copyWithCompanion(BudgetsCompanion data) {
@@ -2856,6 +2887,9 @@ class Budget extends DataClass implements Insertable<Budget> {
       isRecurring: data.isRecurring.present
           ? data.isRecurring.value
           : this.isRecurring,
+      spentAmount: data.spentAmount.present
+          ? data.spentAmount.value
+          : this.spentAmount,
       profileId: data.profileId.present ? data.profileId.value : this.profileId,
     );
   }
@@ -2871,6 +2905,7 @@ class Budget extends DataClass implements Insertable<Budget> {
           ..write('startDate: $startDate, ')
           ..write('endDate: $endDate, ')
           ..write('isRecurring: $isRecurring, ')
+          ..write('spentAmount: $spentAmount, ')
           ..write('profileId: $profileId')
           ..write(')'))
         .toString();
@@ -2886,6 +2921,7 @@ class Budget extends DataClass implements Insertable<Budget> {
     startDate,
     endDate,
     isRecurring,
+    spentAmount,
     profileId,
   );
   @override
@@ -2900,6 +2936,7 @@ class Budget extends DataClass implements Insertable<Budget> {
           other.startDate == this.startDate &&
           other.endDate == this.endDate &&
           other.isRecurring == this.isRecurring &&
+          other.spentAmount == this.spentAmount &&
           other.profileId == this.profileId);
 }
 
@@ -2912,6 +2949,7 @@ class BudgetsCompanion extends UpdateCompanion<Budget> {
   final Value<DateTime> startDate;
   final Value<DateTime> endDate;
   final Value<bool> isRecurring;
+  final Value<double> spentAmount;
   final Value<int> profileId;
   const BudgetsCompanion({
     this.id = const Value.absent(),
@@ -2922,6 +2960,7 @@ class BudgetsCompanion extends UpdateCompanion<Budget> {
     this.startDate = const Value.absent(),
     this.endDate = const Value.absent(),
     this.isRecurring = const Value.absent(),
+    this.spentAmount = const Value.absent(),
     this.profileId = const Value.absent(),
   });
   BudgetsCompanion.insert({
@@ -2933,6 +2972,7 @@ class BudgetsCompanion extends UpdateCompanion<Budget> {
     required DateTime startDate,
     required DateTime endDate,
     this.isRecurring = const Value.absent(),
+    this.spentAmount = const Value.absent(),
     required int profileId,
   }) : name = Value(name),
        limitMinor = Value(limitMinor),
@@ -2948,6 +2988,7 @@ class BudgetsCompanion extends UpdateCompanion<Budget> {
     Expression<DateTime>? startDate,
     Expression<DateTime>? endDate,
     Expression<bool>? isRecurring,
+    Expression<double>? spentAmount,
     Expression<int>? profileId,
   }) {
     return RawValuesInsertable({
@@ -2959,6 +3000,7 @@ class BudgetsCompanion extends UpdateCompanion<Budget> {
       if (startDate != null) 'start_date': startDate,
       if (endDate != null) 'end_date': endDate,
       if (isRecurring != null) 'is_recurring': isRecurring,
+      if (spentAmount != null) 'spent_amount': spentAmount,
       if (profileId != null) 'profile_id': profileId,
     });
   }
@@ -2972,6 +3014,7 @@ class BudgetsCompanion extends UpdateCompanion<Budget> {
     Value<DateTime>? startDate,
     Value<DateTime>? endDate,
     Value<bool>? isRecurring,
+    Value<double>? spentAmount,
     Value<int>? profileId,
   }) {
     return BudgetsCompanion(
@@ -2983,6 +3026,7 @@ class BudgetsCompanion extends UpdateCompanion<Budget> {
       startDate: startDate ?? this.startDate,
       endDate: endDate ?? this.endDate,
       isRecurring: isRecurring ?? this.isRecurring,
+      spentAmount: spentAmount ?? this.spentAmount,
       profileId: profileId ?? this.profileId,
     );
   }
@@ -3016,6 +3060,11 @@ class BudgetsCompanion extends UpdateCompanion<Budget> {
     if (isRecurring.present) {
       map['is_recurring'] = Variable<bool>(isRecurring.value);
     }
+    if (spentAmount.present) {
+      map['spent_amount'] = Variable<double>(
+        $BudgetsTable.$converterspentAmount.toSql(spentAmount.value),
+      );
+    }
     if (profileId.present) {
       map['profile_id'] = Variable<int>(profileId.value);
     }
@@ -3033,6 +3082,1704 @@ class BudgetsCompanion extends UpdateCompanion<Budget> {
           ..write('startDate: $startDate, ')
           ..write('endDate: $endDate, ')
           ..write('isRecurring: $isRecurring, ')
+          ..write('spentAmount: $spentAmount, ')
+          ..write('profileId: $profileId')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $UserProfilesTable extends UserProfiles
+    with TableInfo<$UserProfilesTable, UserProfile> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $UserProfilesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _authIdMeta = const VerificationMeta('authId');
+  @override
+  late final GeneratedColumn<String> authId = GeneratedColumn<String>(
+    'auth_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'),
+  );
+  static const VerificationMeta _displayNameMeta = const VerificationMeta(
+    'displayName',
+  );
+  @override
+  late final GeneratedColumn<String> displayName = GeneratedColumn<String>(
+    'display_name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _defaultCurrencyMeta = const VerificationMeta(
+    'defaultCurrency',
+  );
+  @override
+  late final GeneratedColumn<String> defaultCurrency = GeneratedColumn<String>(
+    'default_currency',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('KES'),
+  );
+  static const VerificationMeta _budgetPeriodMeta = const VerificationMeta(
+    'budgetPeriod',
+  );
+  @override
+  late final GeneratedColumn<String> budgetPeriod = GeneratedColumn<String>(
+    'budget_period',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('monthly'),
+  );
+  static const VerificationMeta _lastSyncMeta = const VerificationMeta(
+    'lastSync',
+  );
+  @override
+  late final GeneratedColumn<DateTime> lastSync = GeneratedColumn<DateTime>(
+    'last_sync',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    authId,
+    displayName,
+    defaultCurrency,
+    budgetPeriod,
+    lastSync,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'user_profiles';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<UserProfile> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('auth_id')) {
+      context.handle(
+        _authIdMeta,
+        authId.isAcceptableOrUnknown(data['auth_id']!, _authIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_authIdMeta);
+    }
+    if (data.containsKey('display_name')) {
+      context.handle(
+        _displayNameMeta,
+        displayName.isAcceptableOrUnknown(
+          data['display_name']!,
+          _displayNameMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_displayNameMeta);
+    }
+    if (data.containsKey('default_currency')) {
+      context.handle(
+        _defaultCurrencyMeta,
+        defaultCurrency.isAcceptableOrUnknown(
+          data['default_currency']!,
+          _defaultCurrencyMeta,
+        ),
+      );
+    }
+    if (data.containsKey('budget_period')) {
+      context.handle(
+        _budgetPeriodMeta,
+        budgetPeriod.isAcceptableOrUnknown(
+          data['budget_period']!,
+          _budgetPeriodMeta,
+        ),
+      );
+    }
+    if (data.containsKey('last_sync')) {
+      context.handle(
+        _lastSyncMeta,
+        lastSync.isAcceptableOrUnknown(data['last_sync']!, _lastSyncMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  UserProfile map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return UserProfile(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      authId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}auth_id'],
+      )!,
+      displayName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}display_name'],
+      )!,
+      defaultCurrency: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}default_currency'],
+      )!,
+      budgetPeriod: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}budget_period'],
+      )!,
+      lastSync: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}last_sync'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $UserProfilesTable createAlias(String alias) {
+    return $UserProfilesTable(attachedDatabase, alias);
+  }
+}
+
+class UserProfile extends DataClass implements Insertable<UserProfile> {
+  final int id;
+  final String authId;
+  final String displayName;
+  final String defaultCurrency;
+  final String budgetPeriod;
+  final DateTime? lastSync;
+  final DateTime createdAt;
+  const UserProfile({
+    required this.id,
+    required this.authId,
+    required this.displayName,
+    required this.defaultCurrency,
+    required this.budgetPeriod,
+    this.lastSync,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['auth_id'] = Variable<String>(authId);
+    map['display_name'] = Variable<String>(displayName);
+    map['default_currency'] = Variable<String>(defaultCurrency);
+    map['budget_period'] = Variable<String>(budgetPeriod);
+    if (!nullToAbsent || lastSync != null) {
+      map['last_sync'] = Variable<DateTime>(lastSync);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  UserProfilesCompanion toCompanion(bool nullToAbsent) {
+    return UserProfilesCompanion(
+      id: Value(id),
+      authId: Value(authId),
+      displayName: Value(displayName),
+      defaultCurrency: Value(defaultCurrency),
+      budgetPeriod: Value(budgetPeriod),
+      lastSync: lastSync == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastSync),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory UserProfile.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return UserProfile(
+      id: serializer.fromJson<int>(json['id']),
+      authId: serializer.fromJson<String>(json['authId']),
+      displayName: serializer.fromJson<String>(json['displayName']),
+      defaultCurrency: serializer.fromJson<String>(json['defaultCurrency']),
+      budgetPeriod: serializer.fromJson<String>(json['budgetPeriod']),
+      lastSync: serializer.fromJson<DateTime?>(json['lastSync']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'authId': serializer.toJson<String>(authId),
+      'displayName': serializer.toJson<String>(displayName),
+      'defaultCurrency': serializer.toJson<String>(defaultCurrency),
+      'budgetPeriod': serializer.toJson<String>(budgetPeriod),
+      'lastSync': serializer.toJson<DateTime?>(lastSync),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  UserProfile copyWith({
+    int? id,
+    String? authId,
+    String? displayName,
+    String? defaultCurrency,
+    String? budgetPeriod,
+    Value<DateTime?> lastSync = const Value.absent(),
+    DateTime? createdAt,
+  }) => UserProfile(
+    id: id ?? this.id,
+    authId: authId ?? this.authId,
+    displayName: displayName ?? this.displayName,
+    defaultCurrency: defaultCurrency ?? this.defaultCurrency,
+    budgetPeriod: budgetPeriod ?? this.budgetPeriod,
+    lastSync: lastSync.present ? lastSync.value : this.lastSync,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  UserProfile copyWithCompanion(UserProfilesCompanion data) {
+    return UserProfile(
+      id: data.id.present ? data.id.value : this.id,
+      authId: data.authId.present ? data.authId.value : this.authId,
+      displayName: data.displayName.present
+          ? data.displayName.value
+          : this.displayName,
+      defaultCurrency: data.defaultCurrency.present
+          ? data.defaultCurrency.value
+          : this.defaultCurrency,
+      budgetPeriod: data.budgetPeriod.present
+          ? data.budgetPeriod.value
+          : this.budgetPeriod,
+      lastSync: data.lastSync.present ? data.lastSync.value : this.lastSync,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('UserProfile(')
+          ..write('id: $id, ')
+          ..write('authId: $authId, ')
+          ..write('displayName: $displayName, ')
+          ..write('defaultCurrency: $defaultCurrency, ')
+          ..write('budgetPeriod: $budgetPeriod, ')
+          ..write('lastSync: $lastSync, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    authId,
+    displayName,
+    defaultCurrency,
+    budgetPeriod,
+    lastSync,
+    createdAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is UserProfile &&
+          other.id == this.id &&
+          other.authId == this.authId &&
+          other.displayName == this.displayName &&
+          other.defaultCurrency == this.defaultCurrency &&
+          other.budgetPeriod == this.budgetPeriod &&
+          other.lastSync == this.lastSync &&
+          other.createdAt == this.createdAt);
+}
+
+class UserProfilesCompanion extends UpdateCompanion<UserProfile> {
+  final Value<int> id;
+  final Value<String> authId;
+  final Value<String> displayName;
+  final Value<String> defaultCurrency;
+  final Value<String> budgetPeriod;
+  final Value<DateTime?> lastSync;
+  final Value<DateTime> createdAt;
+  const UserProfilesCompanion({
+    this.id = const Value.absent(),
+    this.authId = const Value.absent(),
+    this.displayName = const Value.absent(),
+    this.defaultCurrency = const Value.absent(),
+    this.budgetPeriod = const Value.absent(),
+    this.lastSync = const Value.absent(),
+    this.createdAt = const Value.absent(),
+  });
+  UserProfilesCompanion.insert({
+    this.id = const Value.absent(),
+    required String authId,
+    required String displayName,
+    this.defaultCurrency = const Value.absent(),
+    this.budgetPeriod = const Value.absent(),
+    this.lastSync = const Value.absent(),
+    this.createdAt = const Value.absent(),
+  }) : authId = Value(authId),
+       displayName = Value(displayName);
+  static Insertable<UserProfile> custom({
+    Expression<int>? id,
+    Expression<String>? authId,
+    Expression<String>? displayName,
+    Expression<String>? defaultCurrency,
+    Expression<String>? budgetPeriod,
+    Expression<DateTime>? lastSync,
+    Expression<DateTime>? createdAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (authId != null) 'auth_id': authId,
+      if (displayName != null) 'display_name': displayName,
+      if (defaultCurrency != null) 'default_currency': defaultCurrency,
+      if (budgetPeriod != null) 'budget_period': budgetPeriod,
+      if (lastSync != null) 'last_sync': lastSync,
+      if (createdAt != null) 'created_at': createdAt,
+    });
+  }
+
+  UserProfilesCompanion copyWith({
+    Value<int>? id,
+    Value<String>? authId,
+    Value<String>? displayName,
+    Value<String>? defaultCurrency,
+    Value<String>? budgetPeriod,
+    Value<DateTime?>? lastSync,
+    Value<DateTime>? createdAt,
+  }) {
+    return UserProfilesCompanion(
+      id: id ?? this.id,
+      authId: authId ?? this.authId,
+      displayName: displayName ?? this.displayName,
+      defaultCurrency: defaultCurrency ?? this.defaultCurrency,
+      budgetPeriod: budgetPeriod ?? this.budgetPeriod,
+      lastSync: lastSync ?? this.lastSync,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (authId.present) {
+      map['auth_id'] = Variable<String>(authId.value);
+    }
+    if (displayName.present) {
+      map['display_name'] = Variable<String>(displayName.value);
+    }
+    if (defaultCurrency.present) {
+      map['default_currency'] = Variable<String>(defaultCurrency.value);
+    }
+    if (budgetPeriod.present) {
+      map['budget_period'] = Variable<String>(budgetPeriod.value);
+    }
+    if (lastSync.present) {
+      map['last_sync'] = Variable<DateTime>(lastSync.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('UserProfilesCompanion(')
+          ..write('id: $id, ')
+          ..write('authId: $authId, ')
+          ..write('displayName: $displayName, ')
+          ..write('defaultCurrency: $defaultCurrency, ')
+          ..write('budgetPeriod: $budgetPeriod, ')
+          ..write('lastSync: $lastSync, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $AppSettingsTable extends AppSettings
+    with TableInfo<$AppSettingsTable, AppSetting> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $AppSettingsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _themeMeta = const VerificationMeta('theme');
+  @override
+  late final GeneratedColumn<String> theme = GeneratedColumn<String>(
+    'theme',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('system'),
+  );
+  static const VerificationMeta _biometricEnabledMeta = const VerificationMeta(
+    'biometricEnabled',
+  );
+  @override
+  late final GeneratedColumn<bool> biometricEnabled = GeneratedColumn<bool>(
+    'biometric_enabled',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("biometric_enabled" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _smsEnabledMeta = const VerificationMeta(
+    'smsEnabled',
+  );
+  @override
+  late final GeneratedColumn<bool> smsEnabled = GeneratedColumn<bool>(
+    'sms_enabled',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("sms_enabled" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _budgetAlertsMeta = const VerificationMeta(
+    'budgetAlerts',
+  );
+  @override
+  late final GeneratedColumn<bool> budgetAlerts = GeneratedColumn<bool>(
+    'budget_alerts',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("budget_alerts" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _goalRemindersMeta = const VerificationMeta(
+    'goalReminders',
+  );
+  @override
+  late final GeneratedColumn<bool> goalReminders = GeneratedColumn<bool>(
+    'goal_reminders',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("goal_reminders" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _backupFrequencyMeta = const VerificationMeta(
+    'backupFrequency',
+  );
+  @override
+  late final GeneratedColumn<String> backupFrequency = GeneratedColumn<String>(
+    'backup_frequency',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('weekly'),
+  );
+  static const VerificationMeta _rememberMeMeta = const VerificationMeta(
+    'rememberMe',
+  );
+  @override
+  late final GeneratedColumn<bool> rememberMe = GeneratedColumn<bool>(
+    'remember_me',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("remember_me" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _savedEmailMeta = const VerificationMeta(
+    'savedEmail',
+  );
+  @override
+  late final GeneratedColumn<String> savedEmail = GeneratedColumn<String>(
+    'saved_email',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _onboardingCompleteMeta =
+      const VerificationMeta('onboardingComplete');
+  @override
+  late final GeneratedColumn<bool> onboardingComplete = GeneratedColumn<bool>(
+    'onboarding_complete',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("onboarding_complete" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _permissionsPromptShownMeta =
+      const VerificationMeta('permissionsPromptShown');
+  @override
+  late final GeneratedColumn<bool> permissionsPromptShown =
+      GeneratedColumn<bool>(
+        'permissions_prompt_shown',
+        aliasedName,
+        false,
+        type: DriftSqlType.bool,
+        requiredDuringInsert: false,
+        defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("permissions_prompt_shown" IN (0, 1))',
+        ),
+        defaultValue: const Constant(false),
+      );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    theme,
+    biometricEnabled,
+    smsEnabled,
+    budgetAlerts,
+    goalReminders,
+    backupFrequency,
+    rememberMe,
+    savedEmail,
+    onboardingComplete,
+    permissionsPromptShown,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'app_settings';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<AppSetting> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('theme')) {
+      context.handle(
+        _themeMeta,
+        theme.isAcceptableOrUnknown(data['theme']!, _themeMeta),
+      );
+    }
+    if (data.containsKey('biometric_enabled')) {
+      context.handle(
+        _biometricEnabledMeta,
+        biometricEnabled.isAcceptableOrUnknown(
+          data['biometric_enabled']!,
+          _biometricEnabledMeta,
+        ),
+      );
+    }
+    if (data.containsKey('sms_enabled')) {
+      context.handle(
+        _smsEnabledMeta,
+        smsEnabled.isAcceptableOrUnknown(data['sms_enabled']!, _smsEnabledMeta),
+      );
+    }
+    if (data.containsKey('budget_alerts')) {
+      context.handle(
+        _budgetAlertsMeta,
+        budgetAlerts.isAcceptableOrUnknown(
+          data['budget_alerts']!,
+          _budgetAlertsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('goal_reminders')) {
+      context.handle(
+        _goalRemindersMeta,
+        goalReminders.isAcceptableOrUnknown(
+          data['goal_reminders']!,
+          _goalRemindersMeta,
+        ),
+      );
+    }
+    if (data.containsKey('backup_frequency')) {
+      context.handle(
+        _backupFrequencyMeta,
+        backupFrequency.isAcceptableOrUnknown(
+          data['backup_frequency']!,
+          _backupFrequencyMeta,
+        ),
+      );
+    }
+    if (data.containsKey('remember_me')) {
+      context.handle(
+        _rememberMeMeta,
+        rememberMe.isAcceptableOrUnknown(data['remember_me']!, _rememberMeMeta),
+      );
+    }
+    if (data.containsKey('saved_email')) {
+      context.handle(
+        _savedEmailMeta,
+        savedEmail.isAcceptableOrUnknown(data['saved_email']!, _savedEmailMeta),
+      );
+    }
+    if (data.containsKey('onboarding_complete')) {
+      context.handle(
+        _onboardingCompleteMeta,
+        onboardingComplete.isAcceptableOrUnknown(
+          data['onboarding_complete']!,
+          _onboardingCompleteMeta,
+        ),
+      );
+    }
+    if (data.containsKey('permissions_prompt_shown')) {
+      context.handle(
+        _permissionsPromptShownMeta,
+        permissionsPromptShown.isAcceptableOrUnknown(
+          data['permissions_prompt_shown']!,
+          _permissionsPromptShownMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  AppSetting map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return AppSetting(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      theme: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}theme'],
+      )!,
+      biometricEnabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}biometric_enabled'],
+      )!,
+      smsEnabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}sms_enabled'],
+      )!,
+      budgetAlerts: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}budget_alerts'],
+      )!,
+      goalReminders: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}goal_reminders'],
+      )!,
+      backupFrequency: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}backup_frequency'],
+      )!,
+      rememberMe: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}remember_me'],
+      )!,
+      savedEmail: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}saved_email'],
+      ),
+      onboardingComplete: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}onboarding_complete'],
+      )!,
+      permissionsPromptShown: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}permissions_prompt_shown'],
+      )!,
+    );
+  }
+
+  @override
+  $AppSettingsTable createAlias(String alias) {
+    return $AppSettingsTable(attachedDatabase, alias);
+  }
+}
+
+class AppSetting extends DataClass implements Insertable<AppSetting> {
+  final int id;
+  final String theme;
+  final bool biometricEnabled;
+  final bool smsEnabled;
+  final bool budgetAlerts;
+  final bool goalReminders;
+  final String backupFrequency;
+  final bool rememberMe;
+  final String? savedEmail;
+  final bool onboardingComplete;
+  final bool permissionsPromptShown;
+  const AppSetting({
+    required this.id,
+    required this.theme,
+    required this.biometricEnabled,
+    required this.smsEnabled,
+    required this.budgetAlerts,
+    required this.goalReminders,
+    required this.backupFrequency,
+    required this.rememberMe,
+    this.savedEmail,
+    required this.onboardingComplete,
+    required this.permissionsPromptShown,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['theme'] = Variable<String>(theme);
+    map['biometric_enabled'] = Variable<bool>(biometricEnabled);
+    map['sms_enabled'] = Variable<bool>(smsEnabled);
+    map['budget_alerts'] = Variable<bool>(budgetAlerts);
+    map['goal_reminders'] = Variable<bool>(goalReminders);
+    map['backup_frequency'] = Variable<String>(backupFrequency);
+    map['remember_me'] = Variable<bool>(rememberMe);
+    if (!nullToAbsent || savedEmail != null) {
+      map['saved_email'] = Variable<String>(savedEmail);
+    }
+    map['onboarding_complete'] = Variable<bool>(onboardingComplete);
+    map['permissions_prompt_shown'] = Variable<bool>(permissionsPromptShown);
+    return map;
+  }
+
+  AppSettingsCompanion toCompanion(bool nullToAbsent) {
+    return AppSettingsCompanion(
+      id: Value(id),
+      theme: Value(theme),
+      biometricEnabled: Value(biometricEnabled),
+      smsEnabled: Value(smsEnabled),
+      budgetAlerts: Value(budgetAlerts),
+      goalReminders: Value(goalReminders),
+      backupFrequency: Value(backupFrequency),
+      rememberMe: Value(rememberMe),
+      savedEmail: savedEmail == null && nullToAbsent
+          ? const Value.absent()
+          : Value(savedEmail),
+      onboardingComplete: Value(onboardingComplete),
+      permissionsPromptShown: Value(permissionsPromptShown),
+    );
+  }
+
+  factory AppSetting.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return AppSetting(
+      id: serializer.fromJson<int>(json['id']),
+      theme: serializer.fromJson<String>(json['theme']),
+      biometricEnabled: serializer.fromJson<bool>(json['biometricEnabled']),
+      smsEnabled: serializer.fromJson<bool>(json['smsEnabled']),
+      budgetAlerts: serializer.fromJson<bool>(json['budgetAlerts']),
+      goalReminders: serializer.fromJson<bool>(json['goalReminders']),
+      backupFrequency: serializer.fromJson<String>(json['backupFrequency']),
+      rememberMe: serializer.fromJson<bool>(json['rememberMe']),
+      savedEmail: serializer.fromJson<String?>(json['savedEmail']),
+      onboardingComplete: serializer.fromJson<bool>(json['onboardingComplete']),
+      permissionsPromptShown: serializer.fromJson<bool>(
+        json['permissionsPromptShown'],
+      ),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'theme': serializer.toJson<String>(theme),
+      'biometricEnabled': serializer.toJson<bool>(biometricEnabled),
+      'smsEnabled': serializer.toJson<bool>(smsEnabled),
+      'budgetAlerts': serializer.toJson<bool>(budgetAlerts),
+      'goalReminders': serializer.toJson<bool>(goalReminders),
+      'backupFrequency': serializer.toJson<String>(backupFrequency),
+      'rememberMe': serializer.toJson<bool>(rememberMe),
+      'savedEmail': serializer.toJson<String?>(savedEmail),
+      'onboardingComplete': serializer.toJson<bool>(onboardingComplete),
+      'permissionsPromptShown': serializer.toJson<bool>(permissionsPromptShown),
+    };
+  }
+
+  AppSetting copyWith({
+    int? id,
+    String? theme,
+    bool? biometricEnabled,
+    bool? smsEnabled,
+    bool? budgetAlerts,
+    bool? goalReminders,
+    String? backupFrequency,
+    bool? rememberMe,
+    Value<String?> savedEmail = const Value.absent(),
+    bool? onboardingComplete,
+    bool? permissionsPromptShown,
+  }) => AppSetting(
+    id: id ?? this.id,
+    theme: theme ?? this.theme,
+    biometricEnabled: biometricEnabled ?? this.biometricEnabled,
+    smsEnabled: smsEnabled ?? this.smsEnabled,
+    budgetAlerts: budgetAlerts ?? this.budgetAlerts,
+    goalReminders: goalReminders ?? this.goalReminders,
+    backupFrequency: backupFrequency ?? this.backupFrequency,
+    rememberMe: rememberMe ?? this.rememberMe,
+    savedEmail: savedEmail.present ? savedEmail.value : this.savedEmail,
+    onboardingComplete: onboardingComplete ?? this.onboardingComplete,
+    permissionsPromptShown:
+        permissionsPromptShown ?? this.permissionsPromptShown,
+  );
+  AppSetting copyWithCompanion(AppSettingsCompanion data) {
+    return AppSetting(
+      id: data.id.present ? data.id.value : this.id,
+      theme: data.theme.present ? data.theme.value : this.theme,
+      biometricEnabled: data.biometricEnabled.present
+          ? data.biometricEnabled.value
+          : this.biometricEnabled,
+      smsEnabled: data.smsEnabled.present
+          ? data.smsEnabled.value
+          : this.smsEnabled,
+      budgetAlerts: data.budgetAlerts.present
+          ? data.budgetAlerts.value
+          : this.budgetAlerts,
+      goalReminders: data.goalReminders.present
+          ? data.goalReminders.value
+          : this.goalReminders,
+      backupFrequency: data.backupFrequency.present
+          ? data.backupFrequency.value
+          : this.backupFrequency,
+      rememberMe: data.rememberMe.present
+          ? data.rememberMe.value
+          : this.rememberMe,
+      savedEmail: data.savedEmail.present
+          ? data.savedEmail.value
+          : this.savedEmail,
+      onboardingComplete: data.onboardingComplete.present
+          ? data.onboardingComplete.value
+          : this.onboardingComplete,
+      permissionsPromptShown: data.permissionsPromptShown.present
+          ? data.permissionsPromptShown.value
+          : this.permissionsPromptShown,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AppSetting(')
+          ..write('id: $id, ')
+          ..write('theme: $theme, ')
+          ..write('biometricEnabled: $biometricEnabled, ')
+          ..write('smsEnabled: $smsEnabled, ')
+          ..write('budgetAlerts: $budgetAlerts, ')
+          ..write('goalReminders: $goalReminders, ')
+          ..write('backupFrequency: $backupFrequency, ')
+          ..write('rememberMe: $rememberMe, ')
+          ..write('savedEmail: $savedEmail, ')
+          ..write('onboardingComplete: $onboardingComplete, ')
+          ..write('permissionsPromptShown: $permissionsPromptShown')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    theme,
+    biometricEnabled,
+    smsEnabled,
+    budgetAlerts,
+    goalReminders,
+    backupFrequency,
+    rememberMe,
+    savedEmail,
+    onboardingComplete,
+    permissionsPromptShown,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is AppSetting &&
+          other.id == this.id &&
+          other.theme == this.theme &&
+          other.biometricEnabled == this.biometricEnabled &&
+          other.smsEnabled == this.smsEnabled &&
+          other.budgetAlerts == this.budgetAlerts &&
+          other.goalReminders == this.goalReminders &&
+          other.backupFrequency == this.backupFrequency &&
+          other.rememberMe == this.rememberMe &&
+          other.savedEmail == this.savedEmail &&
+          other.onboardingComplete == this.onboardingComplete &&
+          other.permissionsPromptShown == this.permissionsPromptShown);
+}
+
+class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
+  final Value<int> id;
+  final Value<String> theme;
+  final Value<bool> biometricEnabled;
+  final Value<bool> smsEnabled;
+  final Value<bool> budgetAlerts;
+  final Value<bool> goalReminders;
+  final Value<String> backupFrequency;
+  final Value<bool> rememberMe;
+  final Value<String?> savedEmail;
+  final Value<bool> onboardingComplete;
+  final Value<bool> permissionsPromptShown;
+  const AppSettingsCompanion({
+    this.id = const Value.absent(),
+    this.theme = const Value.absent(),
+    this.biometricEnabled = const Value.absent(),
+    this.smsEnabled = const Value.absent(),
+    this.budgetAlerts = const Value.absent(),
+    this.goalReminders = const Value.absent(),
+    this.backupFrequency = const Value.absent(),
+    this.rememberMe = const Value.absent(),
+    this.savedEmail = const Value.absent(),
+    this.onboardingComplete = const Value.absent(),
+    this.permissionsPromptShown = const Value.absent(),
+  });
+  AppSettingsCompanion.insert({
+    this.id = const Value.absent(),
+    this.theme = const Value.absent(),
+    this.biometricEnabled = const Value.absent(),
+    this.smsEnabled = const Value.absent(),
+    this.budgetAlerts = const Value.absent(),
+    this.goalReminders = const Value.absent(),
+    this.backupFrequency = const Value.absent(),
+    this.rememberMe = const Value.absent(),
+    this.savedEmail = const Value.absent(),
+    this.onboardingComplete = const Value.absent(),
+    this.permissionsPromptShown = const Value.absent(),
+  });
+  static Insertable<AppSetting> custom({
+    Expression<int>? id,
+    Expression<String>? theme,
+    Expression<bool>? biometricEnabled,
+    Expression<bool>? smsEnabled,
+    Expression<bool>? budgetAlerts,
+    Expression<bool>? goalReminders,
+    Expression<String>? backupFrequency,
+    Expression<bool>? rememberMe,
+    Expression<String>? savedEmail,
+    Expression<bool>? onboardingComplete,
+    Expression<bool>? permissionsPromptShown,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (theme != null) 'theme': theme,
+      if (biometricEnabled != null) 'biometric_enabled': biometricEnabled,
+      if (smsEnabled != null) 'sms_enabled': smsEnabled,
+      if (budgetAlerts != null) 'budget_alerts': budgetAlerts,
+      if (goalReminders != null) 'goal_reminders': goalReminders,
+      if (backupFrequency != null) 'backup_frequency': backupFrequency,
+      if (rememberMe != null) 'remember_me': rememberMe,
+      if (savedEmail != null) 'saved_email': savedEmail,
+      if (onboardingComplete != null) 'onboarding_complete': onboardingComplete,
+      if (permissionsPromptShown != null)
+        'permissions_prompt_shown': permissionsPromptShown,
+    });
+  }
+
+  AppSettingsCompanion copyWith({
+    Value<int>? id,
+    Value<String>? theme,
+    Value<bool>? biometricEnabled,
+    Value<bool>? smsEnabled,
+    Value<bool>? budgetAlerts,
+    Value<bool>? goalReminders,
+    Value<String>? backupFrequency,
+    Value<bool>? rememberMe,
+    Value<String?>? savedEmail,
+    Value<bool>? onboardingComplete,
+    Value<bool>? permissionsPromptShown,
+  }) {
+    return AppSettingsCompanion(
+      id: id ?? this.id,
+      theme: theme ?? this.theme,
+      biometricEnabled: biometricEnabled ?? this.biometricEnabled,
+      smsEnabled: smsEnabled ?? this.smsEnabled,
+      budgetAlerts: budgetAlerts ?? this.budgetAlerts,
+      goalReminders: goalReminders ?? this.goalReminders,
+      backupFrequency: backupFrequency ?? this.backupFrequency,
+      rememberMe: rememberMe ?? this.rememberMe,
+      savedEmail: savedEmail ?? this.savedEmail,
+      onboardingComplete: onboardingComplete ?? this.onboardingComplete,
+      permissionsPromptShown:
+          permissionsPromptShown ?? this.permissionsPromptShown,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (theme.present) {
+      map['theme'] = Variable<String>(theme.value);
+    }
+    if (biometricEnabled.present) {
+      map['biometric_enabled'] = Variable<bool>(biometricEnabled.value);
+    }
+    if (smsEnabled.present) {
+      map['sms_enabled'] = Variable<bool>(smsEnabled.value);
+    }
+    if (budgetAlerts.present) {
+      map['budget_alerts'] = Variable<bool>(budgetAlerts.value);
+    }
+    if (goalReminders.present) {
+      map['goal_reminders'] = Variable<bool>(goalReminders.value);
+    }
+    if (backupFrequency.present) {
+      map['backup_frequency'] = Variable<String>(backupFrequency.value);
+    }
+    if (rememberMe.present) {
+      map['remember_me'] = Variable<bool>(rememberMe.value);
+    }
+    if (savedEmail.present) {
+      map['saved_email'] = Variable<String>(savedEmail.value);
+    }
+    if (onboardingComplete.present) {
+      map['onboarding_complete'] = Variable<bool>(onboardingComplete.value);
+    }
+    if (permissionsPromptShown.present) {
+      map['permissions_prompt_shown'] = Variable<bool>(
+        permissionsPromptShown.value,
+      );
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AppSettingsCompanion(')
+          ..write('id: $id, ')
+          ..write('theme: $theme, ')
+          ..write('biometricEnabled: $biometricEnabled, ')
+          ..write('smsEnabled: $smsEnabled, ')
+          ..write('budgetAlerts: $budgetAlerts, ')
+          ..write('goalReminders: $goalReminders, ')
+          ..write('backupFrequency: $backupFrequency, ')
+          ..write('rememberMe: $rememberMe, ')
+          ..write('savedEmail: $savedEmail, ')
+          ..write('onboardingComplete: $onboardingComplete, ')
+          ..write('permissionsPromptShown: $permissionsPromptShown')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $NotificationsTable extends Notifications
+    with TableInfo<$NotificationsTable, Notification> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $NotificationsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _titleMeta = const VerificationMeta('title');
+  @override
+  late final GeneratedColumn<String> title = GeneratedColumn<String>(
+    'title',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _bodyMeta = const VerificationMeta('body');
+  @override
+  late final GeneratedColumn<String> body = GeneratedColumn<String>(
+    'body',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _typeMeta = const VerificationMeta('type');
+  @override
+  late final GeneratedColumn<String> type = GeneratedColumn<String>(
+    'type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _entityIdMeta = const VerificationMeta(
+    'entityId',
+  );
+  @override
+  late final GeneratedColumn<int> entityId = GeneratedColumn<int>(
+    'entity_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _scheduledForMeta = const VerificationMeta(
+    'scheduledFor',
+  );
+  @override
+  late final GeneratedColumn<DateTime> scheduledFor = GeneratedColumn<DateTime>(
+    'scheduled_for',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _isReadMeta = const VerificationMeta('isRead');
+  @override
+  late final GeneratedColumn<bool> isRead = GeneratedColumn<bool>(
+    'is_read',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_read" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _profileIdMeta = const VerificationMeta(
+    'profileId',
+  );
+  @override
+  late final GeneratedColumn<int> profileId = GeneratedColumn<int>(
+    'profile_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    title,
+    body,
+    type,
+    entityId,
+    scheduledFor,
+    isRead,
+    createdAt,
+    profileId,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'notifications';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<Notification> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('title')) {
+      context.handle(
+        _titleMeta,
+        title.isAcceptableOrUnknown(data['title']!, _titleMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_titleMeta);
+    }
+    if (data.containsKey('body')) {
+      context.handle(
+        _bodyMeta,
+        body.isAcceptableOrUnknown(data['body']!, _bodyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_bodyMeta);
+    }
+    if (data.containsKey('type')) {
+      context.handle(
+        _typeMeta,
+        type.isAcceptableOrUnknown(data['type']!, _typeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_typeMeta);
+    }
+    if (data.containsKey('entity_id')) {
+      context.handle(
+        _entityIdMeta,
+        entityId.isAcceptableOrUnknown(data['entity_id']!, _entityIdMeta),
+      );
+    }
+    if (data.containsKey('scheduled_for')) {
+      context.handle(
+        _scheduledForMeta,
+        scheduledFor.isAcceptableOrUnknown(
+          data['scheduled_for']!,
+          _scheduledForMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_scheduledForMeta);
+    }
+    if (data.containsKey('is_read')) {
+      context.handle(
+        _isReadMeta,
+        isRead.isAcceptableOrUnknown(data['is_read']!, _isReadMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    if (data.containsKey('profile_id')) {
+      context.handle(
+        _profileIdMeta,
+        profileId.isAcceptableOrUnknown(data['profile_id']!, _profileIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_profileIdMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  Notification map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return Notification(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      title: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}title'],
+      )!,
+      body: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}body'],
+      )!,
+      type: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}type'],
+      )!,
+      entityId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}entity_id'],
+      ),
+      scheduledFor: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}scheduled_for'],
+      )!,
+      isRead: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_read'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      profileId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}profile_id'],
+      )!,
+    );
+  }
+
+  @override
+  $NotificationsTable createAlias(String alias) {
+    return $NotificationsTable(attachedDatabase, alias);
+  }
+}
+
+class Notification extends DataClass implements Insertable<Notification> {
+  final int id;
+  final String title;
+  final String body;
+  final String type;
+  final int? entityId;
+  final DateTime scheduledFor;
+  final bool isRead;
+  final DateTime createdAt;
+  final int profileId;
+  const Notification({
+    required this.id,
+    required this.title,
+    required this.body,
+    required this.type,
+    this.entityId,
+    required this.scheduledFor,
+    required this.isRead,
+    required this.createdAt,
+    required this.profileId,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['title'] = Variable<String>(title);
+    map['body'] = Variable<String>(body);
+    map['type'] = Variable<String>(type);
+    if (!nullToAbsent || entityId != null) {
+      map['entity_id'] = Variable<int>(entityId);
+    }
+    map['scheduled_for'] = Variable<DateTime>(scheduledFor);
+    map['is_read'] = Variable<bool>(isRead);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['profile_id'] = Variable<int>(profileId);
+    return map;
+  }
+
+  NotificationsCompanion toCompanion(bool nullToAbsent) {
+    return NotificationsCompanion(
+      id: Value(id),
+      title: Value(title),
+      body: Value(body),
+      type: Value(type),
+      entityId: entityId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(entityId),
+      scheduledFor: Value(scheduledFor),
+      isRead: Value(isRead),
+      createdAt: Value(createdAt),
+      profileId: Value(profileId),
+    );
+  }
+
+  factory Notification.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return Notification(
+      id: serializer.fromJson<int>(json['id']),
+      title: serializer.fromJson<String>(json['title']),
+      body: serializer.fromJson<String>(json['body']),
+      type: serializer.fromJson<String>(json['type']),
+      entityId: serializer.fromJson<int?>(json['entityId']),
+      scheduledFor: serializer.fromJson<DateTime>(json['scheduledFor']),
+      isRead: serializer.fromJson<bool>(json['isRead']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      profileId: serializer.fromJson<int>(json['profileId']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'title': serializer.toJson<String>(title),
+      'body': serializer.toJson<String>(body),
+      'type': serializer.toJson<String>(type),
+      'entityId': serializer.toJson<int?>(entityId),
+      'scheduledFor': serializer.toJson<DateTime>(scheduledFor),
+      'isRead': serializer.toJson<bool>(isRead),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'profileId': serializer.toJson<int>(profileId),
+    };
+  }
+
+  Notification copyWith({
+    int? id,
+    String? title,
+    String? body,
+    String? type,
+    Value<int?> entityId = const Value.absent(),
+    DateTime? scheduledFor,
+    bool? isRead,
+    DateTime? createdAt,
+    int? profileId,
+  }) => Notification(
+    id: id ?? this.id,
+    title: title ?? this.title,
+    body: body ?? this.body,
+    type: type ?? this.type,
+    entityId: entityId.present ? entityId.value : this.entityId,
+    scheduledFor: scheduledFor ?? this.scheduledFor,
+    isRead: isRead ?? this.isRead,
+    createdAt: createdAt ?? this.createdAt,
+    profileId: profileId ?? this.profileId,
+  );
+  Notification copyWithCompanion(NotificationsCompanion data) {
+    return Notification(
+      id: data.id.present ? data.id.value : this.id,
+      title: data.title.present ? data.title.value : this.title,
+      body: data.body.present ? data.body.value : this.body,
+      type: data.type.present ? data.type.value : this.type,
+      entityId: data.entityId.present ? data.entityId.value : this.entityId,
+      scheduledFor: data.scheduledFor.present
+          ? data.scheduledFor.value
+          : this.scheduledFor,
+      isRead: data.isRead.present ? data.isRead.value : this.isRead,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      profileId: data.profileId.present ? data.profileId.value : this.profileId,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('Notification(')
+          ..write('id: $id, ')
+          ..write('title: $title, ')
+          ..write('body: $body, ')
+          ..write('type: $type, ')
+          ..write('entityId: $entityId, ')
+          ..write('scheduledFor: $scheduledFor, ')
+          ..write('isRead: $isRead, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('profileId: $profileId')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    title,
+    body,
+    type,
+    entityId,
+    scheduledFor,
+    isRead,
+    createdAt,
+    profileId,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is Notification &&
+          other.id == this.id &&
+          other.title == this.title &&
+          other.body == this.body &&
+          other.type == this.type &&
+          other.entityId == this.entityId &&
+          other.scheduledFor == this.scheduledFor &&
+          other.isRead == this.isRead &&
+          other.createdAt == this.createdAt &&
+          other.profileId == this.profileId);
+}
+
+class NotificationsCompanion extends UpdateCompanion<Notification> {
+  final Value<int> id;
+  final Value<String> title;
+  final Value<String> body;
+  final Value<String> type;
+  final Value<int?> entityId;
+  final Value<DateTime> scheduledFor;
+  final Value<bool> isRead;
+  final Value<DateTime> createdAt;
+  final Value<int> profileId;
+  const NotificationsCompanion({
+    this.id = const Value.absent(),
+    this.title = const Value.absent(),
+    this.body = const Value.absent(),
+    this.type = const Value.absent(),
+    this.entityId = const Value.absent(),
+    this.scheduledFor = const Value.absent(),
+    this.isRead = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.profileId = const Value.absent(),
+  });
+  NotificationsCompanion.insert({
+    this.id = const Value.absent(),
+    required String title,
+    required String body,
+    required String type,
+    this.entityId = const Value.absent(),
+    required DateTime scheduledFor,
+    this.isRead = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    required int profileId,
+  }) : title = Value(title),
+       body = Value(body),
+       type = Value(type),
+       scheduledFor = Value(scheduledFor),
+       profileId = Value(profileId);
+  static Insertable<Notification> custom({
+    Expression<int>? id,
+    Expression<String>? title,
+    Expression<String>? body,
+    Expression<String>? type,
+    Expression<int>? entityId,
+    Expression<DateTime>? scheduledFor,
+    Expression<bool>? isRead,
+    Expression<DateTime>? createdAt,
+    Expression<int>? profileId,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (title != null) 'title': title,
+      if (body != null) 'body': body,
+      if (type != null) 'type': type,
+      if (entityId != null) 'entity_id': entityId,
+      if (scheduledFor != null) 'scheduled_for': scheduledFor,
+      if (isRead != null) 'is_read': isRead,
+      if (createdAt != null) 'created_at': createdAt,
+      if (profileId != null) 'profile_id': profileId,
+    });
+  }
+
+  NotificationsCompanion copyWith({
+    Value<int>? id,
+    Value<String>? title,
+    Value<String>? body,
+    Value<String>? type,
+    Value<int?>? entityId,
+    Value<DateTime>? scheduledFor,
+    Value<bool>? isRead,
+    Value<DateTime>? createdAt,
+    Value<int>? profileId,
+  }) {
+    return NotificationsCompanion(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      body: body ?? this.body,
+      type: type ?? this.type,
+      entityId: entityId ?? this.entityId,
+      scheduledFor: scheduledFor ?? this.scheduledFor,
+      isRead: isRead ?? this.isRead,
+      createdAt: createdAt ?? this.createdAt,
+      profileId: profileId ?? this.profileId,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (title.present) {
+      map['title'] = Variable<String>(title.value);
+    }
+    if (body.present) {
+      map['body'] = Variable<String>(body.value);
+    }
+    if (type.present) {
+      map['type'] = Variable<String>(type.value);
+    }
+    if (entityId.present) {
+      map['entity_id'] = Variable<int>(entityId.value);
+    }
+    if (scheduledFor.present) {
+      map['scheduled_for'] = Variable<DateTime>(scheduledFor.value);
+    }
+    if (isRead.present) {
+      map['is_read'] = Variable<bool>(isRead.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (profileId.present) {
+      map['profile_id'] = Variable<int>(profileId.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('NotificationsCompanion(')
+          ..write('id: $id, ')
+          ..write('title: $title, ')
+          ..write('body: $body, ')
+          ..write('type: $type, ')
+          ..write('entityId: $entityId, ')
+          ..write('scheduledFor: $scheduledFor, ')
+          ..write('isRead: $isRead, ')
+          ..write('createdAt: $createdAt, ')
           ..write('profileId: $profileId')
           ..write(')'))
         .toString();
@@ -3049,6 +4796,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       $PendingTransactionsTable(this);
   late final $CategoriesTable categories = $CategoriesTable(this);
   late final $BudgetsTable budgets = $BudgetsTable(this);
+  late final $UserProfilesTable userProfiles = $UserProfilesTable(this);
+  late final $AppSettingsTable appSettings = $AppSettingsTable(this);
+  late final $NotificationsTable notifications = $NotificationsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -3060,6 +4810,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     pendingTransactions,
     categories,
     budgets,
+    userProfiles,
+    appSettings,
+    notifications,
   ];
 }
 
@@ -4441,6 +6194,7 @@ typedef $$BudgetsTableCreateCompanionBuilder =
       required DateTime startDate,
       required DateTime endDate,
       Value<bool> isRecurring,
+      Value<double> spentAmount,
       required int profileId,
     });
 typedef $$BudgetsTableUpdateCompanionBuilder =
@@ -4453,6 +6207,7 @@ typedef $$BudgetsTableUpdateCompanionBuilder =
       Value<DateTime> startDate,
       Value<DateTime> endDate,
       Value<bool> isRecurring,
+      Value<double> spentAmount,
       Value<int> profileId,
     });
 
@@ -4524,6 +6279,12 @@ class $$BudgetsTableFilterComposer
     column: $table.isRecurring,
     builder: (column) => ColumnFilters(column),
   );
+
+  ColumnWithTypeConverterFilters<double, double, double> get spentAmount =>
+      $composableBuilder(
+        column: $table.spentAmount,
+        builder: (column) => ColumnWithTypeConverterFilters(column),
+      );
 
   ColumnFilters<int> get profileId => $composableBuilder(
     column: $table.profileId,
@@ -4598,6 +6359,11 @@ class $$BudgetsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<double> get spentAmount => $composableBuilder(
+    column: $table.spentAmount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get profileId => $composableBuilder(
     column: $table.profileId,
     builder: (column) => ColumnOrderings(column),
@@ -4662,6 +6428,12 @@ class $$BudgetsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumnWithTypeConverter<double, double> get spentAmount =>
+      $composableBuilder(
+        column: $table.spentAmount,
+        builder: (column) => column,
+      );
+
   GeneratedColumn<int> get profileId =>
       $composableBuilder(column: $table.profileId, builder: (column) => column);
 
@@ -4725,6 +6497,7 @@ class $$BudgetsTableTableManager
                 Value<DateTime> startDate = const Value.absent(),
                 Value<DateTime> endDate = const Value.absent(),
                 Value<bool> isRecurring = const Value.absent(),
+                Value<double> spentAmount = const Value.absent(),
                 Value<int> profileId = const Value.absent(),
               }) => BudgetsCompanion(
                 id: id,
@@ -4735,6 +6508,7 @@ class $$BudgetsTableTableManager
                 startDate: startDate,
                 endDate: endDate,
                 isRecurring: isRecurring,
+                spentAmount: spentAmount,
                 profileId: profileId,
               ),
           createCompanionCallback:
@@ -4747,6 +6521,7 @@ class $$BudgetsTableTableManager
                 required DateTime startDate,
                 required DateTime endDate,
                 Value<bool> isRecurring = const Value.absent(),
+                Value<double> spentAmount = const Value.absent(),
                 required int profileId,
               }) => BudgetsCompanion.insert(
                 id: id,
@@ -4757,6 +6532,7 @@ class $$BudgetsTableTableManager
                 startDate: startDate,
                 endDate: endDate,
                 isRecurring: isRecurring,
+                spentAmount: spentAmount,
                 profileId: profileId,
               ),
           withReferenceMapper: (p0) => p0
@@ -4826,6 +6602,842 @@ typedef $$BudgetsTableProcessedTableManager =
       Budget,
       PrefetchHooks Function({bool categoryId})
     >;
+typedef $$UserProfilesTableCreateCompanionBuilder =
+    UserProfilesCompanion Function({
+      Value<int> id,
+      required String authId,
+      required String displayName,
+      Value<String> defaultCurrency,
+      Value<String> budgetPeriod,
+      Value<DateTime?> lastSync,
+      Value<DateTime> createdAt,
+    });
+typedef $$UserProfilesTableUpdateCompanionBuilder =
+    UserProfilesCompanion Function({
+      Value<int> id,
+      Value<String> authId,
+      Value<String> displayName,
+      Value<String> defaultCurrency,
+      Value<String> budgetPeriod,
+      Value<DateTime?> lastSync,
+      Value<DateTime> createdAt,
+    });
+
+class $$UserProfilesTableFilterComposer
+    extends Composer<_$AppDatabase, $UserProfilesTable> {
+  $$UserProfilesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get authId => $composableBuilder(
+    column: $table.authId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get displayName => $composableBuilder(
+    column: $table.displayName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get defaultCurrency => $composableBuilder(
+    column: $table.defaultCurrency,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get budgetPeriod => $composableBuilder(
+    column: $table.budgetPeriod,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get lastSync => $composableBuilder(
+    column: $table.lastSync,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$UserProfilesTableOrderingComposer
+    extends Composer<_$AppDatabase, $UserProfilesTable> {
+  $$UserProfilesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get authId => $composableBuilder(
+    column: $table.authId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get displayName => $composableBuilder(
+    column: $table.displayName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get defaultCurrency => $composableBuilder(
+    column: $table.defaultCurrency,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get budgetPeriod => $composableBuilder(
+    column: $table.budgetPeriod,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get lastSync => $composableBuilder(
+    column: $table.lastSync,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$UserProfilesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $UserProfilesTable> {
+  $$UserProfilesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get authId =>
+      $composableBuilder(column: $table.authId, builder: (column) => column);
+
+  GeneratedColumn<String> get displayName => $composableBuilder(
+    column: $table.displayName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get defaultCurrency => $composableBuilder(
+    column: $table.defaultCurrency,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get budgetPeriod => $composableBuilder(
+    column: $table.budgetPeriod,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get lastSync =>
+      $composableBuilder(column: $table.lastSync, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$UserProfilesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $UserProfilesTable,
+          UserProfile,
+          $$UserProfilesTableFilterComposer,
+          $$UserProfilesTableOrderingComposer,
+          $$UserProfilesTableAnnotationComposer,
+          $$UserProfilesTableCreateCompanionBuilder,
+          $$UserProfilesTableUpdateCompanionBuilder,
+          (
+            UserProfile,
+            BaseReferences<_$AppDatabase, $UserProfilesTable, UserProfile>,
+          ),
+          UserProfile,
+          PrefetchHooks Function()
+        > {
+  $$UserProfilesTableTableManager(_$AppDatabase db, $UserProfilesTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$UserProfilesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$UserProfilesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$UserProfilesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> authId = const Value.absent(),
+                Value<String> displayName = const Value.absent(),
+                Value<String> defaultCurrency = const Value.absent(),
+                Value<String> budgetPeriod = const Value.absent(),
+                Value<DateTime?> lastSync = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+              }) => UserProfilesCompanion(
+                id: id,
+                authId: authId,
+                displayName: displayName,
+                defaultCurrency: defaultCurrency,
+                budgetPeriod: budgetPeriod,
+                lastSync: lastSync,
+                createdAt: createdAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String authId,
+                required String displayName,
+                Value<String> defaultCurrency = const Value.absent(),
+                Value<String> budgetPeriod = const Value.absent(),
+                Value<DateTime?> lastSync = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+              }) => UserProfilesCompanion.insert(
+                id: id,
+                authId: authId,
+                displayName: displayName,
+                defaultCurrency: defaultCurrency,
+                budgetPeriod: budgetPeriod,
+                lastSync: lastSync,
+                createdAt: createdAt,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$UserProfilesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $UserProfilesTable,
+      UserProfile,
+      $$UserProfilesTableFilterComposer,
+      $$UserProfilesTableOrderingComposer,
+      $$UserProfilesTableAnnotationComposer,
+      $$UserProfilesTableCreateCompanionBuilder,
+      $$UserProfilesTableUpdateCompanionBuilder,
+      (
+        UserProfile,
+        BaseReferences<_$AppDatabase, $UserProfilesTable, UserProfile>,
+      ),
+      UserProfile,
+      PrefetchHooks Function()
+    >;
+typedef $$AppSettingsTableCreateCompanionBuilder =
+    AppSettingsCompanion Function({
+      Value<int> id,
+      Value<String> theme,
+      Value<bool> biometricEnabled,
+      Value<bool> smsEnabled,
+      Value<bool> budgetAlerts,
+      Value<bool> goalReminders,
+      Value<String> backupFrequency,
+      Value<bool> rememberMe,
+      Value<String?> savedEmail,
+      Value<bool> onboardingComplete,
+      Value<bool> permissionsPromptShown,
+    });
+typedef $$AppSettingsTableUpdateCompanionBuilder =
+    AppSettingsCompanion Function({
+      Value<int> id,
+      Value<String> theme,
+      Value<bool> biometricEnabled,
+      Value<bool> smsEnabled,
+      Value<bool> budgetAlerts,
+      Value<bool> goalReminders,
+      Value<String> backupFrequency,
+      Value<bool> rememberMe,
+      Value<String?> savedEmail,
+      Value<bool> onboardingComplete,
+      Value<bool> permissionsPromptShown,
+    });
+
+class $$AppSettingsTableFilterComposer
+    extends Composer<_$AppDatabase, $AppSettingsTable> {
+  $$AppSettingsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get theme => $composableBuilder(
+    column: $table.theme,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get biometricEnabled => $composableBuilder(
+    column: $table.biometricEnabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get smsEnabled => $composableBuilder(
+    column: $table.smsEnabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get budgetAlerts => $composableBuilder(
+    column: $table.budgetAlerts,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get goalReminders => $composableBuilder(
+    column: $table.goalReminders,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get backupFrequency => $composableBuilder(
+    column: $table.backupFrequency,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get rememberMe => $composableBuilder(
+    column: $table.rememberMe,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get savedEmail => $composableBuilder(
+    column: $table.savedEmail,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get onboardingComplete => $composableBuilder(
+    column: $table.onboardingComplete,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get permissionsPromptShown => $composableBuilder(
+    column: $table.permissionsPromptShown,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$AppSettingsTableOrderingComposer
+    extends Composer<_$AppDatabase, $AppSettingsTable> {
+  $$AppSettingsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get theme => $composableBuilder(
+    column: $table.theme,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get biometricEnabled => $composableBuilder(
+    column: $table.biometricEnabled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get smsEnabled => $composableBuilder(
+    column: $table.smsEnabled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get budgetAlerts => $composableBuilder(
+    column: $table.budgetAlerts,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get goalReminders => $composableBuilder(
+    column: $table.goalReminders,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get backupFrequency => $composableBuilder(
+    column: $table.backupFrequency,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get rememberMe => $composableBuilder(
+    column: $table.rememberMe,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get savedEmail => $composableBuilder(
+    column: $table.savedEmail,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get onboardingComplete => $composableBuilder(
+    column: $table.onboardingComplete,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get permissionsPromptShown => $composableBuilder(
+    column: $table.permissionsPromptShown,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$AppSettingsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $AppSettingsTable> {
+  $$AppSettingsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get theme =>
+      $composableBuilder(column: $table.theme, builder: (column) => column);
+
+  GeneratedColumn<bool> get biometricEnabled => $composableBuilder(
+    column: $table.biometricEnabled,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get smsEnabled => $composableBuilder(
+    column: $table.smsEnabled,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get budgetAlerts => $composableBuilder(
+    column: $table.budgetAlerts,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get goalReminders => $composableBuilder(
+    column: $table.goalReminders,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get backupFrequency => $composableBuilder(
+    column: $table.backupFrequency,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get rememberMe => $composableBuilder(
+    column: $table.rememberMe,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get savedEmail => $composableBuilder(
+    column: $table.savedEmail,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get onboardingComplete => $composableBuilder(
+    column: $table.onboardingComplete,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get permissionsPromptShown => $composableBuilder(
+    column: $table.permissionsPromptShown,
+    builder: (column) => column,
+  );
+}
+
+class $$AppSettingsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $AppSettingsTable,
+          AppSetting,
+          $$AppSettingsTableFilterComposer,
+          $$AppSettingsTableOrderingComposer,
+          $$AppSettingsTableAnnotationComposer,
+          $$AppSettingsTableCreateCompanionBuilder,
+          $$AppSettingsTableUpdateCompanionBuilder,
+          (
+            AppSetting,
+            BaseReferences<_$AppDatabase, $AppSettingsTable, AppSetting>,
+          ),
+          AppSetting,
+          PrefetchHooks Function()
+        > {
+  $$AppSettingsTableTableManager(_$AppDatabase db, $AppSettingsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$AppSettingsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$AppSettingsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$AppSettingsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> theme = const Value.absent(),
+                Value<bool> biometricEnabled = const Value.absent(),
+                Value<bool> smsEnabled = const Value.absent(),
+                Value<bool> budgetAlerts = const Value.absent(),
+                Value<bool> goalReminders = const Value.absent(),
+                Value<String> backupFrequency = const Value.absent(),
+                Value<bool> rememberMe = const Value.absent(),
+                Value<String?> savedEmail = const Value.absent(),
+                Value<bool> onboardingComplete = const Value.absent(),
+                Value<bool> permissionsPromptShown = const Value.absent(),
+              }) => AppSettingsCompanion(
+                id: id,
+                theme: theme,
+                biometricEnabled: biometricEnabled,
+                smsEnabled: smsEnabled,
+                budgetAlerts: budgetAlerts,
+                goalReminders: goalReminders,
+                backupFrequency: backupFrequency,
+                rememberMe: rememberMe,
+                savedEmail: savedEmail,
+                onboardingComplete: onboardingComplete,
+                permissionsPromptShown: permissionsPromptShown,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> theme = const Value.absent(),
+                Value<bool> biometricEnabled = const Value.absent(),
+                Value<bool> smsEnabled = const Value.absent(),
+                Value<bool> budgetAlerts = const Value.absent(),
+                Value<bool> goalReminders = const Value.absent(),
+                Value<String> backupFrequency = const Value.absent(),
+                Value<bool> rememberMe = const Value.absent(),
+                Value<String?> savedEmail = const Value.absent(),
+                Value<bool> onboardingComplete = const Value.absent(),
+                Value<bool> permissionsPromptShown = const Value.absent(),
+              }) => AppSettingsCompanion.insert(
+                id: id,
+                theme: theme,
+                biometricEnabled: biometricEnabled,
+                smsEnabled: smsEnabled,
+                budgetAlerts: budgetAlerts,
+                goalReminders: goalReminders,
+                backupFrequency: backupFrequency,
+                rememberMe: rememberMe,
+                savedEmail: savedEmail,
+                onboardingComplete: onboardingComplete,
+                permissionsPromptShown: permissionsPromptShown,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$AppSettingsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $AppSettingsTable,
+      AppSetting,
+      $$AppSettingsTableFilterComposer,
+      $$AppSettingsTableOrderingComposer,
+      $$AppSettingsTableAnnotationComposer,
+      $$AppSettingsTableCreateCompanionBuilder,
+      $$AppSettingsTableUpdateCompanionBuilder,
+      (
+        AppSetting,
+        BaseReferences<_$AppDatabase, $AppSettingsTable, AppSetting>,
+      ),
+      AppSetting,
+      PrefetchHooks Function()
+    >;
+typedef $$NotificationsTableCreateCompanionBuilder =
+    NotificationsCompanion Function({
+      Value<int> id,
+      required String title,
+      required String body,
+      required String type,
+      Value<int?> entityId,
+      required DateTime scheduledFor,
+      Value<bool> isRead,
+      Value<DateTime> createdAt,
+      required int profileId,
+    });
+typedef $$NotificationsTableUpdateCompanionBuilder =
+    NotificationsCompanion Function({
+      Value<int> id,
+      Value<String> title,
+      Value<String> body,
+      Value<String> type,
+      Value<int?> entityId,
+      Value<DateTime> scheduledFor,
+      Value<bool> isRead,
+      Value<DateTime> createdAt,
+      Value<int> profileId,
+    });
+
+class $$NotificationsTableFilterComposer
+    extends Composer<_$AppDatabase, $NotificationsTable> {
+  $$NotificationsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get body => $composableBuilder(
+    column: $table.body,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get type => $composableBuilder(
+    column: $table.type,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get entityId => $composableBuilder(
+    column: $table.entityId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get scheduledFor => $composableBuilder(
+    column: $table.scheduledFor,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isRead => $composableBuilder(
+    column: $table.isRead,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get profileId => $composableBuilder(
+    column: $table.profileId,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$NotificationsTableOrderingComposer
+    extends Composer<_$AppDatabase, $NotificationsTable> {
+  $$NotificationsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get body => $composableBuilder(
+    column: $table.body,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get type => $composableBuilder(
+    column: $table.type,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get entityId => $composableBuilder(
+    column: $table.entityId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get scheduledFor => $composableBuilder(
+    column: $table.scheduledFor,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isRead => $composableBuilder(
+    column: $table.isRead,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get profileId => $composableBuilder(
+    column: $table.profileId,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$NotificationsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $NotificationsTable> {
+  $$NotificationsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get title =>
+      $composableBuilder(column: $table.title, builder: (column) => column);
+
+  GeneratedColumn<String> get body =>
+      $composableBuilder(column: $table.body, builder: (column) => column);
+
+  GeneratedColumn<String> get type =>
+      $composableBuilder(column: $table.type, builder: (column) => column);
+
+  GeneratedColumn<int> get entityId =>
+      $composableBuilder(column: $table.entityId, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get scheduledFor => $composableBuilder(
+    column: $table.scheduledFor,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isRead =>
+      $composableBuilder(column: $table.isRead, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<int> get profileId =>
+      $composableBuilder(column: $table.profileId, builder: (column) => column);
+}
+
+class $$NotificationsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $NotificationsTable,
+          Notification,
+          $$NotificationsTableFilterComposer,
+          $$NotificationsTableOrderingComposer,
+          $$NotificationsTableAnnotationComposer,
+          $$NotificationsTableCreateCompanionBuilder,
+          $$NotificationsTableUpdateCompanionBuilder,
+          (
+            Notification,
+            BaseReferences<_$AppDatabase, $NotificationsTable, Notification>,
+          ),
+          Notification,
+          PrefetchHooks Function()
+        > {
+  $$NotificationsTableTableManager(_$AppDatabase db, $NotificationsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$NotificationsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$NotificationsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$NotificationsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> title = const Value.absent(),
+                Value<String> body = const Value.absent(),
+                Value<String> type = const Value.absent(),
+                Value<int?> entityId = const Value.absent(),
+                Value<DateTime> scheduledFor = const Value.absent(),
+                Value<bool> isRead = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> profileId = const Value.absent(),
+              }) => NotificationsCompanion(
+                id: id,
+                title: title,
+                body: body,
+                type: type,
+                entityId: entityId,
+                scheduledFor: scheduledFor,
+                isRead: isRead,
+                createdAt: createdAt,
+                profileId: profileId,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String title,
+                required String body,
+                required String type,
+                Value<int?> entityId = const Value.absent(),
+                required DateTime scheduledFor,
+                Value<bool> isRead = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                required int profileId,
+              }) => NotificationsCompanion.insert(
+                id: id,
+                title: title,
+                body: body,
+                type: type,
+                entityId: entityId,
+                scheduledFor: scheduledFor,
+                isRead: isRead,
+                createdAt: createdAt,
+                profileId: profileId,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$NotificationsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $NotificationsTable,
+      Notification,
+      $$NotificationsTableFilterComposer,
+      $$NotificationsTableOrderingComposer,
+      $$NotificationsTableAnnotationComposer,
+      $$NotificationsTableCreateCompanionBuilder,
+      $$NotificationsTableUpdateCompanionBuilder,
+      (
+        Notification,
+        BaseReferences<_$AppDatabase, $NotificationsTable, Notification>,
+      ),
+      Notification,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -4842,4 +7454,10 @@ class $AppDatabaseManager {
       $$CategoriesTableTableManager(_db, _db.categories);
   $$BudgetsTableTableManager get budgets =>
       $$BudgetsTableTableManager(_db, _db.budgets);
+  $$UserProfilesTableTableManager get userProfiles =>
+      $$UserProfilesTableTableManager(_db, _db.userProfiles);
+  $$AppSettingsTableTableManager get appSettings =>
+      $$AppSettingsTableTableManager(_db, _db.appSettings);
+  $$NotificationsTableTableManager get notifications =>
+      $$NotificationsTableTableManager(_db, _db.notifications);
 }

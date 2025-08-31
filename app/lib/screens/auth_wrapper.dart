@@ -54,8 +54,8 @@ class _AuthWrapperState extends State<AuthWrapper> {
         // Retain session even if offline
         
         final biometricService = BiometricAuthService.instance;
-        final biometricEnabled = await biometricService?.isBiometricEnabled() ?? false;
-        final hasValidSession = await biometricService?.hasValidBiometricSession() ?? false;
+        final biometricEnabled = await biometricService.isBiometricEnabled();
+        final hasValidSession = await biometricService.hasValidBiometricSession();
         
         // Check if user is logged in and biometric is enabled
         bool needsBiometric = false;

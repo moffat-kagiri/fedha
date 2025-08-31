@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../models/transaction.dart';
+import '../data/app_database.dart';
 import '../screens/transaction_entry_unified_screen.dart';
 
 /// Provides static helpers to navigate to the unified transaction entry screen.

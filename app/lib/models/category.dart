@@ -3,13 +3,16 @@ part 'category.g.dart';
 
 @JsonSerializable()
 class Category {
-  String id;  
-  String name;  
-  String iconKey;
-  String colorKey;
-  bool isExpense;
-  int sortOrder;
-  String profileId;
+  final String id;  
+  final String name;  
+  final String iconKey;
+  final String colorKey;
+  final bool isExpense;
+  final int sortOrder;
+  final String profileId;
+  final String? description;
+  final DateTime createdAt;
+  final DateTime updatedAt;
   
   Category({
     required this.id,
@@ -19,17 +22,22 @@ class Category {
     this.isExpense = true,
     this.sortOrder = 0,
     required this.profileId,
-  });
+    this.description,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) : createdAt = createdAt ?? DateTime.now(),
+       updatedAt = updatedAt ?? DateTime.now();
 
   Map<String, dynamic> toJson() {
     return {
       'id': id,
       'name': name,
       'description': description,
-      'color': color,
-      'icon': icon,
-      'type': type,
-      'is_active': isActive,
+      'color_key': colorKey,
+      'icon_key': iconKey,
+      'is_expense': isExpense,
+      'sort_order': sortOrder,
+      'profile_id': profileId,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };
@@ -40,21 +48,22 @@ class Category {
       id: json['id'] ?? '',
       name: json['name'] ?? '',
       description: json['description'],
-      color: json['color'] ?? '#2196F3',
-      icon: json['icon'] ?? 'category',
-      type: json['type'] ?? 'expense',
-      isActive: json['is_active'] ?? json['isActive'] ?? true,
+      colorKey: json['color_key'] ?? '#2196F3',
+      iconKey: json['icon_key'] ?? 'category',
+      isExpense: json['is_expense'] ?? true,
+      sortOrder: json['sort_order'] ?? 0,
+      profileId: json['profile_id'] ?? '0',
       createdAt: json['created_at'] != null 
         ? DateTime.parse(json['created_at']) 
-        : DateTime.now(),
+        : null,
       updatedAt: json['updated_at'] != null 
         ? DateTime.parse(json['updated_at']) 
-        : DateTime.now(),
+        : null,
     );
   }
 
   @override
   String toString() {
-    return 'Category(id: $id, name: $name, type: $type)';
+    return 'Category(id: $id, name: $name, isExpense: $isExpense)';
   }
 }

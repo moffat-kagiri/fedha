@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import '../models/transaction.dart';
-import '../models/goal.dart';
-import '../models/enums.dart';
+import 'package:drift/drift.dart' hide Column;
+import '../data/app_database.dart';
 import '../services/offline_data_service.dart';
 
 class QuickTransactionEntry extends StatefulWidget {
@@ -27,7 +26,7 @@ class _QuickTransactionEntryState extends State<QuickTransactionEntry> {
   final _amountController = TextEditingController();
   final _descriptionController = TextEditingController();
   
-  TransactionType _selectedType = TransactionType.expense;
+  bool _isExpense = true;
   String _selectedCategory = 'Other';
   Goal? _selectedGoal;
   bool _isSaving = false;
@@ -51,15 +50,22 @@ class _QuickTransactionEntryState extends State<QuickTransactionEntry> {
   }
 
   void _loadTransactionData(Transaction transaction) {
-    _amountController.text = transaction.amount.toString();
-    _descriptionController.text = transaction.description ?? '';
-    _selectedType = transaction.type;
-    _selectedCategory = transaction.category?.toString() ?? 'Other';
+    _amountController.text = transaction.amountMinor.toString();
+    _descriptionController.text = transaction.description;
+    _isExpense = transaction.isExpense;
+    _selectedCategory = transaction.categoryId;
     
-    if (transaction.type == TransactionType.savings && transaction.goalId != null) {
+    if (!transaction.isExpense) {
       // Load the goal if it's a savings transaction
       final dataService = Provider.of<OfflineDataService>(context, listen: false);
-      _selectedGoal = dataService.getGoal(transaction.goalId!);
+      int? goalId = int.tryParse(transaction.categoryId);
+      if (goalId != null) {
+        dataService.getGoal(goalId).then((goal) {
+          if (mounted && goal != null) {
+            setState(() => _selectedGoal = goal);
+          }
+        });
+      }
     }
   }
 
@@ -82,39 +88,47 @@ class _QuickTransactionEntryState extends State<QuickTransactionEntry> {
       
       final existingTransaction = widget.editingTransaction ?? widget.existingTransaction;
       final transaction = Transaction(
-        id: existingTransaction?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
-        amount: double.parse(_amountController.text),
+        amountMinor: double.parse(_amountController.text),
         description: _descriptionController.text.trim(),
-        type: _selectedType,
-        categoryId: _selectedType == TransactionType.savings ? 'savings' : _selectedCategory,
-        category: _selectedType == TransactionType.savings ? TransactionCategory.other : null,
+        categoryId: _selectedGoal?.id.toString() ?? _selectedCategory,
         date: existingTransaction?.date ?? DateTime.now(),
-        goalId: _selectedType == TransactionType.savings ? _selectedGoal?.id : null,
-        profileId: 'current_profile', // TODO: Get actual profile ID
+        isExpense: _isExpense,
+        profileId: 1, // TODO: Get actual profile ID
+        currency: 'KES',
+        rawSms: null,
+        id: existingTransaction?.id ?? 0
+      );
+
+      final transactionCompanion = TransactionsCompanion(
+        id: existingTransaction != null ? Value(existingTransaction.id) : const Value.absent(),
+        amountMinor: Value(transaction.amountMinor),
+        description: Value(transaction.description),
+        categoryId: Value(transaction.categoryId),
+        date: Value(transaction.date),
+        isExpense: Value(transaction.isExpense),
+        profileId: Value(transaction.profileId),
+        currency: Value(transaction.currency),
+        rawSms: Value(transaction.rawSms),
       );
 
       if (existingTransaction != null) {
-        dataService.saveTransaction(transaction);
+        dataService.saveTransaction(transactionCompanion);
       } else {
-        dataService.saveTransaction(transaction);
+        dataService.saveTransaction(transactionCompanion);
       }
 
-      // Update goal progress if it's a savings transaction
-      if (_selectedType == TransactionType.savings && _selectedGoal != null) {
-        final updatedGoal = Goal(
-          id: _selectedGoal!.id,
-          name: _selectedGoal!.name,
-          description: _selectedGoal!.description,
-          targetAmount: _selectedGoal!.targetAmount,
-          currentAmount: _selectedGoal!.currentAmount + transaction.amount,
-          targetDate: _selectedGoal!.targetDate,
-          priority: _selectedGoal!.priority,
-          status: _selectedGoal!.status,
-          goalType: _selectedGoal!.goalType,
-          profileId: _selectedGoal!.profileId,
-          createdAt: _selectedGoal!.createdAt,
+      // Update goal progress if it's linked to a goal
+      if (!_isExpense && _selectedGoal != null) {
+        final updatedGoalCompanion = GoalsCompanion(
+          id: Value(_selectedGoal!.id),
+          title: Value(_selectedGoal!.title),
+          targetMinor: Value(_selectedGoal!.targetMinor + double.parse(_amountController.text)),
+          dueDate: Value(_selectedGoal!.dueDate),
+          currency: Value(_selectedGoal!.currency),
+          completed: Value(_selectedGoal!.completed),
+          profileId: Value(_selectedGoal!.profileId),
         );
-        dataService.saveGoal(updatedGoal);
+        dataService.saveGoal(updatedGoalCompanion);
       }
 
       if (mounted) {
@@ -148,14 +162,7 @@ class _QuickTransactionEntryState extends State<QuickTransactionEntry> {
   }
 
   List<String> get _currentCategories {
-    switch (_selectedType) {
-      case TransactionType.income:
-        return _incomeCategories;
-      case TransactionType.expense:
-        return _expenseCategories;
-      case TransactionType.savings:
-        return ['Savings'];
-    }
+    return _isExpense ? _expenseCategories : _incomeCategories;
   }
 
   @override
@@ -224,9 +231,8 @@ class _QuickTransactionEntryState extends State<QuickTransactionEntry> {
                       ),
                       child: Row(
                         children: [
-                          _buildTypeButton(TransactionType.income, 'Income', Icons.arrow_upward, Colors.green),
-                          _buildTypeButton(TransactionType.expense, 'Expense', Icons.arrow_downward, Colors.red),
-                          _buildTypeButton(TransactionType.savings, 'Savings', Icons.savings, const Color(0xFF007A39)),
+                          _buildTypeButton(false, 'Income/Savings', Icons.arrow_upward, Colors.green),
+                          _buildTypeButton(true, 'Expense', Icons.arrow_downward, Colors.red),
                         ],
                       ),
                     ),
@@ -278,59 +284,67 @@ class _QuickTransactionEntryState extends State<QuickTransactionEntry> {
                     
                     const SizedBox(height: 16),
                     
-                    // Category Dropdown (only for income/expense)
-                    if (_selectedType != TransactionType.savings)
-                      DropdownButtonFormField<String>(
-                        value: _selectedCategory,
-                        decoration: const InputDecoration(
-                          labelText: 'Category',
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.category, color: Color(0xFF007A39)),
-                        ),
-                        items: _currentCategories.map((category) {
-                          return DropdownMenuItem(
-                            value: category,
-                            child: Text(category),
-                          );
-                        }).toList(),
-                        onChanged: (value) {
-                          setState(() {
-                            _selectedCategory = value!;
-                          });
-                        },
+                    // Category Dropdown
+                    DropdownButtonFormField<String>(
+                      initialValue: _selectedCategory,
+                      decoration: const InputDecoration(
+                        labelText: 'Category',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.category, color: Color(0xFF007A39)),
                       ),
+                      items: _currentCategories.map((category) {
+                        return DropdownMenuItem(
+                          value: category,
+                          child: Text(category),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        setState(() {
+                          _selectedCategory = value!;
+                        });
+                      },
+                    ),
                     
-                    // Goal Selection (only for savings)
-                    if (_selectedType == TransactionType.savings) ...[
+                    // Goal Selection (only for non-expenses)
+                    if (!_isExpense) ...[
                       Consumer<OfflineDataService>(
                         builder: (context, dataService, child) {
-                          final goals = dataService.getAllGoals()
-                              .where((goal) => goal.status != 'completed')
-                              .toList();
+                          return FutureBuilder<List<Goal>>(
+                            future: dataService.getAllGoals(),
+                            builder: (context, snapshot) {
+                              if (!snapshot.hasData) {
+                                return const CircularProgressIndicator();
+                              }
+                              
+                              final goals = snapshot.data!
+                                  .where((goal) => !goal.completed)
+                                  .toList();
                           
-                          return DropdownButtonFormField<Goal?>(
-                            value: _selectedGoal,
-                            decoration: const InputDecoration(
-                              labelText: 'Assign to Goal (Optional)',
-                              border: OutlineInputBorder(),
-                              prefixIcon: Icon(Icons.flag, color: Color(0xFF007A39)),
-                            ),
-                            items: [
-                              const DropdownMenuItem<Goal?>(
-                                value: null,
-                                child: Text('General Savings (No specific goal)'),
-                              ),
-                              ...goals.map((goal) {
-                                return DropdownMenuItem<Goal?>(
-                                  value: goal,
-                                  child: Text('${goal.name} (Ksh ${goal.currentAmount.toStringAsFixed(2)} / Ksh ${goal.targetAmount.toStringAsFixed(2)})'),
-                                );
-                              }),
-                            ],
-                            onChanged: (value) {
-                              setState(() {
-                                _selectedGoal = value;
-                              });
+                              return DropdownButtonFormField<Goal?>(
+                                initialValue: _selectedGoal,
+                                decoration: const InputDecoration(
+                                  labelText: 'Assign to Goal (Optional)',
+                                  border: OutlineInputBorder(),
+                                  prefixIcon: Icon(Icons.flag, color: Color(0xFF007A39)),
+                                ),
+                                items: [
+                                  const DropdownMenuItem<Goal?>(
+                                    value: null,
+                                    child: Text('General Savings (No specific goal)'),
+                                  ),
+                                  ...goals.map((goal) {
+                                    return DropdownMenuItem<Goal?>(
+                                      value: goal,
+                                      child: Text('${goal.title} (Ksh ${goal.targetMinor.toStringAsFixed(2)})'),
+                                    );
+                                  }),
+                                ],
+                                onChanged: (value) {
+                                  setState(() {
+                                    _selectedGoal = value;
+                                  });
+                                },
+                              );
                             },
                           );
                         },
@@ -381,15 +395,15 @@ class _QuickTransactionEntryState extends State<QuickTransactionEntry> {
     );
   }
 
-  Widget _buildTypeButton(TransactionType type, String label, IconData icon, Color color) {
-    final isSelected = _selectedType == type;
+  Widget _buildTypeButton(bool isExpenseType, String label, IconData icon, Color color) {
+    final isSelected = _isExpense == isExpenseType;
     
     return Expanded(
       child: GestureDetector(
         onTap: () {
           setState(() {
-            _selectedType = type;
-            if (_selectedType != TransactionType.savings) {
+            _isExpense = isExpenseType;
+            if (_isExpense) {
               _selectedGoal = null;
             }
             // Reset category to first available when switching types
@@ -399,7 +413,7 @@ class _QuickTransactionEntryState extends State<QuickTransactionEntry> {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
-            color: isSelected ? color.withOpacity(0.1) : Colors.transparent,
+            color: isSelected ? color.withValues(alpha: 25) : Colors.transparent,
             borderRadius: BorderRadius.circular(6),
             border: isSelected ? Border.all(color: color, width: 2) : null,
           ),

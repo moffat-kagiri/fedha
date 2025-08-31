@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import '../models/budget.dart';
-import '../models/enums.dart';
+import 'package:drift/drift.dart' hide Column;
+
+import '../data/app_database.dart';
+import '../data/extensions/budget_extensions.dart';
 import '../services/offline_data_service.dart';
+import '../services/auth_service.dart';
+import '../models/enums.dart';
+
+enum BudgetPeriod { daily, weekly, monthly, quarterly, yearly }
 
 class CreateBudgetScreen extends StatefulWidget {
   const CreateBudgetScreen({Key? key}) : super(key: key);
@@ -25,6 +31,9 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
   DateTime? _endDate;
   bool _isRecurring = false;
   Category? _selectedCategory;
+  BudgetPeriod _budgetPeriod = BudgetPeriod.monthly;
+  final Map<String, double> _categoryBudgets = {};
+  final Map<String, double> _budgetCategories = {};
   bool _isCreating = false;
   List<Category> _availableCategories = [];
 
@@ -40,12 +49,13 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
     final profileId = int.tryParse(authService.currentProfile?.id ?? '0') ?? 0;
     
     try {
-      final categories = await dataService.getCategories(profileId);
+      final List<dynamic> rawCategories = await dataService.getCategories(profileId);
+      final List<Category> typedCategories = rawCategories.map((c) => c as Category).toList();
       if (mounted) {
         setState(() {
-          _availableCategories = categories;
-          if (categories.isNotEmpty) {
-            _selectedCategory = categories.first;
+          _availableCategories = typedCategories;
+          if (typedCategories.isNotEmpty) {
+            _selectedCategory = typedCategories.first;
           }
         });
       }
@@ -97,18 +107,17 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
       final profileId = int.tryParse(authService.currentProfile?.id ?? '0') ?? 0;
       
       final budget = Budget(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
         name: _budgetName,
-        limitAmount: _limitAmount,
+        limitMinor: _limitAmount * 100, // Convert to minor units
         currency: 'KES', // Default to KES
         categoryId: _selectedCategory?.id,
         startDate: _startDate,
-        endDate: _endDate,
+        endDate: _endDate ?? _getEndDate(),
         isRecurring: _isRecurring,
         profileId: profileId,
       );
 
-      dataService.addBudget(budget);
+      await dataService.addBudget(budget);
 
       if (mounted) {
         Navigator.pop(context, true);
@@ -192,7 +201,7 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
                 const SizedBox(height: 8),
                 LinearProgressIndicator(
                   value: (_currentPage + 1) / _totalPages,
-                  backgroundColor: Colors.white.withValues(red: 255, green: 255, blue: 255, alpha: 0.3),
+                  backgroundColor: Colors.white.withValues(red: 255, green: 255, blue: 255, alpha: 77),
                   valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
                 ),
               ],
@@ -548,7 +557,9 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
           
           // Category budget inputs
           Column(
-            children: _budgetCategories.map((category) {
+            children: _budgetCategories.entries.map((entry) {
+              final category = entry.key;
+              final amount = entry.value;
               return Padding(
                 padding: const EdgeInsets.only(bottom: 16),
                 child: TextFormField(

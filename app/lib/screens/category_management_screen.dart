@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../models/category.dart';
 import '../services/offline_data_service.dart';
 import '../services/auth_service.dart';
-import '../data/app_database.dart';
+import '../data/app_database.dart' hide Category;
+import '../models/category.dart' as models;
+
+typedef Category = models.Category;
 
 class CategoryManagementScreen extends StatefulWidget {
   const CategoryManagementScreen({Key? key}) : super(key: key);
@@ -95,6 +97,8 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
   }
 
   Future<void> _showCategoryDialog([Category? existing]) async {
+    // Store context for async operations
+    final currentContext = context;
     final nameController = TextEditingController(text: existing?.name ?? '');
     final iconController = TextEditingController(text: existing?.iconKey ?? 'default_icon');
     final colorController = TextEditingController(text: existing?.colorKey ?? '#2196F3');
@@ -168,32 +172,30 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
     );
 
     if (result != null) {
-      final dataService = Provider.of<OfflineDataService>(context, listen: false);
-      final authService = Provider.of<AuthService>(context, listen: false);
+      final dataService = Provider.of<OfflineDataService>(currentContext, listen: false);
+      final authService = Provider.of<AuthService>(currentContext, listen: false);
       final profileId = int.tryParse(authService.currentProfile?.id ?? '0') ?? 0;
 
       if (existing == null) {
         // Add new category
-        final category = Category(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
-          name: result['name'],
-          iconKey: result['iconKey'],
-          colorKey: result['colorKey'],
-          isExpense: result['isExpense'],
-          sortOrder: _categories.length,
-          profileId: profileId.toString(),
+        final category = CategoriesCompanion(
+          name: Value(result['name']),
+          iconKey: Value(result['iconKey']),
+          colorKey: Value(result['colorKey']),
+          isExpense: Value(result['isExpense']),
+          sortOrder: Value(_categories.length),
+          profileId: Value(profileId),
         );
         await dataService.saveCategory(category);
       } else {
         // Update existing category
-        final updated = Category(
-          id: existing.id,
-          name: result['name'],
-          iconKey: result['iconKey'],
-          colorKey: result['colorKey'],
-          isExpense: result['isExpense'],
-          sortOrder: existing.sortOrder,
-          profileId: existing.profileId,
+        final updated = CategoriesCompanion(
+          name: Value(result['name']),
+          iconKey: Value(result['iconKey']),
+          colorKey: Value(result['colorKey']),
+          isExpense: Value(result['isExpense']),
+          sortOrder: Value(existing.sortOrder),
+          profileId: Value(int.parse(existing.profileId)),
         );
         await dataService.updateCategory(updated);
       }

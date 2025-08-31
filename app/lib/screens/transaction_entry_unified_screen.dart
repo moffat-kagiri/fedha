@@ -3,10 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter/services.dart';  // for FilteringTextInputFormatter
+import 'package:drift/drift.dart' hide Column;
 
-import '../models/transaction.dart';
-import '../models/goal.dart' as dom_goal;
-import '../models/enums.dart';
+import '../data/app_database.dart';
+import '../data/drift_tables.dart';
+import '../data/drift_models.dart';
 import '../services/offline_data_service.dart';
 import '../services/currency_service.dart';
 import '../services/auth_service.dart';
@@ -32,16 +33,16 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
   bool _showAdvancedOptions = false;
   DateTime _selectedDate = DateTime.now();
   TimeOfDay _selectedTime = TimeOfDay.now();
-  TransactionType _selectedType = TransactionType.expense;
-  String _selectedCategory = '';
-  PaymentMethod _selectedPaymentMethod = PaymentMethod.cash;
-  dom_goal.Goal? _selectedGoal;
-  List<dom_goal.Goal> _goals = [];
+  bool _isExpense = true;
+  String _selectedCategoryId = '';
+  String _selectedCurrency = 'KES';
+  Goal? _selectedGoal;
+  List<Goal> _goals = [];
   bool _isSaving = false;
   
   List<Category> _incomeCategories = [];
   List<Category> _expenseCategories = [];
-  List<dom_goal.Goal> _savingsCategories = []; // Goals used for savings transactions
+  List<Goal> _savingsCategories = []; // Goals used for savings transactions
 
   @override
   void initState() {
@@ -163,28 +164,28 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
   void _loadTransactionData(Transaction transaction) {
     // Format the amount properly
     _amountController.text = transaction.amount.toStringAsFixed(2);
-    _descriptionController.text = transaction.description ?? '';
-    _selectedType = transaction.type;
-    _selectedCategory = transaction.categoryId ?? _categories[transaction.type]!.first;
+    _descriptionController.text = transaction.description;
+    _isExpense = transaction.type == TransactionType.expense;
+    _selectedCategoryId = transaction.categoryId.toString();
     _selectedDate = transaction.date;
+    _selectedCurrency = transaction.currency;
     
     // Extract time from the transaction date
     _selectedTime = TimeOfDay.fromDateTime(transaction.date);
     
     // Show advanced options if this transaction has non-default values
-    if (transaction.goalId != null || 
-        transaction.paymentMethod != null || 
-        transaction.date.difference(DateTime.now()).inDays != 0) {
+    if (transaction.goalId != null || transaction.date.difference(DateTime.now()).inDays != 0) {
       _showAdvancedOptions = true;
-    }
-    
-    // Set payment method if available
-    if (transaction.paymentMethod != null) {
-      _selectedPaymentMethod = transaction.paymentMethod!;
     }
     
     // Goal for savings transactions will be loaded when _goals are loaded
     // in _loadGoals() method which is called from initState
+    if (transaction.goalId != null) {
+      _selectedGoal = _goals.firstWhere(
+        (goal) => goal.id.toString() == transaction.goalId.toString(),
+        orElse: () => null,
+      );
+    }
   }
 
   @override
@@ -281,31 +282,34 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
     try {
       final dataService = Provider.of<OfflineDataService>(context, listen: false);
       final authService = Provider.of<AuthService>(context, listen: false);
-      final profileId = authService.currentProfile?.id ?? '0';
+      final profileId = int.tryParse(authService.currentProfile?.id ?? '0') ?? 0;
       
       // Format amount with two decimal points before parsing
       String raw = _getAmountValue();
       double amount = double.parse(raw);
-      String formattedAmount = amount.toStringAsFixed(2);
-      final transaction = Transaction(
-        id: widget.editingTransaction?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
-        amount: double.parse(formattedAmount),
+      
+      // Create transaction companion for database
+      final transaction = TransactionsCompanion.insert(
+        amount: amount,
         description: _descriptionController.text.trim(),
-        type: _selectedType,
-        categoryId: _selectedType == TransactionType.savings && _selectedGoal != null 
-            ? _selectedGoal!.id 
-            : _selectedCategory,
-        category: null, // This will be populated by the service
+        type: _isExpense ? TransactionType.expense : TransactionType.income,
+        categoryId: int.parse(_selectedCategoryId),
         date: _selectedDate,
-        goalId: _selectedType == TransactionType.savings ? _selectedGoal?.id : null,
-        paymentMethod: _selectedPaymentMethod,
+        goalId: Value(_selectedGoal?.id != null ? int.parse(_selectedGoal!.id) : null),
+        currency: _selectedCurrency,
         profileId: profileId,
       );
 
-      await dataService.saveTransaction(transaction);
+      if (widget.editingTransaction != null) {
+        // Update existing
+        await dataService.updateTransaction(widget.editingTransaction!.id, transaction);
+      } else {
+        // Save new transaction
+        await dataService.saveTransaction(transaction);
+      }
       
       if (mounted) {
-        Navigator.pop(context, transaction);
+        Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(widget.editingTransaction != null 
@@ -366,7 +370,7 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
       final dataService = Provider.of<OfflineDataService>(context, listen: false);
       
       if (widget.editingTransaction != null) {
-        await dataService.deleteTransaction(widget.editingTransaction!.id);
+        await dataService.deleteTransaction(int.parse(widget.editingTransaction!.id));
         
         if (mounted) {
           Navigator.pop(context, 'deleted');
@@ -579,95 +583,84 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
-        children: TransactionType.values.map((type) {
-          bool isSelected = _selectedType == type;
-          String label;
-          IconData icon;
-          
-          switch (type) {
-            case TransactionType.income:
-              label = 'Income';
-              icon = Icons.arrow_downward;
-              break;
-            case TransactionType.expense:
-              label = 'Expense';
-              icon = Icons.arrow_upward;
-              break;
-            case TransactionType.savings:
-              label = 'Savings';
-              icon = Icons.savings;
-              break;
-            default:
-              label = type.toString().split('.').last;
-              icon = Icons.category;
-          }
-          
-          return Expanded(
-            child: GestureDetector(
-              onTap: () {
-                setState(() {
-                  _selectedType = type;
-                  // Reset category to first in list when changing type
-                  if (_categories[type]!.isNotEmpty) {
-                    _selectedCategory = _categories[type]!.first;
-                  }
-                });
-              },
-              child: Container(
-                decoration: BoxDecoration(
-                  color: isSelected ? Theme.of(context).primaryColor : Colors.transparent,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      icon,
-                      color: isSelected ? Theme.of(context).colorScheme.onPrimary : Theme.of(context).colorScheme.onSurface,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      label,
-                      style: TextStyle(
-                        color: isSelected ? Theme.of(context).colorScheme.onPrimary : Theme.of(context).colorScheme.onSurface,
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
+        children: [
+          _buildTypeTab(
+            label: 'Income',
+            icon: Icons.arrow_downward,
+            isSelected: !_isExpense,
+            onTap: () => setState(() => _isExpense = false),
+          ),
+          _buildTypeTab(
+            label: 'Expense',
+            icon: Icons.arrow_upward,
+            isSelected: _isExpense,
+            onTap: () => setState(() => _isExpense = true),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildTypeTab({
+    required String label,
+    required IconData icon,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          decoration: BoxDecoration(
+            color: isSelected ? Theme.of(context).primaryColor : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                color: isSelected 
+                    ? Theme.of(context).colorScheme.onPrimary 
+                    : Theme.of(context).colorScheme.onSurface,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  color: isSelected 
+                      ? Theme.of(context).colorScheme.onPrimary 
+                      : Theme.of(context).colorScheme.onSurface,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                  fontSize: 12,
                 ),
               ),
-            ),
-          );
-        }).toList(),
+            ],
+          ),
+        ),
       ),
     );
   }
 
   Widget _buildCategorySelector() {
-    final categories = _selectedType == TransactionType.income ? 
-        _incomeCategories : 
-        _selectedType == TransactionType.expense ? 
-            _expenseCategories : 
-            _savingsCategories;
+    final categories = _isExpense ? _expenseCategories : _incomeCategories;
             
     return DropdownButtonFormField<String>(
-      value: _selectedCategory,
-      decoration: InputDecoration(
-        labelText: _selectedType == TransactionType.savings ? 'Goal' : 'Category',
-        border: const OutlineInputBorder(),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      value: _selectedCategoryId,
+      decoration: const InputDecoration(
+        labelText: 'Category',
+        border: OutlineInputBorder(),
+        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       ),
       items: categories.map((category) {
         return DropdownMenuItem<String>(
-          value: category.id,
+          value: category.id.toString(),
           child: Row(
             children: [
-              if (category is Category) // Show icon for regular categories
-                Icon(
-                  IconData(int.parse(category.iconKey), fontFamily: 'MaterialIcons'),
-                  color: Color(int.parse(category.colorKey.replaceAll('#', '0xff'))),
-                ),
+              Icon(
+                IconData(category.iconData, fontFamily: 'MaterialIcons'),
+                color: Color(category.colorValue),
+              ),
               const SizedBox(width: 8),
               Text(category.name),
             ],
@@ -677,24 +670,13 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
       onChanged: (String? value) {
         if (value != null) {
           setState(() {
-            _selectedCategory = value;
-            
-            // If this is a savings transaction, update the selected goal
-            if (_selectedType == TransactionType.savings) {
-              final goal = _savingsCategories.firstWhere(
-                (g) => g.id == value,
-                orElse: () => _savingsCategories.first
-              );
-              _selectedGoal = goal;
-            }
+            _selectedCategoryId = value;
           });
         }
       },
       validator: (value) {
         if (value == null || value.isEmpty) {
-          return _selectedType == TransactionType.savings
-              ? 'Please select a goal'
-              : 'Please select a category';
+          return 'Please select a category';
         }
         return null;
       },
@@ -719,7 +701,7 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
       );
     }
     
-    return DropdownButtonFormField<dom_goal.Goal>(
+    return DropdownButtonFormField<Goal>(
       value: _selectedGoal ?? (_goals.isNotEmpty ? _goals.first : null),
       decoration: const InputDecoration(
         labelText: 'Select Goal',
@@ -727,12 +709,12 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
         contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       ),
       items: _goals.map((goal) {
-        return DropdownMenuItem<dom_goal.Goal>(
+        return DropdownMenuItem<Goal>(
           value: goal,
-          child: Text(goal.name),
+          child: Text(goal.title),
         );
       }).toList(),
-      onChanged: (dom_goal.Goal? value) {
+      onChanged: (Goal? value) {
         setState(() {
           _selectedGoal = value;
         });
@@ -785,57 +767,6 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
               ),
             ),
           ],
-        ),
-        
-        const SizedBox(height: 16),
-        
-        // Payment Method Selector
-        const Text(
-          'Payment Method',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        const SizedBox(height: 8),
-        DropdownButtonFormField<PaymentMethod>(
-          value: _selectedPaymentMethod,
-          decoration: const InputDecoration(
-            border: OutlineInputBorder(),
-            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-          ),
-          items: PaymentMethod.values.map((PaymentMethod method) {
-            String label;
-            
-            switch (method) {
-              case PaymentMethod.cash:
-                label = 'Cash';
-                break;
-              case PaymentMethod.card:
-                label = 'Card';
-                break;
-              case PaymentMethod.bank:
-                label = 'Bank Transfer';
-                break;
-              case PaymentMethod.mobile:
-                label = 'Mobile Money';
-                break;
-              default:
-                label = method.toString().split('.').last;
-            }
-            
-            return DropdownMenuItem<PaymentMethod>(
-              value: method,
-              child: Text(label),
-            );
-          }).toList(),
-          onChanged: (PaymentMethod? value) {
-            if (value != null) {
-              setState(() {
-                _selectedPaymentMethod = value;
-              });
-            }
-          },
         ),
         
         // Additional advanced fields can be added here

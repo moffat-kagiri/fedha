@@ -1,19 +1,42 @@
 import 'package:flutter/material.dart';
-import '../theme/app_theme.dart';
+import 'package:drift/drift.dart' hide Column;
 import 'package:provider/provider.dart';
-import 'package:fedha/services/auth_service.dart';
-import 'package:fedha/services/offline_data_service.dart';
-import 'package:fedha/models/goal.dart' as dom_goal;
-import 'package:fedha/models/transaction.dart' as dom_tx;
-import 'package:fedha/models/budget.dart' as dom_budget;
+
+import '../data/app_database.dart';
+import '../data/extensions/budget_extensions.dart';
+import '../models/enums.dart';
+import '../services/auth_service.dart';
+import '../services/offline_data_service.dart';
 import '../services/currency_service.dart';
 import '../services/sms_listener_service.dart';
 import '../services/permissions_service.dart';
-import '../models/enums.dart';
+import '../theme/app_theme.dart';
 import '../widgets/transaction_dialog.dart';
 import '../widgets/transaction_card.dart';
 import '../widgets/quick_actions_grid.dart';
 import '../widgets/financial_summary_card.dart';
+
+enum ProfileType { personal, business, family, investment, student }
+
+class DashboardData {
+  final List<Goal> goals;
+  final List<Transaction> transactions;
+  final Budget? currentBudget;
+
+  DashboardData({
+    required this.goals,
+    required this.transactions,
+    this.currentBudget,
+  });
+
+  factory DashboardData.empty() {
+    return DashboardData(
+      goals: const [],
+      transactions: const [],
+      currentBudget: null,
+    );
+  }
+}
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -26,6 +49,18 @@ class DashboardScreen extends StatelessWidget {
 
 class DashboardContent extends StatelessWidget {
   const DashboardContent({super.key});
+
+  Future<DashboardData> _loadDashboardData(OfflineDataService service, int profileId) async {
+    final goals = await service.getGoals(profileId);
+    final transactions = await service.getTransactions(profileId);
+    final currentBudget = await service.getCurrentBudget(profileId);
+
+    return DashboardData(
+      goals: goals,
+      transactions: transactions,
+      currentBudget: currentBudget,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -47,7 +82,7 @@ class DashboardContent extends StatelessWidget {
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
                         return Scaffold(
-                          backgroundColor: colorScheme.background,
+                          backgroundColor: colorScheme.surface,
                           body: Center(
                             child: CircularProgressIndicator(
                               color: colorScheme.primary,
@@ -59,7 +94,7 @@ class DashboardContent extends StatelessWidget {
                     final data = snapshot.data ?? DashboardData.empty();
 
                     return Scaffold(
-                      backgroundColor: colorScheme.background,
+                      backgroundColor: colorScheme.surface,
                         appBar: AppBar(
                           backgroundColor: FedhaColors.primaryGreen,
                         title: Text('Dashboard', style: textTheme.titleLarge?.copyWith(color: colorScheme.onPrimary)),

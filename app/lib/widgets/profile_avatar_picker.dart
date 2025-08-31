@@ -10,12 +10,12 @@ class ProfileAvatarPicker extends StatefulWidget {
   final IconData placeholderIcon;
 
   const ProfileAvatarPicker({
-    Key? key,
+    super.key,
     required this.radius,
     required this.onImageSelected,
     this.avatarPath,
     this.placeholderIcon = Icons.person,
-  }) : super(key: key);
+  });
 
   @override
   State<ProfileAvatarPicker> createState() => _ProfileAvatarPickerState();
@@ -32,6 +32,8 @@ class _ProfileAvatarPickerState extends State<ProfileAvatarPicker> {
   }
 
   Future<void> _pickImage(ImageSource source) async {
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    
     try {
       final XFile? pickedFile = await _picker.pickImage(
         source: source,
@@ -40,7 +42,7 @@ class _ProfileAvatarPickerState extends State<ProfileAvatarPicker> {
         imageQuality: 85,
       );
 
-      if (pickedFile != null) {
+      if (pickedFile != null && mounted) {
         setState(() {
           _localAvatarPath = pickedFile.path;
         });
@@ -49,9 +51,11 @@ class _ProfileAvatarPickerState extends State<ProfileAvatarPicker> {
     } catch (e) {
       // Error handling
       debugPrint('Error picking image: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to select image. Please try again.')),
-      );
+      if (mounted) {
+        scaffoldMessenger.showSnackBar(
+          const SnackBar(content: Text('Failed to select image. Please try again.')),
+        );
+      }
     }
   }
 

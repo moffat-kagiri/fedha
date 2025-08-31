@@ -1,32 +1,34 @@
 // app/lib/widgets/transaction_list.dart
 import 'package:flutter/material.dart';
-import '../models/transaction.dart';
+import 'package:provider/provider.dart';
+import '../data/app_database.dart';
+import '../models/enums.dart';
+import 'transaction_card.dart';
 
 class TransactionList extends StatelessWidget {
   const TransactionList({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final database = Provider.of<AppDatabase>(context);
 
-    return ValueListenableBuilder<Box<Transaction>>(
-      valueListenable: transactionBox.listenable(),
-      builder: (context, box, _) {
+    return StreamBuilder<List<Transaction>>(
+      stream: database.watchAllTransactions(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return const Center(child: Text('No transactions yet'));
+        }
+
+        final transactions = snapshot.data!;
         return ListView.builder(
-          itemCount: box.length,
+          itemCount: transactions.length,
           itemBuilder: (context, index) {
-            final transaction = box.getAt(index);
-            return ListTile(
-              leading: Icon(
-                // ignore: unrelated_type_equality_checks
-                transaction!.type == 'IN'
-                    ? Icons.arrow_circle_up
-                    : Icons.arrow_circle_down,
-                color: transaction.type == 'IN' ? Colors.green : Colors.red,
-              ),
-              title: Text(transaction.category as String),
-              subtitle: Text(transaction.date.toString()),
-              trailing: Text('\$${transaction.amount.toStringAsFixed(2)}'),
-            );
+            final transaction = transactions[index];
+            return TransactionCard(transaction: transaction);
           },
         );
       },

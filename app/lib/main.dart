@@ -6,13 +6,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'utils/logger.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
-// Models
+// Models and Data
+import 'data/app_database.dart' hide AppDatabase;
+import 'services/risk_assessment_service.dart' show AppDatabase;
 import 'models/profile.dart';
 import 'models/transaction.dart';
 import 'models/transaction_candidate.dart';
 import 'models/category.dart';
 import 'models/goal.dart';
-import 'models/budget.dart';
 import 'models/client.dart';
 import 'models/invoice.dart';
 import 'models/sync_queue_item.dart';
@@ -77,8 +78,9 @@ void main() async {
 
   // (Hive initialization removed in favor of Drift)
 
-  // Initialize OfflineDataService so its box references are ready
-  final offlineDataService = OfflineDataService();
+  // Initialize SettingsService and OfflineDataService
+  final settingsService = SettingsService();
+  final offlineDataService = OfflineDataService(settingsService);
   await offlineDataService.initialize();
 
   try {
@@ -91,8 +93,7 @@ void main() async {
     
     
   // Initialize permissions service (dialogs will be prompted after UI is ready)
-  final permissionsService = PermissionsService.instance;
-  await permissionsService.initialize();
+  await PermissionsService.initialize();
     
     // Initialize API configuration based on environment
     // Import the connection manager at the top of the file:

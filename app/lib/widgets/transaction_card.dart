@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../models/transaction.dart';
-import '../models/enums.dart';
+import 'package:drift/drift.dart' hide Column;
+import '../data/app_database.dart';
 import '../services/currency_service.dart';
 import 'transaction_dialog.dart';
 
@@ -25,7 +25,7 @@ class TransactionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<CurrencyService>(
       builder: (context, currencyService, child) {
-        final (icon, color) = _getTransactionIconAndColor(transaction.type);
+        final (icon, color) = _getTransactionIconAndColor(transaction.isExpense);
         
         return Card(
           margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 0),
@@ -41,7 +41,7 @@ class TransactionCard extends StatelessWidget {
                     width: 48,
                     height: 48,
                     decoration: BoxDecoration(
-                      color: color.withOpacity(0.1),
+                      color: color.withAlpha(25),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Icon(icon, color: color, size: 24),
@@ -61,17 +61,19 @@ class TransactionCard extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 4),
-                        FutureBuilder<Category?>(
-                          future: Provider.of<OfflineDataService>(context, listen: false)
-                              .getCategoryById(transaction.categoryId),
+                        StreamBuilder<Category?>(
+                          stream: Provider.of<AppDatabase>(context, listen: false)
+                              .select(Provider.of<AppDatabase>(context, listen: false).categories)
+                              .watchSingleWhere((cat) => cat.id.equals(transaction.categoryId)),
                           builder: (context, snapshot) {
+                            final category = snapshot.data;
                             return Row(
                               children: [
-                                if (snapshot.hasData && snapshot.data != null)
+                                if (category != null)
                                   Icon(
-                                    IconData(int.parse(snapshot.data!.iconKey), fontFamily: 'MaterialIcons'),
+                                    Icons.folder_outlined,  // Use a default icon
                                     size: 14,
-                                    color: Color(int.parse(snapshot.data!.colorKey.replaceAll('#', '0xff'))),
+                                    color: Theme.of(context).colorScheme.primary,
                                   )
                                 else
                                   Icon(
@@ -84,7 +86,7 @@ class TransactionCard extends StatelessWidget {
                                   snapshot.data?.name ?? 'No category',
                                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                     color: snapshot.data != null 
-                                      ? Color(int.parse(snapshot.data!.colorKey.replaceAll('#', '0xff')))
+                                      ? Color(snapshot.data!.colorValue)
                                       : Colors.grey.shade600,
                                   ),
                                 ),
@@ -118,7 +120,7 @@ class TransactionCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text(
-                        currencyService.formatCurrency(transaction.amount),
+                        currencyService.formatCurrency(transaction.amountMinor / 100),
                         style: Theme.of(context).textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.bold,
                           color: color,
@@ -168,14 +170,11 @@ class TransactionCard extends StatelessWidget {
     );
   }
 
-  (IconData, Color) _getTransactionIconAndColor(TransactionType type) {
-    switch (type) {
-      case TransactionType.income:
-        return (Icons.add_circle, Colors.green);
-      case TransactionType.expense:
-        return (Icons.remove_circle, Colors.red);
-      case TransactionType.savings:
-        return (Icons.savings, Colors.blue);
+  (IconData, Color) _getTransactionIconAndColor(bool isExpense) {
+    if (isExpense) {
+      return (Icons.remove_circle, Colors.red);
+    } else {
+      return (Icons.add_circle, Colors.green);
     }
   }
 
@@ -204,13 +203,12 @@ class TransactionCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              _buildDetailRow('Amount:', Provider.of<CurrencyService>(context, listen: false).formatCurrency(transaction.amount)),
-              _buildDetailRow('Type:', transaction.type.toString().split('.').last.toUpperCase()),
-              _buildDetailRow('Category:', transaction.categoryId.isNotEmpty ? transaction.categoryId : 'No category'),
-              _buildDetailRow('Description:', transaction.description ?? 'No description'),
+              _buildDetailRow('Amount:', Provider.of<CurrencyService>(context, listen: false)
+                .formatCurrency(transaction.amountMinor / 100)),
+              _buildDetailRow('Type:', transaction.isExpense ? 'EXPENSE' : 'INCOME'),
+              _buildDetailRow('Category:', transaction.categoryId.toString()),
+              _buildDetailRow('Description:', transaction.description),
               _buildDetailRow('Date:', '${transaction.date.day}/${transaction.date.month}/${transaction.date.year}'),
-              if (transaction.goalId != null && transaction.goalId!.isNotEmpty)
-                _buildDetailRow('Goal:', transaction.goalId!),
             ],
           ),
         ),

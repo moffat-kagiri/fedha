@@ -1,12 +1,13 @@
 // lib/screens/add_transaction.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../models/transaction.dart';
-import '../models/goal.dart';
+import 'package:drift/drift.dart';
+import '../data/app_database.dart' show Transaction, Goal;
 import '../models/enums.dart';
 import '../services/offline_data_service.dart';
 import '../services/goal_transaction_service.dart';
 import '../services/auth_service.dart';
+import '../data/app_database.dart';
 
 class AddTransactionScreen extends StatefulWidget {
   const AddTransactionScreen({super.key});
@@ -99,7 +100,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
             children: [
               // Type selector
               DropdownButtonFormField<TransactionType>(
-                value: _selectedType,
+                initialValue: _selectedType,
                 items:
                     TransactionType.values.map((type) {
                       return DropdownMenuItem(
@@ -341,18 +342,15 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
         );
       } else {
         // Regular transaction creation
-        transaction = Transaction(
-          amount: double.parse(_amountController.text),
-          type: _selectedType,
-          categoryId: _selectedCategory.toString().split('.').last,
-          category: _selectedCategory,
-          date: _selectedDate,
-          description:
-              _descriptionController.text.isEmpty
-                  ? null
-                  : _descriptionController.text,
-          notes: _notesController.text.isEmpty ? null : _notesController.text,
-          profileId: profileId,
+        transaction = TransactionsCompanion.insert(
+          amountMinor: Value(double.parse(_amountController.text) * 100), // Convert to minor units
+          type: Value(_selectedType),
+          categoryId: Value(_selectedCategory.toString().split('.').last),
+          date: Value(_selectedDate),
+          description: Value(_descriptionController.text.isEmpty
+              ? null
+              : _descriptionController.text),
+          profileId: Value(int.parse(profileId)),
         );
 
         await dataService.saveTransaction(transaction);

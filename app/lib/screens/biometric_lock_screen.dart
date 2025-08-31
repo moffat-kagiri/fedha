@@ -97,7 +97,7 @@ class _BiometricLockScreenState extends State<BiometricLockScreen> with TickerPr
                   width: 100,
                   height: 100,
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
+                    color: Colors.white.withValues(red: 255, green: 255, blue: 255, alpha: 51),
                     borderRadius: BorderRadius.circular(50),
                   ),
                   child: const Icon(
@@ -137,17 +137,17 @@ class _BiometricLockScreenState extends State<BiometricLockScreen> with TickerPr
                         width: 120,
                         height: 120,
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.1),
+                          color: Colors.white.withValues(red: 255, green: 255, blue: 255, alpha: 26),
                           borderRadius: BorderRadius.circular(60),
                           border: Border.all(
-                            color: Colors.white.withOpacity(0.3),
+                            color: Colors.white.withValues(red: 255, green: 255, blue: 255, alpha: 77),
                             width: 2,
                           ),
                         ),
                         child: Icon(
                           Icons.fingerprint,
                           size: 60,
-                          color: Colors.white.withOpacity(0.9),
+                          color: Colors.white.withValues(red: 255, green: 255, blue: 255, alpha: 230),
                         ),
                       ),
                     );
@@ -186,9 +186,9 @@ class _BiometricLockScreenState extends State<BiometricLockScreen> with TickerPr
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: Colors.red.withOpacity(0.2),
+                      color: Colors.red.withValues(red: 244, green: 67, blue: 54, alpha: 51),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.red.withOpacity(0.5)),
+                      border: Border.all(color: Colors.red.withValues(red: 244, green: 67, blue: 54, alpha: 128)),
                     ),
                     child: Column(
                       children: [

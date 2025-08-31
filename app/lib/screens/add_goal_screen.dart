@@ -56,9 +56,11 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
         targetDate: targetDate,
         goalType: _selectedType,
         status: 'active',
+        priority: 'medium',
+        profileId: '0', // Default profile ID
       );
 
-      dataService.addGoal(goal);
+      await dataService.saveGoal(goal);
 
       if (mounted) {
         Navigator.pop(context, true);

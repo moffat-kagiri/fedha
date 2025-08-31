@@ -45,7 +45,11 @@ class SmsListenerService extends ChangeNotifier {
   final inbox.SmsQuery _query = inbox.SmsQuery();
   Timer? _pollTimer;
   StreamController<SmsMessage>? _messageController;
-  final OfflineDataService _offlineDataService = OfflineDataService();
+  late final OfflineDataService _offlineDataService;
+  
+  Future<void> initialize(OfflineDataService offlineDataService) async {
+    _offlineDataService = offlineDataService;
+  }
   
   bool _isListening = false;
   List<SmsMessage> _recentMessages = [];
@@ -77,27 +81,26 @@ class SmsListenerService extends ChangeNotifier {
       // Return whether permission is granted
       return status.isGranted;
     } catch (e) {
-      if (kDebugMode) {
-        print('Error checking SMS permissions: $e');
-      }
+      _logger.error('Error checking SMS permissions: $e');
       return false;
     }
   }
   
-  /// Initialize the SMS listener service
-  Future<bool> initialize() async {
+  /// Initialize the SMS listener service with profile ID
+  Future<bool> initialize(String profileId) async {
+    _currentProfileId = profileId;
     try {
       if (!await checkAndRequestPermissions()) return false;
       // Poll SMS inbox every 10 seconds
       DateTime? lastTimestamp;
       _pollTimer = Timer.periodic(const Duration(seconds: 10), (_) async {
         // Poll SMS messages from inbox
-        if (kDebugMode) print('Polling SMS inbox...');
+        _logger.info('Polling SMS inbox...');
         final List<inbox.SmsMessage> raw = await _query.querySms(
           count: 20,
           sort: true,
         );
-        if (kDebugMode) print('Retrieved ${raw.length} SMS messages');
+        _logger.info('Retrieved ${raw.length} SMS messages');
         for (var nativeMsg in raw) {
           // plugin returns DateTime or int? ensure a DateTime
           final DateTime msgTime = nativeMsg.date is DateTime
@@ -130,9 +133,9 @@ class SmsListenerService extends ChangeNotifier {
       return false;
     }
   }
-  /// Alias to start listening for SMS transactions
-  Future<bool> startListening() async {
-    return initialize();
+  /// Start listening for SMS transactions
+  Future<bool> startListening(String profileId) async {
+    return initialize(profileId);
   }
   /// Stop polling SMS inbox
   Future<void> stopListening() async {

@@ -1,32 +1,33 @@
 // lib/services/sync_service.dart
+import 'package:drift/drift.dart';
+import '../data/app_database.dart';
 import 'api_client.dart';
 import 'offline_data_service.dart';
+import '../models/sync_result.dart';
 
 /// Enhanced sync service for comprehensive offline-online data synchronization
 /// Handles bidirectional sync of all entity types with conflict resolution
 class SyncService {
   final ApiClient _apiClient;
   final OfflineDataService _offlineDataService;
+  late final AppDatabase _db;
 
   SyncService({
     required ApiClient apiClient,
     required OfflineDataService offlineDataService,
   }) : _apiClient = apiClient,
-       _offlineDataService = offlineDataService;
+       _offlineDataService = offlineDataService {
+    _db = _offlineDataService.db;
+  }
 
   /// Synchronize all data for a profile
-  Future<SyncResult> syncAllData(String profileId) async {
+  Future<SyncResult> syncAllData(int profileId) async {
     final result = SyncResult();
 
-    try {
+    try {      
       // Sync in order of dependencies
       result.transactions = await syncTransactions(profileId);
       result.categories = await syncCategories(profileId);
-      result.clients = await syncClients(profileId);
-      result.invoices = await syncInvoices(profileId);
-      result.goals = await syncGoals(profileId);
-      result.budgets = await syncBudgets(profileId);
-
       result.success = true;
     } catch (e) {
       result.success = false;
@@ -37,51 +38,76 @@ class SyncService {
   }
 
   /// Sync transactions with the backend
-  Future<EntitySyncResult> syncTransactions(String profileId) async {
+  Future<EntitySyncResult> syncTransactions(int profileId) async {
     final result = EntitySyncResult();
 
     try {
-      // Get unsynced local transactions
-      final unsyncedTransactions = await _offlineDataService
-          .getUnsyncedTransactions(profileId);
+      // Get transactions for the profile
+      final transactions = await (_db.select(_db.transactions)
+        ..where((t) => t.profileId.equals(profileId)))
+        .get();
 
-      if (unsyncedTransactions.isNotEmpty) {
+      if (transactions.isNotEmpty) {
         // Send to backend
-        final response = await _apiClient.syncTransactions(
+        await _apiClient.syncTransactions(
           profileId,
-          unsyncedTransactions,
+          transactions.map((t) => {
+            'id': t.id,
+            'amount': t.amountMinor,
+            'description': t.description,
+            'categoryId': t.categoryId,
+            'date': t.date.toIso8601String(),
+            'isExpense': t.isExpense,
+            'profileId': t.profileId,
+            'currency': t.currency,
+            'rawSms': t.rawSms,
+          }).toList(),
         );
 
-        // Mark as synced
-        for (final transaction in unsyncedTransactions) {
-          transaction.isSynced = true;
-          await _offlineDataService.saveTransaction(transaction);
-        }
-
-        result.uploaded = unsyncedTransactions.length;
+        result.uploaded = transactions.length;
       }
 
       // Fetch updates from backend
-      final serverTransactions = await _apiClient.getTransactions(
-        profileId: profileId,
-        sessionToken: profileId, // Using profileId as sessionToken for now
-      );
+      final serverTransactions = await _apiClient.getTransactions(profileId);
 
       // Update local transactions with server data
-      for (final serverTransaction in serverTransactions) {
-        final existingTransaction = _offlineDataService.getTransaction(
-          serverTransaction.uuid,
-        );
+      for (final serverTx in serverTransactions) {
+        final existingTxs = await (_db.select(_db.transactions)
+          ..where((t) => t.categoryId.equals(serverTx.categoryId))
+          ..where((t) => t.date.equals(serverTx.date)))
+          .get();
 
-        if (existingTransaction == null) {
+        if (existingTxs.isEmpty) {
           // New transaction from server
-          await _offlineDataService.saveTransaction(serverTransaction);
+          await _db.into(_db.transactions).insert(
+            TransactionsCompanion.insert(
+              amountMinor: serverTx.amountMinor,
+              description: serverTx.description,
+              categoryId: serverTx.categoryId,
+              date: serverTx.date,
+              isExpense: serverTx.isExpense,
+              profileId: profileId,
+              currency: serverTx.currency,
+              rawSms: const Value.absent(),
+            )
+          );
           result.downloaded++;
-        } else if (existingTransaction.updatedAt.isBefore(
-          serverTransaction.updatedAt,
-        )) {
-          // Server has newer version
-          await _offlineDataService.saveTransaction(serverTransaction);
+        } else {
+          // Update existing transaction
+          await _db.into(_db.transactions).insert(
+            TransactionsCompanion(
+              id: Value(existingTxs.first.id),
+              amountMinor: Value(serverTx.amountMinor),
+              description: Value(serverTx.description),
+              categoryId: Value(serverTx.categoryId),
+              date: Value(serverTx.date),
+              isExpense: Value(serverTx.isExpense),
+              profileId: Value(profileId),
+              currency: Value(serverTx.currency),
+              rawSms: Value(existingTxs.first.rawSms),
+            ),
+            mode: InsertMode.insertOrReplace,
+          );
           result.updated++;
         }
       }
@@ -96,26 +122,58 @@ class SyncService {
   }
 
   /// Sync categories with the backend
-  Future<EntitySyncResult> syncCategories(String profileId) async {
+  Future<EntitySyncResult> syncCategories(int profileId) async {
     final result = EntitySyncResult();
 
     try {
-      // Get unsynced local categories
-      final categories = _offlineDataService.getCategoriesForProfile(profileId);
-      final unsyncedCategories = categories.where((c) => !c.isSynced).toList();
+      // Get categories for profile
+      final categories = await (_db.select(_db.categories)
+        ..where((c) => c.profileId.equals(profileId)))
+        .get();
 
-      if (unsyncedCategories.isNotEmpty) {
-        final response = await _apiClient.syncCategories(
+      if (categories.isNotEmpty) {
+        await _apiClient.syncCategories(
           profileId,
-          unsyncedCategories,
+          categories.map((c) => {
+            'id': c.id,
+            'name': c.name,
+            'isExpense': c.isExpense,
+            'profileId': c.profileId,
+          }).toList(),
         );
 
-        for (final category in unsyncedCategories) {
-          category.isSynced = true;
-          await _offlineDataService.saveCategory(category);
-        }
+        result.uploaded = categories.length;
+      }
 
-        result.uploaded = unsyncedCategories.length;
+      // Get updates from server
+      final serverCategories = await _apiClient.getCategories(profileId);
+
+      for (final serverCat in serverCategories) {
+        final existingCats = await (_db.select(_db.categories)
+          ..where((c) => c.name.equals(serverCat.name)))
+          .get();
+
+        if (existingCats.isEmpty) {
+          await _db.into(_db.categories).insert(
+            CategoriesCompanion.insert(
+              name: serverCat.name,
+              isExpense: serverCat.isExpense,
+              profileId: profileId,
+            )
+          );
+          result.downloaded++;
+        } else {
+          await _db.into(_db.categories).insert(
+            CategoriesCompanion(
+              id: Value(existingCats.first.id),
+              name: Value(serverCat.name),
+              isExpense: Value(serverCat.isExpense),
+              profileId: Value(profileId),
+            ),
+            mode: InsertMode.insertOrReplace,
+          );
+          result.updated++;
+        }
       }
 
       result.success = true;
@@ -125,145 +183,6 @@ class SyncService {
     }
 
     return result;
-  }
-
-  /// Sync clients with the backend
-  Future<EntitySyncResult> syncClients(String profileId) async {
-    final result = EntitySyncResult();
-
-    try {
-      final clients = _offlineDataService.getClientsForProfile(profileId);
-      final unsyncedClients = clients.where((c) => !c.isSynced).toList();
-
-      if (unsyncedClients.isNotEmpty) {
-        await _apiClient.syncClients(profileId, unsyncedClients);
-
-        for (final client in unsyncedClients) {
-          client.isSynced = true;
-          await _offlineDataService.saveClient(client);
-        }
-
-        result.uploaded = unsyncedClients.length;
-      }
-
-      result.success = true;
-    } catch (e) {
-      result.success = false;
-      result.error = e.toString();
-    }
-
-    return result;
-  }
-
-  /// Sync invoices with the backend
-  Future<EntitySyncResult> syncInvoices(String profileId) async {
-    final result = EntitySyncResult();
-
-    try {
-      final invoices = _offlineDataService.getInvoicesForProfile(profileId);
-      final unsyncedInvoices = invoices.where((i) => !i.isSynced).toList();
-
-      if (unsyncedInvoices.isNotEmpty) {
-        await _apiClient.syncInvoices(profileId, unsyncedInvoices);
-
-        for (final invoice in unsyncedInvoices) {
-          invoice.isSynced = true;
-          await _offlineDataService.saveInvoice(invoice);
-        }
-
-        result.uploaded = unsyncedInvoices.length;
-      }
-
-      result.success = true;
-    } catch (e) {
-      result.success = false;
-      result.error = e.toString();
-    }
-
-    return result;
-  }
-
-  /// Sync goals with the backend
-  Future<EntitySyncResult> syncGoals(String profileId) async {
-    final result = EntitySyncResult();
-
-    try {
-      final goals = _offlineDataService.getGoalsForProfile(profileId);
-      final unsyncedGoals = goals.where((g) => !g.isSynced).toList();
-
-      if (unsyncedGoals.isNotEmpty) {
-        await _apiClient.syncGoals(profileId, unsyncedGoals);
-
-        for (final goal in unsyncedGoals) {
-          goal.isSynced = true;
-          await _offlineDataService.saveGoal(goal);
-        }
-
-        result.uploaded = unsyncedGoals.length;
-      }
-
-      result.success = true;
-    } catch (e) {
-      result.success = false;
-      result.error = e.toString();
-    }
-
-    return result;
-  }
-
-  /// Sync budgets with the backend
-  Future<EntitySyncResult> syncBudgets(String profileId) async {
-    final result = EntitySyncResult();
-
-    try {
-      final budgets = _offlineDataService.getBudgetsForProfile(profileId);
-      final unsyncedBudgets = budgets.where((b) => !b.isSynced).toList();
-
-      if (unsyncedBudgets.isNotEmpty) {
-        await _apiClient.syncBudgets(profileId, unsyncedBudgets);
-
-        for (final budget in unsyncedBudgets) {
-          budget.isSynced = true;
-          await _offlineDataService.saveBudget(budget);
-        }
-
-        result.uploaded = unsyncedBudgets.length;
-      }
-
-      result.success = true;
-    } catch (e) {
-      result.success = false;
-      result.error = e.toString();
-    }
-
-    return result;
-  }
-
-  /// Get total pending sync count
-  Future<int> getPendingSyncCount(String profileId) async {
-    int count = 0;
-
-    final transactions = await _offlineDataService.getUnsyncedTransactions(
-      profileId,
-    );
-    count += transactions.length;
-
-    final categories = _offlineDataService.getCategoriesForProfile(profileId);
-    count += categories.where((c) => !c.isSynced).length;
-
-    final clients = _offlineDataService.getClientsForProfile(profileId);
-    count += clients.where((c) => !c.isSynced).length;
-
-    final invoices = _offlineDataService.getInvoicesForProfile(profileId);
-    count += invoices.where((i) => !i.isSynced).length;
-
-    final goals = _offlineDataService.getGoalsForProfile(profileId);
-    count += goals.where((g) => !g.isSynced).length;
-
-    final budgets = _offlineDataService.getBudgetsForProfile(profileId);
-    count += budgets.where((b) => !b.isSynced).length;
-
-    return count;
   }
 
   /// Check if device is online and can sync
@@ -277,51 +196,10 @@ class SyncService {
   }
 
   /// Auto-sync when conditions are met
-  Future<void> autoSync(String profileId) async {
+  Future<void> autoSync(int profileId) async {
     final canSyncNow = await canSync();
     if (!canSyncNow) return;
 
-    final pendingCount = await getPendingSyncCount(profileId);
-    if (pendingCount == 0) return;
-
-    // Only auto-sync if there are pending items and we're online
     await syncAllData(profileId);
   }
-}
-
-/// Result classes for sync operations
-class SyncResult {
-  bool success = false;
-  String? error;
-  EntitySyncResult transactions = EntitySyncResult();
-  EntitySyncResult categories = EntitySyncResult();
-  EntitySyncResult clients = EntitySyncResult();
-  EntitySyncResult invoices = EntitySyncResult();
-  EntitySyncResult goals = EntitySyncResult();
-  EntitySyncResult budgets = EntitySyncResult();
-
-  int get totalUploaded =>
-      transactions.uploaded +
-      categories.uploaded +
-      clients.uploaded +
-      invoices.uploaded +
-      goals.uploaded +
-      budgets.uploaded;
-
-  int get totalDownloaded =>
-      transactions.downloaded +
-      categories.downloaded +
-      clients.downloaded +
-      invoices.downloaded +
-      goals.downloaded +
-      budgets.downloaded;
-}
-
-class EntitySyncResult {
-  bool success = false;
-  String? error;
-  int uploaded = 0;
-  int downloaded = 0;
-  int updated = 0;
-  int conflicts = 0;
 }

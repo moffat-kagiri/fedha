@@ -16,10 +16,10 @@ class BiometricAuthService {
     return _instance!;
   }
   
-  static void initialize(SettingsService settingsService) {
+  static Future<void> initializeService(SettingsService settingsService) async {
     if (_instance == null) {
       _instance = BiometricAuthService._(settingsService);
-      _instance!._init();
+      await _instance!._init();
     }
   }
   
