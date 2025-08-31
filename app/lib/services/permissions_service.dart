@@ -1,15 +1,13 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-
+import '../services/settings_service.dart';
 import '../utils/logger.dart';
 
 /// Service to handle all app permissions
 class PermissionsService extends ChangeNotifier {
   static PermissionsService? _instance;
-  static PermissionsService get instance => _instance ??= PermissionsService._();
-  
+  final SettingsService _settingsService;
   final _logger = AppLogger.getLogger('PermissionsService');
   
   // Permission status tracking
@@ -28,13 +26,23 @@ class PermissionsService extends ChangeNotifier {
   bool get cameraPermissionGranted => _cameraPermissionGranted;
   bool get permissionsPromptShown => _permissionsPromptShown;
   
-  PermissionsService._();
+  PermissionsService._(this._settingsService);
+  
+  static void initialize(SettingsService settingsService) {
+    _instance = PermissionsService._(settingsService);
+  }
+  
+  static PermissionsService get instance {
+    if (_instance == null) {
+      throw Exception('PermissionsService not initialized. Call initialize() first.');
+    }
+    return _instance!;
+  }
   
   /// Initialize the service and check permission status
-  Future<void> initialize() async {
+  Future<void> initializePermissions() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      _permissionsPromptShown = prefs.getBool('permissions_prompt_shown') ?? false;
+      _permissionsPromptShown = _settingsService.permissionsPromptShown;
       
       // Check current permission status
       await checkPermissionsStatus();

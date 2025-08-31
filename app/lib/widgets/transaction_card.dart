@@ -61,23 +61,36 @@ class TransactionCard extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.category_outlined,
-                              size: 14,
-                              color: Colors.grey.shade600,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              transaction.categoryId.isNotEmpty 
-                                  ? transaction.categoryId 
-                                  : 'No category',
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: Colors.grey.shade600,
-                              ),
-                            ),
-                          ],
+                        FutureBuilder<Category?>(
+                          future: Provider.of<OfflineDataService>(context, listen: false)
+                              .getCategoryById(transaction.categoryId),
+                          builder: (context, snapshot) {
+                            return Row(
+                              children: [
+                                if (snapshot.hasData && snapshot.data != null)
+                                  Icon(
+                                    IconData(int.parse(snapshot.data!.iconKey), fontFamily: 'MaterialIcons'),
+                                    size: 14,
+                                    color: Color(int.parse(snapshot.data!.colorKey.replaceAll('#', '0xff'))),
+                                  )
+                                else
+                                  Icon(
+                                    Icons.category_outlined,
+                                    size: 14,
+                                    color: Colors.grey.shade600,
+                                  ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  snapshot.data?.name ?? 'No category',
+                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: snapshot.data != null 
+                                      ? Color(int.parse(snapshot.data!.colorKey.replaceAll('#', '0xff')))
+                                      : Colors.grey.shade600,
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
                         ),
                         const SizedBox(height: 2),
                         Row(

@@ -39,18 +39,9 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
   List<dom_goal.Goal> _goals = [];
   bool _isSaving = false;
   
-  final Map<TransactionType, List<String>> _categories = {
-    TransactionType.income: [
-      'Salary', 'Business Income', 'Freelance', 'Investment', 
-      'Rental Income', 'Bonus', 'Commission', 'Tips', 'Gift', 'Other'
-    ],
-    TransactionType.expense: [
-      'Food & Dining', 'Transportation', 'Shopping', 'Entertainment',
-      'Bills & Utilities', 'Healthcare', 'Education', 'Rent/Mortgage',
-      'Insurance', 'Personal Care', 'Travel', 'Other'
-    ],
-    TransactionType.savings: [], // Will be populated with goals
-  };
+  List<Category> _incomeCategories = [];
+  List<Category> _expenseCategories = [];
+  List<dom_goal.Goal> _savingsCategories = []; // Goals used for savings transactions
 
   @override
   void initState() {
@@ -58,15 +49,47 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
     
     if (widget.editingTransaction != null) {
       _loadTransactionData(widget.editingTransaction!);
-    } else {
-      _selectedCategory = _categories[_selectedType]!.first;
     }
     
-    
-    // Load goals for savings - now using async/await pattern
+    // Load categories and goals
+    _loadCategories();
     _loadGoals();
   }
   
+  Future<void> _loadCategories() async {
+    final dataService = Provider.of<OfflineDataService>(context, listen: false);
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final profileId = int.tryParse(authService.currentProfile?.id ?? '0') ?? 0;
+    
+    try {
+      final categories = await dataService.getCategories(profileId);
+      
+      if (mounted) {
+        setState(() {
+          _incomeCategories = categories.where((c) => !c.isExpense).toList()
+            ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+          _expenseCategories = categories.where((c) => c.isExpense).toList()
+            ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+          
+          // Set default category if needed
+          if (_selectedCategory.isEmpty) {
+            _selectedCategory = _expenseCategories.isNotEmpty ? 
+              _expenseCategories.first.id : '';
+          }
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error loading categories: ${e.toString()}'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    }
+  }
+
   Future<void> _loadGoals() async {
     final dataService = Provider.of<OfflineDataService>(context, listen: false);
     final authService = Provider.of<AuthService>(context, listen: false);
@@ -78,13 +101,12 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
       if (mounted) {
         setState(() {
           _goals = loaded;
-          
-          // Populate savings category list with goal names
-          _categories[TransactionType.savings] = loaded.map((g) => g.name).toList();
+          _savingsCategories = loaded;
           
           // Default to first goal if in savings mode and none selected
           if (_selectedType == TransactionType.savings && _selectedGoal == null && loaded.isNotEmpty) {
             _selectedGoal = loaded.first;
+            _selectedCategory = loaded.first.id;
           }
         });
       }
@@ -623,19 +645,33 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
   }
 
   Widget _buildCategorySelector() {
+    final categories = _selectedType == TransactionType.income ? 
+        _incomeCategories : 
+        _selectedType == TransactionType.expense ? 
+            _expenseCategories : 
+            _savingsCategories;
+            
     return DropdownButtonFormField<String>(
-      value: _selectedCategory.isEmpty && _categories[_selectedType]!.isNotEmpty 
-          ? _categories[_selectedType]!.first 
-          : _selectedCategory,
+      value: _selectedCategory,
       decoration: InputDecoration(
         labelText: _selectedType == TransactionType.savings ? 'Goal' : 'Category',
         border: const OutlineInputBorder(),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       ),
-      items: _categories[_selectedType]!.map((String category) {
+      items: categories.map((category) {
         return DropdownMenuItem<String>(
-          value: category,
-          child: Text(category),
+          value: category.id,
+          child: Row(
+            children: [
+              if (category is Category) // Show icon for regular categories
+                Icon(
+                  IconData(int.parse(category.iconKey), fontFamily: 'MaterialIcons'),
+                  color: Color(int.parse(category.colorKey.replaceAll('#', '0xff'))),
+                ),
+              const SizedBox(width: 8),
+              Text(category.name),
+            ],
+          ),
         );
       }).toList(),
       onChanged: (String? value) {
@@ -645,17 +681,11 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
             
             // If this is a savings transaction, update the selected goal
             if (_selectedType == TransactionType.savings) {
-              final dataService = Provider.of<OfflineDataService>(context, listen: false);
-              dataService.getAllGoals().then((goals) {
-                  for (var goal in goals) {
-                    if (goal.name == value) {
-                      setState(() {
-                        _selectedGoal = goal;
-                      });
-                      break;
-                    }
-                  }
-              });
+              final goal = _savingsCategories.firstWhere(
+                (g) => g.id == value,
+                orElse: () => _savingsCategories.first
+              );
+              _selectedGoal = goal;
             }
           });
         }

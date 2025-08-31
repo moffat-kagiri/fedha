@@ -5,34 +5,27 @@ part 'budget.g.dart';
 class Budget {
   String id;
   String name;
-  String? description;
-  double budgetAmount;
-  double spentAmount; 
-  String categoryId;  
-  String period; // 'monthly', 'weekly', 'yearly'  
-  DateTime startDate;  
-  DateTime endDate;  
-  bool isActive;  
-  DateTime createdAt;  
-  DateTime updatedAt;  
-  bool isSynced;
+  double limitAmount;
+  String? currency;
+  String? categoryId;
+  DateTime startDate;
+  DateTime? endDate;
+  bool? isRecurring;
+  String profileId;
+  double? spentAmount;  // Computed from transactions, not stored
+
   Budget({
     required this.id,
     required this.name,
-    this.description,
-    required this.budgetAmount,
-    this.spentAmount = 0.0,
-    required this.categoryId,
-    this.period = 'monthly',
-    this.isSynced = false,
+    required this.limitAmount,
+    this.currency = 'KES',
+    this.categoryId,
     required this.startDate,
-    required this.endDate,
-    this.isActive = true,
-    DateTime? createdAt,
-    DateTime? updatedAt,
-  }) : 
-    createdAt = createdAt ?? DateTime.now(),
-    updatedAt = updatedAt ?? DateTime.now();
+    this.endDate,
+    this.isRecurring = false,
+    required this.profileId,
+    this.spentAmount = 0.0,
+  });
 
   double get remainingAmount => budgetAmount - spentAmount;
   

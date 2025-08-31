@@ -5,28 +5,21 @@ part 'category.g.dart';
 class Category {
   String id;  
   String name;  
-  String? description;  
-  String color;  
-  String icon;  
-  String type; // 'income' or 'expense'  
-  bool isActive;  
-  DateTime createdAt;  
-  DateTime updatedAt;  
-  bool isSynced;
+  String iconKey;
+  String colorKey;
+  bool isExpense;
+  int sortOrder;
+  String profileId;
+  
   Category({
     required this.id,
     required this.name,
-    this.description,
-    this.color = '#2196F3',
-    this.icon = 'category',
-    this.type = 'expense',
-    this.isActive = true,
-    this.isSynced = false,
-    DateTime? createdAt,
-    DateTime? updatedAt,
-  }) : 
-    createdAt = createdAt ?? DateTime.now(),
-    updatedAt = updatedAt ?? DateTime.now();
+    this.iconKey = 'default_icon',
+    this.colorKey = 'default_color',
+    this.isExpense = true,
+    this.sortOrder = 0,
+    required this.profileId,
+  });
 
   Map<String, dynamic> toJson() {
     return {

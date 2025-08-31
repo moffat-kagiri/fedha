@@ -301,6 +301,15 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     });
   }
 
+  void _showCategoryAnalytics(BuildContext context, List<Transaction> transactions) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => CategoryAnalyticsSheet(transactions: transactions),
+    );
+  }
+
   @override
   void dispose() {
     _searchController.dispose();
@@ -328,6 +337,15 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
           child: Container(height: 1, color: colorScheme.onSurface.withOpacity(0.12)),
         ),
         actions: [
+          IconButton(
+            onPressed: () {
+              if (txSnap.hasData && txSnap.data != null) {
+                final transactions = txSnap.data!;
+                _showCategoryAnalytics(context, transactions);
+              }
+            },
+            icon: Icon(Icons.analytics_outlined, color: colorScheme.onPrimary),
+          ),
           IconButton(
             onPressed: () => Navigator.push(
               context,

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import '../services/settings_service.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../services/auth_service.dart';
 import '../services/api_client.dart';
@@ -49,9 +49,9 @@ class _LoginScreenState extends State<LoginScreen> {
   // Check if biometric or permissions are needed before showing login
 
   Future<void> _loadSavedEmail() async {
-    final prefs = await SharedPreferences.getInstance();
-    final savedEmail = prefs.getString('saved_email');
-    final shouldRemember = prefs.getBool('remember_me') ?? false;
+    final settings = Provider.of<SettingsService>(context, listen: false);
+    final savedEmail = settings.savedEmail;
+    final shouldRemember = settings.rememberMe;
     
     if (savedEmail != null && shouldRemember && mounted) {
       setState(() {

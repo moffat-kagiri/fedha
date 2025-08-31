@@ -20,29 +20,44 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
   // Budget data
   String _budgetName = '';
   double _totalIncome = 0.0;
-  BudgetPeriod _budgetPeriod = BudgetPeriod.monthly;
-  Map<String, double> _categoryBudgets = {};
+  double _limitAmount = 0.0;
+  DateTime _startDate = DateTime.now();
+  DateTime? _endDate;
+  bool _isRecurring = false;
+  Category? _selectedCategory;
   bool _isCreating = false;
-
-  final List<String> _budgetCategories = [
-    'Food & Dining',
-    'Transportation', 
-    'Housing & Utilities',
-    'Shopping',
-    'Entertainment',
-    'Healthcare',
-    'Education',
-    'Savings',
-    'Emergency Fund',
-    'Other'
-  ];
+  List<Category> _availableCategories = [];
 
   @override
   void initState() {
     super.initState();
-    // Initialize category budgets with zero
-    for (String category in _budgetCategories) {
-      _categoryBudgets[category] = 0.0;
+    _loadCategories();
+  }
+
+  Future<void> _loadCategories() async {
+    final dataService = Provider.of<OfflineDataService>(context, listen: false);
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final profileId = int.tryParse(authService.currentProfile?.id ?? '0') ?? 0;
+    
+    try {
+      final categories = await dataService.getCategories(profileId);
+      if (mounted) {
+        setState(() {
+          _availableCategories = categories;
+          if (categories.isNotEmpty) {
+            _selectedCategory = categories.first;
+          }
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error loading categories: ${e.toString()}'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
     }
   }
 
@@ -78,14 +93,19 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
     try {
       final dataService = Provider.of<OfflineDataService>(context, listen: false);
       
+      final authService = Provider.of<AuthService>(context, listen: false);
+      final profileId = int.tryParse(authService.currentProfile?.id ?? '0') ?? 0;
+      
       final budget = Budget(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         name: _budgetName,
-        budgetAmount: _categoryBudgets.values.fold(0.0, (sum, amount) => sum + amount),
-        categoryId: 'general', // Default category ID
-        startDate: DateTime.now(),
-        endDate: _getEndDate(),
-        isActive: true,
+        limitAmount: _limitAmount,
+        currency: 'KES', // Default to KES
+        categoryId: _selectedCategory?.id,
+        startDate: _startDate,
+        endDate: _endDate,
+        isRecurring: _isRecurring,
+        profileId: profileId,
       );
 
       dataService.addBudget(budget);

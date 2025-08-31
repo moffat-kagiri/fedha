@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:provider/provider.dart';
+import '../services/settings_service.dart';
 import 'login_screen.dart';
 import '../theme/app_theme.dart';
 
@@ -40,8 +41,8 @@ class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
   }
 
   Future<void> _completeOnboarding() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('onboarding_completed', true);
+    final settingsService = Provider.of<SettingsService>(context, listen: false);
+    await settingsService.setOnboardingComplete(true);
 
     if (mounted) {
       Navigator.pushReplacement(

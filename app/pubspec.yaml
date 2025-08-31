@@ -38,6 +38,7 @@ dependencies:
   logging: ^1.1.0
   connectivity_plus: ^5.0.2
   flutter_sms_inbox: 1.0.4
+  fl_chart: ^0.70.0
 
   # add relational DB
   drift: ^2.28.1

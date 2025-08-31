@@ -1,7 +1,6 @@
 import 'package:local_auth/local_auth.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-
+import '../services/settings_service.dart';
 import '../utils/logger.dart';
 
 class BiometricAuthService {
@@ -9,17 +8,25 @@ class BiometricAuthService {
   static BiometricAuthService? _instance;
   
   // Get singleton instance
-  static BiometricAuthService? get instance {
+  static BiometricAuthService get instance {
     if (_instance == null) {
-      _instance = BiometricAuthService();
-      _instance!.initialize();
+      _instance = BiometricAuthService._(SettingsService());
+      _instance!._init();
     }
-    return _instance;
+    return _instance!;
+  }
+  
+  static void initialize(SettingsService settingsService) {
+    if (_instance == null) {
+      _instance = BiometricAuthService._(settingsService);
+      _instance!._init();
+    }
   }
   
   final LocalAuthentication _localAuth = LocalAuthentication();
   final _secureStorage = const FlutterSecureStorage();
   final _logger = AppLogger.getLogger('BiometricAuthService');
+  final SettingsService _settingsService;
   
   // Constants for storage keys
   final _biometricEnabledKey = 'biometric_enabled';
@@ -75,17 +82,22 @@ class BiometricAuthService {
     }
   }
   
+  BiometricAuthService._(this._settingsService);
+
+  Future<void> _init() async {
+    _logger.info('Initializing BiometricAuthService');
+  }
+
   Future<bool> hasValidBiometricSession() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final lastAuthTime = prefs.getInt(_lastAuthTimeKey);
-      final sessionToken = prefs.getString(_sessionTokenKey);
+      final lastAuthTime = await _secureStorage.read(key: _lastAuthTimeKey);
+      final sessionToken = await _secureStorage.read(key: _sessionTokenKey);
       
       if (lastAuthTime == null || sessionToken == null) {
         return false;
       }
       
-      final authTime = DateTime.fromMillisecondsSinceEpoch(lastAuthTime);
+      final authTime = DateTime.fromMillisecondsSinceEpoch(int.parse(lastAuthTime));
       final now = DateTime.now();
       
   final sessionExpiry = authTime.add(Duration(minutes: _sessionDurationMinutes));
@@ -104,8 +116,7 @@ class BiometricAuthService {
   
   Future<void> setBiometricEnabled(bool enabled) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool(_biometricEnabledKey, enabled);
+      await _settingsService.setBiometricEnabled(enabled);
       _logger.info('Biometric auth set to: $enabled');
     } catch (e) {
       _logger.severe('Error setting biometric enabled: $e');
@@ -114,9 +125,7 @@ class BiometricAuthService {
   
   Future<bool> isBiometricEnabled() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      // User must explicitly enable biometric in settings
-      return prefs.getBool(_biometricEnabledKey) ?? false;
+      return _settingsService.biometricEnabled;
     } catch (e) {
       _logger.severe('Error checking if biometric is enabled: $e');
       return false;
@@ -125,14 +134,13 @@ class BiometricAuthService {
   
   Future<void> _saveAuthenticationSession() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
       final now = DateTime.now().millisecondsSinceEpoch;
       
       // Generate a session token - in a real app, this would be more secure
       final sessionToken = DateTime.now().toIso8601String();
       
-      await prefs.setInt(_lastAuthTimeKey, now);
-      await prefs.setString(_sessionTokenKey, sessionToken);
+      await _secureStorage.write(key: _lastAuthTimeKey, value: now.toString());
+      await _secureStorage.write(key: _sessionTokenKey, value: sessionToken);
       
       _logger.info('Saved authentication session');
     } catch (e) {
@@ -147,10 +155,8 @@ class BiometricAuthService {
   
   Future<void> clearBiometricSession() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      
-      await prefs.remove(_lastAuthTimeKey);
-      await prefs.remove(_sessionTokenKey);
+      await _secureStorage.delete(key: _lastAuthTimeKey);
+      await _secureStorage.delete(key: _sessionTokenKey);
       await _secureStorage.delete(key: _biometricAuthKey);
       
       _logger.info('Cleared biometric session');
