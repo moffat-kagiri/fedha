@@ -4,6 +4,10 @@ import 'dashboard_screen.dart';
 import 'transactions_screen.dart';
 import 'tools_screen.dart';
 import 'profile_screen.dart';
+import 'investment_calculator_screen.dart';
+import 'investment_risk_assessment_screen.dart';
+import 'investment_irr_calculator_screen.dart';
+import 'investment_recommendations_screen.dart';
 
 class MainNavigation extends StatefulWidget {
   final int currentIndex;
@@ -70,3 +74,14 @@ class DashboardWrapper extends StatelessWidget {
     return const DashboardContent();
   }
 }
+
+// Route settings for investment tools
+final Map<String, WidgetBuilder> routes = {
+  '/investment_calculator': (context) => const InvestmentCalculatorScreen(),
+  '/investment_risk_assessment': (context) => const InvestmentRiskAssessmentScreen(),
+  '/investment_irr_calculator': (context) => InvestmentIRRCalculatorScreen(),
+  '/investment_recommendations': (context) {
+    final double risk = ModalRoute.of(context)!.settings.arguments as double;
+    return InvestmentRecommendationsScreen(riskScore: risk);
+  },
+};

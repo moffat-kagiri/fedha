@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="240" height="240" viewBox="0 0 240 240" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background Circle -->
+  <circle cx="120" cy="120" r="100" fill="white" opacity="0.1"/>
+  
+  <!-- Chart Base -->
+  <rect x="50" y="140" width="140" height="4" rx="2" fill="white" opacity="0.8"/>
+  
+  <!-- Chart Bars -->
+  <rect x="60" y="100" width="20" height="40" rx="4" fill="white" opacity="0.5"/>
+  <rect x="90" y="80" width="20" height="60" rx="4" fill="white" opacity="0.7"/>
+  <rect x="120" y="110" width="20" height="30" rx="4" fill="white" opacity="0.5"/>
+  <rect x="150" y="60" width="20" height="80" rx="4" fill="white"/>
+  
+  <!-- Line Chart -->
+  <path d="M60 90 L90 70 L120 100 L150 50 L180 80" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  
+  <!-- Data Points -->
+  <circle cx="60" cy="90" r="5" fill="#007A39"/>
+  <circle cx="90" cy="70" r="5" fill="#007A39"/>
+  <circle cx="120" cy="100" r="5" fill="#007A39"/>
+  <circle cx="150" cy="50" r="5" fill="#007A39"/>
+  <circle cx="180" cy="80" r="5" fill="#007A39"/>
+  
+  <!-- Budget Dial -->
+  <circle cx="120" cy="180" r="20" stroke="white" stroke-width="4" fill="none"/>
+  <path d="M120 180 L120 165" stroke="white" stroke-width="2" stroke-linecap="round"/>
+  
+  <!-- Analysis Icons -->
+  <path d="M190 130 C190 124.477 194.477 120 200 120 C205.523 120 210 124.477 210 130 C210 135.523 205.523 140 200 140 C194.477 140 190 135.523 190 130Z" fill="#007A39" opacity="0.9"/>
+  <text x="195" y="135" font-family="Arial" font-size="14" fill="white">%</text>
+  
+  <path d="M30 130 C30 124.477 34.477 120 40 120 C45.523 120 50 124.477 50 130 C50 135.523 45.523 140 40 140 C34.477 140 30 135.523 30 130Z" fill="#007A39" opacity="0.9"/>
+  <text x="35" y="135" font-family="Arial" font-size="14" fill="white">$</text>
+</svg>

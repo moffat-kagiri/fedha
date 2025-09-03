@@ -1,4 +1,5 @@
 // lib/screens/profile_type_screen.dart
+import 'package:fedha/models/enums.dart';
 import 'package:flutter/material.dart';
 import 'profile_creation_screen.dart';
 
@@ -8,28 +9,30 @@ class ProfileTypeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Text('Select Profile Type', style: TextStyle(fontSize: 24)),
-            const SizedBox(height: 40),
-            _buildProfileTypeCard(
-              context,
-              'Business',
-              Icons.business,
-              Colors.blue,
-              () => _navigateToLogin(context, isBusiness: true),
-            ),
-            const SizedBox(height: 20),
-            _buildProfileTypeCard(
-              context,
-              'Personal',
-              Icons.person,
-              Colors.green,
-              () => _navigateToLogin(context, isBusiness: false),
-            ),
-          ],
+      body: SingleChildScrollView(
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Text('Select Profile Type', style: TextStyle(fontSize: 24)),
+              const SizedBox(height: 40),
+              _buildProfileTypeCard(
+                context,
+                'Business',
+                Icons.business,
+                Colors.blue,
+                () => _navigateToLogin(context, isBusiness: true),
+              ),
+              const SizedBox(height: 20),
+              _buildProfileTypeCard(
+                context,
+                'Personal',
+                Icons.person,
+                Colors.green,
+                () => _navigateToLogin(context, isBusiness: false),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -61,11 +64,16 @@ class ProfileTypeScreen extends StatelessWidget {
       ),
     );
   }
+
   void _navigateToLogin(BuildContext context, {required bool isBusiness}) {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => const ProfileCreationScreen(),
+        builder:
+            (_) => ProfileCreationScreen(
+              initialProfileType:
+                  isBusiness ? ProfileType.business : ProfileType.personal,
+            ),
       ),
     );
   }

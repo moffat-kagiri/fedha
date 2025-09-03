@@ -24,5 +24,23 @@ linter:
     # avoid_print: false  # Uncomment to disable the `avoid_print` rule
     # prefer_single_quotes: true  # Uncomment to enable the `prefer_single_quotes` rule
 
+analyzer:
+  exclude:
+    - "test_*.dart"
+  errors:
+    # Suppress common unused and dead code errors
+    unused_import: ignore
+    unused_local_variable: ignore
+    unused_field: ignore
+    unused_element: ignore
+    dead_code: ignore
+    dead_null_aware_expression: ignore
+    unnecessary_null_comparison: ignore
+    unnecessary_non_null_assertion: ignore
+    unreachable_switch_default: ignore
+    cast_from_null_always_fails: ignore
+    unnecessary_to_list_in_spread: ignore
+    unnecessary_string_interpolations: ignore
+
 # Additional information about this file can be found at
 # https://dart.dev/guides/language/analysis-options

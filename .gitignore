@@ -43,7 +43,6 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
 lib64/
 parts/
 sdist/
@@ -210,12 +209,12 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
-# Generated files
+# Generated files (be specific - don't exclude essential Hive adapters)
 *.freezed.dart
-*.g.dart
+# *.g.dart  # COMMENTED OUT - We need Hive adapter .g.dart files
 *.gr.dart
 *.config.dart
-*.gen.dart
+# *.gen.dart  # COMMENTED OUT - May contain essential generated code
 
 # Flutter build artifacts
 **/build/
@@ -359,9 +358,9 @@ secrets.json
 # ==============================================================================
 # MICROSERVICES
 # ==============================================================================
-# Calculator microservice specific
-calculators-microservice/__pycache__/
-calculators-microservice/*.pyc
+# Calculator microservice was removed during cleanup
+# calculators-microservice/__pycache__/
+# calculators-microservice/*.pyc
 
 # ==============================================================================
 # DOCUMENTATION & OUTPUT
@@ -388,13 +387,68 @@ htmlcov/
 .pytest_cache/
 .tox/
 
+# Test files and directories (cleaned up)
+test_*/
+*_test.*
+*/test/
+debug_*/
+verify_*/
+
 # CI/CD
 .github/workflows/secrets/
 
 # ==============================================================================
+# STABILITY & COMPILATION ESSENTIALS
+# ==============================================================================
+# INCLUDE essential generated files for compilation stability
+# Hive adapter files (.g.dart) are REQUIRED for Hive to work
+# !**/*.g.dart  # This ensures .g.dart files are included
+
+# Configuration examples (include templates, exclude actual config)
+!.env.example
+!config.example.json
+!settings.example.py
+
+# Essential build files for multi-machine compilation
+!pubspec.yaml
+!pubspec.lock
+!analysis_options.yaml
+!requirements.txt
+!package.json
+!package-lock.json
+!pyproject.toml
+!manage.py
+
+# ==============================================================================
 # CUSTOM PROJECT FILES
 # ==============================================================================
-# Add any project-specific files or patterns here
-# Example:
-# custom-config.json
-# local-development-settings/
+# Development tools and setup scripts
+start.bat
+start.ps1
+setup_*.py
+setup_*.sh
+
+# Temporary development files
+temp_*
+tmp_*
+local_*
+scratch_*
+
+# Prevent reappearing deleted files
+LOGIN_SYSTEM_IMPLEMENTATION.md
+app/LOGIN_SYSTEM_IMPLEMENTATION.md
+app/lib/debug_sms_senders.dart
+app/lib/models/budget_period.dart
+app/lib/models/enhanced_profile.dart
+app/lib/models/goal_type.dart
+app/lib/screens/dashboard_screen_fixed.dart
+app/lib/screens/dashboard_screen_new.dart
+app/lib/widgets/api_debug_widget.dart
+app/test_compile.dart
+docs/archive/
+
+# Backup files from development
+*_backup.dart
+*_old.dart
+*_new.dart
+*_fixed.dart

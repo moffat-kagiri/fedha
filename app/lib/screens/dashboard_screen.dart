@@ -1,24 +1,26 @@
-// lib/screens/dashboard_screen.dart
 import 'package:flutter/material.dart';
+import '../theme/app_theme.dart';
 import 'package:provider/provider.dart';
-import '../models/transaction.dart';
-import '../models/goal.dart';
-import '../models/budget.dart';
-import '../models/enhanced_profile.dart';
-import '../services/auth_service.dart';
-import '../services/offline_data_service.dart';
-import '../widgets/quick_transaction_entry.dart';
-import 'main_navigation.dart';
-import 'add_goal_screen.dart';
-import 'transactions_screen.dart';
-import 'loan_calculator_screen.dart';
+import 'package:fedha/services/auth_service.dart';
+import 'package:fedha/services/offline_data_service.dart';
+import 'package:fedha/models/goal.dart' as dom_goal;
+import 'package:fedha/models/transaction.dart' as dom_tx;
+import 'package:fedha/models/budget.dart' as dom_budget;
+import '../services/currency_service.dart';
+import '../services/sms_listener_service.dart';
+import '../services/permissions_service.dart';
+import '../models/enums.dart';
+import '../widgets/transaction_dialog.dart';
+import '../widgets/transaction_card.dart';
+import '../widgets/quick_actions_grid.dart';
+import '../widgets/financial_summary_card.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return MainNavigation(currentIndex: 0, child: const DashboardContent());
+    return const DashboardContent();
   }
 }
 
@@ -27,7 +29,9 @@ class DashboardContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<AuthService>(
+  final colorScheme = Theme.of(context).colorScheme;
+  final textTheme = Theme.of(context).textTheme;
+  return Consumer<AuthService>(
       builder: (context, authService, child) {
         final profile = authService.currentProfile;
         if (profile == null) {
@@ -36,54 +40,52 @@ class DashboardContent extends StatelessWidget {
 
         return Consumer<OfflineDataService>(
           builder: (context, dataService, child) {
-            return FutureBuilder<DashboardData>(
-              future: _loadDashboardData(dataService, profile.id),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
+            return Consumer<CurrencyService>(
+              builder: (context, currencyService, child) {
+                return FutureBuilder<DashboardData>(
+                  future: _loadDashboardData(dataService, profile.id),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                        return Scaffold(
+                          backgroundColor: colorScheme.background,
+                          body: Center(
+                            child: CircularProgressIndicator(
+                              color: colorScheme.primary,
+                            ),
+                          ),
+                        );
+                    }
 
-                final data = snapshot.data ?? DashboardData.empty();
+                    final data = snapshot.data ?? DashboardData.empty();
 
-                return RefreshIndicator(
-                  onRefresh: () async {
-                    // Trigger rebuild by calling setState equivalent
-                    await Future.delayed(const Duration(milliseconds: 500));
-                  },
-                  child: SingleChildScrollView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Welcome Header
-                        _buildWelcomeHeader(context, profile.type),
-
-                        const SizedBox(height: 24),
-
-                        // Financial Position Card
-                        _buildFinancialPositionCard(context, data),
-
-                        const SizedBox(height: 24),
-
-                        // Goals Section
-                        _buildGoalsSection(context, data.goals),
-
-                        const SizedBox(height: 24),
-
-                        // Quick Actions
-                        _buildQuickActions(context, profile.type),
-
-                        const SizedBox(height: 24),
-
-                        // Recent Transactions
-                        _buildRecentTransactions(
-                          context,
-                          data.recentTransactions,
+                    return Scaffold(
+                      backgroundColor: colorScheme.background,
+                        appBar: AppBar(
+                          backgroundColor: FedhaColors.primaryGreen,
+                        title: Text('Dashboard', style: textTheme.titleLarge?.copyWith(color: colorScheme.onPrimary)),
+                        elevation: 0,
+                      ),
+                      body: SafeArea(
+                        child: SingleChildScrollView(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildWelcomeHeader(context, profile.type),
+                              const SizedBox(height: 24),
+                              _buildFinancialPositionCard(context, currencyService, data),
+                              const SizedBox(height: 20),
+                              _buildQuickActions(context),
+                              const SizedBox(height: 20),
+                              _buildGoalsSection(context, currencyService, data.goals),
+                              const SizedBox(height: 20),
+                              _buildRecentTransactions(context, currencyService, data.recentTransactions),
+                            ],
+                          ),
                         ),
-                      ],
-                    ),
-                  ),
+                      ),
+                    );
+                  },
                 );
               },
             );
@@ -93,471 +95,327 @@ class DashboardContent extends StatelessWidget {
     );
   }
 
-  Widget _buildWelcomeHeader(BuildContext context, ProfileType profileType) {
-    final timeOfDay = DateTime.now().hour;
-    String greeting = 'Good morning';
-    if (timeOfDay >= 12 && timeOfDay < 17) greeting = 'Good afternoon';
-    if (timeOfDay >= 17) greeting = 'Good evening';
+  Future<DashboardData> _loadDashboardData(OfflineDataService dataService, String profileId) async {
+    try {
+      final profileIdInt = int.tryParse(profileId) ?? 0;
+      final goals = await dataService.getAllGoals(profileIdInt);
+      final allTransactions = await dataService.getAllTransactions(profileIdInt);
+      allTransactions.sort((a, b) => b.date.compareTo(a.date));
+      final recentTransactions = allTransactions.take(5).toList();
+      
+      return DashboardData(
+        goals: goals,
+        recentTransactions: recentTransactions,
+        currentBudget: null,
+      );
+    } catch (e) {
+      return DashboardData.empty();
+    }
+  }
 
-    return Row(
-      children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildWelcomeHeader(BuildContext context, ProfileType profileType) {
+    final now = DateTime.now();
+    final hour = now.hour;
+    
+    String greeting;
+    if (hour < 12) {
+      greeting = 'Good Morning';
+    } else if (hour < 17) {
+      greeting = 'Good Afternoon';
+    } else {
+      greeting = 'Good Evening';
+    }
+    
+    IconData icon = Icons.person;
+    switch (profileType) {
+      case ProfileType.personal:
+        icon = Icons.person;
+        break;
+      case ProfileType.business:
+        icon = Icons.business;
+        break;
+      case ProfileType.student:
+        icon = Icons.school;
+        break;
+      case ProfileType.family:
+        icon = Icons.family_restroom;
+        break;
+    }
+
+    return Card(
+      color: const Color(0xFF007A39),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Row(
           children: [
-            Text(
-              greeting,
-              style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              profileType == ProfileType.business
-                  ? 'Business Dashboard'
-                  : 'Personal Dashboard',
-              style: const TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Colors.black87,
+            Icon(icon, color: Colors.white, size: 32),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    greeting,
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Manage your finances effectively',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Colors.white70,
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
         ),
-        const Spacer(),
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Colors.grey.shade100,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Icon(
-            profileType == ProfileType.business ? Icons.business : Icons.person,
-            color: const Color(0xFF007A39),
-            size: 24,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildFinancialPositionCard(BuildContext context, DashboardData data) {
-    final availableToSpend = data.availableToSpend;
-    final isPositive = availableToSpend >= 0;
-    final budgetExceeded =
-        data.currentBudget != null &&
-        data.totalExpenses > data.currentBudget!.totalBudget;
-
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors:
-              isPositive && !budgetExceeded
-                  ? [Colors.green.shade400, Colors.green.shade600]
-                  : [Colors.red.shade400, Colors.red.shade600],
-        ),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: (isPositive && !budgetExceeded ? Colors.green : Colors.red)
-                .withOpacity(0.3),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Text(
-                'Available to Spend',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const Spacer(),
-              Icon(
-                isPositive && !budgetExceeded
-                    ? Icons.trending_up
-                    : Icons.trending_down,
-                color: Colors.white,
-                size: 20,
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '\$${availableToSpend.abs().toStringAsFixed(2)}',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 32,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            budgetExceeded
-                ? 'Budget exceeded by \$${(data.totalExpenses - data.currentBudget!.totalBudget).toStringAsFixed(2)}'
-                : isPositive
-                ? 'After expenses and savings'
-                : 'Over budget',
-            style: const TextStyle(color: Colors.white70, fontSize: 14),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: _buildBalanceItem(
-                  'Income',
-                  data.totalIncome,
-                  Icons.arrow_upward,
-                  Colors.white70,
-                ),
-              ),
-              Container(width: 1, height: 30, color: Colors.white30),
-              Expanded(
-                child: _buildBalanceItem(
-                  'Expenses',
-                  data.totalExpenses,
-                  Icons.arrow_downward,
-                  Colors.white70,
-                ),
-              ),
-              Container(width: 1, height: 30, color: Colors.white30),
-              Expanded(
-                child: _buildBalanceItem(
-                  'Savings',
-                  data.totalSavings,
-                  Icons.savings,
-                  Colors.white70,
-                ),
-              ),
-            ],
-          ),
-        ],
       ),
     );
   }
 
-  Widget _buildBalanceItem(
-    String label,
-    double amount,
-    IconData icon,
-    Color color,
-  ) {
+  Widget _buildFinancialPositionCard(BuildContext context, CurrencyService currencyService, DashboardData data) {
+    final summaryItems = [
+      FinancialSummaryItem(
+        label: 'Total Savings',
+        value: currencyService.formatCurrency(0),
+        color: Colors.green,
+        icon: Icons.savings,
+      ),
+      FinancialSummaryItem(
+        label: 'Monthly Budget',
+        value: currencyService.formatCurrency(0),
+        color: Colors.blue,
+        icon: Icons.account_balance_wallet,
+      ),
+      FinancialSummaryItem(
+        label: 'Goals Progress',
+        value: '0%',
+        color: Colors.orange,
+        icon: Icons.flag,
+      ),
+    ];
+
+    return FinancialSummaryCard(
+      title: 'Financial Overview',
+      items: summaryItems,
+      onTap: () {
+        Navigator.pushNamed(context, '/create_budget');
+      },
+    );
+  }
+
+  Widget _buildBalanceItem(String label, String value, Color color, BuildContext context) {
     return Column(
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: color, size: 16),
-            const SizedBox(width: 4),
-            Text(label, style: TextStyle(color: color, fontSize: 12)),
-          ],
+        Text(
+          label, 
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(color: color),
         ),
         const SizedBox(height: 4),
         Text(
-          '\$${amount.toStringAsFixed(2)}',
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
+          value,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.bold,
           ),
         ),
       ],
     );
   }
 
-  Widget _buildGoalsSection(BuildContext context, List<Goal> goals) {
+  Widget _buildQuickActions(BuildContext context) {
+    final actions = [
+      QuickActionItem(
+        title: 'Add Transaction',
+        icon: Icons.add,
+        color: Colors.green,
+        onTap: () {
+          TransactionDialog.showAddDialog(
+            context,
+            onTransactionSaved: (transaction) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Transaction added successfully'),
+                  backgroundColor: Color(0xFF007A39),
+                ),
+              );
+            },
+          );
+        },
+      ),
+      QuickActionItem(
+        title: 'SMS Review',
+        icon: Icons.sms,
+        color: Colors.blue,
+        onTap: () async {
+          // Request SMS permission before starting listener
+          final permissionsService = Provider.of<PermissionsService>(context, listen: false);
+          final granted = await permissionsService.requestSmsPermission();
+          if (!granted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('SMS permission required to review messages'),
+                backgroundColor: Colors.red,
+              ),
+            );
+            return;
+          }
+          // Set current profile for SMS listener
+          final smsService = SmsListenerService.instance;
+          final authService = Provider.of<AuthService>(context, listen: false);
+          smsService.setCurrentProfile(authService.currentProfile?.id ?? '');
+          // Initialize SMS listener if not already running
+          if (!smsService.isListening) {
+            await smsService.initialize();
+            await smsService.startListening();
+          }
+          Navigator.of(context).pushNamed('/sms_review');
+        },
+      ),
+      QuickActionItem(
+        title: 'View Goals',
+        icon: Icons.flag,
+        color: Colors.purple,
+        onTap: () => Navigator.of(context).pushNamed('/goals'),
+      ),
+      QuickActionItem(
+        title: 'Loan Calculator',
+        icon: Icons.calculate,
+        color: Colors.orange,
+        onTap: () => Navigator.of(context).pushNamed('/loan_calculator'),
+      ),
+    ];
+
+    return QuickActionsGrid(actions: actions);
+  }
+
+  Widget _buildQuickActionCard(QuickAction action, BuildContext context) {
+    return Card(
+      child: InkWell(
+        onTap: action.onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              Icon(action.icon, color: action.color),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  action.title,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGoalsSection(BuildContext context, CurrencyService currencyService, List<dom_goal.Goal> goals) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
+            Text(
               'Your Goals',
-              style: TextStyle(
-                fontSize: 20,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
-                color: Colors.black87,
               ),
             ),
-            const Spacer(),
             TextButton(
-              onPressed: () {
-                // Navigate to goals screen
-              },
+              onPressed: () => Navigator.of(context).pushNamed('/goals'),
               child: const Text('View All'),
             ),
           ],
         ),
         const SizedBox(height: 16),
-        SizedBox(
-          height: 160,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            itemCount: goals.length + 1, // +1 for add goal card
-            itemBuilder: (context, index) {
-              if (index == goals.length) {
-                return _buildAddGoalCard(context);
-              }
-              return _buildGoalCard(context, goals[index]);
-            },
-          ),
-        ),
+        if (goals.isEmpty)
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                children: [
+                  Icon(Icons.flag_outlined, size: 48, color: Colors.grey.shade400),
+                  const SizedBox(height: 12),
+                  Text(
+                    'No goals yet',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  ElevatedButton(
+                    onPressed: () => Navigator.of(context).pushNamed('/add_goal'),
+                    child: const Text('Create Your First Goal'),
+                  ),
+                ],
+              ),
+            ),
+          )
+        else
+          ...goals.take(3).map((goal) => _buildGoalCard(goal, currencyService, context)),
       ],
     );
   }
 
-  Widget _buildGoalCard(BuildContext context, Goal goal) {
-    final progress = goal.currentAmount / goal.targetAmount;
-    final daysLeft = goal.targetDate.difference(DateTime.now()).inDays;
-
-    return Container(
-      width: 200,
-      margin: const EdgeInsets.only(right: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(
-                  _getGoalIcon(goal.goalType),
-                  color: Colors.blue.shade600,
-                  size: 16,
-                ),
-              ),
-              const Spacer(),
-              Text(
-                '$daysLeft days',
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            goal.name,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: Colors.black87,
-            ),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: 8),
-          LinearProgressIndicator(
-            value: progress.clamp(0.0, 1.0),
-            backgroundColor: Colors.grey.shade200,
-            valueColor: AlwaysStoppedAnimation<Color>(Colors.blue.shade600),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Text(
-                '\$${goal.currentAmount.toStringAsFixed(0)}',
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black87,
-                ),
-              ),
-              const Spacer(),
-              Text(
-                '\$${goal.targetAmount.toStringAsFixed(0)}',
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAddGoalCard(BuildContext context) {
-    return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const AddGoalScreen()),
-        );
-      },
-      child: Container(
-        width: 200,
-        margin: const EdgeInsets.only(right: 16),
-        decoration: BoxDecoration(
-          color: Colors.grey.shade50,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: Colors.grey.shade300,
-            style: BorderStyle.solid,
-          ),
-        ),
+  Widget _buildGoalCard(dom_goal.Goal goal, CurrencyService currencyService, BuildContext context) {
+    final progress = goal.targetAmount > 0 ? goal.currentAmount / goal.targetAmount : 0.0;
+    
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFF007A39).withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.add, color: Color(0xFF007A39), size: 24),
+            Row(
+              children: [
+                Icon(_getGoalIcon(goal.goalType), color: Colors.blue),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    goal.name,
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 12),
-            const Text(
-              'Set New Goal',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF007A39),
+            LinearProgressIndicator(
+              value: progress.clamp(0.0, 1.0),
+              backgroundColor: Colors.grey.shade300,
+              valueColor: AlwaysStoppedAnimation<Color>(
+                progress >= 1.0 ? Colors.green : Colors.blue,
               ),
             ),
-            const SizedBox(height: 4),
-            Text(
-              'Track your progress',
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildQuickActions(BuildContext context, ProfileType profileType) {
-    final actions =
-        profileType == ProfileType.business
-            ? [
-              QuickAction('Add Transaction', Icons.add, Colors.green, () {
-                _showQuickTransactionEntry(context);
-              }),
-              QuickAction('Create Invoice', Icons.receipt, Colors.blue, () {}),
-              QuickAction(
-                'View Reports',
-                Icons.analytics,
-                Colors.orange,
-                () {},
-              ),
-              QuickAction('Manage Clients', Icons.people, Colors.purple, () {}),
-            ]
-            : [
-              QuickAction('Add Transaction', Icons.add, Colors.green, () {
-                _showQuickTransactionEntry(context);
-              }),
-              QuickAction('View Budget', Icons.pie_chart, Colors.blue, () {}),
-              QuickAction('Set Goal', Icons.flag, Colors.orange, () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const AddGoalScreen(),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  currencyService.formatCurrency(goal.currentAmount),
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
                   ),
-                );
-              }),              QuickAction(
-                'Loan Calculator',
-                Icons.calculate,
-                Colors.purple,
-                () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const LoanCalculatorScreen(),
-                    ),
-                  );
-                },
-              ),
-            ];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Quick Actions',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: Colors.black87,
-          ),
-        ),
-        const SizedBox(height: 16),
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            childAspectRatio: 2.5,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-          ),
-          itemCount: actions.length,
-          itemBuilder: (context, index) {
-            final action = actions[index];
-            return _buildQuickActionCard(context, action);
-          },
-        ),
-      ],
-    );
-  }
-
-  Widget _buildQuickActionCard(BuildContext context, QuickAction action) {
-    return GestureDetector(
-      onTap: action.onTap,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey.shade200),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.grey.withOpacity(0.1),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: action.color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(action.icon, color: action.color, size: 20),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                action.title,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black87,
                 ),
-              ),
+                Text(
+                  currencyService.formatCurrency(goal.targetAmount),
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -565,32 +423,39 @@ class DashboardContent extends StatelessWidget {
     );
   }
 
-  Widget _buildRecentTransactions(
-    BuildContext context,
-    List<Transaction> transactions,
-  ) {
+  IconData _getGoalIcon(GoalType type) {
+    switch (type) {
+      case GoalType.savings:
+        return Icons.savings;
+      case GoalType.investment:
+        return Icons.trending_up;
+      case GoalType.emergencyFund:
+        return Icons.security;
+      case GoalType.debtReduction:
+        return Icons.money_off;
+      case GoalType.insurance:
+        return Icons.health_and_safety;
+      case GoalType.other:
+        return Icons.flag;
+    }
+  }
+
+  Widget _buildRecentTransactions(BuildContext context, CurrencyService currencyService, List<dom_tx.Transaction> transactions) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
+            Text(
               'Recent Transactions',
-              style: TextStyle(
-                fontSize: 20,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
-                color: Colors.black87,
               ),
             ),
-            const Spacer(),
             TextButton(
               onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const TransactionsScreen(),
-                  ),
-                );
+                // Navigate to transactions screen
               },
               child: const Text('View All'),
             ),
@@ -598,196 +463,103 @@ class DashboardContent extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         if (transactions.isEmpty)
-          Container(
-            padding: const EdgeInsets.all(32),
-            child: Column(
-              children: [
-                Icon(
-                  Icons.receipt_long_outlined,
-                  size: 48,
-                  color: Colors.grey.shade400,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'No transactions yet',
-                  style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Add your first transaction to get started',
-                  style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
-                ),
-              ],
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                children: [
+                  Icon(Icons.receipt_long_outlined, size: 48, color: Colors.grey.shade400),
+                  const SizedBox(height: 12),
+                  Text(
+                    'No transactions yet',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  ElevatedButton(
+                    onPressed: () => TransactionDialog.showAddDialog(
+                      context,
+                      onTransactionSaved: (transaction) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Transaction added successfully'),
+                            backgroundColor: Color(0xFF007A39),
+                          ),
+                        );
+                      },
+                    ),
+                    child: const Text('Add Your First Transaction'),
+                  ),
+                ],
+              ),
             ),
           )
         else
-          ListView.separated(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: transactions.take(5).length,
-            separatorBuilder: (context, index) => const Divider(height: 1),
-            itemBuilder: (context, index) {
-              final transaction = transactions[index];
-              return _buildTransactionItem(context, transaction);
+          ...transactions.map((transaction) => TransactionCard(
+            transaction: transaction,
+            showEditOptions: false, // Don't show edit options on dashboard
+            onTap: () {
+              // Navigate to full transactions screen or show details
             },
-          ),
+          )),
       ],
     );
   }
 
-  Widget _buildTransactionItem(BuildContext context, Transaction transaction) {
-    Color color;
-    IconData icon;
-    String prefix;
-
+  Widget _buildTransactionItem(dom_tx.Transaction transaction, CurrencyService currencyService, BuildContext context) {
+    IconData icon = Icons.remove_circle; // Default
+    Color color = Colors.grey; // Default
+    
     switch (transaction.type) {
       case TransactionType.income:
-        color = Colors.green.shade600;
-        icon = Icons.arrow_upward;
-        prefix = '+';
+        icon = Icons.add_circle;
+        color = Colors.green;
         break;
       case TransactionType.expense:
-        color = Colors.red.shade600;
-        icon = Icons.arrow_downward;
-        prefix = '-';
+        icon = Icons.remove_circle;
+        color = Colors.red;
         break;
       case TransactionType.savings:
-        color = Colors.blue.shade600;
         icon = Icons.savings;
-        prefix = '-';
+        color = Colors.blue;
+        break;
+      default:
+        // Keep defaults
         break;
     }
 
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Icon(icon, color: color, size: 20),
-      ),
-      title: Text(
-        transaction.category.toString().split('.').last.toUpperCase(),
-        style: const TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
-          color: Colors.black87,
-        ),
-      ),
-      subtitle: Text(
-        transaction.date.toString().split(' ')[0],
-        style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-      ),
-      trailing: Text(
-        '$prefix\$${transaction.amount.toStringAsFixed(2)}',
-        style: TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
-          color: color,
-        ),
-      ),
-    );
-  }
-
-  IconData _getGoalIcon(GoalType goalType) {
-    switch (goalType) {
-      case GoalType.savings:
-        return Icons.savings;
-      case GoalType.debtReduction:
-        return Icons.money_off;
-      case GoalType.investment:
-        return Icons.trending_up;
-      case GoalType.expenseReduction:
-        return Icons.trending_down;
-      case GoalType.emergencyFund:
-        return Icons.security;
-      case GoalType.other:
-        return Icons.flag;
-      case GoalType.incomeIncrease:
-        return Icons.attach_money;
-      case GoalType.retirement:
-        return Icons.account_balance;
-    }
-  }
-
-  Future<DashboardData> _loadDashboardData(
-    OfflineDataService dataService,
-    String profileId,
-  ) async {
-    try {
-      final transactions = await dataService.getAllTransactions(profileId);
-      final goals = await dataService.getAllGoals(profileId);
-      final budgets = await dataService.getAllBudgets(profileId);
-
-      final currentBudget = budgets.isNotEmpty ? budgets.first : null;
-
-      final totalIncome = transactions
-          .where((t) => t.type == TransactionType.income)
-          .fold(0.0, (sum, t) => sum + t.amount);
-
-      final totalExpenses = transactions
-          .where((t) => t.type == TransactionType.expense)
-          .fold(0.0, (sum, t) => sum + t.amount);
-
-      final totalSavings = transactions
-          .where((t) => t.type == TransactionType.savings)
-          .fold(0.0, (sum, t) => sum + t.amount);
-
-      return DashboardData(
-        totalIncome: totalIncome,
-        totalExpenses: totalExpenses,
-        totalSavings: totalSavings,
-        goals: goals,
-        recentTransactions: transactions.take(5).toList(),
-        currentBudget: currentBudget,
-      );
-    } catch (e) {
-      return DashboardData.empty();
-    }
-  }
-
-  void _showQuickTransactionEntry(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder:
-          (context) => Padding(
-            padding: EdgeInsets.only(
-              bottom: MediaQuery.of(context).viewInsets.bottom,
-            ),
-            child: const QuickTransactionEntry(),
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: ListTile(
+        leading: Icon(icon, color: color),
+        title: Text(transaction.description ?? 'No description'),
+        subtitle: Text(transaction.categoryId.isNotEmpty ? transaction.categoryId : 'No category'),
+        trailing: Text(
+          currencyService.formatCurrency(transaction.amount),
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.w600,
+            color: color,
           ),
+        ),
+      ),
     );
   }
 }
 
 class DashboardData {
-  final double totalIncome;
-  final double totalExpenses;
-  final double totalSavings;
-  final List<Goal> goals;
-  final List<Transaction> recentTransactions;
-  final Budget? currentBudget;
+  final List<dom_goal.Goal> goals;
+  final List<dom_tx.Transaction> recentTransactions;
+  final dom_budget.Budget? currentBudget;
 
   DashboardData({
-    required this.totalIncome,
-    required this.totalExpenses,
-    required this.totalSavings,
     required this.goals,
     required this.recentTransactions,
     this.currentBudget,
   });
 
-  double get availableToSpend => totalIncome - totalExpenses - totalSavings;
-
   factory DashboardData.empty() {
     return DashboardData(
-      totalIncome: 0.0,
-      totalExpenses: 0.0,
-      totalSavings: 0.0,
       goals: [],
       recentTransactions: [],
       currentBudget: null,
