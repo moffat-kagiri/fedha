@@ -1,6 +1,5 @@
 // app/lib/widgets/transaction_list.dart
 import 'package:flutter/material.dart';
-import 'package:hive_flutter/hive_flutter.dart';
 import '../models/transaction.dart';
 
 class TransactionList extends StatelessWidget {
@@ -8,7 +7,6 @@ class TransactionList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final transactionBox = Hive.box<Transaction>('transactions');
 
     return ValueListenableBuilder<Box<Transaction>>(
       valueListenable: transactionBox.listenable(),

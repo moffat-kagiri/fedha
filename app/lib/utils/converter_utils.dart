@@ -1,4 +1,4 @@
-import '../models/profile.dart';
+import '../models/enums.dart';
 
 class ConverterUtils {
   // Enum Converters

@@ -43,11 +43,10 @@ Future<Uint8List> generateWalletIcon() async {
     size / 2,
     backgroundPaint,
   );
-
   // Wallet shadow
   final shadowPaint =
       Paint()
-        ..color = Colors.black.withOpacity(0.3)
+        ..color = Colors.black.withValues(alpha: 0.3)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
 
   final walletShadowRect = RRect.fromRectAndRadius(
@@ -126,7 +125,7 @@ Future<Uint8List> generateWalletIcon() async {
   // Decorative elements (small circles for cards/coins)
   final dotPaint =
       Paint()
-        ..color = const Color(0xFF2E7D32).withOpacity(0.3)
+        ..color = const Color(0xFF2E7D32).withValues(alpha: 0.3)
         ..style = PaintingStyle.fill;
 
   for (int i = 0; i < 3; i++) {
@@ -139,13 +138,12 @@ Future<Uint8List> generateWalletIcon() async {
       dotPaint,
     );
   }
-
   // Add a subtle shine effect
   final shinePaint =
       Paint()
         ..shader = ui.Gradient.linear(const Offset(0, 0), Offset(size, size), [
-          Colors.white.withOpacity(0.3),
-          Colors.white.withOpacity(0.0),
+          Colors.white.withValues(alpha: 0.3),
+          Colors.white.withValues(alpha: 0.0),
         ]);
 
   canvas.drawCircle(const Offset(size / 2, size / 2), size / 2, shinePaint);

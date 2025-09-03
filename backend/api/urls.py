@@ -18,7 +18,7 @@ Author: Fedha Development Team
 Last Updated: May 26, 2025
 """
 
-from django.urls import path
+from django.urls import path, include
 from django.http import JsonResponse
 from . import views
 
@@ -76,8 +76,6 @@ urlpatterns = [
     # Financial calculator routes
     *calculator_patterns,
     
-    # Health check endpoint
-    path('health/', lambda request: JsonResponse({'status': 'healthy'}), name='health-check'),
+    # Health check endpoint - Using the comprehensive implementation
+    path('health/', include('api.health.urls')),
 ]
-# Import JsonResponse for health check
-from django.http import JsonResponse

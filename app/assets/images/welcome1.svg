@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="240" height="240" viewBox="0 0 240 240" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- SMS Notification Background -->
+  <rect x="40" y="60" width="160" height="120" rx="12" fill="white" opacity="0.9"/>
+  
+  <!-- Phone Outline -->
+  <rect x="70" y="40" width="100" height="160" rx="16" stroke="white" stroke-width="4" fill="#007A39" opacity="0.2"/>
+  
+  <!-- Screen Area -->
+  <rect x="75" y="50" width="90" height="140" rx="8" fill="white" opacity="0.8"/>
+  
+  <!-- Notification Header -->
+  <rect x="85" y="70" width="70" height="10" rx="5" fill="#007A39" opacity="0.7"/>
+  
+  <!-- Message Content -->
+  <rect x="85" y="85" width="70" height="6" rx="3" fill="#007A39" opacity="0.5"/>
+  <rect x="85" y="95" width="55" height="6" rx="3" fill="#007A39" opacity="0.5"/>
+  <rect x="85" y="105" width="65" height="6" rx="3" fill="#007A39" opacity="0.5"/>
+  
+  <!-- Transaction Amount -->
+  <rect x="85" y="125" width="45" height="12" rx="6" fill="#007A39"/>
+  
+  <!-- Auto-Capture Animation -->
+  <path d="M170 120 L180 130 L200 100" stroke="white" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  
+  <!-- Money Symbols -->
+  <text x="105" y="165" font-family="Arial" font-size="16" font-weight="bold" fill="#007A39">Ksh</text>
+  <text x="130" y="170" font-family="Arial" font-size="24" font-weight="bold" fill="#007A39">💰</text>
+</svg>

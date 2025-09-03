@@ -62,11 +62,14 @@ class SyncService {
       }
 
       // Fetch updates from backend
-      final serverTransactions = await _apiClient.getTransactions(profileId);
+      final serverTransactions = await _apiClient.getTransactions(
+        profileId: profileId,
+        sessionToken: profileId, // Using profileId as sessionToken for now
+      );
 
       // Update local transactions with server data
       for (final serverTransaction in serverTransactions) {
-        final existingTransaction = await _offlineDataService.getTransaction(
+        final existingTransaction = _offlineDataService.getTransaction(
           serverTransaction.uuid,
         );
 
@@ -98,7 +101,7 @@ class SyncService {
 
     try {
       // Get unsynced local categories
-      final categories = await _offlineDataService.getAllCategories(profileId);
+      final categories = _offlineDataService.getCategoriesForProfile(profileId);
       final unsyncedCategories = categories.where((c) => !c.isSynced).toList();
 
       if (unsyncedCategories.isNotEmpty) {
@@ -129,7 +132,7 @@ class SyncService {
     final result = EntitySyncResult();
 
     try {
-      final clients = await _offlineDataService.getAllClients(profileId);
+      final clients = _offlineDataService.getClientsForProfile(profileId);
       final unsyncedClients = clients.where((c) => !c.isSynced).toList();
 
       if (unsyncedClients.isNotEmpty) {
@@ -157,7 +160,7 @@ class SyncService {
     final result = EntitySyncResult();
 
     try {
-      final invoices = await _offlineDataService.getAllInvoices(profileId);
+      final invoices = _offlineDataService.getInvoicesForProfile(profileId);
       final unsyncedInvoices = invoices.where((i) => !i.isSynced).toList();
 
       if (unsyncedInvoices.isNotEmpty) {
@@ -185,7 +188,7 @@ class SyncService {
     final result = EntitySyncResult();
 
     try {
-      final goals = await _offlineDataService.getAllGoals(profileId);
+      final goals = _offlineDataService.getGoalsForProfile(profileId);
       final unsyncedGoals = goals.where((g) => !g.isSynced).toList();
 
       if (unsyncedGoals.isNotEmpty) {
@@ -213,7 +216,7 @@ class SyncService {
     final result = EntitySyncResult();
 
     try {
-      final budgets = await _offlineDataService.getAllBudgets(profileId);
+      final budgets = _offlineDataService.getBudgetsForProfile(profileId);
       final unsyncedBudgets = budgets.where((b) => !b.isSynced).toList();
 
       if (unsyncedBudgets.isNotEmpty) {
@@ -245,19 +248,19 @@ class SyncService {
     );
     count += transactions.length;
 
-    final categories = await _offlineDataService.getAllCategories(profileId);
+    final categories = _offlineDataService.getCategoriesForProfile(profileId);
     count += categories.where((c) => !c.isSynced).length;
 
-    final clients = await _offlineDataService.getAllClients(profileId);
+    final clients = _offlineDataService.getClientsForProfile(profileId);
     count += clients.where((c) => !c.isSynced).length;
 
-    final invoices = await _offlineDataService.getAllInvoices(profileId);
+    final invoices = _offlineDataService.getInvoicesForProfile(profileId);
     count += invoices.where((i) => !i.isSynced).length;
 
-    final goals = await _offlineDataService.getAllGoals(profileId);
+    final goals = _offlineDataService.getGoalsForProfile(profileId);
     count += goals.where((g) => !g.isSynced).length;
 
-    final budgets = await _offlineDataService.getAllBudgets(profileId);
+    final budgets = _offlineDataService.getBudgetsForProfile(profileId);
     count += budgets.where((b) => !b.isSynced).length;
 
     return count;
