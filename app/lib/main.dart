@@ -25,13 +25,13 @@ import 'services/api_client.dart';
 import 'services/theme_service.dart';
 import 'config/api_config.dart';
 import 'config/environment_config.dart';
-import 'config/local_server_config.dart';
+// import 'config/local_server_config.dart';  // removed: file not found
 import 'services/currency_service.dart';
 import 'services/biometric_auth_service.dart';
 import 'services/service_stubs.dart' as stubs;
 import 'utils/connection_manager.dart';
 import 'services/enhanced_sync_service.dart';
-import 'services/connectivity_service_new.dart' as conn_svc;
+import 'services/connectivity_service.dart' as conn_svc;
 import 'services/sms_listener_service.dart';
 import 'services/permissions_service.dart';
 import 'theme/app_theme.dart';
@@ -59,7 +59,11 @@ import 'screens/welcome_onboarding_screen.dart';
 import 'device_network_info.dart';
 import 'ip_settings.dart';
 import 'screens/debt_repayment_planner_screen.dart';
-import 'screens/asset_protection_screen.dart';
+// import 'screens/asset_protection_screen.dart';
+import 'screens/asset_protection_intro_screen.dart';
+import 'screens/health_cover_screen.dart';
+import 'screens/vehicle_cover_screen.dart';
+import 'screens/home_cover_screen.dart';
 import 'screens/emergency_fund_screen.dart';
 import 'screens/sms_review_screen.dart';
 
@@ -370,7 +374,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             '/device_network_info': (context) => const DeviceInfoScreen(),
             '/ip_settings': (context) => const IpSettingsScreen(),
             '/debt_repayment_planner': (context) => const DebtRepaymentPlannerScreen(),
-            '/asset_protection': (context) => const AssetProtectionScreen(),
+            '/asset_protection': (context) => AssetProtectionIntroScreen(),
+            '/asset_protection_intro': (context) => AssetProtectionIntroScreen(),
+            '/asset_protection_health': (context) => HealthCoverScreen(),
+            '/asset_protection_vehicle': (context) => VehicleCoverScreen(),
+            '/asset_protection_home': (context) => HomeCoverScreen(),
             '/emergency-fund': (context) => const EmergencyFundScreen(),
             '/sms_review': (context) => const SmsReviewScreen(),
             },

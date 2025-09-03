@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/risk_assessment_service.dart';
 
 class InvestmentRecommendationsScreen extends StatelessWidget {
   final double riskScore;
@@ -52,27 +53,38 @@ class InvestmentRecommendationsScreen extends StatelessWidget {
   }
 
   Map<String, dynamic> _generateRecommendations() {
+    // Determine allocation based on risk profile
+    final profile = RiskAssessmentService.profileFromScore(riskScore);
+    final allocation = RiskAssessmentService.recommendedAllocation(profile);
+    // Determine expected return based on risk score
     double expectedReturn;
-    List<Map<String, dynamic>> vehicles;
     if (riskScore < 30) {
       expectedReturn = 4;
-      vehicles = [
-        {'icon': Icons.savings, 'name': 'Government Bonds', 'description': 'Low risk government securities.'},
-        {'icon': Icons.account_balance, 'name': 'High-Yield Savings Account', 'description': 'Stable but lower yields.'},
-      ];
     } else if (riskScore < 70) {
       expectedReturn = 8;
-      vehicles = [
-        {'icon': Icons.business, 'name': 'Index Funds', 'description': 'Diversified market index funds.'},
-        {'icon': Icons.real_estate_agent, 'name': 'REITs', 'description': 'Real Estate Investment Trusts.'},
-      ];
     } else {
       expectedReturn = 12;
-      vehicles = [
-        {'icon': Icons.show_chart, 'name': 'Stocks', 'description': 'High-growth equity investments.'},
-        {'icon': Icons.trending_up, 'name': 'Cryptocurrency', 'description': 'High risk digital assets.'},
-      ];
     }
+    // Build vehicle recommendations from asset allocation
+    final vehicles = <Map<String, dynamic>>[];
+    allocation.forEach((asset, percent) {
+      if (percent > 0) {
+        switch (asset) {
+          case 'Bonds/Cash':
+            vehicles.add({'icon': Icons.savings, 'name': 'Government Bonds', 'description': 'Low risk government securities.'});
+            vehicles.add({'icon': Icons.account_balance, 'name': 'High-Yield Savings', 'description': 'Stable yield savings account.'});
+            break;
+          case 'Equities':
+            vehicles.add({'icon': Icons.show_chart, 'name': 'Index Funds', 'description': 'Diversified market funds.'});
+            vehicles.add({'icon': Icons.trending_up, 'name': 'Stocks', 'description': 'Equity investments.'});
+            break;
+          case 'Alternatives':
+            vehicles.add({'icon': Icons.real_estate_agent, 'name': 'REITs', 'description': 'Real estate trusts.'});
+            vehicles.add({'icon': Icons.currency_bitcoin, 'name': 'Alternative Assets', 'description': 'REITs, crypto, and more.'});
+            break;
+        }
+      }
+    });
     return {'expectedReturn': expectedReturn, 'vehicles': vehicles};
   }
 }

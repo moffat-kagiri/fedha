@@ -6,44 +6,24 @@ class ToolsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-
     final tools = [
-      {
-        'title': 'Investment Calculator',
-        'icon': Icons.show_chart,
-        'route': '/investment_calculator',
-      },
-      {
-        'title': 'Emergency Fund',
-        'icon': Icons.sos,
-        'route': '/emergency-fund',
-      },
-      {
-        'title': 'Debt Planner',
-        'icon': Icons.account_balance,
-        'route': '/debt_repayment_planner',
-      },
-      {
-        'title': 'Asset Protection',
-        'icon': Icons.umbrella,
-        'route': '/asset_protection',
-      },
+      {'title': 'Investment Calculator', 'icon': Icons.show_chart, 'route': '/investment_calculator'},
+      {'title': 'Emergency Fund', 'icon': Icons.sos, 'route': '/emergency-fund'},
+      {'title': 'Debt Planner', 'icon': Icons.account_balance, 'route': '/debt_repayment_planner'},
+  {'title': 'Asset Protection', 'icon': Icons.umbrella, 'route': '/asset_protection'},
     ];
 
     return Scaffold(
-      backgroundColor: colorScheme.background,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-  backgroundColor: FedhaColors.primaryGreen,
-  title: Text(
+        backgroundColor: FedhaColors.primaryGreen,
+        title: Text(
           'Financial Tools',
-          style: textTheme.titleLarge?.copyWith(
-            color: colorScheme.onPrimary,
-            fontWeight: FontWeight.bold,
-          ),
+          style: Theme.of(context)
+              .textTheme
+              .headlineMedium
+              ?.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
         ),
-        elevation: 0,
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -56,41 +36,23 @@ class ToolsScreen extends StatelessWidget {
                 mainAxisSpacing: 16,
                 childAspectRatio: 0.9,
                 children: tools.map((tool) {
-                  // Single InkWell for the tool card
                   return InkWell(
                     borderRadius: BorderRadius.circular(12),
-                    onTap: () {
-                      final route = tool['route'] as String;
-                      Navigator.pushNamed(context, route);
-                      if (route == '/emergency-fund') {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Opening Emergency Fund Calculator...')),
-                        );
-                      }
-                    },
+                    onTap: () => Navigator.pushNamed(context, tool['route'] as String),
                     child: Card(
-                      color: colorScheme.surface,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                      color: Theme.of(context).cardColor,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       elevation: 4,
                       child: Padding(
-                        padding: const EdgeInsets.all(16.0),
+                        padding: const EdgeInsets.all(16),
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(
-                              tool['icon'] as IconData,
-                              size: 40,
-                              color: colorScheme.primary,
-                            ),
+                            Icon(tool['icon'] as IconData, size: 40, color: FedhaColors.primaryGreen),
                             const SizedBox(height: 12),
                             Text(
                               tool['title'] as String,
-                              style: textTheme.bodyLarge?.copyWith(
-                                fontWeight: FontWeight.w600,
-                                color: colorScheme.onSurface,
-                              ),
+                              style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.bold),
                               textAlign: TextAlign.center,
                             ),
                           ],
@@ -99,15 +61,15 @@ class ToolsScreen extends StatelessWidget {
                     ),
                   );
                 }).toList(),
-              ), // close GridView.count
-            ), // close Expanded
-            const SizedBox(height: 16),
-            Text(
-              'More tools coming soon...',
-              style: textTheme.bodySmall?.copyWith(
-                color: colorScheme.onBackground.withOpacity(0.6),
               ),
-              textAlign: TextAlign.center,
+            ),
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Text(
+                'More features coming soon! Stay tuned for updates.',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey),
+                textAlign: TextAlign.center,
+              ),
             ),
           ],
         ),

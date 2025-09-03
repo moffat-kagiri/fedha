@@ -126,7 +126,9 @@ class _PermissionsScreenState extends State<PermissionsScreen> {
               ),
               const SizedBox(height: 16),
               TextButton(
-                onPressed: () {
+                onPressed: _isRequestingPermissions ? null : () async {
+                  // Mark prompt as shown and skip requesting permissions
+                  await _permissionsService.markPermissionsPromptShown();
                   widget.onPermissionsSet(context);
                 },
                 child: Text(

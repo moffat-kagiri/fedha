@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/goal.dart';
 import '../services/offline_data_service.dart';
+import '../services/auth_service.dart';
 
 class EmergencyFundCalculatorScreen extends StatefulWidget {
   const EmergencyFundCalculatorScreen({Key? key}) : super(key: key);
@@ -28,8 +29,9 @@ class _EmergencyFundCalculatorScreenState
   }
 
   Future<void> _initAverage() async {
-    final svc = Provider.of<OfflineDataService>(context, listen: false);
-    final profileId = svc.currentProfileId;
+  final svc = Provider.of<OfflineDataService>(context, listen: false);
+  final auth = Provider.of<AuthService>(context, listen: false);
+  final profileId = int.tryParse(auth.currentProfile?.id ?? '') ?? 0;
     final avg = await svc.getAverageMonthlySpending(profileId);
     setState(() {
       if (avg != null) {
@@ -53,16 +55,16 @@ class _EmergencyFundCalculatorScreenState
 
   Future<void> _saveAsGoal() async {
     final svc = Provider.of<OfflineDataService>(context, listen: false);
-    final profileId = svc.currentProfileId;
+    final auth = Provider.of<AuthService>(context, listen: false);
+    final profileIdStr = auth.currentProfile?.id ?? '';
     final goal = Goal(
-      id: null,
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
       name: 'Emergency Fund',
-      description:
-          'Save Ksh ${_target!.toStringAsFixed(2)} for emergencies',
-      targetMinor: (_target! * 100).round(),
-      dueDate: DateTime.now()
-          .add(Duration(days: _monthsToSave * 30)),
-      profileId: profileId,
+      description: 'Save Ksh ${_target!.toStringAsFixed(2)} for emergencies',
+      targetAmount: _target!,
+      currentAmount: 0.0,
+      targetDate: DateTime.now().add(Duration(days: _monthsToSave * 30)),
+      profileId: profileIdStr,
     );
     await svc.addGoal(goal);
     ScaffoldMessenger.of(context).showSnackBar(
@@ -147,11 +149,14 @@ class _EmergencyFundCalculatorScreenState
                       style: const TextStyle(
                           fontWeight: FontWeight.bold),
                     ),
-                    const Spacer(),
-                    ElevatedButton.icon(
-                      onPressed: _saveAsGoal,
-                      icon: const Icon(Icons.flag),
-                      label: const Text('Set as Goal'),
+                    const SizedBox(height: 24),
+                    SafeArea(
+                      minimum: const EdgeInsets.only(bottom: 24),
+                      child: ElevatedButton.icon(
+                        onPressed: _saveAsGoal,
+                        icon: const Icon(Icons.flag),
+                        label: const Text('Set as Goal'),
+                      ),
                     ),
                   ],
                 ],

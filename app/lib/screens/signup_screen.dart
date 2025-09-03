@@ -110,20 +110,21 @@ class _SignupScreenState extends State<SignupScreen> {
             context,
             MaterialPageRoute(
               builder: (_) => PermissionsScreen(
-                onPermissionsSet: (ctx) {
+                onPermissionsSet: (_) {
+                  // Use outer context for navigation
                   Navigator.pushReplacement(
-                    ctx,
+                    context,
                     MaterialPageRoute(
                       builder: (_) => BiometricLockScreen(
                         onAuthSuccess: () {
                           Navigator.pushReplacement(
-                            ctx,
+                            context,
                             MaterialPageRoute(builder: (_) => const MainNavigation()),
                           );
                         },
                         onSkip: () {
                           Navigator.pushReplacement(
-                            ctx,
+                            context,
                             MaterialPageRoute(builder: (_) => const MainNavigation()),
                           );
                         },
