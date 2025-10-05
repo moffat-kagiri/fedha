@@ -1,8 +1,56 @@
 import 'dart:async';
 import 'package:flutter_sms_inbox/flutter_sms_inbox.dart' as inbox;
-import 'package:flutter/foundation.dart';
+impo  /// Initialize notifications
+  Future<void> _initializeNotifications() async {
+    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const initializationSettings = InitializationSettings(android: androidSettings);
+    await _notifications.initialize(initializationSettings);
+  }
+
+  /// Initialize the SMS listener service
+  Future<bool> initialize(String profileId) async {
+    try {
+      _currentProfileId = profileId;
+      
+      if (!await checkAndRequestPermissions()) return false;
+      
+      // Initialize notifications
+      await _initializeNotifications();
+      
+      // Initialize Workmanager for background tasks
+      await Workmanager().initialize(
+        callbackDispatcher,
+        isInDebugMode: kDebugMode,
+      );
+      
+      // Register periodic task
+      await Workmanager().registerPeriodicTask(
+        'sms_listener',
+        'sms_listener_task',
+        frequency: const Duration(minutes: 15),
+        constraints: Constraints(
+          networkType: NetworkType.connected,
+          requiresBatteryNotLow: false,
+        ),
+        inputData: {
+          'profileId': profileId,
+        },
+      );
+      
+      // Start foreground polling
+      DateTime? lastTimestamp;
+      _pollTimer = Timer.periodic(const Duration(seconds: 10), (_) async {
+        // Poll SMS messages from inbox
+        if (kDebugMode) print('Polling SMS inbox...');
+        final List<inbox.SmsMessage> raw = await _query.querySms(
+          count: 20,
+          sort: true,
+        );
+        if (kDebugMode) print('Retrieved ${raw.length} SMS messages');utter/foundation.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:uuid/uuid.dart';
+import 'package:workmanager/workmanager.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../models/transaction.dart';
 import '../models/enums.dart';
 import '../models/category.dart' as models;
@@ -38,16 +86,23 @@ class SmsMessage {
 
 class SmsListenerService extends ChangeNotifier {
   static SmsListenerService? _instance;
-  static SmsListenerService get instance => _instance ??= SmsListenerService._();
+  static SmsListenerService get instance => _instance ??= SmsListenerService(
+    dataService: OfflineDataService(),
+  );
   
-  SmsListenerService._();
+  final OfflineDataService _offlineDataService;
+  
+  SmsListenerService({
+    required OfflineDataService dataService,
+  }) : _offlineDataService = dataService;
   
   final inbox.SmsQuery _query = inbox.SmsQuery();
   Timer? _pollTimer;
   StreamController<SmsMessage>? _messageController;
-  final OfflineDataService _offlineDataService = OfflineDataService();
+  final FlutterLocalNotificationsPlugin _notifications = FlutterLocalNotificationsPlugin();
   
   bool _isListening = false;
+  String? _currentProfileId;
   List<SmsMessage> _recentMessages = [];
   String? _currentProfileId;
   
