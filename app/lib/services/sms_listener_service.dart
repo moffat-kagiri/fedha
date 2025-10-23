@@ -1,145 +1,18 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_sms_inbox/flutter_sms_inbox.dart' as inbox;
-import 'package:permission_handler/permission_handler.dart';
-import 'package:uuid/uuid.dart';
-import 'package:workmanager/workmanager.dart';
-import '../models/transaction.dart';
-import '../models/enums.dart';
-import '../models/category.dart' as models;
-import 'sms_transaction_extractor.dart';
-import '../services/offline_data_service.dart';
-import '../data/app_database.dart';
+impo  /// Initialize notifications
+  Future<void> _initializeNotifications() async {
+    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const initializationSettings = InitializationSettings(android: androidSettings);
+    await _notifications.initialize(initializationSettings);
+  }
 
-/// Top-level callback function for Workmanager background tasks.
-/// Must be annotated with @pragma('vm:entry-point') to prevent tree-shaking.
-@pragma('vm:entry-point')
-void callbackDispatcher() {
-  Workmanager().executeTask((task, inputData) async {
-    if (task == 'sms_listener_task') {
-      try {
-        final profileId = inputData?['profileId'] as String?;
-        if (profileId == null || profileId.isEmpty) {
-          if (kDebugMode) {
-            print('Background task failed: Invalid or missing profileId');
-          }
-          return false;
-        }
-
-        // Initialize services with proper dependencies
-        final db = AppDatabase();
-        final dataService = OfflineDataService(db: db);
-        final smsListener = SmsListenerService.getInstance(dataService: dataService);
-
-        try {
-          // Request SMS permissions
-          if (!await smsListener.checkAndRequestPermissions()) {
-            if (kDebugMode) {
-              print('Background task failed: SMS permissions not granted');
-            }
-            return false;
-          }
-
-          // Setup notification channel for background service
-          final notifications = FlutterLocalNotificationsPlugin();
-          const androidChannel = AndroidNotificationChannel(
-            'sms_listener_background',
-            'SMS Listener Background Service',
-            description: 'Monitors financial SMS messages in the background',
-            importance: Importance.low,
-            enableVibration: false,
-            playSound: false,
-          );
-
-          await notifications
-              .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
-              ?.createNotificationChannel(androidChannel);
-
-          const androidSettings = AndroidNotificationDetails(
-            'sms_listener_background',
-            'SMS Listener Background Service',
-            channelDescription: 'Monitors financial SMS messages in the background',
-            importance: Importance.low,
-            priority: Priority.low,
-            ongoing: true,
-            autoCancel: false,
-          );
-
-          // Show background service notification
-          await notifications.show(
-            2, // Different ID from foreground service
-            'Fedha SMS Monitor',
-            'Monitoring financial messages in background',
-            const NotificationDetails(android: androidSettings),
-          );
-
-          // Poll for new messages
-          final query = inbox.SmsQuery();
-          final messages = await query.querySms(
-            count: 20,
-            sort: true,
-          );
-
-          for (final msg in messages) {
-            final timestamp = msg.date is DateTime
-                ? msg.date as DateTime
-                : DateTime.fromMillisecondsSinceEpoch((msg.date as int?) ?? 0);
-
-            final smsMsg = SmsMessage(
-              sender: msg.address ?? '',
-              body: msg.body ?? '',
-              timestamp: timestamp,
-            );
-
-            // Process if it's a financial message
-            if (smsListener._isFinancialTransaction(smsMsg)) {
-              await smsListener._handleSmsReceived(smsMsg.toMap());
-            }
-          }
-
-          if (kDebugMode) {
-            print('Background SMS check completed successfully');
-          }
-          return true;
-        } finally {
-          // Clean up resources
-          await db.close();
-        }
-      } catch (e, st) {
-        if (kDebugMode) {
-          print('Background task failed with error: $e');
-          print('Stack trace: $st');
-        }
-        return false;
-      }
-    }
-    return false;
-  });
-}
-
-  /// Initialize the SMS listener service with the given profile ID.
-  /// 
-  /// This method:
-  /// 1. Sets up SMS permissions
-  /// 2. Initializes notifications
-  /// 3. Sets up background tasks via Workmanager
-  /// 4. Starts foreground SMS polling
-  /// 
-  /// Returns false if permissions are denied or initialization fails.
+  /// Initialize the SMS listener service
   Future<bool> initialize(String profileId) async {
     try {
-      if (profileId.isEmpty) {
-        if (kDebugMode) print('Cannot initialize with empty profileId');
-        return false;
-      }
-      
       _currentProfileId = profileId;
       
-      if (!await checkAndRequestPermissions()) {
-        if (kDebugMode) print('SMS permissions not granted');
-        return false;
-      }
+      if (!await checkAndRequestPermissions()) return false;
       
       // Initialize notifications
       await _initializeNotifications();
@@ -166,41 +39,23 @@ void callbackDispatcher() {
       
       // Start foreground polling
       DateTime? lastTimestamp;
-      _pollTimer?.cancel(); // Cancel any existing timer
       _pollTimer = Timer.periodic(const Duration(seconds: 10), (_) async {
-        try {
-          // Poll SMS messages from inbox
-          if (kDebugMode) print('Polling SMS inbox...');
-          final List<inbox.SmsMessage> raw = await _query.querySms(
-            count: 20,
-            sort: true,
-          );
-          if (kDebugMode) print('Retrieved ${raw.length} SMS messages');
-          
-          for (var nativeMsg in raw) {
-            // plugin returns DateTime or int? ensure a DateTime
-            final DateTime msgTime = nativeMsg.date is DateTime
-                ? nativeMsg.date as DateTime
-                : DateTime.fromMillisecondsSinceEpoch((nativeMsg.date as int?) ?? 0);
-                
-            if (lastTimestamp == null || msgTime.isAfter(lastTimestamp!)) {
-              lastTimestamp = msgTime;
-              final msg = SmsMessage(
-                sender: nativeMsg.address ?? '',
-                body: nativeMsg.body ?? '',
-                timestamp: msgTime,
-              );
-              if (kDebugMode) print('Evaluating SMS: sender=${msg.sender}, body=${msg.body}');
-              
-              if (_isFinancialTransaction(msg)) {
-                _handleSmsReceived(msg.toMap());
-              }
-            }
-          }
-        } catch (e) {
-          if (kDebugMode) print('Error during SMS polling: $e');
-        }
-      });
+        // Poll SMS messages from inbox
+        if (kDebugMode) print('Polling SMS inbox...');
+        final List<inbox.SmsMessage> raw = await _query.querySms(
+          count: 20,
+          sort: true,
+        );
+        if (kDebugMode) print('Retrieved ${raw.length} SMS messages');utter/foundation.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:uuid/uuid.dart';
+import 'package:workmanager/workmanager.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import '../models/transaction.dart';
+import '../models/enums.dart';
+import '../models/category.dart' as models;
+import 'sms_transaction_extractor.dart';
+import '../services/offline_data_service.dart';
 
 /// Internal SMS message model
 class SmsMessage {
@@ -230,41 +85,14 @@ class SmsMessage {
 }
 
 class SmsListenerService extends ChangeNotifier {
-  // Dependency injection friendly singleton pattern
   static SmsListenerService? _instance;
-  
-  /// Gets the current singleton instance.
-  /// 
-  /// Throws a StateError if getInstance() hasn't been called first with dependencies.
-  static SmsListenerService get instance {
-    if (_instance == null) {
-      throw StateError(
-        'SmsListenerService has not been initialized. '
-        'Call getInstance() with dependencies first.'
-      );
-    }
-    return _instance!;
-  }
-  
-  /// Creates or returns the singleton instance with the provided dependencies.
-  /// Must be called before accessing the singleton via instance getter.
-  /// 
-  /// Example:
-  /// ```dart
-  /// final dataService = OfflineDataService(...);
-  /// final smsListener = SmsListenerService.getInstance(dataService: dataService);
-  /// ```
-  static SmsListenerService getInstance({
-    required OfflineDataService dataService,
-  }) {
-    _instance ??= SmsListenerService._(dataService: dataService);
-    return _instance!;
-  }
+  static SmsListenerService get instance => _instance ??= SmsListenerService(
+    dataService: OfflineDataService(),
+  );
   
   final OfflineDataService _offlineDataService;
   
-  // Private constructor to enforce singleton pattern with DI
-  SmsListenerService._({
+  SmsListenerService({
     required OfflineDataService dataService,
   }) : _offlineDataService = dataService;
   
@@ -276,6 +104,7 @@ class SmsListenerService extends ChangeNotifier {
   bool _isListening = false;
   String? _currentProfileId;
   List<SmsMessage> _recentMessages = [];
+  String? _currentProfileId;
   
   Stream<SmsMessage> get messageStream {
     _messageController ??= StreamController<SmsMessage>.broadcast();
@@ -310,25 +139,56 @@ class SmsListenerService extends ChangeNotifier {
     }
   }
   
-
-
-  /// Initialize notifications
-  Future<void> _initializeNotifications() async {
-    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
-    const initializationSettings = InitializationSettings(android: androidSettings);
-    await _notifications.initialize(initializationSettings);
-  }
-
-  /// Start listening for SMS transactions with the current profile ID.
-  /// Returns false if no profile ID is set or initialization fails.
-  Future<bool> startListening() async {
-    if (_currentProfileId == null || _currentProfileId!.isEmpty) {
-      if (kDebugMode) print('Cannot start listening: no profile ID set');
+  /// Initialize the SMS listener service
+  Future<bool> initialize() async {
+    try {
+      if (!await checkAndRequestPermissions()) return false;
+      // Poll SMS inbox every 10 seconds
+      DateTime? lastTimestamp;
+      _pollTimer = Timer.periodic(const Duration(seconds: 10), (_) async {
+        // Poll SMS messages from inbox
+        if (kDebugMode) print('Polling SMS inbox...');
+        final List<inbox.SmsMessage> raw = await _query.querySms(
+          count: 20,
+          sort: true,
+        );
+        if (kDebugMode) print('Retrieved ${raw.length} SMS messages');
+        for (var nativeMsg in raw) {
+          // plugin returns DateTime or int? ensure a DateTime
+          final DateTime msgTime = nativeMsg.date is DateTime
+              ? nativeMsg.date as DateTime
+              : DateTime.fromMillisecondsSinceEpoch((nativeMsg.date as int?) ?? 0);
+          if (lastTimestamp == null || msgTime.isAfter(lastTimestamp!)) {
+            lastTimestamp = msgTime;
+            final msg = SmsMessage(
+              sender: nativeMsg.address ?? '',
+              body: nativeMsg.body ?? '',
+              timestamp: msgTime,
+            );
+            if (kDebugMode) print('Evaluating SMS: sender=${msg.sender}, body=${msg.body}');
+            final isFin = _isFinancialTransaction(msg);
+            if (kDebugMode) print('Is financial transaction: $isFin');
+            if (isFin) {
+              _handleSmsReceived(msg.toMap());
+            }
+          }
+        }
+      });
+      _isListening = true;
+      notifyListeners();
+      if (kDebugMode) {
+        print('SMS listener started via flutter_sms_inbox');
+      }
+      return true;
+    } catch (e) {
+      if (kDebugMode) print('Error initializing SMS listener: $e');
       return false;
     }
-    return initialize(_currentProfileId!);
   }
-
+  /// Alias to start listening for SMS transactions
+  Future<bool> startListening() async {
+    return initialize();
+  }
   /// Stop polling SMS inbox
   Future<void> stopListening() async {
     _pollTimer?.cancel();

@@ -31,7 +31,12 @@
             android:name="flutterEmbedding"
             android:value="2" />
             
-        <!-- Background Service -->
+        <!-- Background Worker -->
+        <provider
+            android:name="androidx.work.impl.WorkManagerInitializer"
+            android:authorities="${applicationId}.workmanager-init"
+            android:exported="false" />
+            
         <service
             android:name="androidx.work.impl.foreground.SystemForegroundService"
             android:foregroundServiceType="dataSync"
@@ -55,9 +60,6 @@
         </intent>
     </queries>
 
-    <!-- Foreground Service Permission -->
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
-
     <!-- SMS permissions -->
     <uses-permission android:name="android.permission.RECEIVE_SMS" />
     <uses-permission android:name="android.permission.READ_SMS" />
@@ -78,11 +80,6 @@
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
     <!-- for legacy fingerprint support: -->
     <uses-permission android:name="android.permission.USE_FINGERPRINT" />
-    <!-- Declare biometric hardware features (optional if available) -->
-    <uses-feature android:name="android.hardware.biometrics" android:required="false" />
-    <uses-feature android:name="android.hardware.fingerprint" android:required="false" />
-    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
-</manifest>
     <!-- Declare biometric hardware features (optional if available) -->
     <uses-feature android:name="android.hardware.biometrics" android:required="false" />
     <uses-feature android:name="android.hardware.fingerprint" android:required="false" />
