@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'utils/logger.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:workmanager/workmanager.dart';
 
 // Models
 import 'models/profile.dart';
@@ -37,6 +38,9 @@ import 'services/permissions_service.dart';
 import 'theme/app_theme.dart';
 import 'services/risk_assessment_service.dart';
 
+// Background services
+import 'services/background_service.dart';
+
 // Screens
 import 'screens/auth_wrapper.dart';
 // import 'screens/loan_calculator_screen.dart'; // Replaced with investment calculator
@@ -67,8 +71,47 @@ import 'screens/home_cover_screen.dart';
 import 'screens/emergency_fund_screen.dart';
 import 'screens/sms_review_screen.dart';
 
+void callbackDispatcher() {
+  Workmanager().executeTask((task, inputData) async {
+    // This is the background task that will be executed periodically
+    // You can access the inputData here, for example:
+    final profileId = inputData?['profileId'];
+    
+    // Perform the background work here
+    // For example, fetching SMS messages and processing them
+    // Remember to handle permissions and other requirements
+
+    return Future.value(true);
+  });
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize Workmanager
+  await Workmanager().initialize(
+    callbackDispatcher,
+    isInDebugMode: false
+  );
+  
+  // Register periodic task
+  await Workmanager().registerPeriodicTask(
+    'sms_listener',
+    'sms_listener_task',
+    frequency: const Duration(hours: 3),
+    initialDelay: const Duration(minutes: 1),
+    constraints: Constraints(
+      networkType: NetworkType.connected,
+      requiresBatteryNotLow: false,
+      requiresCharging: false,
+      requiresDeviceIdle: false,
+      requiresStorageNotLow: true
+    ),
+    inputData: {
+      'profileId': '1' // Replace with actual user profile ID
+    }
+  );
+  
   // Disable Provider debug type check for Listenable/Stream types
   Provider.debugCheckInvalidValueType = null;
   
@@ -86,7 +129,7 @@ void main() async {
     final envConfig = EnvironmentConfig.current();
     
     // Initialize services
-    final authService = AuthService();
+    final authService = AuthService.instance;
     await authService.initialize();
     
     
@@ -106,7 +149,8 @@ void main() async {
     logger.info('Detecting optimal connection method...');
     
     // Create API client with minimal config for connectivity check
-    final tempApiClient = ApiClient(config: ApiConfig.development());
+    final tempApiClient = ApiClient.instance;
+    tempApiClient.init(config: ApiConfig.development());
     final connectivityService = conn_svc.ConnectivityService(tempApiClient);
     await connectivityService.initialize();
     
@@ -148,7 +192,8 @@ void main() async {
     }
 
   // Instantiate core services for DI
-  final apiClient = ApiClient(config: apiConfig);
+  final apiClient = ApiClient.instance;
+  apiClient.init(config: apiConfig);
   final goalTransactionService = stubs.GoalTransactionService(offlineDataService);
   final textRecognitionService = stubs.TextRecognitionService(offlineDataService);
   final csvUploadService = stubs.CSVUploadService(offlineDataService);
@@ -249,7 +294,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     final biometricService = BiometricAuthService.instance;
     final biometricEnabled = await biometricService?.isBiometricEnabled() ?? false;
     final hasValidSession = await biometricService?.hasValidBiometricSession() ?? false;
-    if (authService.isLoggedIn() && biometricEnabled && !hasValidSession) {
+    if (await authService.isLoggedIn() && biometricEnabled && !hasValidSession) {
       _navigatorKey.currentState?.push(
         MaterialPageRoute(
           builder: (_) => BiometricLockScreen(
@@ -285,7 +330,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       await offlineService.initialize();
       await authService.initialize();
 
-      if (authService.isLoggedIn() && authService.currentProfile != null) {
+      if (await authService.isLoggedIn() && authService.currentProfile != null) {
         final currentProfile = authService.currentProfile!;
         smsListenerService.setCurrentProfile(currentProfile.id);
         try {

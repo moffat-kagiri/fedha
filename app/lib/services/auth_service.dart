@@ -1,95 +1,123 @@
-// lib/services/auth_service.dart
+// auth_service.dart
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
-
-import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:workmanager/workmanager.dart';
 import 'package:uuid/uuid.dart';
-
-import '../models/profile.dart';
-import '../services/api_client.dart';
-import '../services/biometric_auth_service.dart';
+import 'package:flutter/foundation.dart';
 import '../utils/logger.dart';
+import '../models/profile.dart';
+import 'api_client.dart';
+import 'biometric_auth_service.dart';
+import 'offline_data_service.dart';
+import 'sms_listener_service.dart';
 
-class AuthService extends ChangeNotifier {
-  late final ApiClient _apiClient;
-  final _secureStorage = const FlutterSecureStorage();
-  final _logger = AppLogger.getLogger('AuthService');
+class AuthService with ChangeNotifier {
+  static AuthService? _instance;
+  static AuthService get instance => _instance ??= AuthService._();
+
   final _uuid = Uuid();
-
-  // Profile persistence moved to secure storage JSON
-  Profile? _currentProfile;
+  final _secureStorage = FlutterSecureStorage();
+  final _apiClient = ApiClient.instance;
+  final _logger = AppLogger.getLogger('AuthService');
+  final _offlineDataService = OfflineDataService();
   BiometricAuthService? _biometricService;
 
-  AuthService([ApiClient? apiClient]) {
-    _apiClient = apiClient ?? ApiClient();
-    _biometricService = BiometricAuthService.instance;
-    initialize();
-  }
+  Profile? _currentProfile;
 
-  // Getters and setters
-  Profile? get profile => _currentProfile;
+  AuthService._();
+
   Profile? get currentProfile => _currentProfile;
-  set currentProfile(Profile? profile) {
+  
+  void setCurrentProfile(Profile profile) {
     _currentProfile = profile;
     notifyListeners();
   }
-  BiometricAuthService? get biometricService => _biometricService;
 
-  bool isLoggedIn() => _currentProfile != null;
-
-  /// Initialize AuthService by restoring any existing session
   Future<void> initialize() async {
-    // Restore last logged-in profile from secure storage
+    _biometricService = BiometricAuthService.instance;
+    await _biometricService?.initialize();
+  }
+
+  Future<bool> isLoggedIn() async {
     try {
-      final json = await _secureStorage.read(key: 'current_profile_data');
-      if (json != null) {
-        final data = jsonDecode(json) as Map<String, dynamic>;
-        _currentProfile = Profile.fromJson(data);
-      }
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getBool('is_logged_in') ?? false;
     } catch (e) {
-      _logger.warning('Failed to restore session: $e');
+      _logger.severe('Failed to check login status: $e');
+      return false;
     }
-  _logger.info('AuthService initialized, currentProfile: ${_currentProfile?.id}');
-  // Do not clear session here to allow persistent login across app restarts
   }
 
-  Future<void> _restoreLastProfile() async {
-    // Restore profile from persistent storage if available
-  }
-
-  Future<LoginResult> login({required String email, required String password}) async {
-    // Dummy login implementation
-    return LoginResult.error(message: 'Login not implemented');
-  }
-
-  Future<LoginResult> loginWithBiometric() async {
+  Future<String?> getStoredProfile() async {
     try {
-      if (_biometricService == null) {
-        return LoginResult.error(message: 'Biometric service not available');
-      }
-      final isAuthenticated = await _biometricService!.authenticateWithBiometric('Please authenticate');
-      if (!isAuthenticated) return LoginResult.error(message: 'Biometric authentication failed');
-      if (_currentProfile == null) return LoginResult.error(message: 'No current profile');
+      return await _secureStorage.read(key: 'current_profile_data');
+    } catch (e) {
+      _logger.severe('Failed to get stored profile: $e');
+      return null;
+    }
+  }
+
+  Future<LoginResult> login({
+    required String email,
+    required String password,
+  }) async {
+    try {
+      // Get device ID and create session
+      final deviceId = await _getOrCreateDeviceId();
       final sessionToken = _createSessionToken();
-      final updatedProfile = _currentProfile!.copyWith(
+      final userId = _uuid.v4();
+      
+      // Create or retrieve profile
+      final newProfile = Profile.defaultProfile(
+        id: userId,
+        name: email.split('@')[0], // Temporary name from email
+        email: email.trim(),
+        password: password,
+      );
+
+      final updatedProfile = newProfile.copyWith(
         authToken: sessionToken,
         sessionToken: sessionToken,
       );
-      // Persist updated profile JSON
+
+      // Persist profile and session
       await _secureStorage.write(
         key: 'current_profile_data',
         value: jsonEncode(updatedProfile.toJson()),
       );
       await _secureStorage.write(key: 'session_token', value: sessionToken);
+
+      // Store login state for background services
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('is_logged_in', true);
+      await prefs.setString('profile_id', userId);
+
+      // Initialize background SMS listener
+      await Workmanager().registerPeriodicTask(
+        'sms_listener',
+        'sms_listener_task',
+        frequency: const Duration(hours: 3),
+        inputData: {
+          'profileId': userId
+        }
+      );
+
       _currentProfile = updatedProfile;
       notifyListeners();
-      return LoginResult.success(profile: updatedProfile, sessionToken: sessionToken);
+
+      _logger.info('User logged in successfully: $email');
+      return LoginResult.success(
+        profile: updatedProfile, 
+        sessionToken: sessionToken,
+        isFirstLogin: true
+      );
+
     } catch (e) {
-      _logger.severe('Biometric login failed: $e');
-      return LoginResult.error(message: 'Biometric login failed: ${e.toString()}');
+      _logger.severe('Login failed: $e');
+      return LoginResult.error(message: 'Login failed: ${e.toString()}');
     }
   }
 
@@ -162,14 +190,22 @@ class AuthService extends ChangeNotifier {
           _logger.severe('Failed to invalidate server session: $e');
         }
       }
-  _currentProfile = null;
-  await _secureStorage.delete(key: 'current_profile_data');
-  await _secureStorage.delete(key: 'session_token');
+      _currentProfile = null;
+      await _secureStorage.delete(key: 'current_profile_data');
+      await _secureStorage.delete(key: 'session_token');
       notifyListeners();
       _logger.info('User logged out');
     } catch (e) {
       _logger.severe('Logout failed: $e');
     }
+
+    // Clear login state
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('is_logged_in', false);
+    await prefs.remove('profile_id');
+
+    // Cancel SMS listener service
+    await Workmanager().cancelByUniqueName('sms_listener');
   }
 
   Future<bool> updateProfileName(String newName) async {
@@ -244,8 +280,109 @@ class AuthService extends ChangeNotifier {
     required String password,
     bool useBiometric = false,
   }) async {
-    // For now, simply call login
-    return login(email: email, password: password);
+    try {
+      // Handle biometric authentication if requested
+      if (useBiometric) {
+        if (_biometricService == null) {
+          return LoginResult.error(message: 'Biometric service not available');
+        }
+        final isAuthenticated = await _biometricService!.authenticateWithBiometric('Please authenticate');
+        if (!isAuthenticated) {
+          return LoginResult.error(message: 'Biometric authentication failed');
+        }
+        // If current profile exists and matches email, proceed with biometric login
+        if (_currentProfile != null && _currentProfile!.email == email) {
+          final sessionToken = _createSessionToken();
+          final updatedProfile = _currentProfile!.copyWith(
+            authToken: sessionToken,
+            sessionToken: sessionToken,
+          );
+          await _secureStorage.write(
+            key: 'current_profile_data',
+            value: jsonEncode(updatedProfile.toJson()),
+          );
+          await _secureStorage.write(key: 'session_token', value: sessionToken);
+          _currentProfile = updatedProfile;
+          notifyListeners();
+          return LoginResult.success(profile: updatedProfile, sessionToken: sessionToken);
+        }
+      }
+
+      // Proceed with normal login if not using biometric or no matching profile
+      // Validate inputs
+      if (email.isEmpty || password.isEmpty) {
+        return LoginResult.error(message: 'Email and password are required');
+      }
+
+      // Get device ID and create session
+      final deviceId = await _getOrCreateDeviceId();
+      final sessionToken = _createSessionToken();
+      
+      // Try server authentication if available
+      try {
+        final isConnected = await _apiClient.checkServerHealth();
+        if (isConnected) {
+          await _apiClient.login(
+            email: email, 
+            password: password,
+            // Note: deviceId is stored but not sent to server yet
+          );
+        }
+      } catch (e) {
+        _logger.warning('Could not authenticate with server: $e');
+        // Continue with local authentication
+      }
+
+      // Create or retrieve profile
+      final userId = _uuid.v4();
+      final newProfile = Profile.defaultProfile(
+        id: userId,
+        name: email.split('@')[0], // Temporary name from email
+        email: email.trim(),
+        password: password,
+      );
+
+      final updatedProfile = newProfile.copyWith(
+        authToken: sessionToken,
+        sessionToken: sessionToken,
+      );
+
+      // Persist profile and session
+      await _secureStorage.write(
+        key: 'current_profile_data',
+        value: jsonEncode(updatedProfile.toJson()),
+      );
+      await _secureStorage.write(key: 'session_token', value: sessionToken);
+
+      // Store login state for background services
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('is_logged_in', true);
+      await prefs.setString('profile_id', userId);
+
+      // Initialize background SMS listener
+      await Workmanager().registerPeriodicTask(
+        'sms_listener',
+        'sms_listener_task',
+        frequency: const Duration(hours: 3),
+        inputData: {
+          'profileId': userId
+        }
+      );
+
+      _currentProfile = updatedProfile;
+      notifyListeners();
+
+      _logger.info('User logged in successfully: $email');
+      return LoginResult.success(
+        profile: updatedProfile, 
+        sessionToken: sessionToken,
+        isFirstLogin: true
+      );
+
+    } catch (e) {
+      _logger.severe('Login failed: $e');
+      return LoginResult.error(message: 'Login failed: ${e.toString()}');
+    }
   }
 
   Future<bool> createProfile(Map<String, dynamic> profileData) async {
@@ -320,6 +457,26 @@ class AuthService extends ChangeNotifier {
   Future<void> markPermissionsPromptShown() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('show_permissions_prompt', false);
+  }
+
+  /// Initialize the SMS listener service with the current profile
+  Future<void> _initializeSmsListener(String profileId) async {
+      // Initialize background SMS listener with offline data service
+      final smsService = SmsListenerService.instance;
+      await smsService.initialize(
+        offlineDataService: _offlineDataService,
+        profileId: profileId
+      );
+    
+      // Register background task
+      await Workmanager().registerPeriodicTask(
+        'sms_listener',
+        'sms_listener_task',
+        frequency: const Duration(hours: 3),
+        inputData: {
+          'profileId': profileId
+        }
+      );
   }
 }
 

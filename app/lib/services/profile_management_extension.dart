@@ -7,28 +7,24 @@ import '../models/profile.dart';
 
 /// Extension to add profile management methods to AuthService
 extension ProfileManagementExtension on AuthService {
-  // Property references
-  ApiClient get _apiClient => ApiClient();
-  Profile? get _currentProfile => currentProfile;
-  
   /// Update the user's profile information
   Future<bool> updateProfile({
     required Map<String, dynamic> profileData,
   }) async {
     try {
-      if (_currentProfile == null) {
+      if (currentProfile == null) {
         return false;
       }
       
-      final userId = _currentProfile!.id;
-      final sessionToken = _currentProfile!.sessionToken ?? '';
+      final userId = currentProfile!.id;
+      final sessionToken = currentProfile!.sessionToken ?? '';
       
       // Update the local profile data first
-      final updatedProfile = _currentProfile!.copyWith(
-        email: profileData['email'] ?? _currentProfile!.email,
-        name: profileData['name'] ?? _currentProfile!.name,
-        phoneNumber: profileData['phoneNumber'] ?? _currentProfile!.phoneNumber,
-        photoUrl: profileData['photoUrl'] ?? _currentProfile!.photoUrl,
+      final updatedProfile = currentProfile!.copyWith(
+        email: profileData['email'] ?? currentProfile!.email,
+        name: profileData['name'] ?? currentProfile!.name,
+        phoneNumber: profileData['phoneNumber'] ?? currentProfile!.phoneNumber,
+        photoUrl: profileData['photoUrl'] ?? currentProfile!.photoUrl,
         updatedAt: DateTime.now(),
       );
       
@@ -37,7 +33,7 @@ extension ProfileManagementExtension on AuthService {
       
       // Try to sync with server if online
       try {
-        await _apiClient.updateProfile(
+        await ApiClient.instance.updateProfile(
           userId: userId,
           sessionToken: sessionToken,
           profileData: profileData,
@@ -50,80 +46,26 @@ extension ProfileManagementExtension on AuthService {
       }
       
       return true;
-      
-      return false;
     } catch (e) {
       if (kDebugMode) {
-        print('Error updating profile: $e');
+        print('Failed to update profile: $e');
       }
       return false;
     }
   }
   
-  /// Update the local profile data
-  Future<void> updateLocalProfile(Profile updatedProfile) async {
+  /// Save an updated profile to local storage only
+  Future<bool> updateLocalProfile(Profile updatedProfile) async {
     try {
-      // Save to secure storage instead of Hive box
-      final secureStorage = const FlutterSecureStorage();
-      await secureStorage.write(
+      await const FlutterSecureStorage().write(
         key: 'current_profile_data',
         value: jsonEncode(updatedProfile.toJson()),
       );
-      
-      // Update the current profile if it's the one being edited
-      if (profile?.id == updatedProfile.id) {
-        currentProfile = updatedProfile;
-      }
-      
-      // Notify listeners of the update
-      notifyListeners();
+      setCurrentProfile(updatedProfile);
+      return true;
     } catch (e) {
       if (kDebugMode) {
-        print('Error updating local profile: $e');
-      }
-    }
-  }
-  
-  /// Change the user's password
-  Future<bool> changePassword({
-    required String currentPassword,
-    required String newPassword,
-  }) async {
-    try {
-      if (_currentProfile == null) {
-        return false;
-      }
-      
-      final userId = _currentProfile!.id;
-      final sessionToken = _currentProfile!.sessionToken ?? '';
-      
-      final apiClient = ApiClient();
-      final result = await apiClient.updatePassword(
-        userId: userId,
-        sessionToken: sessionToken,
-        currentPassword: currentPassword,
-        newPassword: newPassword,
-      );
-      
-      return result['error'] == null;
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error changing password: $e');
-      }
-      return false;
-    }
-  }
-  
-  /// Request password reset
-  Future<bool> requestPasswordReset({required String email}) async {
-    try {
-      final apiClient = ApiClient();
-      final result = await apiClient.requestPasswordReset(email: email);
-      
-      return result['error'] == null;
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error requesting password reset: $e');
+        print('Failed to update local profile: $e');
       }
       return false;
     }

@@ -41,8 +41,8 @@ class TestProfileCreator {
         phoneNumber: '+254712345678',
       );
       
-      // Use AuthService instead of direct Hive box
-      final authService = AuthService();
+      // Use AuthService instance
+      final authService = AuthService.instance;
       await authService.signup(
         firstName: 'John',
         lastName: 'Doe',
@@ -94,8 +94,8 @@ class TestProfileCreator {
         displayName: 'Acme Corp',
       );
       
-      // Use AuthService instead of direct Hive box
-      final authService = AuthService();
+      // Use AuthService instance
+      final authService = AuthService.instance;
       await authService.signup(
         firstName: 'Acme',
         lastName: 'Corporation',
@@ -131,7 +131,7 @@ class TestProfileCreator {
     // Since we no longer have direct box access, we can only access the current profile
     final profiles = <Profile>[];
     
-    final authService = AuthService();
+    final authService = AuthService.instance;
     await authService.initialize(); // Ensure profile is loaded
     
     if (authService.currentProfile != null) {

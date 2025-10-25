@@ -42,7 +42,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
         final authService = Provider.of<AuthService>(context, listen: false);
         await authService.initialize();
         // Prompt first‐login actions (biometric setup, permissions)
-        if (authService.isLoggedIn() && await authService.isFirstLogin()) {
+        if (await authService.isLoggedIn() && await authService.isFirstLogin()) {
           await FirstLoginHandler(context, authService).handleFirstLogin();
         }
         // Check backend health but do not force logout when offline
@@ -59,7 +59,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
         
         // Check if user is logged in and biometric is enabled
         bool needsBiometric = false;
-        if (authService.isLoggedIn() && biometricEnabled && !hasValidSession) {
+        if (await authService.isLoggedIn() && biometricEnabled && !hasValidSession) {
           needsBiometric = true;
         }
         
@@ -139,15 +139,21 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
     return Consumer<AuthService>(
       builder: (context, authService, child) {
-        if (authService.isLoggedIn()) {
-          return const MainNavigation();
-        } else if (!_accountCreationAttempted) {
-          // No account attempt yet: prompt signup first
-          return const SignupScreen();
-        } else {
-          // After account creation attempt: present login screen
-          return const LoginScreen();
-        }
+        // Use FutureBuilder to handle async isLoggedIn check
+        return FutureBuilder<bool>(
+          future: authService.isLoggedIn(),
+          builder: (context, snapshot) {
+            if (snapshot.hasData && snapshot.data!) {
+              return const MainNavigation();
+            } else if (!_accountCreationAttempted) {
+              // No account attempt yet: prompt signup first
+              return const SignupScreen();
+            } else {
+              // After account creation attempt: present login screen
+              return const LoginScreen();
+            }
+          },
+        );
       },
     );
   }

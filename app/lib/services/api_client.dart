@@ -10,6 +10,11 @@ import '../utils/logger.dart';
 import '../config/api_config.dart';
 
 class ApiClient {
+	static ApiClient? _instance;
+	static ApiClient get instance => _instance ??= ApiClient._();
+
+	factory ApiClient() => instance;
+
 	final http.Client _http = http.Client();
 	final logger = AppLogger.getLogger('ApiClient');
 	final Map<String, String> _headers = {
@@ -22,10 +27,14 @@ class ApiClient {
 	bool _usingFallback = false;
 
  	/// Use local or development config in debug mode to point at local server
-	ApiClient({ApiConfig? config}) : _config = config
-			  ?? (kDebugMode
-				  ? ApiConfig.development()
-				  : ApiConfig.production());
+	ApiClient._() : _config = kDebugMode ? ApiConfig.development() : ApiConfig.production();
+
+	/// Initialize with a specific config
+	void init({ApiConfig? config}) {
+		if (config != null) {
+			_config = config;
+		}
+	}
 
 	// Expose current config (read-only outside)
 	ApiConfig get config => _config;

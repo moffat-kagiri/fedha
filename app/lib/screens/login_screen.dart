@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:permission_handler/permission_handler.dart';
+import '../services/offline_data_service.dart';
 import '../services/auth_service.dart';
 import '../services/api_client.dart';
 import '../services/biometric_auth_service.dart';
@@ -104,7 +105,7 @@ class _LoginScreenState extends State<LoginScreen> {
     // Check for biometric session
     final authService = Provider.of<AuthService>(context, listen: false);
     await authService.initialize();
-    if (authService.isLoggedIn()) {
+    if (await authService.isLoggedIn()) {
       final biometricService = BiometricAuthService.instance;
       final biometricEnabled = await biometricService?.isBiometricEnabled() ?? false;
       final hasValid = await biometricService?.hasValidBiometricSession() ?? false;
@@ -189,8 +190,12 @@ class _LoginScreenState extends State<LoginScreen> {
         }
         // Start SMS listener
         final smsService = SmsListenerService.instance;
-        smsService.setCurrentProfile(authService.currentProfile!.id);
-        await smsService.startListening();
+        final offlineDataService = Provider.of<OfflineDataService>(context, listen: false);
+        final profileId = authService.currentProfile!.id;
+        await smsService.startListening(
+          offlineDataService: offlineDataService,
+          profileId: profileId
+        );
         // After login, prompt fingerprint or skip, then go home
         Navigator.pushReplacement(
           context,
@@ -260,20 +265,38 @@ class _LoginScreenState extends State<LoginScreen> {
       
       if (success) {
         final authService = Provider.of<AuthService>(context, listen: false);
-        final result = await authService.loginWithBiometric();
+        
+        // Get the last email used for login
+        final prefs = await SharedPreferences.getInstance();
+        final lastEmail = prefs.getString('last_login_email');
+        
+        if (lastEmail == null) {
+          if (mounted) {
+            setState(() {
+              _errorMessage = 'Please login with email first before using biometric';
+            });
+          }
+          return;
+        }
+
+        final result = await authService.enhancedLogin(
+          email: lastEmail,
+          password: '', // Not needed for biometric auth
+          useBiometric: true,
+        );
         
         if (!mounted) return;
 
         if (!result.success) {
           setState(() {
-            _errorMessage = 'Biometric login failed';
+            _errorMessage = result.message;
           });
         }
       }
     } catch (e) {
       if (mounted) {
         setState(() {
-          _errorMessage = 'Biometric authentication failed';
+          _errorMessage = 'Biometric authentication failed: ${e.toString()}';
         });
       }
     }

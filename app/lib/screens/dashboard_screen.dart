@@ -266,11 +266,15 @@ class DashboardContent extends StatelessWidget {
           // Set current profile for SMS listener
           final smsService = SmsListenerService.instance;
           final authService = Provider.of<AuthService>(context, listen: false);
-          smsService.setCurrentProfile(authService.currentProfile?.id ?? '');
+          final offlineDataService = Provider.of<OfflineDataService>(context, listen: false);
+          final profileId = authService.currentProfile?.id ?? '';
+          
           // Initialize SMS listener if not already running
           if (!smsService.isListening) {
-            await smsService.initialize();
-            await smsService.startListening();
+            await smsService.startListening(
+              offlineDataService: offlineDataService,
+              profileId: profileId
+            );
           }
           Navigator.of(context).pushNamed('/sms_review');
         },

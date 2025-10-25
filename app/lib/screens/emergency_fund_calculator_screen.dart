@@ -32,7 +32,7 @@ class _EmergencyFundCalculatorScreenState
   final svc = Provider.of<OfflineDataService>(context, listen: false);
   final auth = Provider.of<AuthService>(context, listen: false);
   final profileId = int.tryParse(auth.currentProfile?.id ?? '') ?? 0;
-    final avg = await svc.getAverageMonthlySpending(profileId);
+    final avg = await svc.getAverageMonthlySpending(profileId.toString());
     setState(() {
       if (avg != null) {
         _hasHistory = true;

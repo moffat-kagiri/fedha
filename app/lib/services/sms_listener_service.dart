@@ -40,12 +40,15 @@ class SmsListenerService extends ChangeNotifier {
   static SmsListenerService? _instance;
   static SmsListenerService get instance => _instance ??= SmsListenerService._();
   
+  // Allow public constructor for background service
+  factory SmsListenerService() => instance;
+  
   SmsListenerService._();
   
   final inbox.SmsQuery _query = inbox.SmsQuery();
   Timer? _pollTimer;
   StreamController<SmsMessage>? _messageController;
-  final OfflineDataService _offlineDataService = OfflineDataService();
+  late final OfflineDataService _offlineDataService;
   
   bool _isListening = false;
   List<SmsMessage> _recentMessages = [];
@@ -85,9 +88,17 @@ class SmsListenerService extends ChangeNotifier {
   }
   
   /// Initialize the SMS listener service
-  Future<bool> initialize() async {
+  Future<bool> initialize({
+    required OfflineDataService offlineDataService,
+    required String profileId
+  }) async {
     try {
       if (!await checkAndRequestPermissions()) return false;
+      
+      // Store dependencies
+      _offlineDataService = offlineDataService;
+      _currentProfileId = profileId;
+      
       // Poll SMS inbox every 10 seconds
       DateTime? lastTimestamp;
       _pollTimer = Timer.periodic(const Duration(seconds: 10), (_) async {
@@ -114,7 +125,7 @@ class SmsListenerService extends ChangeNotifier {
             final isFin = _isFinancialTransaction(msg);
             if (kDebugMode) print('Is financial transaction: $isFin');
             if (isFin) {
-              _handleSmsReceived(msg.toMap());
+              await _handleSmsReceived(msg.toMap());
             }
           }
         }
@@ -130,9 +141,15 @@ class SmsListenerService extends ChangeNotifier {
       return false;
     }
   }
-  /// Alias to start listening for SMS transactions
-  Future<bool> startListening() async {
-    return initialize();
+  /// Start listening for SMS transactions
+  Future<bool> startListening({
+    required OfflineDataService offlineDataService,
+    required String profileId
+  }) async {
+    return initialize(
+      offlineDataService: offlineDataService,
+      profileId: profileId
+    );
   }
   /// Stop polling SMS inbox
   Future<void> stopListening() async {
@@ -149,7 +166,7 @@ class SmsListenerService extends ChangeNotifier {
   
   
   /// Process received SMS message
-  void _handleSmsReceived(Map<String, dynamic> data) {
+  Future<void> _handleSmsReceived(Map<String, dynamic> data) async {
     final message = SmsMessage.fromMap(data);
 
     if (_isFinancialTransaction(message) && _currentProfileId != null) {
@@ -176,11 +193,15 @@ class SmsListenerService extends ChangeNotifier {
           recipient: recipient,
         );
 
-  // Persist pending transaction for review
-  unawaited(_offlineDataService.savePendingTransaction(tx));
-
-        // Notify any listeners/UI
-        _messageController?.add(message);
+        try {
+          // Persist pending transaction for review
+          await _offlineDataService.savePendingTransaction(tx);
+          
+          // Notify any listeners/UI
+          _messageController?.add(message);
+        } catch (e) {
+          print('Failed to save pending transaction: $e');
+        }
         notifyListeners();
       }
     }
