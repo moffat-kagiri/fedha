@@ -31,3 +31,5 @@ python-decouple>=3.8  # Environment variables
 pillow>=9.5.0  # Image processing
 celery>=5.2.0  # Task queue (optional)
 redis>=4.5.0  # Caching and message broker (optional)
+cryptography>=41.0.0  # Field-level encryption
+django-cryptography  # Django encrypted fields (optional)

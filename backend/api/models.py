@@ -38,7 +38,7 @@ import uuid
 import hashlib
 from decimal import Decimal
 from datetime import datetime, timedelta
-from django.db import models
+from django.db import models, transaction
 from django.core.validators import (
     MinLengthValidator, 
     MinValueValidator, 
@@ -50,6 +50,10 @@ from django.utils import timezone
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.conf import settings
+from .utils.encryption import FieldEncryption
+import base64
+from typing import Optional
+
 
 
 # =============================================================================
@@ -99,7 +103,73 @@ def generate_profile_uuid(profile_type: str = 'PERS'):
 # CORE PROFILE MANAGEMENT
 # =============================================================================
 
-class Profile(models.Model):
+class EncryptedFieldsMixin:
+    """
+    Mixin for models that have plaintext and corresponding BinaryField encrypted columns.
+
+    Provides helpers:
+      - _profile_key_id(): determine key id for per-profile key derivation
+      - decrypt_field(plain_field): return decrypted value or plaintext fallback
+      - encrypt_and_set(plain_field, value, persist_plaintext=False): encrypt and set binary field
+    """
+
+    def _profile_key_id(self) -> str:
+        # Prefer explicit profile_id FK when present
+        pid = getattr(self, 'profile_id', None)
+        if pid:
+            return str(pid)
+        # Fallback to profile object if available
+        profile_obj = getattr(self, 'profile', None)
+        try:
+            if profile_obj and hasattr(profile_obj, 'id'):
+                return str(profile_obj.id)
+        except Exception:
+            pass
+        # Last resort use model PK
+        if getattr(self, 'pk', None):
+            return str(self.pk)
+        return 'global'
+
+    def decrypt_field(self, plain_field: str):
+        enc_field = f"{plain_field}_encrypted"
+        enc_val = getattr(self, enc_field, None)
+        plain_val = getattr(self, plain_field, None)
+        if enc_val:
+            try:
+                # enc_val stored as bytes in BinaryField
+                if isinstance(enc_val, (bytes, bytearray)):
+                    enc_str = enc_val.decode('utf-8')
+                else:
+                    enc_str = enc_val
+                return FieldEncryption.decrypt(enc_str, profile_id=self._profile_key_id())
+            except Exception:
+                # On failure, fall back to plaintext
+                return plain_val
+        return plain_val
+
+    def encrypt_and_set(self, plain_field: str, value, persist_plaintext: bool = True):
+        enc_field = f"{plain_field}_encrypted"
+        if value is None:
+            setattr(self, enc_field, None)
+            if not persist_plaintext:
+                try:
+                    setattr(self, plain_field, None)
+                except Exception:
+                    pass
+            return
+
+        ciphertext = FieldEncryption.encrypt(value, profile_id=self._profile_key_id(), version=getattr(self, 'encryption_version', 1))
+        if isinstance(ciphertext, str):
+            ciphertext = ciphertext.encode('utf-8')
+        setattr(self, enc_field, ciphertext)
+        if not persist_plaintext:
+            try:
+                setattr(self, plain_field, None)
+            except Exception:
+                pass
+
+
+class Profile(EncryptedFieldsMixin, models.Model):
     """
     Core profile model for both personal and business users.
     
@@ -147,6 +217,10 @@ class Profile(models.Model):
         null=True,
         help_text="Email address for notifications and account recovery"
     )
+    # Encrypted storage for PII (migrated gradually). Binary encrypted blob.
+    email_encrypted = models.BinaryField(null=True, blank=True, editable=False)
+    name_encrypted = models.BinaryField(null=True, blank=True, editable=False)
+    encryption_version = models.PositiveIntegerField(default=1, help_text="Encryption key version used for encrypted fields")
     
     profile_type = models.CharField(
         max_length=4,
@@ -229,7 +303,28 @@ class Profile(models.Model):
         """
         if not self.id:
             self.id = generate_profile_uuid(self.profile_type)
-        super().save(*args, **kwargs)    
+        super().save(*args, **kwargs)
+
+        # Ensure there's an initial active EncryptionKeyVersion for this profile.
+        # Use apps.get_model to avoid import-time circular references.
+        try:
+            from django.apps import apps
+            KeyVersion = apps.get_model('api', 'EncryptionKeyVersion')
+            if not KeyVersion.objects.filter(profile=self, is_active=True).exists():
+                import hashlib
+                import uuid as _uuid
+                fingerprint = hashlib.sha256(f"{self.id}-{_uuid.uuid4()}".encode()).hexdigest()
+                KeyVersion.objects.create(
+                    profile=self,
+                    version=1,
+                    algorithm='AES-256-GCM',
+                    key_fingerprint=fingerprint,
+                    is_active=True,
+                    is_master_key=False,
+                )
+        except Exception:
+            # Don't fail profile save if key creation fails; log elsewhere if needed.
+            pass
     @staticmethod
     def hash_pin(raw_pin: str) -> str:
         """
@@ -430,7 +525,7 @@ class Category(models.Model):
 # CLIENT MANAGEMENT SYSTEM
 # =============================================================================
 
-class Client(models.Model):
+class Client(EncryptedFieldsMixin, models.Model):
     """
     Client management for business profiles to handle invoicing and payments.
     
@@ -464,6 +559,12 @@ class Client(models.Model):
         blank=True,
         help_text="Primary phone number"
     )
+    # Encrypted PII storage
+    name_encrypted = models.BinaryField(null=True, blank=True, editable=False)
+    email_encrypted = models.BinaryField(null=True, blank=True, editable=False)
+    phone_encrypted = models.BinaryField(null=True, blank=True, editable=False)
+    address_encrypted = models.BinaryField(null=True, blank=True, editable=False)
+    encryption_version = models.PositiveIntegerField(default=1, help_text="Encryption key version used for encrypted fields")
     
     # Address information
     address_line1 = models.CharField(max_length=100, blank=True)
@@ -576,7 +677,7 @@ class Client(models.Model):
 # ENHANCED TRANSACTION SYSTEM
 # =============================================================================
 
-class EnhancedTransaction(models.Model):
+class EnhancedTransaction(EncryptedFieldsMixin, models.Model):
     """
     Enhanced transaction model with comprehensive features:
     - Multiple currencies with exchange rate tracking
@@ -662,6 +763,10 @@ class EnhancedTransaction(models.Model):
         blank=True,
         help_text="External reference (check number, confirmation code, etc.)"
     )
+    # Encrypted PII storage for sensitive transaction fields
+    reference_number_encrypted = models.BinaryField(null=True, blank=True, editable=False)
+    receipt_url_encrypted = models.BinaryField(null=True, blank=True, editable=False)
+    encryption_version = models.PositiveIntegerField(default=1, help_text="Encryption key version used for encrypted fields")
     date = models.DateField(
         default=timezone.now,
         help_text="Date when transaction occurred"
@@ -1107,7 +1212,7 @@ class InvoiceLineItem(models.Model):
 # LOAN MANAGEMENT SYSTEM
 # =============================================================================
 
-class Loan(models.Model):
+class Loan(EncryptedFieldsMixin, models.Model):
     """
     Comprehensive loan tracking with support for complex interest calculations.
     """
@@ -1148,6 +1253,10 @@ class Loan(models.Model):
     lender = models.CharField(max_length=200)
     loan_type = models.CharField(max_length=10, choices=LoanType.choices)
     account_number = models.CharField(max_length=50, blank=True)
+    # Encrypted fields for sensitive loan attributes
+    account_number_encrypted = models.BinaryField(null=True, blank=True, editable=False)
+    lender_encrypted = models.BinaryField(null=True, blank=True, editable=False)
+    encryption_version = models.PositiveIntegerField(default=1, help_text="Encryption key version used for encrypted fields")
     principal_amount = models.DecimalField(max_digits=15, decimal_places=2, validators=[MinValueValidator(0.01)])
     annual_interest_rate = models.DecimalField(max_digits=8, decimal_places=5, validators=[MinValueValidator(0), MaxValueValidator(100)])
     interest_type = models.CharField(max_length=10, choices=InterestType.choices)
@@ -1738,3 +1847,164 @@ class SystemSetting(models.Model):
     def __str__(self):
         profile_name = self.profile.name if self.profile else "System"
         return f"{profile_name}: {self.key}"
+
+
+# =============================================================================
+# ENCRYPTION KEY MANAGEMENT
+# =============================================================================
+
+
+class EncryptionKeyVersion(models.Model):
+    """Track encryption key versions per profile for key rotation and auditing.
+
+    A NULL `profile` means this is a master key. Profile-specific keys can
+    be created for additional compartmentalization.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    profile = models.ForeignKey(Profile, on_delete=models.CASCADE, null=True, blank=True)
+    version = models.PositiveIntegerField()
+    algorithm = models.CharField(max_length=20, default='AES-256-GCM')
+    key_fingerprint = models.CharField(max_length=64)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField(null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    is_master_key = models.BooleanField(default=False)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        app_label = 'api'
+        unique_together = [['profile', 'version']]
+        ordering = ['-version']
+
+    def __str__(self):
+        key_type = "Master" if self.is_master_key else f"Profile {self.profile_id}"
+        return f"{key_type} Key v{self.version} ({self.algorithm})"
+
+
+class KeyRotationLog(models.Model):
+    """Audit log for key rotations and status tracking."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    # Profile must be set for rotation logs. Previously this field was
+    # nullable to allow older migration steps; make it non-nullable now.
+    profile = models.ForeignKey(Profile, on_delete=models.CASCADE)
+    old_version = models.PositiveIntegerField()
+    new_version = models.PositiveIntegerField()
+    reason = models.CharField(
+        max_length=20,
+        choices=[
+            ('SCHEDULED', 'Scheduled Rotation'),
+            ('EMERGENCY', 'Emergency Rotation'),
+            ('COMPROMISE', 'Key Compromise'),
+            ('POLICY', 'Policy Update'),
+        ]
+    )
+    fields_reencrypted = models.JSONField(default=list, blank=True)
+    status = models.CharField(
+        max_length=11,
+        choices=[
+            ('PENDING', 'Pending'),
+            ('IN_PROGRESS', 'In Progress'),
+            ('COMPLETED', 'Completed'),
+            ('FAILED', 'Failed'),
+        ],
+        default='PENDING'
+    )
+    started_at = models.DateTimeField(auto_now_add=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    error_message = models.TextField(blank=True)
+
+    class Meta:
+        app_label = 'api'
+        ordering = ['-started_at']
+
+    def __str__(self):
+        return f"Key rotation {self.profile_id} v{self.old_version}→v{self.new_version}"
+
+
+class EncryptedFieldsMixin:
+    """
+    Mixin for models that have both plaintext and _encrypted BinaryField versions
+    of sensitive fields.
+
+    Usage:
+      - model.decrypt_field('email') -> returns decrypted string or plaintext fallback
+      - model.encrypt_and_set('email', 'alice@example.com') -> encrypts and sets email_encrypted
+    """
+
+    def _profile_key_id(self) -> Optional[str]:
+        # Use profile id / pk for per-profile key derivation if available
+        # Adjust this if your models reference `profile` FK instead.
+        if hasattr(self, "profile_id") and self.profile_id:
+            return str(self.profile_id)
+        if hasattr(self, "id") and self.id:
+            return str(self.id)
+        return None
+
+    def decrypt_field(self, plain_field: str) -> Optional[str]:
+        """
+        Return decrypted value for `plain_field` if _<plain_field>_encrypted is present.
+        Falls back to plaintext field value if encrypted value missing.
+        """
+        enc_field = f"{plain_field}_encrypted"
+        encrypted_val = getattr(self, enc_field, None)
+        plaintext_val = getattr(self, plain_field, None)
+        if encrypted_val:
+            try:
+                # encrypted_val stored as bytes; FieldEncryption.decrypt returns str
+                return FieldEncryption.decrypt(encrypted_val, profile_id=self._profile_key_id())
+            except Exception:
+                # fallback to plaintext if decryption fails
+                return plaintext_val
+        return plaintext_val
+
+    def encrypt_and_set(self, plain_field: str, value: Optional[str], persist_plaintext: bool = False) -> None:
+        """
+        Encrypt `value` and set it to the <field>_encrypted BinaryField.
+        Optionally persist plaintext (default False: clear plaintext).
+        """
+        enc_field = f"{plain_field}_encrypted"
+        if value is None:
+            setattr(self, enc_field, None)
+            if not persist_plaintext:
+                setattr(self, plain_field, None)
+            else:
+                setattr(self, plain_field, None if not persist_plaintext else value)
+            return
+
+        ciphertext = FieldEncryption.encrypt(value, profile_id=self._profile_key_id())
+        # FieldEncryption may return bytes or base64 string; ensure bytes for BinaryField
+        if isinstance(ciphertext, str):
+            ciphertext = ciphertext.encode("utf-8")
+        setattr(self, enc_field, ciphertext)
+        if not persist_plaintext:
+            # clear legacy plaintext only when explicitly requested
+            try:
+                setattr(self, plain_field, None)
+            except Exception:
+                pass
+
+    @transaction.atomic
+    def save_encrypted_fields(self, *args, **kwargs):
+        """
+        Call this from model save() if you want automatic encryption when model fields
+        have been changed via `._pending_encrypted_updates` dict.
+        Example usage in view/serializer:
+          obj.encrypt_and_set('email', new_email); obj.save()
+        """
+        super_save = getattr(super(self.__class__, self), "save", None)
+        if super_save:
+            super_save(*args, **kwargs)
+
+
+# Example integration into Profile model (add to model class)
+# NOTE: keep this as minimal change: do not remove existing fields.
+# In the actual Profile model class definition add EncryptedFieldsMixin as base
+# and optionally helper properties or methods that call decrypt_field.
+#
+# class Profile(EncryptedFieldsMixin, models.Model):
+#     email = models.CharField(max_length=255, null=True, blank=True)
+#     email_encrypted = models.BinaryField(null=True, blank=True)
+#     # ...
+#     def get_email(self):
+#         return self.decrypt_field('email')
+#

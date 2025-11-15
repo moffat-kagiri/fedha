@@ -55,12 +55,18 @@ class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    return Scaffold(
-      backgroundColor: theme.colorScheme.primaryContainer.withOpacity(0.1),
-      body: SafeArea(
-        child: Column(
+  @override
+  Widget build(BuildContext context) {
+    return Theme(
+      data: AppTheme.lightTheme,
+      child: Builder(
+        builder: (context) {
+          final theme = Theme.of(context);
+          final colorScheme = theme.colorScheme;
+          return Scaffold(
+            backgroundColor: theme.colorScheme.primaryContainer.withOpacity(0.1),
+            body: SafeArea(
+            child: Column(
             children: [
             // Progress indicator
             Container(
@@ -168,6 +174,9 @@ class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
             ),
           ],
         ),
+            ),
+          );
+        }
       ),
     );
   }

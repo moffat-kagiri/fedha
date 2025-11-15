@@ -5,6 +5,7 @@ import '../services/currency_service.dart';
 import '../utils/loan_calculator.dart';
 import 'dart:math' as math;
 import '../models/enums.dart';
+import '../theme/app_theme.dart';
 
 class LoanCalculatorScreen extends StatefulWidget {
   const LoanCalculatorScreen({super.key});
@@ -34,7 +35,7 @@ class _LoanCalculatorScreenState extends State<LoanCalculatorScreen> with Ticker
     return Scaffold(
       appBar: AppBar(
         title: const Text('Loan Calculator'),
-        backgroundColor: theme.primaryColor,
+        backgroundColor: FedhaColors.primaryGreen,
         foregroundColor: theme.colorScheme.onPrimary,
         bottom: TabBar(
           controller: _tabController,
@@ -169,7 +170,7 @@ class _PaymentCalculatorTabState extends State<PaymentCalculatorTab> {
                       'Loan Payment Calculator',
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.bold,
-                        color: Theme.of(context).primaryColor,
+                        color: FedhaColors.primaryGreen,
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -317,7 +318,7 @@ class _PaymentCalculatorTabState extends State<PaymentCalculatorTab> {
               child: ElevatedButton(
                 onPressed: _isCalculating ? null : _calculateLoan,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).primaryColor,
+                  backgroundColor: _brandGreen,
                   foregroundColor: Theme.of(context).colorScheme.onPrimary,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
@@ -356,7 +357,7 @@ class _PaymentCalculatorTabState extends State<PaymentCalculatorTab> {
                           'Loan Calculation Results',
                           style: Theme.of(context).textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.bold,
-                            color: Theme.of(context).primaryColor,
+                            color: FedhaColors.primaryGreen,
                           ),
                         ),
                       ),
@@ -514,7 +515,7 @@ class _InterestSolverTabState extends State<InterestSolverTab> {
                       'Interest Rate Solver',
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.bold,
-                        color: Theme.of(context).primaryColor,
+                        color: FedhaColors.primaryGreen,
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -672,7 +673,7 @@ class _InterestSolverTabState extends State<InterestSolverTab> {
               child: ElevatedButton(
                 onPressed: _isCalculating ? null : _calculateInterestRate,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).primaryColor,
+                  backgroundColor: FedhaColors.primaryGreen,
                   foregroundColor: Theme.of(context).colorScheme.onPrimary,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
@@ -706,17 +707,17 @@ class _InterestSolverTabState extends State<InterestSolverTab> {
                     children: [
                       Text(
                         'Calculated Interest Rate',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context).primaryColor,
-                        ),
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: _brandGreen,
+                          ),
                       ),
                       const SizedBox(height: 16),
                       Text(
                         '${_calculatedAPR!.toStringAsFixed(2)}% APR',
                         style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                           fontWeight: FontWeight.bold,
-                          color: Theme.of(context).primaryColor,
+                          color: FedhaColors.primaryGreen,
                         ),
                       ),
                       const SizedBox(height: 20),
@@ -803,7 +804,7 @@ class _LoansTrackerTabState extends State<LoansTrackerTab> {
                     'Loans Tracker',
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.bold,
-                      color: Theme.of(context).primaryColor,
+                      color: _brandGreen,
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -826,7 +827,7 @@ class _LoansTrackerTabState extends State<LoansTrackerTab> {
             child: ElevatedButton.icon(
               onPressed: _showAddLoanDialog,
               style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).primaryColor,
+                backgroundColor: FedhaColors.primaryGreen,
                 foregroundColor: Theme.of(context).colorScheme.onPrimary,
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(
@@ -955,7 +956,7 @@ class _LoansTrackerTabState extends State<LoansTrackerTab> {
                         LinearProgressIndicator(
                           value: (loan.totalMonths - loan.remainingMonths) / loan.totalMonths,
                           backgroundColor: Colors.grey.shade300,
-                          valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).primaryColor),
+                          valueColor: AlwaysStoppedAnimation<Color>(FedhaColors.primaryGreen),
                         ),
                         const SizedBox(height: 8),
                         Text(
@@ -1102,7 +1103,7 @@ class _LoansTrackerTabState extends State<LoansTrackerTab> {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(loan == null ? 'Loan added successfully!' : 'Loan updated successfully!'),
-                    backgroundColor: Theme.of(context).primaryColor,
+                    backgroundColor: FedhaColors.primaryGreen,
                   ),
                 );
               }

@@ -6,6 +6,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'utils/logger.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:workmanager/workmanager.dart';
+import 'package:awesome_notifications/awesome_notifications.dart';
+import 'services/notification_service.dart';
 
 // Models
 import 'models/profile.dart';
@@ -73,14 +75,33 @@ import 'screens/sms_review_screen.dart';
 
 void callbackDispatcher() {
   Workmanager().executeTask((task, inputData) async {
-    // This is the background task that will be executed periodically
-    // You can access the inputData here, for example:
-    final profileId = inputData?['profileId'];
-    
-    // Perform the background work here
-    // For example, fetching SMS messages and processing them
-    // Remember to handle permissions and other requirements
+    try {
+      // Background task handler for various scheduled tasks
+      if (task == 'daily_review_task') {
+        // Determine current profile id from SharedPreferences
+        final prefs = await SharedPreferences.getInstance();
+        final profileIdStr = prefs.getString('profile_id') ?? '';
+        final profileId = int.tryParse(profileIdStr) ?? 0;
 
+        // Initialize DB helper and count pending transactions
+        final offline = OfflineDataService();
+        await offline.initialize();
+        final pendingCount = await offline.getPendingTransactionCount(profileId);
+
+        // Initialize notifications (safe to call repeatedly)
+        await NotificationService.instance.initialize();
+        await NotificationService.instance.showPendingTransactionsNotification(pendingCount);
+        return Future.value(true);
+      }
+
+      if (task == 'sms_listener_task') {
+        // existing SMS listener work is handled elsewhere; keep alive
+        return Future.value(true);
+      }
+    } catch (e) {
+      // Swallow errors to avoid crashing the background isolate
+      return Future.value(false);
+    }
     return Future.value(true);
   });
 }
@@ -91,10 +112,11 @@ void main() async {
   // Initialize Workmanager
   await Workmanager().initialize(
     callbackDispatcher,
-    isInDebugMode: false
+    isInDebugMode: false,
   );
-  
-  // Register periodic task
+
+
+  // Register periodic SMS listener task (existing behavior)
   await Workmanager().registerPeriodicTask(
     'sms_listener',
     'sms_listener_task',
@@ -105,13 +127,13 @@ void main() async {
       requiresBatteryNotLow: false,
       requiresCharging: false,
       requiresDeviceIdle: false,
-      requiresStorageNotLow: true
+      requiresStorageNotLow: true,
     ),
     inputData: {
-      'profileId': '1' // Replace with actual user profile ID
-    }
+      'profileId': '1'
+    },
   );
-  
+
   // Disable Provider debug type check for Listenable/Stream types
   Provider.debugCheckInvalidValueType = null;
   
@@ -123,6 +145,26 @@ void main() async {
   // Initialize OfflineDataService so its box references are ready
   final offlineDataService = OfflineDataService();
   await offlineDataService.initialize();
+
+  // In debug mode, trigger a one-off manual notification shortly after
+  // startup so we can verify notification behavior without waiting
+  // for the background Workmanager task.
+  if (kDebugMode) {
+    Future.delayed(const Duration(seconds: 3), () async {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final profileIdStr = prefs.getString('profile_id') ?? '';
+        final profileId = int.tryParse(profileIdStr) ?? 0;
+        final offline = OfflineDataService();
+        await offline.initialize();
+        final pendingCount = await offline.getPendingTransactionCount(profileId);
+        await NotificationService.instance.showPendingTransactionsNotification(pendingCount);
+      } catch (e) {
+        // Fallback test notification
+        await NotificationService.instance.showPendingTransactionsNotification(2);
+      }
+    });
+  }
 
   try {
     // Initialize environment configuration

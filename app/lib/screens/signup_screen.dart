@@ -6,6 +6,7 @@ import '../utils/password_validator.dart';
 import '../widgets/profile_avatar_picker.dart';
 import 'permissions_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../utils/first_login_handler.dart';
 import 'package:fedha/screens/login_screen.dart';
 import 'biometric_lock_screen.dart';
 import 'main_navigation.dart';
@@ -102,38 +103,32 @@ class _SignupScreenState extends State<SignupScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Account created successfully! Please grant app permissions.'),
+              content: Text('Account created successfully!'),
               backgroundColor: Theme.of(context).primaryColor,
             ),
           );
+
+          // Run first-login prompts (biometric setup + permissions).
+          // For signup we require biometric setup to complete before
+          // navigating to the main app (prevents incomplete sessions).
+          final firstLoginOk = await FirstLoginHandler(context, authService)
+              .handleFirstLogin(forceBiometric: true);
+
+          if (!firstLoginOk) {
+            // Biometric setup required but not completed: show error
+            if (mounted) {
+              setState(() {
+                _errorMessage = 'Biometric setup is required to complete account creation.';
+                _isLoading = false;
+              });
+            }
+            return;
+          }
+
+          // Proceed to main navigation after successful first-login handling
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(
-              builder: (_) => PermissionsScreen(
-                onPermissionsSet: (_) {
-                  // Use outer context for navigation
-                  Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => BiometricLockScreen(
-                        onAuthSuccess: () {
-                          Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(builder: (_) => const MainNavigation()),
-                          );
-                        },
-                        onSkip: () {
-                          Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(builder: (_) => const MainNavigation()),
-                          );
-                        },
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
+            MaterialPageRoute(builder: (_) => const MainNavigation()),
           );
         }
       } else {

@@ -11,29 +11,39 @@ class FirstLoginHandler {
   FirstLoginHandler(this._context, this._authService);
   
   /// Shows all required first-login prompts in sequence
-  Future<void> handleFirstLogin() async {
-    if (!await _authService.isFirstLogin()) return;
-    
+  /// Returns true if the required prompts completed (or were skipped
+  /// non-forced), false if a forced biometric setup was not completed.
+  Future<bool> handleFirstLogin({bool forceBiometric = false}) async {
+    if (!await _authService.isFirstLogin()) return true;
+
     // Biometric setup prompt
     if (await _authService.shouldShowBiometricPrompt()) {
-      await _showBiometricSetupPrompt();
+      final biometricResult = await _showBiometricSetupPrompt(force: forceBiometric);
+      if (!biometricResult && forceBiometric) {
+        // User did not complete forced biometric setup
+        return false;
+      }
     }
-    
+
     // Permissions prompt (SMS, notifications, storage, camera)
     final permissionsService = PermissionsService.instance;
     if (await permissionsService.shouldShowPermissionsPrompt()) {
       await _showPermissionsPrompt(permissionsService);
     }
-    
+
     // Mark first login as completed
     await _authService.markFirstLoginCompleted();
+    return true;
   }
   
   /// Shows a dialog to prompt biometric setup
-  Future<void> _showBiometricSetupPrompt() async {
+  /// Shows a dialog to prompt biometric setup. If [force] is true the dialog
+  /// will not offer a SKIP option and will only return true when biometric
+  /// setup was enabled.
+  Future<bool> _showBiometricSetupPrompt({bool force = false}) async {
     final bool? setupBiometric = await showDialog<bool>(
       context: _context,
-      barrierDismissible: false,
+      barrierDismissible: !force,
       builder: (context) => AlertDialog(
         title: const Text('Secure Your Account'),
         content: const Text(
@@ -41,10 +51,11 @@ class FirstLoginHandler {
           'to quickly and securely access your account?'
         ),
         actions: [
-          TextButton(
-            child: const Text('SKIP'),
-            onPressed: () => Navigator.of(context).pop(false),
-          ),
+          if (!force)
+            TextButton(
+              child: const Text('SKIP'),
+              onPressed: () => Navigator.of(context).pop(false),
+            ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF007A39), // Fedha green
@@ -55,14 +66,16 @@ class FirstLoginHandler {
         ],
       ),
     );
-    
+
     // Mark biometric prompt as shown
     await _authService.markBiometricPromptShown();
-    
+
     // Setup biometric if user agreed
     if (setupBiometric == true) {
-      await _authService.enableBiometricAuth(true);  // Passing true to enable biometric auth
+      final enabled = await _authService.enableBiometricAuth(true);
+      return enabled;
     }
+    return false;
   }
   
   /// Shows a dialog to prompt permissions

@@ -182,12 +182,6 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
 
       if (result.success) {
-        // Set up biometric session and enable biometrics for future logins
-        final biometricService = BiometricAuthService.instance;
-        if (biometricService != null) {
-          await biometricService.setBiometricSession();
-          await biometricService.setBiometricEnabled(true);
-        }
         // Start SMS listener
         final smsService = SmsListenerService.instance;
         final offlineDataService = Provider.of<OfflineDataService>(context, listen: false);
@@ -196,6 +190,18 @@ class _LoginScreenState extends State<LoginScreen> {
           offlineDataService: offlineDataService,
           profileId: profileId
         );
+
+        // If this is the user's first login, run the first-login prompts
+        // (biometric setup + permissions) and only after they complete
+        // proceed to the biometric unlock and main navigation.
+        if (result.isFirstLogin) {
+          try {
+            await FirstLoginHandler(context, authService).handleFirstLogin();
+          } catch (e) {
+            // Non-fatal: continue to biometric lock even if prompts fail
+          }
+        }
+
         // After login, prompt fingerprint or skip, then go home
         Navigator.pushReplacement(
           context,

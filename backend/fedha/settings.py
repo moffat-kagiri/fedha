@@ -122,4 +122,46 @@ CORS_ALLOW_HEADERS = [
     'x-client-version',
     'x-client-platform',
     'x-environment',
+    'x-llm-provider',  # NEW: Allow LLM provider header from client
 ]
+
+FEDHA_PIN_SALT = 'fedha-secure-salt-2025'  # Change in production
+FEDHA_PIN_HASH_ITERATIONS = 100000
+
+# UUID Generation Settings
+FEDHA_BUSINESS_PREFIX = 'B'
+FEDHA_PERSONAL_PREFIX = 'P'
+
+# Temporary PIN Settings
+FEDHA_TEMP_PIN_EXPIRY_HOURS = 24
+
+# =============================================================================
+# LLM / AI PARSING CONFIGURATION
+# =============================================================================
+
+# Default LLM provider used by backend for SMS parsing and AI features.
+# Options: 'claude_haiku_4.5', 'openai_gpt_4o', 'local_fallback'
+LLM_DEFAULT_PROVIDER = 'claude_haiku_4.5'
+
+ALLOWED_LLM_PROVIDERS = [
+    'claude_haiku_4.5',
+    'openai_gpt_4o',
+    'local_fallback'
+]
+
+# Feature flags for LLM and AI capabilities
+FEATURE_FLAGS = {
+    'enable_llm_parsing': True,
+    'default_llm_provider': LLM_DEFAULT_PROVIDER,
+    'llm_fallback_to_rule_based': True,  # Fall back to rule-based parsing on LLM failure
+    'llm_cache_enabled': True,
+    'llm_batch_processing': False,  # Set to True for high-volume deployments
+}
+
+# API Keys and Configuration (load from environment in production)
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', '')
+ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY', '')
+
+# LLM Request Timeouts
+LLM_REQUEST_TIMEOUT_SECONDS = 10
+LLM_MAX_RETRIES = 2

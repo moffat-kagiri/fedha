@@ -11,6 +11,13 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 
 from pathlib import Path
+# Load environment variables for secure configuration
+try:
+    from decouple import config, Csv
+except Exception:
+    # decouple may not be installed in minimal dev environments
+    def config(key, default=None, cast=None):
+        return default
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -20,10 +27,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-#c3pev3pw9r!r)5_bwx6qwkti9v@ths1k87#-04$u@+n#9=ed0'
+SECRET_KEY = config('DJANGO_SECRET_KEY', default='django-insecure-#c3pev3pw9r!r)5_bwx6qwkti9v@ths1k87#-04$u@+n#9=ed0')
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# SECURITY WARNING: set DEBUG=False in production
+DEBUG = config('DEBUG', default=True, cast=bool)
 
 ALLOWED_HOSTS = [
     '127.0.0.1', 
@@ -136,6 +143,22 @@ STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 CORS_ALLOW_ALL_ORIGINS = True  # For development only
 
+# Encryption and security configuration (loaded from environment)
+ENCRYPTION = {
+    'ALGORITHM': config('ENCRYPTION_ALGORITHM', default='AES-256-GCM'),
+    'KEY_ROTATION_DAYS': config('ENCRYPTION_KEY_ROTATION_DAYS', default=90, cast=int),
+}
+
+# Security headers for production - controlled via environment
+SECURE_SSL_REDIRECT = config('SECURE_SSL_REDIRECT', default=False, cast=bool)
+SESSION_COOKIE_SECURE = config('SESSION_COOKIE_SECURE', default=False, cast=bool)
+SESSION_COOKIE_HTTPONLY = config('SESSION_COOKIE_HTTPONLY', default=True, cast=bool)
+CSRF_COOKIE_SECURE = config('CSRF_COOKIE_SECURE', default=False, cast=bool)
+CSRF_COOKIE_HTTPONLY = config('CSRF_COOKIE_HTTPONLY', default=True, cast=bool)
+SECURE_HSTS_SECONDS = config('SECURE_HSTS_SECONDS', default=0, cast=int)
+SECURE_HSTS_INCLUDE_SUBDOMAINS = config('SECURE_HSTS_INCLUDE_SUBDOMAINS', default=False, cast=bool)
+SECURE_HSTS_PRELOAD = config('SECURE_HSTS_PRELOAD', default=False, cast=bool)
+
 # =============================================================================
 # EMAIL CONFIGURATION FOR CREDENTIAL DELIVERY
 # =============================================================================
@@ -205,6 +228,9 @@ CORS_ALLOWED_HEADERS = [
     'user-agent',
     'x-csrftoken',
     'x-requested-with',
+    'x-client-version',
+    'x-client-platform',
+    'x-environment',
 ]
 
 # =============================================================================
@@ -221,3 +247,5 @@ FEDHA_PERSONAL_PREFIX = 'P'
 
 # Temporary PIN Settings
 FEDHA_TEMP_PIN_EXPIRY_HOURS = 24
+
+# =============================================================================

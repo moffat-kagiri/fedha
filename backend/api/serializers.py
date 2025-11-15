@@ -11,9 +11,10 @@ Key Features:
 - Enhanced UUID handling with B/P prefixes
 - Email credential delivery support
 - Password reset functionality
+- Field-level encryption for PII via EncryptedWriteMixin
 
 Author: Fedha Development Team
-Last Updated: May 26, 2025
+Last Updated: November 15, 2025
 """
 
 from rest_framework import serializers
@@ -22,8 +23,48 @@ from django.core.mail import send_mail
 from django.conf import settings
 import secrets
 import string
-from .models import Profile, generate_profile_uuid, EnhancedTransaction, Loan, LoanPayment
+from .models import Profile, Client, EnhancedTransaction, Loan, LoanPayment
 
+
+# =============================================================================
+# ENCRYPTED WRITE MIXIN (EARLY DEFINITION FOR REUSE)
+# =============================================================================
+
+class EncryptedWriteMixin:
+    """
+    Mixin for serializers to capture plain inputs and encrypt them on save.
+    Usage: add to serializer class, define ENCRYPTED_FIELDS = ['email', 'phone']
+    """
+
+    ENCRYPTED_FIELDS = []
+
+    def create(self, validated_data):
+        # Pop encrypted fields from validated_data, encrypt and set on instance
+        encrypted_inputs = {}
+        for fld in self.ENCRYPTED_FIELDS:
+            if fld in validated_data:
+                encrypted_inputs[fld] = validated_data.pop(fld)
+        instance = super().create(validated_data)
+        for fld, val in encrypted_inputs.items():
+            instance.encrypt_and_set(fld, val)
+        instance.save()
+        return instance
+
+    def update(self, instance, validated_data):
+        encrypted_inputs = {}
+        for fld in self.ENCRYPTED_FIELDS:
+            if fld in validated_data:
+                encrypted_inputs[fld] = validated_data.pop(fld)
+        instance = super().update(instance, validated_data)
+        for fld, val in encrypted_inputs.items():
+            instance.encrypt_and_set(fld, val)
+        instance.save()
+        return instance
+
+
+# =============================================================================
+# PROFILE SERIALIZERS
+# =============================================================================
 
 class ProfileRegistrationSerializer(serializers.ModelSerializer):
     """
@@ -58,11 +99,13 @@ class ProfileRegistrationSerializer(serializers.ModelSerializer):
         
         # Save will automatically generate UUID with appropriate prefix
         profile.save()
-          # Send credentials via email if email is provided
+        
+        # Send credentials via email if email is provided
         if email:
             self.send_credentials_email(profile, temp_pin, email)
             
         return profile
+    
     def generate_temporary_pin(self):
         """Generate a secure temporary PIN"""
         return ''.join(secrets.choice(string.digits) for _ in range(6))
@@ -129,6 +172,7 @@ class ProfileSerializer(serializers.ModelSerializer):
     """
     Serializer for profile information display and updates.
     """
+    name = serializers.SerializerMethodField()
     
     class Meta:
         model = Profile
@@ -137,6 +181,20 @@ class ProfileSerializer(serializers.ModelSerializer):
             'timezone', 'created_at', 'last_login', 'is_active'
         ]
         read_only_fields = ['id', 'created_at', 'last_login']
+
+    def get_name(self, obj):
+        try:
+            return obj.decrypt_field('name')
+        except Exception:
+            return getattr(obj, 'name', None)
+
+
+class ProfileWriteSerializer(EncryptedWriteMixin, ProfileSerializer):
+    """Serializer for Profile create/update that automatically encrypts PII fields."""
+    ENCRYPTED_FIELDS = ["email", "name"]
+    
+    class Meta(ProfileSerializer.Meta):
+        pass
 
 
 class PINChangeSerializer(serializers.Serializer):
@@ -177,14 +235,63 @@ class PINChangeSerializer(serializers.Serializer):
         return value
 
 
+# =============================================================================
+# CLIENT SERIALIZERS
+# =============================================================================
+
+class ClientSerializer(serializers.ModelSerializer):
+    """Serializer for Client data with decrypted PII fields."""
+    email = serializers.SerializerMethodField()
+    phone = serializers.SerializerMethodField()
+    name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Client
+        fields = [
+            "id", "profile", "name", "email", "phone",
+            "address_line1", "city", "credit_limit", "is_active", "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+    def get_email(self, obj):
+        try:
+            return obj.decrypt_field("email")
+        except Exception:
+            return getattr(obj, 'email', None)
+
+    def get_phone(self, obj):
+        try:
+            return obj.decrypt_field("phone")
+        except Exception:
+            return getattr(obj, 'phone', None)
+
+    def get_name(self, obj):
+        try:
+            return obj.decrypt_field("name")
+        except Exception:
+            return getattr(obj, 'name', None)
+
+
+class ClientWriteSerializer(EncryptedWriteMixin, ClientSerializer):
+    """Serializer for Client create/update that automatically encrypts PII fields."""
+    ENCRYPTED_FIELDS = ["name", "email", "phone"]
+    
+    class Meta(ClientSerializer.Meta):
+        pass
+
+
+# =============================================================================
+# TRANSACTION SERIALIZERS
+# =============================================================================
+
 class TransactionSerializer(serializers.ModelSerializer):
-    """
-    Serializer for transaction data.
-    """
+    """Serializer for transaction data with decrypted sensitive fields."""
+    reference_number = serializers.SerializerMethodField()
+    receipt_url = serializers.SerializerMethodField()
     
     class Meta:
         model = EnhancedTransaction
-        fields = ['id', 'profile', 'type', 'amount', 'description', 'created_at']
+        fields = ['id', 'profile', 'type', 'amount', 'description', 'reference_number', 'receipt_url', 'created_at']
         read_only_fields = ['id', 'created_at']
 
     def validate_amount(self, value):
@@ -192,6 +299,30 @@ class TransactionSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Amount must be positive")
         return value
 
+    def get_reference_number(self, obj):
+        try:
+            return obj.decrypt_field('reference_number')
+        except Exception:
+            return getattr(obj, 'reference_number', None)
+
+    def get_receipt_url(self, obj):
+        try:
+            return obj.decrypt_field('receipt_url')
+        except Exception:
+            return getattr(obj, 'receipt_url', None)
+
+
+class TransactionWriteSerializer(EncryptedWriteMixin, TransactionSerializer):
+    """Serializer for Transaction create/update that automatically encrypts sensitive fields."""
+    ENCRYPTED_FIELDS = ["reference_number", "receipt_url"]
+    
+    class Meta(TransactionSerializer.Meta):
+        pass
+
+
+# =============================================================================
+# EMAIL AND ACCOUNT SERIALIZERS
+# =============================================================================
 
 class EmailCredentialsSerializer(serializers.Serializer):
     """
@@ -217,18 +348,19 @@ class AccountTypeSelectionSerializer(serializers.Serializer):
 
 
 # =============================================================================
-# LOAN AND CALCULATOR SERIALIZERS
+# LOAN SERIALIZERS
 # =============================================================================
 
 class LoanSerializer(serializers.ModelSerializer):
-    """
-    Serializer for loan data with calculation support.
-    """
+    """Serializer for loan data with calculation support and decrypted sensitive fields."""
     remaining_payments = serializers.ReadOnlyField()
     monthly_interest_rate = serializers.ReadOnlyField()
     total_interest_paid = serializers.ReadOnlyField()
     loan_to_value_ratio = serializers.ReadOnlyField()
     
+    lender = serializers.SerializerMethodField()
+    account_number = serializers.SerializerMethodField()
+
     class Meta:
         model = Loan
         fields = [
@@ -243,11 +375,21 @@ class LoanSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
 
+    def get_lender(self, obj):
+        try:
+            return obj.decrypt_field('lender')
+        except Exception:
+            return getattr(obj, 'lender', None)
+
+    def get_account_number(self, obj):
+        try:
+            return obj.decrypt_field('account_number')
+        except Exception:
+            return getattr(obj, 'account_number', None)
+
 
 class LoanPaymentSerializer(serializers.ModelSerializer):
-    """
-    Serializer for loan payment data.
-    """
+    """Serializer for loan payment data."""
     
     class Meta:
         model = LoanPayment
@@ -260,10 +402,12 @@ class LoanPaymentSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'created_at']
 
 
+# =============================================================================
+# CALCULATOR SERIALIZERS
+# =============================================================================
+
 class LoanCalculationRequestSerializer(serializers.Serializer):
-    """
-    Serializer for loan calculation requests.
-    """
+    """Serializer for loan calculation requests."""
     principal = serializers.DecimalField(max_digits=15, decimal_places=2, min_value=0.01)
     annual_rate = serializers.DecimalField(max_digits=8, decimal_places=5, min_value=0, max_value=100)
     term_years = serializers.IntegerField(min_value=1, max_value=50)
@@ -272,9 +416,7 @@ class LoanCalculationRequestSerializer(serializers.Serializer):
 
 
 class InterestRateSolverRequestSerializer(serializers.Serializer):
-    """
-    Serializer for interest rate solver requests using Newton-Raphson method.
-    """
+    """Serializer for interest rate solver requests using Newton-Raphson method."""
     principal = serializers.DecimalField(max_digits=15, decimal_places=2, min_value=0.01)
     payment = serializers.DecimalField(max_digits=15, decimal_places=2, min_value=0.01)
     term_years = serializers.IntegerField(min_value=1, max_value=50)
@@ -285,9 +427,7 @@ class InterestRateSolverRequestSerializer(serializers.Serializer):
 
 
 class AmortizationScheduleRequestSerializer(serializers.Serializer):
-    """
-    Serializer for amortization schedule generation requests.
-    """
+    """Serializer for amortization schedule generation requests."""
     principal = serializers.DecimalField(max_digits=15, decimal_places=2, min_value=0.01)
     annual_rate = serializers.DecimalField(max_digits=8, decimal_places=5, min_value=0, max_value=100)
     term_years = serializers.IntegerField(min_value=1, max_value=50)
@@ -295,9 +435,7 @@ class AmortizationScheduleRequestSerializer(serializers.Serializer):
 
 
 class EarlyPaymentRequestSerializer(serializers.Serializer):
-    """
-    Serializer for early payment calculation requests.
-    """
+    """Serializer for early payment calculation requests."""
     principal = serializers.DecimalField(max_digits=15, decimal_places=2, min_value=0.01)
     annual_rate = serializers.DecimalField(max_digits=8, decimal_places=5, min_value=0, max_value=100)
     term_years = serializers.IntegerField(min_value=1, max_value=50)
@@ -307,18 +445,14 @@ class EarlyPaymentRequestSerializer(serializers.Serializer):
 
 
 class ROICalculationRequestSerializer(serializers.Serializer):
-    """
-    Serializer for ROI calculation requests.
-    """
+    """Serializer for ROI calculation requests."""
     initial_investment = serializers.DecimalField(max_digits=15, decimal_places=2, min_value=0.01)
     final_value = serializers.DecimalField(max_digits=15, decimal_places=2, min_value=0.01)
     time_years = serializers.DecimalField(max_digits=5, decimal_places=2, required=False, min_value=0.01)
 
 
 class CompoundInterestRequestSerializer(serializers.Serializer):
-    """
-    Serializer for compound interest calculation requests.
-    """
+    """Serializer for compound interest calculation requests."""
     principal = serializers.DecimalField(max_digits=15, decimal_places=2, min_value=0.01)
     annual_rate = serializers.DecimalField(max_digits=8, decimal_places=5, min_value=0, max_value=100)
     time_years = serializers.DecimalField(max_digits=5, decimal_places=2, min_value=0.01)
@@ -328,9 +462,7 @@ class CompoundInterestRequestSerializer(serializers.Serializer):
 
 
 class PortfolioMetricsRequestSerializer(serializers.Serializer):
-    """
-    Serializer for portfolio metrics calculation requests.
-    """
+    """Serializer for portfolio metrics calculation requests."""
     investments = serializers.ListField(
         child=serializers.DictField(
             child=serializers.DecimalField(max_digits=15, decimal_places=8)
@@ -340,9 +472,7 @@ class PortfolioMetricsRequestSerializer(serializers.Serializer):
 
 
 class RiskAssessmentRequestSerializer(serializers.Serializer):
-    """
-    Serializer for risk assessment questionnaire requests.
-    """
+    """Serializer for risk assessment questionnaire requests."""
     answers = serializers.ListField(
         child=serializers.IntegerField(min_value=1, max_value=5),
         min_length=1,

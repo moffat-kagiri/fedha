@@ -41,10 +41,9 @@ class _AuthWrapperState extends State<AuthWrapper> {
       if (mounted) {
         final authService = Provider.of<AuthService>(context, listen: false);
         await authService.initialize();
-        // Prompt first‐login actions (biometric setup, permissions)
-        if (await authService.isLoggedIn() && await authService.isFirstLogin()) {
-          await FirstLoginHandler(context, authService).handleFirstLogin();
-        }
+        // NOTE: First-login prompts (biometric setup, permissions) are now
+        // invoked from the explicit login/signup flows so we don't present
+        // setup dialogs prematurely during app startup.
         // Check backend health but do not force logout when offline
         final apiClient = Provider.of<ApiClient>(context, listen: false);
         bool serverHealthy = false;

@@ -3,6 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 import '../services/currency_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:workmanager/workmanager.dart';
+import '../services/notification_service.dart';
+import '../services/biometric_auth_service.dart';
 import '../services/theme_service.dart' as theme_svc;
 import '../services/profile_management_extension.dart';
 import '../services/biometric_auth_extension.dart';
@@ -17,6 +21,78 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
+  bool _dailyRemindersEnabled = false;
+  bool _biometricEnabled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSettings();
+  }
+
+  Future<void> _loadSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    final daily = prefs.getBool('daily_reminders_enabled') ?? false;
+    final bioEnabled = await BiometricAuthService.instance?.isBiometricEnabled() ?? false;
+    setState(() {
+      _dailyRemindersEnabled = daily;
+      _biometricEnabled = bioEnabled;
+    });
+  }
+
+  Future<void> _setDailyReminders(bool enabled) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('daily_reminders_enabled', enabled);
+    setState(() => _dailyRemindersEnabled = enabled);
+
+    if (enabled) {
+      // Register Workmanager periodic task for daily review
+      try {
+        await Workmanager().registerPeriodicTask(
+          'daily_review',
+          'daily_review_task',
+          frequency: const Duration(days: 1),
+          initialDelay: const Duration(minutes: 1),
+        );
+      } catch (e) {
+        // ignore registration errors in UI
+      }
+    } else {
+      try {
+        await Workmanager().cancelByUniqueName('daily_review');
+      } catch (e) {
+        // ignore
+      }
+    }
+  }
+
+  Future<void> _toggleBiometric(bool enable) async {
+    final bioService = BiometricAuthService.instance;
+    if (enable) {
+      // Require biometric confirmation before enabling
+      final confirmed = await bioService?.authenticateWithBiometric('Confirm to enable biometric login') ?? false;
+      if (!confirmed) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Biometric confirmation failed.')),
+        );
+        return;
+      }
+    }
+
+    // Use AuthService helper to persist the preference
+    final auth = AuthService.instance;
+    final success = await auth.enableBiometricAuth(enable);
+    if (success) {
+      setState(() => _biometricEnabled = enable);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(enable ? 'Biometric enabled' : 'Biometric disabled')),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not change biometric setting')),
+      );
+    }
+  }
   @override
   Widget build(BuildContext context) {
     final authService = Provider.of<AuthService>(context);
@@ -208,6 +284,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         title: 'Currency',
                         subtitle: '${CurrencyService.availableCurrencies[currencyService.currentCurrency]} (${currencyService.currentSymbol})',
                         onTap: () => _showCurrencyDialog(context),
+                      ),
+                      const Divider(height: 1),
+                      SwitchListTile(
+                        value: _dailyRemindersEnabled,
+                        title: const Text('Daily reminders'),
+                        subtitle: const Text('Receive a daily prompt to review pending transactions'),
+                        secondary: const Icon(Icons.notifications_active_outlined),
+                        onChanged: (v) async {
+                          await _setDailyReminders(v);
+                        },
+                      ),
+                      const Divider(height: 1),
+                      SwitchListTile(
+                        value: _biometricEnabled,
+                        title: const Text('Biometric login'),
+                        subtitle: const Text('Use fingerprint or face to unlock the app'),
+                        secondary: const Icon(Icons.fingerprint),
+                        onChanged: (v) async {
+                          await _toggleBiometric(v);
+                        },
                       ),
                     ],
                   ),

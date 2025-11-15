@@ -35,7 +35,24 @@ class DashboardContent extends StatelessWidget {
       builder: (context, authService, child) {
         final profile = authService.currentProfile;
         if (profile == null) {
-          return const Center(child: Text('Please log in'));
+          return Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Please log in',
+                  style: TextStyle(fontSize: 18),
+                ),
+                const SizedBox(height: 12),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.pushNamed(context, '/login');
+                  },
+                  child: const Text('Go to Login'),
+                ),
+              ],
+            ),
+          );
         }
 
         return Consumer<OfflineDataService>(

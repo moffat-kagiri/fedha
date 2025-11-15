@@ -354,6 +354,18 @@ secrets.json
 *.key
 *.crt
 *.cert
+# Private keys and service credentials
+*.p12
+*.jwk
+service-account*.json
+*-credentials.json
+.aws/credentials
+.vault-token
+master_key.*
+master.key
+master_key.txt
+.gcloud/
+.google/
 
 # ==============================================================================
 # MICROSERVICES

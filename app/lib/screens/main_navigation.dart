@@ -1,5 +1,7 @@
 // lib/screens/main_navigation.dart
 import 'package:flutter/material.dart';
+import 'package:workmanager/workmanager.dart';
+import '../services/notification_service.dart';
 import 'dashboard_screen.dart';
 import 'transactions_screen.dart';
 import 'tools_screen.dart';
@@ -33,6 +35,43 @@ class _MainNavigationState extends State<MainNavigation> {
   void initState() {
     super.initState();
     _currentIndex = widget.currentIndex;
+    _initNotificationsIfNeeded();
+  }
+
+  Future<void> _initNotificationsIfNeeded() async {
+    try {
+      // Initialize notifications and register daily task only when user is logged in
+      final notificationService = NotificationService.instance;
+      await notificationService.initialize();
+
+      // Ensure we only register the daily task once for the current app
+      await Workmanager().cancelByUniqueName('daily_review');
+
+      // Compute next 21:00 local time initial delay
+      DateTime now = DateTime.now();
+      DateTime target = DateTime(now.year, now.month, now.day, 21, 0);
+      if (now.isAfter(target)) {
+        target = target.add(const Duration(days: 1));
+      }
+      final initialDelay = target.difference(now);
+
+      await Workmanager().registerPeriodicTask(
+        'daily_review',
+        'daily_review_task',
+        frequency: const Duration(days: 1),
+        initialDelay: initialDelay,
+        constraints: Constraints(
+          networkType: NetworkType.connected,
+          requiresBatteryNotLow: false,
+          requiresCharging: false,
+          requiresDeviceIdle: false,
+          requiresStorageNotLow: false,
+        ),
+      );
+    } catch (e) {
+      // Non-fatal; log in debug mode
+      // print is avoided to keep release logs clean
+    }
   }
 
   @override

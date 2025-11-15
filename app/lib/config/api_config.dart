@@ -25,16 +25,15 @@ class ApiConfig {
   
   // Whether to enable debug logging for API requests
   final bool enableDebugLogging;
-
   const ApiConfig({
     required this.primaryApiUrl,
-    this.fallbackApiUrl,
-    this.connectionTimeout = 10,
-    this.useSecureConnections = true,
-    this.apiVersion = 'v1',
-    this.apiHealthEndpoint = 'api/health/',
-    this.defaultHeaders = const {},
-    this.enableDebugLogging = false,
+    required this.fallbackApiUrl,
+    required this.connectionTimeout,
+    required this.useSecureConnections,
+    required this.apiVersion,
+    required this.apiHealthEndpoint,
+    required this.defaultHeaders,
+    required this.enableDebugLogging,
   });
   
   // Development configuration
@@ -57,10 +56,10 @@ class ApiConfig {
   
   // Production configuration
   factory ApiConfig.production() {
-    return const ApiConfig(
+    return ApiConfig(
       primaryApiUrl: 'api.fedha.app',
-      fallbackApiUrl: 'api-backup.fedha.app',
-      connectionTimeout: 15,
+      fallbackApiUrl: '192.168.100.6:8000',
+      connectionTimeout: 20,
       useSecureConnections: true,
       apiVersion: 'v1',
       apiHealthEndpoint: 'api/health/',
@@ -76,10 +75,10 @@ class ApiConfig {
   // Staging with Cloudflare tunnel configuration
   factory ApiConfig.cloudflare() {
     return const ApiConfig(
-      primaryApiUrl: 'lake-consistently-affects-applications.trycloudflare.com',  // Cloudflare tunnel URL
-      fallbackApiUrl: '192.168.100.6:8000', // Fallback to local network if tunnel fails
+      primaryApiUrl: 'lake-consistently-affects-applications.trycloudflare.com',
+      fallbackApiUrl: '192.168.100.6:8000',
       connectionTimeout: 20,
-      useSecureConnections: true,  // Use HTTPS for Cloudflare tunnel
+      useSecureConnections: true,
       apiVersion: 'v1',
       apiHealthEndpoint: 'api/health/',
       defaultHeaders: {
