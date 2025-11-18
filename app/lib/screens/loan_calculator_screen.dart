@@ -14,9 +14,10 @@ class LoanCalculatorScreen extends StatefulWidget {
   State<LoanCalculatorScreen> createState() => _LoanCalculatorScreenState();
 }
 
-class _LoanCalculatorScreenState extends State<LoanCalculatorScreen> with TickerProviderStateMixin {
+class _LoanCalculatorScreenState extends State<LoanCalculatorScreen>
+    with TickerProviderStateMixin {
   late TabController _tabController;
-  
+
   @override
   void initState() {
     super.initState();
@@ -32,15 +33,15 @@ class _LoanCalculatorScreenState extends State<LoanCalculatorScreen> with Ticker
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    // Let appBar pick colors from theme (avoid forcing backgroundColor unless needed)
     return Scaffold(
       appBar: AppBar(
         title: const Text('Loan Calculator'),
-        backgroundColor: FedhaColors.primaryGreen,
-        foregroundColor: theme.colorScheme.onPrimary,
         bottom: TabBar(
           controller: _tabController,
           labelColor: theme.colorScheme.onPrimary,
-          unselectedLabelColor: theme.colorScheme.onPrimary.withAlpha((0.7 * 255).round()),
+          unselectedLabelColor:
+              theme.colorScheme.onPrimary.withOpacity(0.7),
           indicatorColor: theme.colorScheme.onPrimary,
           tabs: const [
             Tab(text: 'Payment Calculator', icon: Icon(Icons.calculate)),
@@ -61,6 +62,10 @@ class _LoanCalculatorScreenState extends State<LoanCalculatorScreen> with Ticker
   }
 }
 
+/* -------------------------------------------------------------------------- */
+/* --------------------------- Payment Calculator Tab ------------------------ */
+/* -------------------------------------------------------------------------- */
+
 class PaymentCalculatorTab extends StatefulWidget {
   const PaymentCalculatorTab({super.key});
 
@@ -73,21 +78,26 @@ class _PaymentCalculatorTabState extends State<PaymentCalculatorTab> {
   final _principalController = TextEditingController();
   final _annualRateController = TextEditingController();
   final _termYearsController = TextEditingController();
-  
+
   InterestModel _interestModel = InterestModel.reducingBalance;
   String _paymentFrequency = 'Monthly';
   bool _isCalculating = false;
   Map<String, dynamic>? _result;
-  
+
   // Payment frequency options
-  final List<String> _frequencyOptions = ['Monthly', 'Quarterly', 'Semi-annually', 'Annually'];
+  final List<String> _frequencyOptions = [
+    'Monthly',
+    'Quarterly',
+    'Semi-annually',
+    'Annually'
+  ];
   final Map<String, int> _frequencyMap = {
     'Monthly': 12,
     'Quarterly': 4,
     'Semi-annually': 2,
     'Annually': 1
   };
-  
+
   @override
   void dispose() {
     _principalController.dispose();
@@ -102,7 +112,7 @@ class _PaymentCalculatorTabState extends State<PaymentCalculatorTab> {
 
   Future<void> _calculateLoan() async {
     if (!_formKey.currentState!.validate()) return;
-    
+
     setState(() {
       _isCalculating = true;
       _result = null;
@@ -111,11 +121,9 @@ class _PaymentCalculatorTabState extends State<PaymentCalculatorTab> {
     try {
       final principal = double.parse(_principalController.text);
       final annualRate = double.parse(_annualRateController.text);
-      // Loan term in whole years
       final termYears = int.parse(_termYearsController.text);
       final paymentsPerYear = _getPaymentsPerYear(_paymentFrequency);
-      
-      // Calculate payment using the LoanCalculator
+
       final payment = LoanCalculator.calculatePayment(
         principal: principal,
         annualInterestRate: annualRate,
@@ -123,11 +131,11 @@ class _PaymentCalculatorTabState extends State<PaymentCalculatorTab> {
         paymentsPerYear: paymentsPerYear,
         interestModel: _interestModel,
       );
-      
-  final totalPayments = termYears * paymentsPerYear;
+
+      final totalPayments = termYears * paymentsPerYear;
       final totalAmount = payment * totalPayments;
       final totalInterest = totalAmount - principal;
-      
+
       setState(() {
         _result = {
           'payment': payment,
@@ -152,6 +160,9 @@ class _PaymentCalculatorTabState extends State<PaymentCalculatorTab> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final surfaceVariantColor = theme.colorScheme.surfaceVariant;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Form(
@@ -159,8 +170,10 @@ class _PaymentCalculatorTabState extends State<PaymentCalculatorTab> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Header card
             Card(
               elevation: 2,
+              margin: EdgeInsets.zero,
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
@@ -168,25 +181,25 @@ class _PaymentCalculatorTabState extends State<PaymentCalculatorTab> {
                   children: [
                     Text(
                       'Loan Payment Calculator',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      style: theme.textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.bold,
-                        color: FedhaColors.primaryGreen,
+                        color: theme.colorScheme.primary,
                       ),
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Calculate your periodic loan payment based on principal, interest rate, term, and payment frequency.',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Colors.grey.shade600,
+                      'Enter principal, interest rate, term, and payment frequency to calculate your periodic loan payment.',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ],
                 ),
               ),
             ),
-            
+
             const SizedBox(height: 20),
-            
+
             // Principal Amount
             TextFormField(
               controller: _principalController,
@@ -211,7 +224,7 @@ class _PaymentCalculatorTabState extends State<PaymentCalculatorTab> {
               },
             ),
             const SizedBox(height: 16),
-            
+
             // Annual Interest Rate
             TextFormField(
               controller: _annualRateController,
@@ -236,7 +249,7 @@ class _PaymentCalculatorTabState extends State<PaymentCalculatorTab> {
               },
             ),
             const SizedBox(height: 16),
-            
+
             // Term in Years
             TextFormField(
               controller: _termYearsController,
@@ -261,7 +274,7 @@ class _PaymentCalculatorTabState extends State<PaymentCalculatorTab> {
               },
             ),
             const SizedBox(height: 16),
-            
+
             // Payment Frequency
             DropdownButtonFormField<String>(
               value: _paymentFrequency,
@@ -280,7 +293,7 @@ class _PaymentCalculatorTabState extends State<PaymentCalculatorTab> {
               },
             ),
             const SizedBox(height: 16),
-            
+
             // Interest Model selection
             DropdownButtonFormField<InterestModel>(
               value: _interestModel,
@@ -310,43 +323,29 @@ class _PaymentCalculatorTabState extends State<PaymentCalculatorTab> {
                 });
               },
             ),
+
             const SizedBox(height: 24),
-            
+
             // Calculate Button
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: _isCalculating ? null : _calculateLoan,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _brandGreen,
-                  foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
                 child: _isCalculating
                     ? const SizedBox(
                         width: 20,
                         height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
+                        child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Text('Calculate Loan Payment', style: TextStyle(fontSize: 16)),
+                    : const Text('Calculate Loan Payment'),
               ),
             ),
-            
+            const SizedBox(height: 20),
+
             // Results
             if (_result != null) ...[
               const SizedBox(height: 32),
               Card(
-                color: Colors.green.shade50,
-                elevation: 3,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
                 child: Padding(
                   padding: const EdgeInsets.all(20),
                   child: Column(
@@ -355,9 +354,9 @@ class _PaymentCalculatorTabState extends State<PaymentCalculatorTab> {
                       Center(
                         child: Text(
                           'Loan Calculation Results',
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.bold,
-                            color: FedhaColors.primaryGreen,
+                            color: theme.colorScheme.primary,
                           ),
                         ),
                       ),
@@ -365,17 +364,27 @@ class _PaymentCalculatorTabState extends State<PaymentCalculatorTab> {
                       Consumer<CurrencyService>(
                         builder: (context, currencyService, child) => Column(
                           children: [
-                            _buildResultRow('Payment Amount', 
-                                currencyService.formatCurrency(_result!['payment']), 
-                                'Per ${_result!['paymentFrequency'].toString().toLowerCase()}'),
-                            _buildResultRow('Total Interest', 
-                                currencyService.formatCurrency(_result!['totalInterest'])),
-                            _buildResultRow('Total Amount', 
-                                currencyService.formatCurrency(_result!['totalAmount'])),
-                            _buildResultRow('Number of Payments', 
-                                '${_result!['numberOfPayments'].round()}'),
-                            _buildResultRow('Interest Model', 
-                                _interestModel.toString().split('.').last),
+                            _buildResultRow(
+                              'Payment Amount',
+                              currencyService.formatCurrency(_result!['payment']),
+                              'Per ${_result!['paymentFrequency'].toString().toLowerCase()}',
+                            ),
+                            _buildResultRow(
+                              'Total Interest',
+                              currencyService.formatCurrency(_result!['totalInterest']),
+                            ),
+                            _buildResultRow(
+                              'Total Amount',
+                              currencyService.formatCurrency(_result!['totalAmount']),
+                            ),
+                            _buildResultRow(
+                              'Number of Payments',
+                              '${_result!['numberOfPayments'].round()}',
+                            ),
+                            _buildResultRow(
+                              'Interest Model',
+                              _interestModel.toString().split('.').last,
+                            ),
                           ],
                         ),
                       ),
@@ -384,6 +393,8 @@ class _PaymentCalculatorTabState extends State<PaymentCalculatorTab> {
                 ),
               ),
             ],
+
+            const SizedBox(height: 24),
           ],
         ),
       ),
@@ -391,6 +402,7 @@ class _PaymentCalculatorTabState extends State<PaymentCalculatorTab> {
   }
 
   Widget _buildResultRow(String label, String value, [String? subValue]) {
+    final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10),
       child: Row(
@@ -398,16 +410,16 @@ class _PaymentCalculatorTabState extends State<PaymentCalculatorTab> {
         children: [
           Expanded(
             flex: 2,
-            child: Text(label, style: const TextStyle(fontWeight: FontWeight.w500)),
+            child: Text(label, style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500)),
           ),
           Expanded(
             flex: 2,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                Text(value, style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.bold, fontSize: 16)),
                 if (subValue != null)
-                  Text(subValue, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                  Text(subValue, style: theme.textTheme.bodySmall?.copyWith(fontSize: 12, color: theme.colorScheme.onSurfaceVariant)),
               ],
             ),
           ),
@@ -416,6 +428,10 @@ class _PaymentCalculatorTabState extends State<PaymentCalculatorTab> {
     );
   }
 }
+
+/* -------------------------------------------------------------------------- */
+/* ----------------------------- Interest Solver Tab ------------------------ */
+/* -------------------------------------------------------------------------- */
 
 class InterestSolverTab extends StatefulWidget {
   const InterestSolverTab({super.key});
@@ -429,14 +445,18 @@ class _InterestSolverTabState extends State<InterestSolverTab> {
   final _principalController = TextEditingController();
   final _paymentController = TextEditingController();
   final _termYearsController = TextEditingController();
-  
+
   String _paymentFrequency = 'Monthly';
   InterestModel _interestModel = InterestModel.reducingBalance;
   double? _calculatedAPR;
   bool _isCalculating = false;
 
-  // Payment frequency options
-  final List<String> _frequencyOptions = ['Monthly', 'Quarterly', 'Semi-annually', 'Annually'];
+  final List<String> _frequencyOptions = [
+    'Monthly',
+    'Quarterly',
+    'Semi-annually',
+    'Annually'
+  ];
   final Map<String, int> _frequencyMap = {
     'Monthly': 12,
     'Quarterly': 4,
@@ -468,7 +488,7 @@ class _InterestSolverTabState extends State<InterestSolverTab> {
       final payment = double.parse(_paymentController.text);
       final termYears = double.parse(_termYearsController.text);
       final paymentsPerYear = _getPaymentsPerYear(_paymentFrequency);
-      
+
       final apr = LoanCalculator.calculateApr(
         principal: principal,
         payment: payment,
@@ -476,7 +496,7 @@ class _InterestSolverTabState extends State<InterestSolverTab> {
         paymentsPerYear: paymentsPerYear,
         interestModel: _interestModel,
       );
-      
+
       setState(() {
         _calculatedAPR = apr;
         _isCalculating = false;
@@ -485,18 +505,22 @@ class _InterestSolverTabState extends State<InterestSolverTab> {
       setState(() {
         _isCalculating = false;
       });
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error calculating interest rate: ${e.toString()}'),
-          backgroundColor: Colors.red,
-        ),
-      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error calculating interest rate: ${e.toString()}'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Form(
@@ -506,6 +530,7 @@ class _InterestSolverTabState extends State<InterestSolverTab> {
           children: [
             Card(
               elevation: 2,
+              margin: EdgeInsets.zero,
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
@@ -513,25 +538,25 @@ class _InterestSolverTabState extends State<InterestSolverTab> {
                   children: [
                     Text(
                       'Interest Rate Solver',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      style: theme.textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.bold,
-                        color: FedhaColors.primaryGreen,
+                        color: theme.colorScheme.primary,
                       ),
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Calculate the APR based on your loan terms and payment amount.',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Colors.grey.shade600,
+                      'Enter Loan Details and Repayment Schedule to Calculate the APR. \nTip: Use this to understand the true cost of your loan, and compare different lenders.',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ],
                 ),
               ),
             ),
-            
+
             const SizedBox(height: 20),
-            
+
             // Principal Amount
             Consumer<CurrencyService>(
               builder: (context, currencyService, child) {
@@ -561,7 +586,7 @@ class _InterestSolverTabState extends State<InterestSolverTab> {
               },
             ),
             const SizedBox(height: 16),
-            
+
             // Payment Amount
             Consumer<CurrencyService>(
               builder: (context, currencyService, child) {
@@ -591,7 +616,7 @@ class _InterestSolverTabState extends State<InterestSolverTab> {
               },
             ),
             const SizedBox(height: 16),
-            
+
             // Payment Frequency
             DropdownButtonFormField<String>(
               value: _paymentFrequency,
@@ -610,7 +635,7 @@ class _InterestSolverTabState extends State<InterestSolverTab> {
               },
             ),
             const SizedBox(height: 16),
-            
+
             // Term in Years
             TextFormField(
               controller: _termYearsController,
@@ -635,7 +660,7 @@ class _InterestSolverTabState extends State<InterestSolverTab> {
               },
             ),
             const SizedBox(height: 16),
-            
+
             // Interest Model selection
             DropdownButtonFormField<InterestModel>(
               value: _interestModel,
@@ -666,67 +691,56 @@ class _InterestSolverTabState extends State<InterestSolverTab> {
               },
             ),
             const SizedBox(height: 24),
-            
+
             // Calculate Button
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: _isCalculating ? null : _calculateInterestRate,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: FedhaColors.primaryGreen,
-                  foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
                 child: _isCalculating
                     ? const SizedBox(
                         width: 20,
                         height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
+                        child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Text('Calculate Interest Rate', style: TextStyle(fontSize: 16)),
+                    : const Text('Calculate Interest Rate'),
               ),
             ),
-            
-            if (_calculatedAPR != null) ...[
-              const SizedBox(height: 32),
-              Card(
-                color: Colors.blue.shade50,
-                elevation: 3,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    children: [
-                      Text(
-                        'Calculated Interest Rate',
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: _brandGreen,
-                          ),
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        '${_calculatedAPR!.toStringAsFixed(2)}% APR',
-                        style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: FedhaColors.primaryGreen,
+
+            // Results animated switcher
+            const SizedBox(height: 24),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 300),
+              child: _calculatedAPR == null
+                  ? const SizedBox.shrink()
+                  : Card(
+                      key: const ValueKey('aprCard'),
+                      child: Padding(
+                        padding: const EdgeInsets.all(20),
+                        child: Column(
+                          children: [
+                            Text(
+                              'Calculated Interest Rate',
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: theme.colorScheme.primary,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              '${_calculatedAPR!.toStringAsFixed(2)}% APR',
+                              style: theme.textTheme.headlineMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: theme.colorScheme.primary,
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                            _buildResultsSummary(),
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 20),
-                      _buildResultsSummary(),
-                    ],
-                  ),
-                ),
-              ),
-            ],
+                    ),
+            ),
           ],
         ),
       ),
@@ -735,7 +749,7 @@ class _InterestSolverTabState extends State<InterestSolverTab> {
 
   Widget _buildResultsSummary() {
     if (_calculatedAPR == null) return const SizedBox.shrink();
-    
+
     final principal = double.parse(_principalController.text);
     final payment = double.parse(_paymentController.text);
     final years = double.parse(_termYearsController.text);
@@ -743,7 +757,7 @@ class _InterestSolverTabState extends State<InterestSolverTab> {
     final totalPayments = (years * paymentsPerYear).round();
     final totalAmount = payment * totalPayments;
     final totalInterest = totalAmount - principal;
-    
+
     return Consumer<CurrencyService>(
       builder: (context, currencyService, child) {
         return Column(
@@ -762,20 +776,25 @@ class _InterestSolverTabState extends State<InterestSolverTab> {
   }
 
   Widget _buildSummaryRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+    final theme = Theme.of(context);
+    return Container(
+      color: theme.colorScheme.onSurface.withOpacity(0.03),
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(fontWeight: FontWeight.w500)),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
+          Text(label, style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500)),
+          Text(value, style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold)),
         ],
       ),
     );
   }
 }
 
-// LoansTrackerTab remains the same as in the original code
+/* -------------------------------------------------------------------------- */
+/* ------------------------------ Loans Tracker Tab ------------------------- */
+/* -------------------------------------------------------------------------- */
+
 class LoansTrackerTab extends StatefulWidget {
   const LoansTrackerTab({super.key});
 
@@ -788,6 +807,8 @@ class _LoansTrackerTabState extends State<LoansTrackerTab> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -795,6 +816,7 @@ class _LoansTrackerTabState extends State<LoansTrackerTab> {
         children: [
           Card(
             elevation: 2,
+            margin: EdgeInsets.zero,
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -802,45 +824,37 @@ class _LoansTrackerTabState extends State<LoansTrackerTab> {
                 children: [
                   Text(
                     'Loans Tracker',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    style: theme.textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.bold,
-                      color: _brandGreen,
+                      color: theme.colorScheme.primary,
                     ),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     'Track and manage all your loans in one place.',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Colors.grey.shade600,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ),
                 ],
               ),
             ),
           ),
-          
+
           const SizedBox(height: 20),
-          
+
           // Add Loan Button
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
               onPressed: _showAddLoanDialog,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: FedhaColors.primaryGreen,
-                foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
               icon: const Icon(Icons.add),
-              label: const Text('Add New Loan', style: TextStyle(fontSize: 16)),
+              label: const Text('Add New Loan'),
             ),
           ),
-          
+
           const SizedBox(height: 20),
-          
+
           // Loans List
           if (_loans.isEmpty)
             Card(
@@ -852,20 +866,20 @@ class _LoansTrackerTabState extends State<LoansTrackerTab> {
                     Icon(
                       Icons.account_balance_wallet_outlined,
                       size: 64,
-                      color: Colors.grey.shade400,
+                      color: theme.colorScheme.onSurface.withOpacity(0.5),
                     ),
                     const SizedBox(height: 16),
                     Text(
                       'No loans tracked yet',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: Colors.grey.shade600,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
                     const SizedBox(height: 8),
                     Text(
                       'Add your first loan to start tracking payments and balances',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Colors.grey.shade500,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
                       ),
                       textAlign: TextAlign.center,
                     ),
@@ -893,33 +907,11 @@ class _LoansTrackerTabState extends State<LoansTrackerTab> {
                           children: [
                             Text(
                               loan.name,
-                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              style: theme.textTheme.titleMedium?.copyWith(
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
-                            PopupMenuButton(
-                              itemBuilder: (context) => [
-                                const PopupMenuItem(
-                                  value: 'edit',
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.edit),
-                                      SizedBox(width: 8),
-                                      Text('Edit'),
-                                    ],
-                                  ),
-                                ),
-                                const PopupMenuItem(
-                                  value: 'delete',
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.delete, color: Colors.red),
-                                      SizedBox(width: 8),
-                                      Text('Delete', style: TextStyle(color: Colors.red)),
-                                    ],
-                                  ),
-                                ),
-                              ],
+                            PopupMenuButton<String>(
                               onSelected: (value) {
                                 if (value == 'edit') {
                                   _showEditLoanDialog(loan, index);
@@ -927,6 +919,28 @@ class _LoansTrackerTabState extends State<LoansTrackerTab> {
                                   _deleteLoan(index);
                                 }
                               },
+                              itemBuilder: (context) => [
+                                PopupMenuItem(
+                                  value: 'edit',
+                                  child: Row(
+                                    children: const [
+                                      Icon(Icons.edit),
+                                      SizedBox(width: 8),
+                                      Text('Edit'),
+                                    ],
+                                  ),
+                                ),
+                                PopupMenuItem(
+                                  value: 'delete',
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.delete, color: Theme.of(context).colorScheme.error),
+                                      const SizedBox(width: 8),
+                                      Text('Delete', style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                                    ],
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
@@ -955,14 +969,14 @@ class _LoansTrackerTabState extends State<LoansTrackerTab> {
                         const SizedBox(height: 12),
                         LinearProgressIndicator(
                           value: (loan.totalMonths - loan.remainingMonths) / loan.totalMonths,
-                          backgroundColor: Colors.grey.shade300,
-                          valueColor: AlwaysStoppedAnimation<Color>(FedhaColors.primaryGreen),
+                          backgroundColor: theme.colorScheme.onSurface.withOpacity(0.12),
+                          valueColor: AlwaysStoppedAnimation<Color>(theme.colorScheme.primary),
                         ),
                         const SizedBox(height: 8),
                         Text(
                           'Progress: ${((loan.totalMonths - loan.remainingMonths) / loan.totalMonths * 100).toStringAsFixed(1)}% completed',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Colors.grey.shade600,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
                           ),
                         ),
                       ],
@@ -977,22 +991,17 @@ class _LoansTrackerTabState extends State<LoansTrackerTab> {
   }
 
   Widget _buildLoanInfo(String label, String value) {
+    final theme = Theme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
-          style: const TextStyle(
-            fontSize: 12,
-            color: Colors.grey,
-          ),
+          style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
         ),
         Text(
           value,
-          style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.bold,
-          ),
+          style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
         ),
       ],
     );
@@ -1078,7 +1087,7 @@ class _LoansTrackerTabState extends State<LoansTrackerTab> {
 
               if (name.isNotEmpty && principal > 0 && rate > 0 && totalMonths > 0) {
                 final monthlyRate = rate / 100 / 12;
-                final monthlyPayment = principal * 
+                final monthlyPayment = principal *
                     (monthlyRate * math.pow(1 + monthlyRate, totalMonths)) /
                     (math.pow(1 + monthlyRate, totalMonths) - 1);
 
@@ -1103,7 +1112,7 @@ class _LoansTrackerTabState extends State<LoansTrackerTab> {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(loan == null ? 'Loan added successfully!' : 'Loan updated successfully!'),
-                    backgroundColor: FedhaColors.primaryGreen,
+                    backgroundColor: Theme.of(context).colorScheme.primary,
                   ),
                 );
               }
@@ -1133,13 +1142,15 @@ class _LoansTrackerTabState extends State<LoansTrackerTab> {
               });
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Loan deleted successfully!'),
-                  backgroundColor: Colors.red,
+                SnackBar(
+                  content: const Text('Loan deleted successfully!'),
+                  backgroundColor: Theme.of(context).colorScheme.error,
                 ),
               );
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
             child: const Text('Delete'),
           ),
         ],
@@ -1147,6 +1158,10 @@ class _LoansTrackerTabState extends State<LoansTrackerTab> {
     );
   }
 }
+
+/* -------------------------------------------------------------------------- */
+/* --------------------------------- Models --------------------------------- */
+/* -------------------------------------------------------------------------- */
 
 class Loan {
   final String name;

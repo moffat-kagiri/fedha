@@ -23,7 +23,8 @@ class _TransactionEntryScreenState extends State<TransactionEntryScreen> {
   final _formKey = GlobalKey<FormState>();
   final _amountController = TextEditingController();
   final _descriptionController = TextEditingController();
-  
+  late final ThemeData theme;
+
   TransactionType _selectedType = TransactionType.expense;
   String _selectedCategory = '';
   Goal? _selectedGoal;
@@ -45,6 +46,7 @@ class _TransactionEntryScreenState extends State<TransactionEntryScreen> {
 
   @override
   void initState() {
+    final theme = Theme.of(context);
     super.initState();
     if (widget.editingTransaction != null) {
       _loadTransactionData(widget.editingTransaction!);

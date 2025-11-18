@@ -106,6 +106,8 @@ class _SmsTransactionReviewScreenState extends State<SmsTransactionReviewScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        foregroundColor: Theme.of(context).colorScheme.onPrimary,
         title: const Text('SMS Transactions'),
         actions: [
           IconButton(
@@ -159,7 +161,7 @@ class _SmsTransactionReviewScreenState extends State<SmsTransactionReviewScreen>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.sms, size: 64, color: Colors.grey),
+            const Icon(Icons.sms, size: 64, color: Theme.of(context).colorScheme.surface),
             const SizedBox(height: 16),
             const Text(
               'SMS Permission Required',
@@ -189,7 +191,7 @@ class _SmsTransactionReviewScreenState extends State<SmsTransactionReviewScreen>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.inbox, size: 64, color: Colors.grey),
+            const Icon(Icons.inbox, size: 64, color: Theme.of(context).colorScheme.surface),
             const SizedBox(height: 16),
             const Text(
               'No Pending Transactions',
@@ -259,7 +261,7 @@ class _SmsTransactionReviewScreenState extends State<SmsTransactionReviewScreen>
                     ),
                     Text(
                       _formatDate(transaction.date),
-                      style: const TextStyle(color: Colors.grey),
+                      style: const TextStyle(color: Theme.of(context).colorScheme.surface),
                     ),
                   ],
                 ),
@@ -268,12 +270,12 @@ class _SmsTransactionReviewScreenState extends State<SmsTransactionReviewScreen>
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: Colors.grey[100],
+                      color: Theme.of(context).colorScheme.surface,
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
                       transaction.smsSource!,
-                      style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+                      style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.surface),
                     ),
                   ),
                 const SizedBox(height: 16),

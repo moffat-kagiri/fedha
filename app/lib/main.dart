@@ -287,6 +287,9 @@ void main() async {
     }
     runApp(
       MaterialApp(
+        theme: AppTheme.lightTheme,
+        darkTheme: AppTheme.darkTheme,
+        themeMode: ThemeMode.system,
         home: Scaffold(
           body: Center(
             child: Text('Error initializing app: $e'),

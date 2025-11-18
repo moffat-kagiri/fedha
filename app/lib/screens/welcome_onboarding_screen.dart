@@ -55,8 +55,6 @@ class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
-  @override
-  Widget build(BuildContext context) {
     return Theme(
       data: AppTheme.lightTheme,
       child: Builder(
@@ -64,7 +62,7 @@ class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
           final theme = Theme.of(context);
           final colorScheme = theme.colorScheme;
           return Scaffold(
-            backgroundColor: theme.colorScheme.primaryContainer.withOpacity(0.1),
+            backgroundColor: theme.colorScheme.primaryContainer.withOpacity(0.3),
             body: SafeArea(
             child: Column(
             children: [
@@ -121,7 +119,7 @@ class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
                 },
                 children: [
                   _buildBudgetingPage(),
-                  _buildDebtAnalysisPage(),
+                  _buildCapitalAnalysisPage(),
                   _buildTrackingPage(),
                 ],
               ),
@@ -203,7 +201,7 @@ class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
           ),
           const SizedBox(height: 40),
           Text(
-            'Budget Smarter',
+            'Plan Your Spending',
             style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                   fontWeight: FontWeight.bold,
                   color: Theme.of(context).colorScheme.onBackground,
@@ -212,27 +210,20 @@ class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
           ),
           const SizedBox(height: 16),
           Text(
-            'Create budgets, track spending, and reach your savings goals.',
+            'Create budgets, track spending, and reach your savings goals 📑',
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                   color: Theme.of(context).colorScheme.onBackground.withOpacity(0.7),
                 ),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 20),
-          Text(
-            'Budget efficiently 📑',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: Theme.of(context).colorScheme.onPrimary.withAlpha((0.7 * 255).round()),
-            ),
-            textAlign: TextAlign.center,
-          ),
         ],
       ),
     );
   }
 
-  // New minimalist onboarding page: Debt Analysis
-  Widget _buildDebtAnalysisPage() {
+  // New minimalist onboarding page: Capital Analysis
+  Widget _buildCapitalAnalysisPage() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(32),
       child: Column(
@@ -253,7 +244,7 @@ class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
           ),
           const SizedBox(height: 40),
           Text(
-            'Borrow Smartly',
+            'Borrow and Invest Prudently',
             style: Theme.of(context)
                 .textTheme
                 .headlineSmall
@@ -265,7 +256,7 @@ class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
           ),
           const SizedBox(height: 16),
           Text(
-            'Analyze debts and plan paydown strategies for financial freedom.',
+            'Analyze and plan debt and investment financing for financial freedom 💸',
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                   color: Theme.of(context).colorScheme.onBackground.withOpacity(0.7),
                 ),
@@ -310,7 +301,7 @@ class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
           ),
           const SizedBox(height: 16),
           Text(
-            'Stay informed with real-time spending and income analytics.',
+            'Stay informed with real-time spending and income analytics 📊',
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                   color: Theme.of(context).colorScheme.onBackground.withOpacity(0.7),
                 ),

@@ -78,10 +78,11 @@ class DashboardContent extends StatelessWidget {
                     return Scaffold(
                       backgroundColor: colorScheme.background,
                         appBar: AppBar(
-                          backgroundColor: FedhaColors.primaryGreen,
-                        title: Text('Dashboard', style: textTheme.titleLarge?.copyWith(color: colorScheme.onPrimary)),
-                        elevation: 0,
-                      ),
+                          backgroundColor: Theme.of(context).colorScheme.primary,
+                          foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                          title: Text('Dashboard', style: textTheme.titleLarge?.copyWith(color: colorScheme.onPrimary)),
+                          elevation: 0,
+                          ),
                       body: SafeArea(
                         child: SingleChildScrollView(
                           padding: const EdgeInsets.all(16),
@@ -165,7 +166,7 @@ class DashboardContent extends StatelessWidget {
         padding: const EdgeInsets.all(20),
         child: Row(
           children: [
-            Icon(icon, color: Colors.white, size: 32),
+            Icon(icon, color: Theme.of(context).colorScheme.surface, size: 32),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
@@ -174,7 +175,7 @@ class DashboardContent extends StatelessWidget {
                   Text(
                     greeting,
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      color: Colors.white,
+                      color: Theme.of(context).colorScheme.surface,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -182,7 +183,7 @@ class DashboardContent extends StatelessWidget {
                   Text(
                     'Manage your finances effectively',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Colors.white70,
+                      color: Theme.of(context).colorScheme.surface.withOpacity(0.7),
                     ),
                   ),
                 ],
