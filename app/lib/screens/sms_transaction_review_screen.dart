@@ -4,7 +4,8 @@ import '../models/transaction.dart';
 import '../services/sms_listener_service.dart';
 import '../services/auth_service.dart';
 import '../services/offline_data_service.dart';
-import '../models/enums.dart'; // This should contain TransactionType
+import '../models/enums.dart';
+import '../theme/app_theme.dart';
 
 class SmsTransactionReviewScreen extends StatefulWidget {
   const SmsTransactionReviewScreen({Key? key}) : super(key: key);
@@ -57,7 +58,10 @@ class _SmsTransactionReviewScreenState extends State<SmsTransactionReviewScreen>
         _isLoading = false;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Error loading pending transactions')),
+        SnackBar(
+          content: const Text('Error loading pending transactions'),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
       );
     }
   }
@@ -65,19 +69,22 @@ class _SmsTransactionReviewScreenState extends State<SmsTransactionReviewScreen>
   Future<void> _approveTransaction(Transaction transaction) async {
     try {
       final dataService = Provider.of<OfflineDataService>(context, listen: false);
-      // Save to official transactions
       await dataService.approvePendingTransaction(transaction);
-      // Remove from pending
-  await dataService.deletePendingTransaction(transaction.id);
-      // Refresh list
+      await dataService.deletePendingTransaction(transaction.id);
       await _loadPendingTransactions();
       
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Transaction approved')),
+        SnackBar(
+          content: const Text('Transaction approved'),
+          backgroundColor: Theme.of(context).colorScheme.primary,
+        ),
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error approving transaction: $e')),
+        SnackBar(
+          content: Text('Error approving transaction: $e'),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
       );
     }
   }
@@ -85,15 +92,21 @@ class _SmsTransactionReviewScreenState extends State<SmsTransactionReviewScreen>
   Future<void> _rejectTransaction(Transaction transaction) async {
     try {
       final dataService = Provider.of<OfflineDataService>(context, listen: false);
-  await dataService.deletePendingTransaction(transaction.id);
+      await dataService.deletePendingTransaction(transaction.id);
       await _loadPendingTransactions();
       
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Transaction rejected')),
+        SnackBar(
+          content: const Text('Transaction rejected'),
+          backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+        ),
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error rejecting transaction: $e')),
+        SnackBar(
+          content: Text('Error rejecting transaction: $e'),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
       );
     }
   }
@@ -104,14 +117,15 @@ class _SmsTransactionReviewScreenState extends State<SmsTransactionReviewScreen>
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        foregroundColor: Theme.of(context).colorScheme.onPrimary,
         title: const Text('SMS Transactions'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh_rounded),
             onPressed: _refreshTransactions,
           ),
         ],
@@ -122,22 +136,20 @@ class _SmsTransactionReviewScreenState extends State<SmsTransactionReviewScreen>
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
           if (_hasPermissions) {
-            // Toggle SMS listener
             final smsService = SmsListenerService.instance;
             if (smsService.isListening) {
               await smsService.stopListening();
             } else {
               await smsService.startListening();
             }
-            setState(() {}); // Refresh UI
+            setState(() {});
           } else {
-            // Request permissions
             await _checkPermissions();
           }
         },
         child: Icon(_hasPermissions && SmsListenerService.instance.isListening
-            ? Icons.pause
-            : Icons.play_arrow),
+            ? Icons.pause_rounded
+            : Icons.play_arrow_rounded),
       ),
     );
   }
@@ -155,26 +167,32 @@ class _SmsTransactionReviewScreenState extends State<SmsTransactionReviewScreen>
   }
 
   Widget _buildPermissionRequest() {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.sms, size: 64, color: Theme.of(context).colorScheme.surface),
+            Icon(Icons.sms_rounded, size: 64, color: colorScheme.primary),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'SMS Permission Required',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              style: textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
             ),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'To automatically detect financial transactions from SMS messages, '
               'Fedha needs permission to read your SMS messages.',
               textAlign: TextAlign.center,
+              style: textTheme.bodyLarge,
             ),
             const SizedBox(height: 24),
-            ElevatedButton(
+            FilledButton(
               onPressed: _checkPermissions,
               child: const Text('Grant Permission'),
             ),
@@ -185,22 +203,28 @@ class _SmsTransactionReviewScreenState extends State<SmsTransactionReviewScreen>
   }
 
   Widget _buildEmptyState() {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.inbox, size: 64, color: Theme.of(context).colorScheme.surface),
+            Icon(Icons.inbox_rounded, size: 64, color: colorScheme.outline),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'No Pending Transactions',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              style: textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
             ),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'Fedha will automatically detect financial transactions from your SMS messages.',
               textAlign: TextAlign.center,
+              style: textTheme.bodyLarge,
             ),
             const SizedBox(height: 8),
             Text(
@@ -209,8 +233,8 @@ class _SmsTransactionReviewScreenState extends State<SmsTransactionReviewScreen>
                   : 'SMS monitoring is paused',
               style: TextStyle(
                 color: SmsListenerService.instance.isListening
-                    ? Colors.green
-                    : Colors.orange,
+                    ? FedhaColors.successGreen
+                    : FedhaColors.warningOrange,
               ),
             ),
           ],
@@ -220,6 +244,9 @@ class _SmsTransactionReviewScreenState extends State<SmsTransactionReviewScreen>
   }
 
   Widget _buildTransactionList() {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
     return ListView.builder(
       itemCount: _pendingTransactions.length,
       itemBuilder: (context, index) {
@@ -240,20 +267,18 @@ class _SmsTransactionReviewScreenState extends State<SmsTransactionReviewScreen>
                         children: [
                           Text(
                             '${transaction.description ?? 'Transaction'}',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
+                            style: textTheme.bodyLarge?.copyWith(
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                           const SizedBox(height: 4),
                           Text(
                             'KES ${transaction.amount.toStringAsFixed(2)}',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 18,
+                            style: textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
                               color: transaction.type == TransactionType.expense
-                                  ? Colors.red
-                                  : Colors.green,
+                                  ? FedhaColors.errorRed
+                                  : FedhaColors.successGreen,
                             ),
                           ),
                         ],
@@ -261,7 +286,9 @@ class _SmsTransactionReviewScreenState extends State<SmsTransactionReviewScreen>
                     ),
                     Text(
                       _formatDate(transaction.date),
-                      style: const TextStyle(color: Theme.of(context).colorScheme.surface),
+                      style: textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ],
                 ),
@@ -270,12 +297,14 @@ class _SmsTransactionReviewScreenState extends State<SmsTransactionReviewScreen>
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.surface,
-                      borderRadius: BorderRadius.circular(4),
+                      color: colorScheme.surfaceVariant,
+                      borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
                       transaction.smsSource!,
-                      style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.surface),
+                      style: textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ),
                 const SizedBox(height: 16),
@@ -287,7 +316,7 @@ class _SmsTransactionReviewScreenState extends State<SmsTransactionReviewScreen>
                       child: const Text('Reject'),
                     ),
                     const SizedBox(width: 16),
-                    ElevatedButton(
+                    FilledButton(
                       onPressed: () => _approveTransaction(transaction),
                       child: const Text('Approve'),
                     ),

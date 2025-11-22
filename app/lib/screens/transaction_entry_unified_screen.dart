@@ -10,6 +10,7 @@ import '../models/enums.dart';
 import '../services/offline_data_service.dart';
 import '../services/currency_service.dart';
 import '../services/auth_service.dart';
+import '../theme/app_theme.dart';
 
 class TransactionEntryUnifiedScreen extends StatefulWidget {
   final Transaction? editingTransaction;
@@ -62,8 +63,7 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
       _selectedCategory = _categories[_selectedType]!.first;
     }
     
-    
-    // Load goals for savings - now using async/await pattern
+    // Load goals for savings
     _loadGoals();
   }
   
@@ -79,11 +79,18 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
         setState(() {
           _goals = loaded;
           
-          // Populate savings category list with goal names
+          // For savings transactions, use goal names as categories
           _categories[TransactionType.savings] = loaded.map((g) => g.name).toList();
           
-          // Default to first goal if in savings mode and none selected
-          if (_selectedType == TransactionType.savings && _selectedGoal == null && loaded.isNotEmpty) {
+          // If editing a savings transaction, find the matching goal
+          if (widget.editingTransaction != null && 
+              widget.editingTransaction!.type == TransactionType.savings &&
+              widget.editingTransaction!.goalId != null) {
+            _selectedGoal = loaded.firstWhere(
+              (goal) => goal.id == widget.editingTransaction!.goalId,
+              orElse: () => loaded.isNotEmpty ? loaded.first : dom_goal.Goal.empty(),
+            );
+          } else if (_selectedType == TransactionType.savings && _selectedGoal == null && loaded.isNotEmpty) {
             _selectedGoal = loaded.first;
           }
         });
@@ -123,9 +130,9 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
           // Reset cursor position
           if (cursorPos != -1) {
             int newLength = formatted.length;
-            int newPos = max(0, cursorPos - (oldLength - newLength));
+            int newPos = (cursorPos > newLength) ? newLength : cursorPos;
             _amountController.selection = TextSelection.fromPosition(
-              TextPosition(offset: min(newPos, formatted.length)),
+              TextPosition(offset: newPos),
             );
           }
         }
@@ -135,15 +142,12 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
     }
   }
 
-  int max(int a, int b) => (a > b) ? a : b;
-  int min(int a, int b) => (a < b) ? a : b;
-
   void _loadTransactionData(Transaction transaction) {
     // Format the amount properly
     _amountController.text = transaction.amount.toStringAsFixed(2);
     _descriptionController.text = transaction.description ?? '';
     _selectedType = transaction.type;
-    _selectedCategory = transaction.categoryId ?? _categories[transaction.type]!.first;
+    _selectedCategory = transaction.category ?? _categories[transaction.type]!.first;
     _selectedDate = transaction.date;
     
     // Extract time from the transaction date
@@ -160,36 +164,21 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
     if (transaction.paymentMethod != null) {
       _selectedPaymentMethod = transaction.paymentMethod!;
     }
-    
-    // Goal for savings transactions will be loaded when _goals are loaded
-    // in _loadGoals() method which is called from initState
   }
 
   @override
   void dispose() {
-  _amountController.dispose();
+    _amountController.dispose();
     _descriptionController.dispose();
     super.dispose();
   }
 
   Future<void> _selectDate(BuildContext context) async {
-    final theme = Theme.of(context);
     final DateTime? picked = await showDatePicker(
       context: context,
       initialDate: _selectedDate,
       firstDate: DateTime(2020),
       lastDate: DateTime(2030),
-      builder: (context, child) {
-        return Theme(
-          data: theme.copyWith(
-            colorScheme: theme.colorScheme.copyWith(
-              primary: theme.primaryColor,
-              onPrimary: theme.colorScheme.onPrimary,
-            ),
-          ),
-          child: child!,
-        );
-      },
     );
     
     if (picked != null && picked != _selectedDate) {
@@ -206,21 +195,9 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
   }
 
   Future<void> _selectTime(BuildContext context) async {
-    final theme = Theme.of(context);
     final TimeOfDay? picked = await showTimePicker(
       context: context,
       initialTime: _selectedTime,
-      builder: (context, child) {
-        return Theme(
-          data: theme.copyWith(
-            colorScheme: theme.colorScheme.copyWith(
-              primary: theme.primaryColor,
-              onPrimary: theme.colorScheme.onPrimary,
-            ),
-          ),
-          child: child!,
-        );
-      },
     );
     
     if (picked != null && picked != _selectedTime) {
@@ -265,17 +242,34 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
       String raw = _getAmountValue();
       double amount = double.parse(raw);
       String formattedAmount = amount.toStringAsFixed(2);
+      
+      // Determine category and goal ID based on transaction type
+      String? categoryId;
+      String? categoryName;
+      String? goalId;
+      
+      if (_selectedType == TransactionType.savings) {
+        // For savings, use goal ID and name
+        if (_selectedGoal != null) {
+          goalId = _selectedGoal!.id;
+          categoryId = _selectedGoal!.id;
+          categoryName = _selectedGoal!.name;
+        }
+      } else {
+        // For income/expense, use the selected category
+        categoryId = _selectedCategory;
+        categoryName = _selectedCategory;
+      }
+      
       final transaction = Transaction(
         id: widget.editingTransaction?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
         amount: double.parse(formattedAmount),
         description: _descriptionController.text.trim(),
         type: _selectedType,
-        categoryId: _selectedType == TransactionType.savings && _selectedGoal != null 
-            ? _selectedGoal!.id 
-            : _selectedCategory,
-        category: null, // This will be populated by the service
+        categoryId: categoryId,
+        category: categoryName,
         date: _selectedDate,
-        goalId: _selectedType == TransactionType.savings ? _selectedGoal?.id : null,
+        goalId: goalId,
         paymentMethod: _selectedPaymentMethod,
         profileId: profileId,
       );
@@ -289,8 +283,10 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
             content: Text(widget.editingTransaction != null 
                 ? 'Transaction updated successfully' 
                 : 'Transaction saved successfully'),
-            backgroundColor: Theme.of(context).primaryColor,
+            backgroundColor: Theme.of(context).colorScheme.primary,
             duration: const Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
         );
       }
@@ -301,6 +297,8 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
             content: Text('Error saving transaction: ${e.toString()}'),
             backgroundColor: Theme.of(context).colorScheme.error,
             duration: const Duration(seconds: 3),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
         );
       }
@@ -351,7 +349,9 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: const Text('Transaction deleted'),
-              backgroundColor: Theme.of(context).primaryColor,
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
           );
         }
@@ -362,6 +362,8 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
           SnackBar(
             content: Text('Error deleting transaction: ${e.toString()}'),
             backgroundColor: Theme.of(context).colorScheme.error,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
         );
       }
@@ -384,12 +386,10 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
             title: Text(widget.editingTransaction != null 
               ? 'Edit Transaction' 
               : 'Add Transaction'),
-            backgroundColor: Theme.of(context).primaryColor,
-            foregroundColor: Theme.of(context).colorScheme.onPrimary,
             actions: [
               if (widget.editingTransaction != null)
                 IconButton(
-                  icon: const Icon(Icons.delete),
+                  icon: const Icon(Icons.delete_outline),
                   tooltip: 'Delete Transaction',
                   onPressed: _deleteTransaction,
                 ),
@@ -413,8 +413,7 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
                     decoration: InputDecoration(
                       labelText: 'Amount',
                       hintText: '0',
-                       prefixText: '${currencyService.currentSymbol} ',
-                      border: const OutlineInputBorder(),
+                      prefixText: '${currencyService.currentSymbol} ',
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 16,
                         vertical: 16,
@@ -425,6 +424,12 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
                     inputFormatters: [
                       FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
                     ],
+                    onChanged: (value) {
+                      // Format the amount as user types
+                      Future.delayed(const Duration(milliseconds: 100), () {
+                        _formatAmount();
+                      });
+                    },
                     validator: (value) {
                       if (value == null || value.isEmpty) {
                         return 'Please enter an amount';
@@ -459,7 +464,6 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
                     decoration: const InputDecoration(
                       labelText: 'Description',
                       hintText: 'What was this transaction for?',
-                      border: OutlineInputBorder(),
                       contentPadding: EdgeInsets.symmetric(
                         horizontal: 16,
                         vertical: 16,
@@ -467,75 +471,68 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
                     ),
                     textCapitalization: TextCapitalization.sentences,
                     textInputAction: TextInputAction.done,
+                    maxLines: 2,
                   ),
                   
                   const SizedBox(height: 24),
                   
                   // Advanced Options Toggle
-                  ListTile(
-                    title: const Text(
-                      'Advanced Options',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
+                  Card(
+                    child: ListTile(
+                      title: Text(
+                        'Advanced Options',
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                    ),
-                    trailing: Switch(
-                      value: _showAdvancedOptions,
-                      onChanged: (bool value) {
+                      trailing: Switch(
+                        value: _showAdvancedOptions,
+                        onChanged: (bool value) {
+                          setState(() {
+                            _showAdvancedOptions = value;
+                          });
+                        },
+                      ),
+                      onTap: () {
                         setState(() {
-                          _showAdvancedOptions = value;
+                          _showAdvancedOptions = !_showAdvancedOptions;
                         });
                       },
-                      activeColor: Theme.of(context).primaryColor,
                     ),
-                    contentPadding: EdgeInsets.zero,
-                    onTap: () {
-                      setState(() {
-                        _showAdvancedOptions = !_showAdvancedOptions;
-                      });
-                    },
                   ),
                   
                   // Advanced Options Section
-                  if (_showAdvancedOptions) _buildAdvancedOptions(dataService),
+                  if (_showAdvancedOptions) _buildAdvancedOptions(),
                   
                   const SizedBox(height: 32),
                   
                   // Save Button
-                  Center(
-                    child: ElevatedButton.icon(
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
                       onPressed: _isSaving ? null : _saveTransaction,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Theme.of(context).primaryColor,
-                        foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 32, 
-                          vertical: 16,
-                        ),
-                        textStyle: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      icon: _isSaving 
-                          ? Container(
+                      child: _isSaving 
+                          ? SizedBox(
                               width: 24,
                               height: 24,
-                              padding: const EdgeInsets.all(2),
                               child: CircularProgressIndicator(
+                                strokeWidth: 2,
                                 color: Theme.of(context).colorScheme.onPrimary,
-                                strokeWidth: 3,
                               ),
                             )
-                          : const Icon(Icons.save),
-                      label: Text(
-                        widget.editingTransaction != null
-                            ? 'Update Transaction'
-                            : 'Save Transaction',
-                      ),
+                          : Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.save, size: 20),
+                                const SizedBox(width: 8),
+                                Text(
+                                  widget.editingTransaction != null
+                                      ? 'Update Transaction'
+                                      : 'Save Transaction',
+                                  style: const TextStyle(fontWeight: FontWeight.w600),
+                                ),
+                              ],
+                            ),
                     ),
                   ),
                 ],
@@ -548,77 +545,49 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
   }
 
   Widget _buildTransactionTypeTabs() {
-    return Container(
-      height: 60,
-      decoration: BoxDecoration(
-        color: Theme.of(context).brightness == Brightness.light 
-            ? Colors.grey.shade200 
-            : Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        children: TransactionType.values.map((type) {
-          bool isSelected = _selectedType == type;
-          String label;
-          IconData icon;
-          
-          switch (type) {
-            case TransactionType.income:
-              label = 'Income';
-              icon = Icons.arrow_downward;
-              break;
-            case TransactionType.expense:
-              label = 'Expense';
-              icon = Icons.arrow_upward;
-              break;
-            case TransactionType.savings:
-              label = 'Savings';
-              icon = Icons.savings;
-              break;
-            default:
-              label = type.toString().split('.').last;
-              icon = Icons.category;
+    return SegmentedButton<TransactionType>(
+      segments: TransactionType.values.map((type) {
+        String label;
+        IconData icon;
+        
+        switch (type) {
+          case TransactionType.income:
+            label = 'Income';
+            icon = Icons.arrow_downward;
+            break;
+          case TransactionType.expense:
+            label = 'Expense';
+            icon = Icons.arrow_upward;
+            break;
+          case TransactionType.savings:
+            label = 'Savings';
+            icon = Icons.savings;
+            break;
+          default:
+            label = type.toString().split('.').last;
+            icon = Icons.category;
+        }
+        
+        return ButtonSegment<TransactionType>(
+          value: type,
+          label: Text(label),
+          icon: Icon(icon),
+        );
+      }).toList(),
+      selected: {_selectedType},
+      onSelectionChanged: (Set<TransactionType> newSelection) {
+        setState(() {
+          _selectedType = newSelection.first;
+          // Reset category to first in list when changing type
+          if (_categories[_selectedType]!.isNotEmpty) {
+            _selectedCategory = _categories[_selectedType]!.first;
           }
-          
-          return Expanded(
-            child: GestureDetector(
-              onTap: () {
-                setState(() {
-                  _selectedType = type;
-                  // Reset category to first in list when changing type
-                  if (_categories[type]!.isNotEmpty) {
-                    _selectedCategory = _categories[type]!.first;
-                  }
-                });
-              },
-              child: Container(
-                decoration: BoxDecoration(
-                  color: isSelected ? Theme.of(context).primaryColor : Colors.transparent,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      icon,
-                      color: isSelected ? Theme.of(context).colorScheme.onPrimary : Theme.of(context).colorScheme.onSurface,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      label,
-                      style: TextStyle(
-                        color: isSelected ? Theme.of(context).colorScheme.onPrimary : Theme.of(context).colorScheme.onSurface,
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        }).toList(),
-      ),
+          // Reset goal when switching away from savings
+          if (_selectedType != TransactionType.savings) {
+            _selectedGoal = null;
+          }
+        });
+      },
     );
   }
 
@@ -629,7 +598,6 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
           : _selectedCategory,
       decoration: InputDecoration(
         labelText: _selectedType == TransactionType.savings ? 'Goal' : 'Category',
-        border: const OutlineInputBorder(),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       ),
       items: _categories[_selectedType]!.map((String category) {
@@ -642,21 +610,6 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
         if (value != null) {
           setState(() {
             _selectedCategory = value;
-            
-            // If this is a savings transaction, update the selected goal
-            if (_selectedType == TransactionType.savings) {
-              final dataService = Provider.of<OfflineDataService>(context, listen: false);
-              dataService.getAllGoals().then((goals) {
-                  for (var goal in goals) {
-                    if (goal.name == value) {
-                      setState(() {
-                        _selectedGoal = goal;
-                      });
-                      break;
-                    }
-                  }
-              });
-            }
           });
         }
       },
@@ -674,18 +627,42 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
   /// Build goal selector when type is savings
   Widget _buildGoalSelector() {
     if (_goals.isEmpty) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('Loading goals...'),
-          const SizedBox(height: 8),
-          const LinearProgressIndicator(),
-          const SizedBox(height: 8),
-          OutlinedButton(
-            onPressed: _loadGoals,
-            child: const Text('Retry'),
+      return Card(
+        color: Theme.of(context).colorScheme.surfaceVariant,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                Icons.flag_outlined,
+                size: 32,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'No goals available',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Create a goal first to track savings',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton(
+                onPressed: () {
+                  Navigator.pushNamed(context, '/progressive_goal_wizard');
+                },
+                child: const Text('Create Goal'),
+              ),
+            ],
           ),
-        ],
+        ),
       );
     }
     
@@ -693,13 +670,37 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
       value: _selectedGoal ?? (_goals.isNotEmpty ? _goals.first : null),
       decoration: const InputDecoration(
         labelText: 'Select Goal',
-        border: OutlineInputBorder(),
         contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       ),
       items: _goals.map((goal) {
+        final progress = goal.targetAmount > 0 
+            ? (goal.currentAmount / goal.targetAmount * 100) 
+            : 0.0;
+            
         return DropdownMenuItem<dom_goal.Goal>(
           value: goal,
-          child: Text(goal.name),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(goal.name, style: const TextStyle(fontWeight: FontWeight.w500)),
+              const SizedBox(height: 2),
+              LinearProgressIndicator(
+                value: progress / 100,
+                backgroundColor: Theme.of(context).colorScheme.surfaceVariant,
+                color: Theme.of(context).colorScheme.primary,
+                minHeight: 4,
+                borderRadius: BorderRadius.circular(2),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                '${progress.toStringAsFixed(1)}% complete',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                ),
+              ),
+            ],
+          ),
         );
       }).toList(),
       onChanged: (dom_goal.Goal? value) {
@@ -714,66 +715,66 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
     );
   }
 
-  Widget _buildAdvancedOptions(OfflineDataService dataService) {
+  Widget _buildAdvancedOptions() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Date and Time Selector
-        const Text(
+        Text(
           'Date & Time',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w600,
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 12),
         Row(
           children: [
             Expanded(
-              child: OutlinedButton.icon(
+              child: FilledButton.tonal(
                 onPressed: () => _selectDate(context),
-                icon: const Icon(Icons.calendar_today, size: 16),
-                label: Text(
-                  DateFormat('MMM dd, yyyy').format(_selectedDate),
-                ),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.calendar_today, size: 16),
+                    const SizedBox(width: 8),
+                    Text(
+                      DateFormat('MMM dd, yyyy').format(_selectedDate),
+                    ),
+                  ],
                 ),
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 12),
             Expanded(
-              child: OutlinedButton.icon(
+              child: FilledButton.tonal(
                 onPressed: () => _selectTime(context),
-                icon: const Icon(Icons.access_time, size: 16),
-                label: Text(
-                  DateFormat('hh:mm a').format(_selectedDate),
-                ),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.access_time, size: 16),
+                    const SizedBox(width: 8),
+                    Text(
+                      DateFormat('hh:mm a').format(_selectedDate),
+                    ),
+                  ],
                 ),
               ),
             ),
           ],
         ),
         
-        const SizedBox(height: 16),
+        const SizedBox(height: 20),
         
         // Payment Method Selector
-        const Text(
+        Text(
           'Payment Method',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w600,
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 12),
         DropdownButtonFormField<PaymentMethod>(
           value: _selectedPaymentMethod,
-          decoration: const InputDecoration(
-            border: OutlineInputBorder(),
-            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-          ),
           items: PaymentMethod.values.map((PaymentMethod method) {
             String label;
             
@@ -807,10 +808,7 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
             }
           },
         ),
-        
-        // Additional advanced fields can be added here
       ],
     );
   }
 }
-

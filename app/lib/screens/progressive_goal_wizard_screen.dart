@@ -16,7 +16,7 @@ class ProgressiveGoalWizardScreen extends StatefulWidget {
 class _ProgressiveGoalWizardScreenState extends State<ProgressiveGoalWizardScreen> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
-  final int _totalPages = 6;
+  final int _totalPages = 4; // Reduced from 6 to 4
 
   // Goal data
   String _goalTitle = '';
@@ -54,6 +54,8 @@ class _ProgressiveGoalWizardScreenState extends State<ProgressiveGoalWizardScree
   }
 
   Future<void> _createGoal() async {
+    if (!_validateCurrentPage()) return;
+
     setState(() {
       _isCreating = true;
     });
@@ -72,15 +74,15 @@ class _ProgressiveGoalWizardScreenState extends State<ProgressiveGoalWizardScree
         status: 'active',
       );
 
-      dataService.addGoal(goal);
+      await dataService.addGoal(goal);
 
       if (mounted) {
         Navigator.pop(context, true);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('🎯 SMART Goal created successfully! You\'re on the path to financial success.'),
-            backgroundColor: Color(0xFF007A39),
-            duration: Duration(seconds: 3),
+          SnackBar(
+            content: const Text('🎯 SMART Goal created successfully!'),
+            backgroundColor: Theme.of(context).colorScheme.primary,
+            duration: const Duration(seconds: 3),
           ),
         );
       }
@@ -89,7 +91,7 @@ class _ProgressiveGoalWizardScreenState extends State<ProgressiveGoalWizardScree
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error creating goal: ${e.toString()}'),
-            backgroundColor: Colors.red,
+            backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
       }
@@ -100,228 +102,120 @@ class _ProgressiveGoalWizardScreenState extends State<ProgressiveGoalWizardScree
     }
   }
 
+  bool _validateCurrentPage() {
+    switch (_currentPage) {
+      case 1: // Goal Definition
+        return _goalTitle.isNotEmpty && _goalDescription.isNotEmpty;
+      case 2: // Financial & Measurable
+        return _monthlyIncome > 0 && _targetAmount > 0;
+      case 3: // Timeline & Action
+        return _actionPlan.isNotEmpty;
+      default:
+        return true;
+    }
+  }
+
   double get _discretionaryIncome => _monthlyIncome - _monthlyExpenses;
-  double get _recommendedMonthlyContribution => _discretionaryIncome * 0.2; // 20% of discretionary income
+  double get _recommendedMonthlyContribution => _discretionaryIncome * 0.2;
   int get _monthsToTarget => _targetDate.difference(DateTime.now()).inDays ~/ 30;
   double get _requiredMonthlyContribution => _monthsToTarget > 0 ? _targetAmount / _monthsToTarget : _targetAmount;
-
   bool get _isGoalAchievable => _requiredMonthlyContribution <= _recommendedMonthlyContribution;
-  bool get _isTimeFrameRealistic => _monthsToTarget >= 3; // At least 3 months
+  bool get _isTimeFrameRealistic => _monthsToTarget >= 3;
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: AppBar(
-        title: Text(
-          'Goal Wizard',
-          style: Theme.of(context).textTheme.headlineMedium,
-        ),
-        backgroundColor: Theme.of(context).primaryColor,
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Set your SMART goals',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Follow the steps below to refine your goals.',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            const SizedBox(height: 16),
-            // Progress indicator
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: const BoxDecoration(
-                color: Color(0xFF007A39),
-                borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
-              ),
-              child: Column(
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        'Step ${_currentPage + 1} of $_totalPages',
-                        style: const TextStyle(color: Colors.white70, fontSize: 14),
-                      ),
-                      const Spacer(),
-                      Text(
-                        '${((_currentPage + 1) / _totalPages * 100).round()}% Complete',
-                        style: const TextStyle(color: Colors.white70, fontSize: 14),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  LinearProgressIndicator(
-                    value: (_currentPage + 1) / _totalPages,
-                    backgroundColor: Colors.white.withValues(red: 255, green: 255, blue: 255, alpha: 0.3),
-                    valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
-                  ),
-                ],
-              ),
-            ),
-            
-            // Page content
-            Expanded(
-              child: PageView(
-                controller: _pageController,
-                onPageChanged: (page) {
-                  setState(() {
-                    _currentPage = page;
-                  });
-                },
-                children: [
-                  _buildWelcomePage(),
-                  _buildSpecificPage(),
-                  _buildFinancialProfilePage(),
-                  _buildMeasurablePage(),
-                  _buildAchievableRealisticPage(),
-                  _buildTimeBoundPage(),
-                ],
-              ),
-            ),
-            
-            // Navigation buttons
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.grey.withValues(red: 158, green: 158, blue: 158, alpha: 0.1),
-                    blurRadius: 10,
-                    offset: const Offset(0, -2),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  if (_currentPage > 0)
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: _previousPage,
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFF007A39),
-                          side: const BorderSide(color: Color(0xFF007A39)),
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                        ),
-                        child: const Text('Previous'),
-                      ),
-                    ),
-                  if (_currentPage > 0) const SizedBox(width: 16),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: _currentPage == _totalPages - 1 
-                          ? (_isCreating ? null : _createGoal)
-                          : _nextPage,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF007A39),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                      ),
-                      child: _isCreating
-                          ? const Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                                  ),
-                                ),
-                                SizedBox(width: 8),
-                                Text('Creating...'),
-                              ],
-                            )
-                          : Text(_currentPage == _totalPages - 1 ? 'Create SMART Goal' : 'Next'),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
 
-  Widget _buildWelcomePage() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Goal Wizard'),
+        backgroundColor: colorScheme.primary,
+        foregroundColor: colorScheme.onPrimary,
+      ),
+      body: Column(
         children: [
-          const SizedBox(height: 20),
-          const Icon(
-            Icons.flag,
-            size: 80,
-            color: Color(0xFF007A39),
-          ),
-          const SizedBox(height: 20),
-          const Text(
-            'Welcome to the Goal Wizard! 🎯',
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF007A39),
-            ),
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            'Let\'s create a SMART goal that will guide you to financial success. SMART goals are:',
-            style: TextStyle(fontSize: 16, height: 1.5),
-          ),
-          const SizedBox(height: 24),
+          // Progress Header
           Container(
-            padding: const EdgeInsets.all(16),
+            width: double.infinity,
+            padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: const Color(0xFF007A39).withValues(red: 0, green: 122, blue: 57, alpha: 0.1),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFF007A39).withValues(red: 0, green: 122, blue: 57, alpha: 0.3)),
+              color: colorScheme.primary,
+              borderRadius: const BorderRadius.only(
+                bottomLeft: Radius.circular(20),
+                bottomRight: Radius.circular(20),
+              ),
             ),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildSmartItem('🎯', 'Specific', 'Clear and well-defined objectives'),
-                _buildSmartItem('📊', 'Measurable', 'Track progress with numbers'),
-                _buildSmartItem('✅', 'Achievable', 'Realistic within your means'),
-                _buildSmartItem('🎨', 'Relevant', 'Aligned with your values'),
-                _buildSmartItem('⏰', 'Time-bound', 'Has a clear deadline'),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Step ${_currentPage + 1} of $_totalPages',
+                      style: TextStyle(color: colorScheme.onPrimary.withOpacity(0.8)),
+                    ),
+                    Text(
+                      '${((_currentPage + 1) / _totalPages * 100).round()}% Complete',
+                      style: TextStyle(color: colorScheme.onPrimary.withOpacity(0.8)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                LinearProgressIndicator(
+                  value: (_currentPage + 1) / _totalPages,
+                  backgroundColor: colorScheme.onPrimary.withOpacity(0.3),
+                  color: colorScheme.onPrimary,
+                ),
               ],
             ),
           ),
-          const SizedBox(height: 24),
+          
+          // Page Content
+          Expanded(
+            child: PageView(
+              controller: _pageController,
+              onPageChanged: (page) => setState(() => _currentPage = page),
+              physics: _isCreating ? const NeverScrollableScrollPhysics() : null,
+              children: [
+                _buildWelcomePage(),
+                _buildGoalDefinitionPage(),
+                _buildFinancialMeasurablePage(),
+                _buildTimelineActionPage(),
+              ],
+            ),
+          ),
+          
+          // Navigation
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.blue.shade50,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.blue.shade200),
+              color: colorScheme.surface,
+              border: Border(top: BorderSide(color: colorScheme.outline.withOpacity(0.2))),
             ),
-            child: const Column(
+            child: Row(
               children: [
-                Icon(Icons.lightbulb, color: Colors.blue, size: 32),
-                SizedBox(height: 8),
-                Text(
-                  'Why SMART Goals Work',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.blue,
+                if (_currentPage > 0)
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: _previousPage,
+                      child: const Text('Back'),
+                    ),
                   ),
-                ),
-                SizedBox(height: 8),
-                Text(
-                  'Research shows that people who set SMART goals are 10x more likely to achieve them compared to vague goals like "save more money".',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 14),
+                if (_currentPage > 0) const SizedBox(width: 12),
+                Expanded(
+                  child: FilledButton(
+                    onPressed: _currentPage == _totalPages - 1 
+                        ? (_isCreating ? null : _createGoal)
+                        : (_validateCurrentPage() ? _nextPage : null),
+                    child: _isCreating
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Text(_currentPage == _totalPages - 1 ? 'Create Goal' : 'Next'),
+                  ),
                 ),
               ],
             ),
@@ -331,109 +225,94 @@ class _ProgressiveGoalWizardScreenState extends State<ProgressiveGoalWizardScree
     );
   }
 
-  Widget _buildSpecificPage() {
+  Widget _buildWelcomePage() {
+    final colorScheme = Theme.of(context).colorScheme;
+    
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(24),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 20),
-          const Icon(
-            Icons.center_focus_strong,
-            size: 80,
-            color: Color(0xFF007A39),
-          ),
-          const SizedBox(height: 20),
-          const Text(
-            'Specific Goal 🎯',
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF007A39),
+          Icon(Icons.flag_rounded, size: 80, color: colorScheme.primary),
+          const SizedBox(height: 24),
+          Text(
+            'Create a SMART Goal',
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: colorScheme.primary,
             ),
           ),
           const SizedBox(height: 16),
-          const Text(
-            'Let\'s make your goal crystal clear. The more specific you are, the more likely you are to achieve it.',
-            style: TextStyle(fontSize: 16, height: 1.5),
+          Text(
+            'Follow this guided process to set clear, achievable financial goals using the SMART framework.',
+            style: Theme.of(context).textTheme.bodyLarge,
+            textAlign: TextAlign.center,
           ),
           const SizedBox(height: 32),
           
-          // Goal Type Selection
-          const Text(
-            'What type of goal do you want to achieve?',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 16),
-          
-          ...GoalType.values.map((type) {
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: InkWell(
-                onTap: () {
-                  setState(() {
-                    _goalType = type;
-                  });
-                },
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: _goalType == type 
-                        ? const Color(0xFF007A39).withValues(red: 0, green: 122, blue: 57, alpha: 0.1)
-                        : Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: _goalType == type 
-                          ? const Color(0xFF007A39)
-                          : Colors.grey.shade300,
-                      width: _goalType == type ? 2 : 1,
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                children: [
+                  Icon(Icons.auto_awesome_rounded, size: 40, color: colorScheme.primary),
+                  const SizedBox(height: 16),
+                  Text(
+                    'SMART Goals Are:',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        _getGoalTypeIcon(type),
-                        color: _goalType == type 
-                            ? const Color(0xFF007A39)
-                            : Colors.grey,
-                        size: 24,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              _getGoalTypeName(type),
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: _goalType == type 
-                                    ? const Color(0xFF007A39)
-                                    : Colors.black87,
-                              ),
-                            ),
-                            Text(
-                              _getGoalTypeDescription(type),
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey.shade600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      if (_goalType == type)
-                        const Icon(
-                          Icons.check_circle,
-                          color: Color(0xFF007A39),
-                        ),
-                    ],
-                  ),
-                ),
+                  const SizedBox(height: 16),
+                  _buildSmartChip('🎯 Specific', 'Clear and well-defined'),
+                  _buildSmartChip('📊 Measurable', 'Track progress with numbers'),
+                  _buildSmartChip('✅ Achievable', 'Realistic within your means'),
+                  _buildSmartChip('⏰ Time-bound', 'Has a clear deadline'),
+                ],
               ),
-            );
-          }),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGoalDefinitionPage() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Define Your Goal',
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'What do you want to achieve? Be specific and clear.',
+            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 24),
+          
+          // Goal Type
+          Text('Goal Type', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: GoalType.values.map((type) {
+              final isSelected = _goalType == type;
+              return FilterChip(
+                label: Text(_getGoalTypeName(type)),
+                selected: isSelected,
+                onSelected: (selected) => setState(() => _goalType = type),
+                avatar: Icon(_getGoalTypeIcon(type), size: 18),
+              );
+            }).toList(),
+          ),
           
           const SizedBox(height: 24),
           
@@ -441,788 +320,290 @@ class _ProgressiveGoalWizardScreenState extends State<ProgressiveGoalWizardScree
           TextFormField(
             decoration: const InputDecoration(
               labelText: 'Goal Title',
-              hintText: 'e.g., "Emergency Fund for 6 months"',
-              border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.title, color: Color(0xFF007A39)),
+              hintText: 'e.g., Emergency Fund for 6 months',
             ),
-            onChanged: (value) {
-              setState(() {
-                _goalTitle = value.trim();
-              });
-            },
+            onChanged: (value) => setState(() => _goalTitle = value),
           ),
           
           const SizedBox(height: 16),
           
-          // Goal Description
+          // Description
           TextFormField(
             decoration: const InputDecoration(
-              labelText: 'Detailed Description',
+              labelText: 'Description',
               hintText: 'Why is this goal important to you?',
-              border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.description, color: Color(0xFF007A39)),
             ),
             maxLines: 3,
-            onChanged: (value) {
-              setState(() {
-                _goalDescription = value.trim();
-              });
-            },
+            onChanged: (value) => setState(() => _goalDescription = value),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildFinancialProfilePage() {
+  Widget _buildFinancialMeasurablePage() {
+    final colorScheme = Theme.of(context).colorScheme;
+    
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 20),
-          const Icon(
-            Icons.account_balance,
-            size: 80,
-            color: Color(0xFF007A39),
-          ),
-          const SizedBox(height: 20),
-          const Text(
-            'Your Financial Profile 💰',
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF007A39),
+          Text(
+            'Financial Details',
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 16),
-          const Text(
-            'To create an achievable goal, we need to understand your current financial situation.',
-            style: TextStyle(fontSize: 16, height: 1.5),
-          ),
-          const SizedBox(height: 32),
-          
-          // Monthly Income
-          TextFormField(
-            decoration: const InputDecoration(
-              labelText: 'Monthly Income (Ksh)',
-              hintText: 'Your total monthly income',
-              border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.attach_money, color: Color(0xFF007A39)),
+          const SizedBox(height: 8),
+          Text(
+            'Let\'s understand your financial capacity and set measurable targets.',
+            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+              color: colorScheme.onSurfaceVariant,
             ),
-            keyboardType: TextInputType.number,
-            inputFormatters: [
-              FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
-            ],
-            onChanged: (value) {
-              setState(() {
-                _monthlyIncome = double.tryParse(value) ?? 0.0;
-              });
-            },
           ),
-          
-          const SizedBox(height: 16),
-          
-          // Monthly Expenses
-          TextFormField(
-            decoration: const InputDecoration(
-              labelText: 'Monthly Expenses (Ksh)',
-              hintText: 'Your total monthly expenses',
-              border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.shopping_cart, color: Color(0xFF007A39)),
-            ),
-            keyboardType: TextInputType.number,
-            inputFormatters: [
-              FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
-            ],
-            onChanged: (value) {
-              setState(() {
-                _monthlyExpenses = double.tryParse(value) ?? 0.0;
-              });
-            },
-          ),
-          
           const SizedBox(height: 24),
           
-          if (_monthlyIncome > 0 && _monthlyExpenses > 0) ...[
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: _discretionaryIncome > 0 
-                    ? Colors.green.shade50
-                    : Colors.red.shade50,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: _discretionaryIncome > 0 
-                      ? Colors.green.shade200
-                      : Colors.red.shade200,
+          // Income & Expenses
+          Row(
+            children: [
+              Expanded(
+                child: TextFormField(
+                  decoration: const InputDecoration(
+                    labelText: 'Monthly Income',
+                    prefixText: 'Ksh ',
+                  ),
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}'))],
+                  onChanged: (value) => setState(() => _monthlyIncome = double.tryParse(value) ?? 0.0),
                 ),
               ),
-              child: Column(
-                children: [
-                  Icon(
-                    _discretionaryIncome > 0 
-                        ? Icons.trending_up
-                        : Icons.warning,
-                    color: _discretionaryIncome > 0 
-                        ? Colors.green
-                        : Colors.red,
-                    size: 32,
+              const SizedBox(width: 16),
+              Expanded(
+                child: TextFormField(
+                  decoration: const InputDecoration(
+                    labelText: 'Monthly Expenses',
+                    prefixText: 'Ksh ',
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Discretionary Income',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: _discretionaryIncome > 0 
-                          ? Colors.green
-                          : Colors.red,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Ksh ${_discretionaryIncome.toStringAsFixed(2)} per month',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: _discretionaryIncome > 0 
-                          ? Colors.green.shade700
-                          : Colors.red.shade700,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    _discretionaryIncome > 0
-                        ? 'Great! You have money available for goals.'
-                        : 'You may need to reduce expenses or increase income first.',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 14),
-                  ),
-                ],
-              ),
-            ),
-            
-            if (_discretionaryIncome > 0) ...[
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF007A39).withValues(red: 0, green: 122, blue: 57, alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFF007A39).withValues(red: 0, green: 122, blue: 57, alpha: 0.3)),
-                ),
-                child: Column(
-                  children: [
-                    const Icon(Icons.lightbulb, color: Color(0xFF007A39), size: 24),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Recommended Goal Contribution',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF007A39),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Ksh ${_recommendedMonthlyContribution.toStringAsFixed(2)} per month',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF007A39),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      '(20% of your discretionary income)',
-                      style: TextStyle(fontSize: 12, color: Colors.grey),
-                    ),
-                  ],
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}'))],
+                  onChanged: (value) => setState(() => _monthlyExpenses = double.tryParse(value) ?? 0.0),
                 ),
               ),
             ],
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMeasurablePage() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: 20),
-          const Icon(
-            Icons.straighten,
-            size: 80,
-            color: Color(0xFF007A39),
           ),
-          const SizedBox(height: 20),
-          const Text(
-            'Measurable Goal 📊',
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF007A39),
-            ),
-          ),
+          
           const SizedBox(height: 16),
-          const Text(
-            'Now let\'s put a number on your goal. How much money do you need to achieve it?',
-            style: TextStyle(fontSize: 16, height: 1.5),
-          ),
-          const SizedBox(height: 32),
           
           // Target Amount
           TextFormField(
             decoration: const InputDecoration(
-              labelText: 'Target Amount (Ksh)',
+              labelText: 'Target Amount',
               hintText: 'How much do you need?',
-              border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.savings, color: Color(0xFF007A39)),
+              prefixText: 'Ksh ',
             ),
             keyboardType: TextInputType.number,
-            inputFormatters: [
-              FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
-            ],
-            onChanged: (value) {
-              setState(() {
-                _targetAmount = double.tryParse(value) ?? 0.0;
-              });
-            },
+            inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}'))],
+            onChanged: (value) => setState(() => _targetAmount = double.tryParse(value) ?? 0.0),
           ),
           
-          const SizedBox(height: 24),
-          
-          if (_targetAmount > 0) ...[
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFF007A39).withValues(red: 0, green: 122, blue: 57, alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFF007A39).withValues(red: 0, green: 122, blue: 57, alpha: 0.3)),
-              ),
-              child: Column(
-                children: [
-                  const Icon(Icons.calculate, color: Color(0xFF007A39), size: 32),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Progress Breakdown',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF007A39),
+          // Financial Insights
+          if (_monthlyIncome > 0 && _targetAmount > 0) ...[
+            const SizedBox(height: 24),
+            Card(
+              color: _discretionaryIncome > 0 
+                  ? colorScheme.primaryContainer
+                  : colorScheme.errorContainer,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    Icon(
+                      _discretionaryIncome > 0 ? Icons.trending_up : Icons.warning,
+                      color: _discretionaryIncome > 0 ? colorScheme.primary : colorScheme.error,
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  _buildProgressItem('Target Amount', 'Ksh ${_targetAmount.toStringAsFixed(2)}'),
-                  if (_recommendedMonthlyContribution > 0) ...[
-                    _buildProgressItem('Monthly Contribution', 'Ksh ${_recommendedMonthlyContribution.toStringAsFixed(2)}'),
-                    _buildProgressItem('Weekly Target', 'Ksh ${(_recommendedMonthlyContribution / 4).toStringAsFixed(2)}'),
-                    _buildProgressItem('Daily Target', 'Ksh ${(_recommendedMonthlyContribution / 30).toStringAsFixed(2)}'),
+                    const SizedBox(height: 8),
+                    Text(
+                      _discretionaryIncome > 0 ? 'Healthy Budget' : 'Review Needed',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Ksh ${_discretionaryIncome.toStringAsFixed(0)} discretionary income per month',
+                      textAlign: TextAlign.center,
+                    ),
+                    if (_discretionaryIncome > 0) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        'Recommended: Ksh ${_recommendedMonthlyContribution.toStringAsFixed(0)}/month for goals',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ],
-          
-          const SizedBox(height: 24),
-          
-          // Goal type specific tips
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.blue.shade50,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.blue.shade200),
-            ),
-            child: Column(
-              children: [
-                Icon(_getGoalTypeIcon(_goalType), color: Colors.blue, size: 32),
-                const SizedBox(height: 8),
-                Text(
-                  '${_getGoalTypeName(_goalType)} Tips',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.blue,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  _getGoalTypeTips(_goalType),
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 14),
-                ),
-              ],
-            ),
-          ),
         ],
       ),
     );
   }
 
-  Widget _buildAchievableRealisticPage() {
+  Widget _buildTimelineActionPage() {
+    final colorScheme = Theme.of(context).colorScheme;
+    
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 20),
-          const Icon(
-            Icons.check_circle_outline,
-            size: 80,
-            color: Color(0xFF007A39),
-          ),
-          const SizedBox(height: 20),
-          const Text(
-            'Achievable & Realistic ✅',
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF007A39),
+          Text(
+            'Timeline & Action Plan',
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 16),
-          const Text(
-            'Let\'s check if your goal is achievable within your current financial capacity.',
-            style: TextStyle(fontSize: 16, height: 1.5),
+          const SizedBox(height: 8),
+          Text(
+            'Set your deadline and create an action plan.',
+            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
           ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 24),
           
-          if (_targetAmount > 0 && _discretionaryIncome > 0) ...[
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: _isGoalAchievable
-                    ? Colors.green.shade50
-                    : Colors.orange.shade50,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: _isGoalAchievable
-                      ? Colors.green.shade200
-                      : Colors.orange.shade200,
-                ),
-              ),
-              child: Column(
-                children: [
-                  Icon(
-                    _isGoalAchievable
-                        ? Icons.thumb_up
-                        : Icons.warning,
-                    color: _isGoalAchievable
-                        ? Colors.green
-                        : Colors.orange,
-                    size: 32,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    _isGoalAchievable
-                        ? 'Goal is Achievable! 🎉'
-                        : 'Goal Needs Adjustment ⚠️',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: _isGoalAchievable
-                          ? Colors.green
-                          : Colors.orange,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  _buildAchievabilityItem('Your discretionary income', 'Ksh ${_discretionaryIncome.toStringAsFixed(2)}/month'),
-                  _buildAchievabilityItem('Recommended contribution (20%)', 'Ksh ${_recommendedMonthlyContribution.toStringAsFixed(2)}/month'),
-                  _buildAchievabilityItem('Required for this goal', 'Ksh ${_requiredMonthlyContribution.toStringAsFixed(2)}/month'),
-                  
-                  if (!_isGoalAchievable) ...[
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.orange.shade100,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Text(
-                        'Consider:\n• Extending your timeline\n• Reducing the target amount\n• Increasing your income\n• Reducing your expenses',
-                        style: TextStyle(fontSize: 14),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
+          // Target Date
+          Text('Target Date', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 8),
+          FilledButton.tonal(
+            onPressed: () async {
+              final date = await showDatePicker(
+                context: context,
+                initialDate: _targetDate,
+                firstDate: DateTime.now(),
+                lastDate: DateTime.now().add(const Duration(days: 3650)),
+              );
+              if (date != null) setState(() => _targetDate = date);
+            },
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.calendar_month_rounded),
+                const SizedBox(width: 8),
+                Text('${_targetDate.day}/${_targetDate.month}/${_targetDate.year}'),
+              ],
             ),
-          ],
+          ),
           
           const SizedBox(height: 24),
           
           // Action Plan
-          const Text(
-            'Action Plan',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
+          Text('Action Plan', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
-          const Text(
-            'How will you achieve this goal? What specific actions will you take?',
-            style: TextStyle(fontSize: 14, color: Colors.grey),
-          ),
-          const SizedBox(height: 16),
           TextFormField(
             decoration: const InputDecoration(
-              labelText: 'Your Action Plan',
-              hintText: 'e.g., "Set up automatic savings transfer every payday, reduce dining out by 50%, sell unused items"',
-              border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.list_alt, color: Color(0xFF007A39)),
+              hintText: 'What specific steps will you take to achieve this goal?',
             ),
             maxLines: 4,
-            onChanged: (value) {
-              setState(() {
-                _actionPlan = value.trim();
-              });
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTimeBoundPage() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: 20),
-          const Icon(
-            Icons.schedule,
-            size: 80,
-            color: Color(0xFF007A39),
-          ),
-          const SizedBox(height: 20),
-          const Text(
-            'Time-Bound Goal ⏰',
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF007A39),
-            ),
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            'When do you want to achieve this goal? A deadline creates urgency and helps you stay focused.',
-            style: TextStyle(fontSize: 16, height: 1.5),
-          ),
-          const SizedBox(height: 32),
-          
-          // Target Date Picker
-          InkWell(
-            onTap: () async {
-              final date = await showDatePicker(
-                context: context,
-                initialDate: _targetDate,
-                firstDate: DateTime.now().add(const Duration(days: 30)),
-                lastDate: DateTime.now().add(const Duration(days: 3650)), // 10 years
-              );
-              if (date != null) {
-                setState(() {
-                  _targetDate = date;
-                });
-              }
-            },
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey.shade300),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.calendar_today, color: Color(0xFF007A39)),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Target Date',
-                          style: TextStyle(fontSize: 12, color: Colors.grey),
-                        ),
-                        Text(
-                          '${_targetDate.day}/${_targetDate.month}/${_targetDate.year}',
-                          style: const TextStyle(fontSize: 16),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const Icon(Icons.arrow_drop_down),
-                ],
-              ),
-            ),
+            onChanged: (value) => setState(() => _actionPlan = value),
           ),
           
-          const SizedBox(height: 24),
-          
+          // Goal Summary & Feasibility
           if (_targetAmount > 0) ...[
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: _isTimeFrameRealistic
-                    ? Colors.green.shade50
-                    : Colors.red.shade50,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: _isTimeFrameRealistic
-                      ? Colors.green.shade200
-                      : Colors.red.shade200,
-                ),
-              ),
-              child: Column(
-                children: [
-                  Icon(
-                    _isTimeFrameRealistic
-                        ? Icons.check_circle
-                        : Icons.warning,
-                    color: _isTimeFrameRealistic
-                        ? Colors.green
-                        : Colors.red,
-                    size: 32,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    _isTimeFrameRealistic
-                        ? 'Timeline is Realistic! ✅'
-                        : 'Timeline Too Aggressive ⚠️',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: _isTimeFrameRealistic
-                          ? Colors.green
-                          : Colors.red,
+            const SizedBox(height: 24),
+            Card(
+              color: _isGoalAchievable && _isTimeFrameRealistic
+                  ? colorScheme.primaryContainer
+                  : colorScheme.errorContainer,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    Icon(
+                      _isGoalAchievable && _isTimeFrameRealistic 
+                          ? Icons.check_circle_rounded 
+                          : Icons.warning_rounded,
+                      color: _isGoalAchievable && _isTimeFrameRealistic
+                          ? colorScheme.primary
+                          : colorScheme.error,
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  _buildTimelineItem('Months to target', '$_monthsToTarget months'),
-                  _buildTimelineItem('Required monthly savings', 'Ksh ${_requiredMonthlyContribution.toStringAsFixed(2)}'),
-                  if (_discretionaryIncome > 0)
-                    _buildTimelineItem('% of discretionary income', '${(_requiredMonthlyContribution / _discretionaryIncome * 100).toStringAsFixed(1)}%'),
-                  
-                  if (!_isTimeFrameRealistic) ...[
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.red.shade100,
-                        borderRadius: BorderRadius.circular(8),
+                    const SizedBox(height: 8),
+                    Text(
+                      _isGoalAchievable && _isTimeFrameRealistic
+                          ? 'Goal Looks Achievable!'
+                          : 'Adjustments Recommended',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
                       ),
-                      child: const Text(
-                        'Consider extending your timeline by at least 3 months for better success.',
-                        style: TextStyle(fontSize: 14),
+                    ),
+                    const SizedBox(height: 12),
+                    _buildSummaryRow('Monthly Required', 'Ksh ${_requiredMonthlyContribution.toStringAsFixed(0)}'),
+                    _buildSummaryRow('Timeframe', '$_monthsToTarget months'),
+                    if (!_isGoalAchievable || !_isTimeFrameRealistic) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        'Consider extending timeline or reducing target amount',
+                        style: Theme.of(context).textTheme.bodySmall,
                         textAlign: TextAlign.center,
                       ),
-                    ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ],
-          
-          const SizedBox(height: 24),
-          
-          // Goal Summary
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: const Color(0xFF007A39).withValues(red: 0, green: 122, blue: 57, alpha: 0.1),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFF007A39).withValues(red: 0, green: 122, blue: 57, alpha: 0.3)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Your SMART Goal Summary 🎯',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF007A39),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                if (_goalTitle.isNotEmpty)
-                  _buildSummaryItem('Goal', _goalTitle),
-                _buildSummaryItem('Type', _getGoalTypeName(_goalType)),
-                if (_targetAmount > 0)
-                  _buildSummaryItem('Target Amount', 'Ksh ${_targetAmount.toStringAsFixed(2)}'),
-                _buildSummaryItem('Target Date', '${_targetDate.day}/${_targetDate.month}/${_targetDate.year}'),
-                if (_monthsToTarget > 0)
-                  _buildSummaryItem('Time Frame', '$_monthsToTarget months'),
-                if (_requiredMonthlyContribution > 0)
-                  _buildSummaryItem('Monthly Contribution', 'Ksh ${_requiredMonthlyContribution.toStringAsFixed(2)}'),
-              ],
-            ),
-          ),
         ],
       ),
     );
   }
 
-  Widget _buildSmartItem(String emoji, String title, String description) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        children: [
-          Text(emoji, style: const TextStyle(fontSize: 20)),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF007A39),
-                  ),
-                ),
-                Text(
-                  description,
-                  style: const TextStyle(fontSize: 14, color: Colors.grey),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+  Widget _buildSmartChip(String title, String subtitle) {
+    return ListTile(
+      leading: const CircleAvatar(backgroundColor: Colors.transparent),
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w500)),
+      subtitle: Text(subtitle),
+      contentPadding: EdgeInsets.zero,
+      visualDensity: VisualDensity.compact,
     );
   }
 
-  Widget _buildProgressItem(String label, String value) {
+  Widget _buildSummaryRow(String label, String value) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(fontSize: 14)),
-          Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+          Text(label, style: Theme.of(context).textTheme.bodyMedium),
+          Text(value, style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.w600,
+          )),
         ],
       ),
     );
   }
 
-  Widget _buildAchievabilityItem(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Expanded(
-            child: Text(label, style: const TextStyle(fontSize: 14)),
-          ),
-          Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTimelineItem(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: const TextStyle(fontSize: 14)),
-          Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSummaryItem(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: const TextStyle(fontSize: 14)),
-          Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-              textAlign: TextAlign.right,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
+  // Helper methods for goal types
   IconData _getGoalTypeIcon(GoalType type) {
     switch (type) {
-      case GoalType.savings:
-        return Icons.savings;
-      case GoalType.debtReduction:
-        return Icons.money_off;
-      case GoalType.investment:
-        return Icons.trending_up;
-      case GoalType.emergencyFund:
-        return Icons.security;
-      case GoalType.insurance:
-        return Icons.health_and_safety;
-      case GoalType.other:
-        return Icons.flag;
+      case GoalType.savings: return Icons.savings_rounded;
+      case GoalType.debtReduction: return Icons.credit_card_off_rounded;
+      case GoalType.investment: return Icons.trending_up_rounded;
+      case GoalType.emergencyFund: return Icons.shield_rounded;
+      case GoalType.insurance: return Icons.health_and_safety_rounded;
+      case GoalType.other: return Icons.flag_rounded;
     }
   }
 
   String _getGoalTypeName(GoalType type) {
     switch (type) {
-      case GoalType.savings:
-        return 'Savings Goal';
-      case GoalType.debtReduction:
-        return 'Debt Reduction';
-      case GoalType.investment:
-        return 'Investment Goal';
-      case GoalType.emergencyFund:
-        return 'Emergency Fund';
-      case GoalType.insurance:
-        return 'Insurance Goal';
-      case GoalType.other:
-        return 'Other Goal';
-    }
-  }
-
-  String _getGoalTypeDescription(GoalType type) {
-    switch (type) {
-      case GoalType.savings:
-        return 'Build up savings for a specific purpose';
-      case GoalType.debtReduction:
-        return 'Pay off loans or credit card debt';
-      case GoalType.investment:
-        return 'Invest money for long-term growth';
-      case GoalType.emergencyFund:
-        return 'Build an emergency fund for unexpected expenses';
-      case GoalType.insurance:
-        return 'Save for insurance premiums or build a coverage reserve';
-      case GoalType.other:
-        return 'Any other financial goal';
-    }
-  }
-
-  String _getGoalTypeTips(GoalType type) {
-    switch (type) {
-      case GoalType.savings:
-        return 'Consider 3-6 months of expenses for emergency savings, or specific amounts for purchases.';
-      case GoalType.debtReduction:
-        return 'Focus on high-interest debt first. Calculate total debt including interest.';
-      case GoalType.investment:
-        return 'Consider your risk tolerance and investment timeline for this amount.';
-      case GoalType.emergencyFund:
-        return 'Aim for 3-6 months of living expenses. Start with Ksh 50,000 if you\'re just beginning.';
-      case GoalType.insurance:
-        return 'Plan for annual premiums or future coverage needs; spread cost monthly.';
-      case GoalType.other:
-        return 'Make sure your goal amount is specific and well-researched.';
+      case GoalType.savings: return 'Savings';
+      case GoalType.debtReduction: return 'Debt';
+      case GoalType.investment: return 'Investment';
+      case GoalType.emergencyFund: return 'Emergency';
+      case GoalType.insurance: return 'Insurance';
+      case GoalType.other: return 'Other';
     }
   }
 }

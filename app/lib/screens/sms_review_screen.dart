@@ -8,6 +8,7 @@ import '../models/enums.dart';
 import '../services/offline_data_service.dart';
 import '../services/sms_listener_service.dart';
 import '../services/auth_service.dart';
+import '../theme/app_theme.dart';
 
 class SmsReviewScreen extends StatefulWidget {
   const SmsReviewScreen({Key? key}) : super(key: key);
@@ -27,7 +28,6 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _loadTransactionCandidates();
-    // Reload candidates whenever a new SMS is processed
     SmsListenerService.instance.messageStream.listen((_) {
       _loadTransactionCandidates();
     });
@@ -45,7 +45,6 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
     });
 
     try {
-      // Load pending transactions via OfflineDataService
       final dataService = Provider.of<OfflineDataService>(context, listen: false);
       final authService = Provider.of<AuthService>(context, listen: false);
       final profileId = int.tryParse(authService.currentProfile?.id ?? '') ?? 0;
@@ -53,7 +52,6 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
       _pendingCandidates = pendingTxList.map((transaction) {
         final raw = transaction.smsSource ?? '';
         final lower = raw.toLowerCase();
-        // Determine type by keywords
         final txType = lower.contains('sent')
             ? TransactionType.expense
             : lower.contains('received')
@@ -75,10 +73,7 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
         );
       }).toList();
       
-      // Sort by date (newest first)
       _pendingCandidates.sort((a, b) => b.date.compareTo(a.date));
-      
-      // Load reviewed transactions (keep this sample data for now)
       _reviewedCandidates = [];
       
     } catch (e) {
@@ -86,7 +81,7 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error loading SMS data: ${e.toString()}'),
-            backgroundColor: Colors.red,
+            backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
       }
@@ -103,7 +98,7 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
       TransactionCandidate(
         id: '1',
         rawText: 'MPESA: Ksh 1,200.00 sent to John Doe on 15/1/25 at 2:30 PM. New M-PESA balance is Ksh 8,500.00. Transaction cost Ksh 5.00.',
-        amount: 1205.00, // Including transaction cost
+        amount: 1205.00,
         description: 'MPESA to John Doe',
         date: now.subtract(const Duration(hours: 2)),
         type: TransactionType.expense,
@@ -129,48 +124,6 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
           'platform': 'Bank Transfer'
         },
       ),
-      TransactionCandidate(
-        id: '3',
-        rawText: 'Transaction Alert: Ksh 850 deducted from your account for grocery shopping at Nakumatt on 15/01/25.',
-        amount: 850.00,
-        description: 'Grocery shopping at Nakumatt',
-        date: now.subtract(const Duration(hours: 8)),
-        type: TransactionType.expense,
-        confidence: 0.92,
-        metadata: {
-          'merchant': 'Nakumatt',
-          'category_hint': 'groceries',
-          'platform': 'Bank Card'
-        },
-      ),
-      TransactionCandidate(
-        id: '4',
-        rawText: 'Airtime purchase: Ksh 100.00 for number 0722123456. Transaction successful.',
-        amount: 100.00,
-        description: 'Airtime purchase',
-        date: now.subtract(const Duration(hours: 12)),
-        type: TransactionType.expense,
-        confidence: 0.90,
-        metadata: {
-          'phone_number': '0722123456',
-          'category_hint': 'airtime',
-          'platform': 'Mobile Money'
-        },
-      ),
-      TransactionCandidate(
-        id: '5',
-        rawText: 'Salary credit: Your account has been credited with Ksh 45,000.00. Available balance: Ksh 58,500.00',
-        amount: 45000.00,
-        description: 'Salary payment',
-        date: now.subtract(const Duration(days: 1)),
-        type: TransactionType.income,
-        confidence: 0.98,
-        metadata: {
-          'balance_after': 58500.00,
-          'category_hint': 'salary',
-          'platform': 'Bank Transfer'
-        },
-      ),
     ];
   }
 
@@ -179,21 +132,17 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
       final dataService = Provider.of<OfflineDataService>(context, listen: false);
       final authService = Provider.of<AuthService>(context, listen: false);
       final profileId = int.tryParse(authService.currentProfile?.id ?? '') ?? 0;
-      // Find transaction candidate in pending list
-      // Build a Transaction domain object using edited candidate details
       final tx = Transaction(
         id: candidate.id,
         amount: candidate.amount,
         description: candidate.description ?? '',
         date: candidate.date,
         smsSource: candidate.rawText,
-        // categoryId persists empty or original if provided
         categoryId: candidate.categoryId ?? '',
         type: candidate.type,
         isExpense: candidate.type == TransactionType.expense,
         profileId: profileId.toString(),
       );
-      // Approve: save to main transactions and remove from pending
       await dataService.approvePendingTransaction(tx);
       await dataService.deletePendingTransaction(candidate.id);
 
@@ -208,16 +157,16 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('✅ Transaction approved and added to your records'),
-          backgroundColor: Color(0xFF007A39),
+        SnackBar(
+          content: const Text('✅ Transaction approved and added to your records'),
+          backgroundColor: Theme.of(context).colorScheme.primary,
         ),
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error approving transaction: ${e.toString()}'),
-          backgroundColor: Colors.red,
+          backgroundColor: Theme.of(context).colorScheme.error,
         ),
       );
     }
@@ -226,25 +175,23 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
   Future<void> _rejectCandidate(TransactionCandidate candidate) async {
     try {
       final dataService = Provider.of<OfflineDataService>(context, listen: false);
-      // Delete pending transaction
-  await dataService.deletePendingTransaction(candidate.id);
-      // Update UI
+      await dataService.deletePendingTransaction(candidate.id);
       final updated = candidate.copyWith(status: TransactionStatus.cancelled);
       setState(() {
         _pendingCandidates.removeWhere((c) => c.id == candidate.id);
         _reviewedCandidates.add(updated);
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('❌ Transaction rejected'),
-          backgroundColor: Colors.orange,
+        SnackBar(
+          content: const Text('❌ Transaction rejected'),
+          backgroundColor: Theme.of(context).colorScheme.primaryContainer,
         ),
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error rejecting transaction: ${e.toString()}'),
-          backgroundColor: Colors.red,
+          backgroundColor: Theme.of(context).colorScheme.error,
         ),
       );
     }
@@ -263,9 +210,11 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Scaffold(
       floatingActionButton: FloatingActionButton(
-        child: const Icon(Icons.message),
+        child: const Icon(Icons.message_rounded),
         tooltip: 'Enter SMS manually',
         onPressed: () async {
           final raw = await showDialog<String>(
@@ -283,8 +232,14 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
                   maxLines: 5,
                 ),
                 actions: [
-                  TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-                  ElevatedButton(onPressed: () => Navigator.pop(context, input), child: const Text('Submit')),
+                  TextButton(
+                    onPressed: () => Navigator.pop(context), 
+                    child: const Text('Cancel')
+                  ),
+                  FilledButton(
+                    onPressed: () => Navigator.pop(context, input), 
+                    child: const Text('Submit')
+                  ),
                 ],
               );
             },
@@ -297,37 +252,29 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
       ),
       appBar: AppBar(
         title: const Text('SMS Review'),
-        backgroundColor: const Color(0xFF007A39),
-        foregroundColor: Colors.white,
-        elevation: 0,
         bottom: TabBar(
           controller: _tabController,
-          indicatorColor: Colors.white,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white70,
           tabs: [
             Tab(
               text: 'Pending (${_pendingCandidates.length})',
-              icon: const Icon(Icons.pending_actions),
+              icon: const Icon(Icons.pending_actions_rounded),
             ),
             Tab(
               text: 'Reviewed (${_reviewedCandidates.length})',
-              icon: const Icon(Icons.history),
+              icon: const Icon(Icons.history_rounded),
             ),
           ],
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh_rounded),
             onPressed: _loadTransactionCandidates,
           ),
         ],
       ),
       body: _isLoading
           ? const Center(
-              child: CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF007A39)),
-              ),
+              child: CircularProgressIndicator(),
             )
           : TabBarView(
               controller: _tabController,
@@ -342,7 +289,7 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
   Widget _buildPendingTab() {
     if (_pendingCandidates.isEmpty) {
       return _buildEmptyState(
-        icon: Icons.check_circle_outline,
+        icon: Icons.check_circle_outline_rounded,
         title: 'All caught up! 🎉',
         subtitle: 'No pending SMS transactions to review',
         actionText: 'Refresh',
@@ -352,7 +299,6 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
 
     return RefreshIndicator(
       onRefresh: _loadTransactionCandidates,
-      color: const Color(0xFF007A39),
       child: ListView.builder(
         padding: const EdgeInsets.all(16),
         itemCount: _pendingCandidates.length,
@@ -367,7 +313,7 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
   Widget _buildReviewedTab() {
     if (_reviewedCandidates.isEmpty) {
       return _buildEmptyState(
-        icon: Icons.history,
+        icon: Icons.history_rounded,
         title: 'No reviewed transactions',
         subtitle: 'Transactions you approve or reject will appear here',
       );
@@ -390,6 +336,9 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
     String? actionText,
     VoidCallback? onAction,
   }) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -397,34 +346,28 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
           Icon(
             icon,
             size: 80,
-            color: Colors.grey.shade400,
+            color: colorScheme.outline,
           ),
           const SizedBox(height: 16),
           Text(
             title,
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Colors.grey.shade600,
+            style: textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: colorScheme.onSurface,
             ),
           ),
           const SizedBox(height: 8),
           Text(
             subtitle,
             textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.grey.shade500,
+            style: textTheme.bodyLarge?.copyWith(
+              color: colorScheme.onSurfaceVariant,
             ),
           ),
           if (actionText != null && onAction != null) ...[
             const SizedBox(height: 24),
-            ElevatedButton(
+            FilledButton(
               onPressed: onAction,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF007A39),
-                foregroundColor: Colors.white,
-              ),
               child: Text(actionText),
             ),
           ],
@@ -434,33 +377,26 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
   }
 
   Widget _buildCandidateCard(TransactionCandidate candidate, {required bool isPending}) {
-    return Container(
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    return Card(
       margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withValues(red: 158, green: 158, blue: 158, alpha: 0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
       child: Column(
         children: [
-          // Header with confidence and status
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: _getConfidenceColor(candidate.confidence).withAlpha(26), // 0.1 opacity = ~26 alpha
+              color: _getConfidenceColor(candidate.confidence).withAlpha(26),
               borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
             ),
             child: Row(
               children: [
                 Icon(
-                  candidate.type == TransactionType.income ? Icons.trending_up : Icons.trending_down,
-                  color: candidate.type == TransactionType.income ? Colors.green : Colors.red,
+                  candidate.type == TransactionType.income ? 
+                    Icons.trending_up_rounded : Icons.trending_down_rounded,
+                  color: candidate.type == TransactionType.income ? 
+                    FedhaColors.successGreen : FedhaColors.errorRed,
                   size: 24,
                 ),
                 const SizedBox(width: 8),
@@ -470,16 +406,14 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
                     children: [
                       Text(
                         candidate.description ?? 'SMS Transaction',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
+                        style: textTheme.bodyLarge?.copyWith(
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                       Text(
                         '${candidate.date.day}/${candidate.date.month}/${candidate.date.year} at ${candidate.date.hour}:${candidate.date.minute.toString().padLeft(2, '0')}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey.shade600,
+                        style: textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
                         ),
                       ),
                     ],
@@ -490,10 +424,10 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
                   children: [
                     Text(
                       'Ksh ${candidate.amount.toStringAsFixed(2)}',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: candidate.type == TransactionType.income ? Colors.green : Colors.red,
+                      style: textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: candidate.type == TransactionType.income ? 
+                          FedhaColors.successGreen : FedhaColors.errorRed,
                       ),
                     ),
                     Container(
@@ -507,7 +441,7 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
                         style: const TextStyle(
                           fontSize: 10,
                           color: Colors.white,
-                          fontWeight: FontWeight.bold,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
@@ -517,41 +451,35 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
             ),
           ),
           
-          // SMS raw text
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Original SMS:',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.grey,
+                  style: textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.onSurfaceVariant,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade100,
+                    color: colorScheme.surfaceVariant,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
                     candidate.rawText ?? 'No raw text available',
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontStyle: FontStyle.italic,
-                    ),
+                    style: textTheme.bodyMedium,
                   ),
                 ),
               ],
             ),
           ),
           
-          // Metadata (if available)
           if (candidate.metadata != null && candidate.metadata!.isNotEmpty) ...[
             Container(
               width: double.infinity,
@@ -559,12 +487,11 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Details:',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.grey,
+                    style: textTheme.bodySmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: colorScheme.onSurfaceVariant,
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -575,14 +502,13 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
                       return Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF007A39).withAlpha(26), // 0.1 opacity = ~26 alpha
+                          color: colorScheme.primaryContainer,
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
                           '${entry.key}: ${entry.value}',
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: Color(0xFF007A39),
+                          style: textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onPrimaryContainer,
                           ),
                         ),
                       );
@@ -594,12 +520,11 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
             const SizedBox(height: 16),
           ],
           
-          // Action buttons
           if (isPending) ...[
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.grey.shade50,
+                color: colorScheme.surfaceVariant,
                 borderRadius: const BorderRadius.vertical(bottom: Radius.circular(12)),
               ),
               child: Row(
@@ -607,36 +532,24 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: () => _rejectCandidate(candidate),
-                      icon: const Icon(Icons.close, size: 18),
+                      icon: const Icon(Icons.close_rounded, size: 18),
                       label: const Text('Reject'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.red,
-                        side: const BorderSide(color: Colors.red),
-                      ),
                     ),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: () => _editAndApprove(candidate),
-                      icon: const Icon(Icons.edit, size: 18),
+                      icon: const Icon(Icons.edit_rounded, size: 18),
                       label: const Text('Edit'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.orange,
-                        side: const BorderSide(color: Colors.orange),
-                      ),
                     ),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: ElevatedButton.icon(
+                    child: FilledButton.icon(
                       onPressed: () => _approveCandidate(candidate),
-                      icon: const Icon(Icons.check, size: 18),
+                      icon: const Icon(Icons.check_rounded, size: 18),
                       label: const Text('Approve'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF007A39),
-                        foregroundColor: Colors.white,
-                      ),
                     ),
                   ),
                 ],
@@ -647,24 +560,24 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: candidate.isApproved 
-                    ? Colors.green.shade50 
-                    : Colors.red.shade50,
+                    ? FedhaColors.successGreen.withOpacity(0.1)
+                    : FedhaColors.errorRed.withOpacity(0.1),
                 borderRadius: const BorderRadius.vertical(bottom: Radius.circular(12)),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(
-                    candidate.isApproved ? Icons.check_circle : Icons.cancel,
-                    color: candidate.isApproved ? Colors.green : Colors.red,
+                    candidate.isApproved ? Icons.check_circle_rounded : Icons.cancel_rounded,
+                    color: candidate.isApproved ? FedhaColors.successGreen : FedhaColors.errorRed,
                     size: 20,
                   ),
                   const SizedBox(width: 8),
                   Text(
                     candidate.isApproved ? 'Approved' : 'Rejected',
                     style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: candidate.isApproved ? Colors.green : Colors.red,
+                      fontWeight: FontWeight.w600,
+                      color: candidate.isApproved ? FedhaColors.successGreen : FedhaColors.errorRed,
                     ),
                   ),
                 ],
@@ -677,14 +590,12 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
   }
 
   Color _getConfidenceColor(double confidence) {
-    if (confidence >= 0.8) return Colors.green;
-    if (confidence >= 0.6) return Colors.orange;
-    return Colors.red;
+    if (confidence >= 0.8) return FedhaColors.successGreen;
+    if (confidence >= 0.6) return FedhaColors.warningOrange;
+    return FedhaColors.errorRed;
   }
-  // End of _SmsReviewScreenState
 }
 
-// Top-level dialog for editing SMS transaction candidates
 class _EditCandidateDialog extends StatefulWidget {
   final TransactionCandidate candidate;
 
@@ -732,7 +643,6 @@ class _EditCandidateDialogState extends State<_EditCandidateDialog> {
               controller: _descriptionController,
               decoration: const InputDecoration(
                 labelText: 'Description',
-                border: OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 16),
@@ -740,7 +650,6 @@ class _EditCandidateDialogState extends State<_EditCandidateDialog> {
               controller: _amountController,
               decoration: const InputDecoration(
                 labelText: 'Amount (Ksh)',
-                border: OutlineInputBorder(),
               ),
               keyboardType: TextInputType.number,
               inputFormatters: [
@@ -752,11 +661,10 @@ class _EditCandidateDialogState extends State<_EditCandidateDialog> {
               value: _selectedType == 'income' ? TransactionType.income : TransactionType.expense,
               decoration: const InputDecoration(
                 labelText: 'Type',
-                border: OutlineInputBorder(),
               ),
-              items: [
-                DropdownMenuItem(value: TransactionType.income, child: const Text('Income')),
-                DropdownMenuItem(value: TransactionType.expense, child: const Text('Expense')),
+              items: const [
+                DropdownMenuItem(value: TransactionType.income, child: Text('Income')),
+                DropdownMenuItem(value: TransactionType.expense, child: Text('Expense')),
               ],
               onChanged: (value) {
                 setState(() {
@@ -765,8 +673,8 @@ class _EditCandidateDialogState extends State<_EditCandidateDialog> {
               },
             ),
             const SizedBox(height: 16),
-            InkWell(
-              onTap: () async {
+            FilledButton.tonal(
+              onPressed: () async {
                 final date = await showDatePicker(
                   context: context,
                   initialDate: _selectedDate,
@@ -779,21 +687,13 @@ class _EditCandidateDialogState extends State<_EditCandidateDialog> {
                   });
                 }
               },
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.calendar_today),
-                    const SizedBox(width: 8),
-                    Text(
-                      '${_selectedDate.day}/${_selectedDate.month}/${_selectedDate.year}',
-                    ),
-                  ],
-                ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.calendar_month_rounded),
+                  const SizedBox(width: 8),
+                  Text('${_selectedDate.day}/${_selectedDate.month}/${_selectedDate.year}'),
+                ],
               ),
             ),
           ],
@@ -804,7 +704,7 @@ class _EditCandidateDialogState extends State<_EditCandidateDialog> {
           onPressed: () => Navigator.pop(context),
           child: const Text('Cancel'),
         ),
-        ElevatedButton(
+        FilledButton(
           onPressed: () {
             final updatedCandidate = widget.candidate.copyWith(
               amount: double.tryParse(_amountController.text) ?? widget.candidate.amount,
@@ -814,10 +714,6 @@ class _EditCandidateDialogState extends State<_EditCandidateDialog> {
             );
             Navigator.pop(context, updatedCandidate);
           },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF007A39),
-            foregroundColor: Colors.white,
-          ),
           child: const Text('Save'),
         ),
       ],

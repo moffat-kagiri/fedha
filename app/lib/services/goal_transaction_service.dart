@@ -8,133 +8,179 @@ class GoalTransactionService {
 
   GoalTransactionService(this._offlineService);
 
-  Future<void> updateGoalProgress(String goalId, double amount) async {
-    final goal = _offlineService.getGoal(goalId);
-    if (goal == null) return;
-
-    final updatedGoal = Goal(
-      id: goal.id,
-      name: goal.name,
-      description: goal.description,
-      targetAmount: goal.targetAmount,
-      currentAmount: goal.currentAmount + amount,
-      targetDate: goal.targetDate,
-      priority: goal.priority,
-      status: goal.status,
-      isActive: goal.isActive,
-      goalType: goal.goalType,
-      currency: goal.currency,
-      profileId: goal.profileId,
-      createdAt: goal.createdAt,
-      updatedAt: DateTime.now(),
-    );
-
-    await _offlineService.saveGoal(updatedGoal);
-  }
-
+  /// Links a transaction to a goal and updates goal progress
+  /// Only income transactions can contribute to goals
   Future<void> linkTransactionToGoal(Transaction transaction, String goalId) async {
-    if (transaction.type == TransactionType.expense) return;
+    if (transaction.type != TransactionType.income) {
+      return; // Only income transactions can contribute to goals
+    }
     
-    await updateGoalProgress(goalId, transaction.amount);
-  }
-
-  List<Goal> getActiveGoals() {
-    return _offlineService.getAllGoals()
-        .where((goal) => goal.isActive && goal.status == 'active')
-        .toList();
-  }
-
-  double calculateGoalProgress(Goal goal) {
-    if (goal.targetAmount <= 0) return 0.0;
-    return (goal.currentAmount / goal.targetAmount * 100).clamp(0.0, 100.0);
-  }
-
-  List<Goal> getCompletedGoals() {
-    return _offlineService.getAllGoals()
-        .where((goal) => goal.status == 'completed' || goal.currentAmount >= goal.targetAmount)
-        .toList();
-  }
-
-  Future<void> markGoalAsCompleted(String goalId) async {
     final goal = _offlineService.getGoal(goalId);
-    if (goal == null) return;
+    if (goal == null) {
+      throw Exception('Goal not found: $goalId');
+    }
 
-    final updatedGoal = Goal(
-      id: goal.id,
-      name: goal.name,
-      description: goal.description,
-      targetAmount: goal.targetAmount,
-      currentAmount: goal.currentAmount,
-      targetDate: goal.targetDate,
-      priority: goal.priority,
-      status: 'completed',
-      isActive: goal.isActive,
-      goalType: goal.goalType,
-      currency: goal.currency,
-      profileId: goal.profileId,
-      createdAt: goal.createdAt,
-      updatedAt: DateTime.now(),
-    );
-
+    // Update goal with contribution
+    final updatedGoal = goal.addContribution(transaction.amount);
     await _offlineService.saveGoal(updatedGoal);
+    
+    // Update transaction with goal reference
+    final updatedTransaction = transaction.copyWith(goalId: goalId);
+    await _offlineService.saveTransaction(updatedTransaction);
   }
 
-  List<Goal> getSuggestedGoals(Transaction transaction) {
-    // Return goals that might be relevant to this transaction
-    return getActiveGoals().where((goal) {
-      // Suggest goals for income transactions or expense reduction goals for expenses
-      if (transaction.type == TransactionType.income) {
-        return goal.goalType.toString().contains('savings') || 
-               goal.goalType.toString().contains('investment');
-      } else {
-        return goal.goalType.toString().contains('expenseReduction') ||
-               goal.goalType.toString().contains('debtReduction');
-      }
-    }).toList();
-  }
-
+  /// Creates a savings transaction specifically for a goal
   Future<Transaction> createSavingsTransaction({
     required double amount,
     required String goalId,
     String? description,
     String? categoryId,
+    DateTime? date,
   }) async {
     final goal = _offlineService.getGoal(goalId);
+    if (goal == null) {
+      throw Exception('Goal not found: $goalId');
+    }
+
+    // Create the savings transaction
     final transaction = Transaction(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
       amount: amount,
       type: TransactionType.income,
       categoryId: categoryId ?? 'savings',
-      date: DateTime.now(),
-      description: description ?? 'Savings for ${goal?.name ?? "goal"}',
+      date: date ?? DateTime.now(),
+      description: description ?? 'Savings contribution for ${goal.name}',
       goalId: goalId,
-      profileId: 'default',
+      profileId: goal.profileId,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
     );
-    
+
+    // Save transaction
     await _offlineService.saveTransaction(transaction);
-    await updateGoalProgress(goalId, amount);
+    
+    // Update goal progress
+    final updatedGoal = goal.addContribution(amount);
+    await _offlineService.saveGoal(updatedGoal);
     
     return transaction;
   }
 
-  Map<String, dynamic> getGoalProgressSummary(String goalId) {
-    final goal = _offlineService.getGoal(goalId);
-    if (goal == null) {
-      return {
-        'progress': 0.0,
-        'currentAmount': 0.0,
-        'targetAmount': 0.0,
-        'remainingAmount': 0.0,
-      };
+  /// Unlinks a transaction from a goal and reverses the contribution
+  Future<void> unlinkTransactionFromGoal(String transactionId) async {
+    final transaction = _offlineService.getTransaction(transactionId);
+    if (transaction == null || transaction.goalId == null) {
+      return; // No goal linked or transaction not found
     }
 
-    final progress = calculateGoalProgress(goal);
-    final remainingAmount = goal.targetAmount - goal.currentAmount;
+    final goal = _offlineService.getGoal(transaction.goalId!);
+    if (goal == null) {
+      return; // Goal not found
+    }
 
-    return {
-      'progress': progress,
-      'currentAmount': goal.currentAmount,
-      'targetAmount': goal.targetAmount,
-      'remainingAmount': remainingAmount.clamp(0.0, double.infinity),
-    };
+    // Reverse the contribution (subtract the amount)
+    final updatedGoal = goal.addContribution(-transaction.amount);
+    await _offlineService.saveGoal(updatedGoal);
+    
+    // Remove goal reference from transaction
+    final updatedTransaction = transaction.copyWith(goalId: null);
+    await _offlineService.saveTransaction(updatedTransaction);
+  }
+
+  /// Gets all transactions linked to a specific goal
+  List<Transaction> getTransactionsForGoal(String goalId) {
+    return _offlineService.getAllTransactions()
+        .where((transaction) => transaction.goalId == goalId)
+        .toList();
+  }
+
+  /// Gets suggested goals for a transaction based on transaction type and amount
+  List<Goal> getSuggestedGoalsForTransaction(Transaction transaction) {
+    if (transaction.type != TransactionType.income) {
+      return []; // Only suggest goals for income transactions
+    }
+
+    final activeGoals = _offlineService.getAllGoals()
+        .where((goal) => goal.isActive && !goal.isCompleted)
+        .toList();
+
+    // Filter goals based on relevance to transaction
+    return activeGoals.where((goal) {
+      // Suggest goals that are not yet completed and match the transaction context
+      final bool isRelevant = 
+          (goal.goalType == GoalType.savings && transaction.amount >= 100) ||
+          (goal.goalType == GoalType.investment && transaction.amount >= 500) ||
+          (goal.goalType == GoalType.emergency && transaction.amount >= 200) ||
+          (goal.remainingAmount >= transaction.amount * 0.8); // Goal can absorb most of this transaction
+
+      return isRelevant;
+    }).toList();
+  }
+
+  /// Transfers funds from one goal to another
+  Future<void> transferBetweenGoals({
+    required String fromGoalId,
+    required String toGoalId,
+    required double amount,
+    String? description,
+  }) async {
+    if (amount <= 0) {
+      throw Exception('Transfer amount must be positive');
+    }
+
+    final fromGoal = _offlineService.getGoal(fromGoalId);
+    final toGoal = _offlineService.getGoal(toGoalId);
+
+    if (fromGoal == null || toGoal == null) {
+      throw Exception('One or both goals not found');
+    }
+
+    if (fromGoal.currentAmount < amount) {
+      throw Exception('Insufficient funds in source goal');
+    }
+
+    // Create withdrawal transaction from source goal
+    final withdrawalTransaction = Transaction(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      amount: amount,
+      type: TransactionType.expense,
+      categoryId: 'goal_transfer',
+      date: DateTime.now(),
+      description: description ?? 'Transfer to ${toGoal.name}',
+      goalId: fromGoalId,
+      profileId: fromGoal.profileId,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+
+    // Create deposit transaction to target goal
+    final depositTransaction = Transaction(
+      id: '${DateTime.now().millisecondsSinceEpoch}_deposit',
+      amount: amount,
+      type: TransactionType.income,
+      categoryId: 'goal_transfer',
+      date: DateTime.now(),
+      description: description ?? 'Transfer from ${fromGoal.name}',
+      goalId: toGoalId,
+      profileId: toGoal.profileId,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+
+    // Update goals
+    final updatedFromGoal = fromGoal.addContribution(-amount);
+    final updatedToGoal = toGoal.addContribution(amount);
+
+    // Save all changes
+    await _offlineService.saveTransaction(withdrawalTransaction);
+    await _offlineService.saveTransaction(depositTransaction);
+    await _offlineService.saveGoal(updatedFromGoal);
+    await _offlineService.saveGoal(updatedToGoal);
+  }
+
+  /// Gets the total amount contributed to a goal from transactions
+  double getTotalContributions(String goalId) {
+    final goalTransactions = getTransactionsForGoal(goalId);
+    return goalTransactions.fold(0.0, (sum, transaction) => sum + transaction.amount);
   }
 }

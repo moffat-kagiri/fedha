@@ -189,16 +189,11 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
-      backgroundColor: colorScheme.background,
       appBar: AppBar(
-        backgroundColor: colorScheme.primary,
-        title: Text(
-          'Transactions',
-          style: textTheme.titleLarge?.copyWith(color: colorScheme.onPrimary),
-        ),
+        title: const Text('Transactions'),
         actions: [
           IconButton(
-            icon: Icon(Icons.add, color: colorScheme.onPrimary),
+            icon: const Icon(Icons.add_rounded),
             onPressed: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (ctx) => const TransactionEntryUnifiedScreen()),
@@ -218,9 +213,9 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
 
           return Column(
             children: [
-              _buildSearchAndFilterSection(colorScheme),
-              _buildSummaryCards(transactions, colorScheme),
-              Expanded(child: _buildTransactionsList(filtered, colorScheme)),
+              _buildSearchAndFilterSection(colorScheme, textTheme),
+              _buildSummaryCards(transactions, colorScheme, textTheme),
+              Expanded(child: _buildTransactionsList(filtered, colorScheme, textTheme)),
             ],
           );
         },
@@ -228,7 +223,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     );
   }
 
-  Widget _buildSearchAndFilterSection(ColorScheme colorScheme) {
+  Widget _buildSearchAndFilterSection(ColorScheme colorScheme, TextTheme textTheme) {
     return Container(
       color: colorScheme.surface,
       child: Column(
@@ -240,10 +235,10 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
               controller: _searchController,
               decoration: InputDecoration(
                 hintText: 'Search transactions...',
-                prefixIcon: Icon(Icons.search, color: colorScheme.primary),
+                prefixIcon: Icon(Icons.search_rounded, color: colorScheme.onSurfaceVariant),
                 suffixIcon: _searchQuery.isNotEmpty
                     ? IconButton(
-                        icon: const Icon(Icons.clear),
+                        icon: const Icon(Icons.clear_rounded),
                         onPressed: () {
                           setState(() {
                             _searchController.clear();
@@ -252,16 +247,6 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                         },
                       )
                     : null,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: colorScheme.outline),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: colorScheme.primary),
-                ),
-                filled: true,
-                fillColor: colorScheme.surfaceVariant,
               ),
               onChanged: (value) {
                 setState(() {
@@ -292,8 +277,6 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                                 _selectedFilter = option;
                               });
                             },
-                            selectedColor: colorScheme.primary.withOpacity(0.2),
-                            checkmarkColor: colorScheme.primary,
                           ),
                         );
                       }).toList(),
@@ -302,7 +285,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                 ),
                 IconButton(
                   icon: Icon(
-                    _showAdvancedFilters ? Icons.filter_list : Icons.filter_list_outlined,
+                    _showAdvancedFilters ? Icons.filter_alt_rounded : Icons.filter_alt_outlined,
                     color: _hasActiveFilters() ? colorScheme.primary : colorScheme.onSurfaceVariant,
                   ),
                   onPressed: () {
@@ -310,7 +293,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                   },
                 ),
                 PopupMenuButton<String>(
-                  icon: Icon(Icons.sort, color: colorScheme.onSurfaceVariant),
+                  icon: Icon(Icons.sort_rounded, color: colorScheme.onSurfaceVariant),
                   onSelected: (value) => setState(() => _sortBy = value),
                   itemBuilder: (_) => [
                     const PopupMenuItem(value: 'Date (Newest)', child: Text('Date (Newest)')),
@@ -323,188 +306,80 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
             ),
           ),
 
-          if (_showAdvancedFilters) _buildAdvancedFiltersPanel(colorScheme),
+          if (_showAdvancedFilters) _buildAdvancedFiltersPanel(colorScheme, textTheme),
           const SizedBox(height: 8),
         ],
       ),
     );
   }
 
-  Widget _buildAdvancedFiltersPanel(ColorScheme colorScheme) {
+  Widget _buildAdvancedFiltersPanel(ColorScheme colorScheme, TextTheme textTheme) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: colorScheme.surfaceVariant,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: colorScheme.outline),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Text('Advanced Filters', style: TextStyle(fontWeight: FontWeight.w600)),
+              Text('Advanced Filters', style: textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              )),
               const Spacer(),
               if (_hasActiveFilters())
-                TextButton(onPressed: _clearAllFilters, child: const Text('Clear All')),
+                TextButton(
+                  onPressed: _clearAllFilters, 
+                  child: const Text('Clear All')
+                ),
             ],
           ),
           const SizedBox(height: 16),
-          _buildCategoryFilter(colorScheme),
+          _buildCategoryFilter(colorScheme, textTheme),
           const SizedBox(height: 16),
-          _buildDateRangeFilter(colorScheme),
+          _buildDateRangeFilter(colorScheme, textTheme),
           const SizedBox(height: 16),
-          _buildAmountRangeFilter(colorScheme),
+          _buildAmountRangeFilter(colorScheme, textTheme),
           const SizedBox(height: 16),
-          _buildGoalFilter(colorScheme),
+          _buildGoalFilter(colorScheme, textTheme),
         ],
       ),
     );
   }
 
-
   void _showTransactionDetails(Transaction transaction) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.transparent,
-      builder:
-          (context) => Container(
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-            ),
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade300,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                const Text(
-                  'Transaction Details',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                _buildDetailRow(
-                  'Amount',
-                  'KSh${transaction.amount.toStringAsFixed(2)}',
-                ),
-                _buildDetailRow(
-                  'Type',
-                  transaction.type.toString().split('.').last,
-                ),
-                _buildDetailRow(
-                  'Category',
-                  _categoryToString(transaction.category),
-                ),
-                _buildDetailRow(
-                  'Description',
-                  transaction.description ?? 'No description',
-                ),
-                _buildDetailRow('Date', _formatDate(transaction.date)),
-                if (transaction.notes?.isNotEmpty == true)
-                  _buildDetailRow('Notes', transaction.notes!),
-                const SizedBox(height: 24),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text('Close'),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: () {
-                          Navigator.pop(context);
-                          _showEditTransactionDialog(context, transaction);
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF007A39),
-                        ),
-                        child: const Text('Edit'),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
+      isScrollControlled: true,
+      builder: (context) => _TransactionDetailsSheet(transaction: transaction),
     );
   }
 
-Widget _buildDetailRow(String label, String value) {
-  final cs = Theme.of(context).colorScheme;
-  final txt = Theme.of(context).textTheme;
-
-  return Padding(
-    padding: const EdgeInsets.symmetric(vertical: 8),
-    child: Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          label,
-          style: txt.bodyMedium?.copyWith(
-            color: cs.onSurfaceVariant, // subtle M3 secondary tone
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        Text(
-          value,
-          style: txt.bodyMedium?.copyWith(
-            color: cs.primary, // highlight value
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ],
-    ),
-  );
-}
-
-
-  Widget _buildCategoryFilter(ColorScheme colorScheme) {
+  Widget _buildCategoryFilter(ColorScheme colorScheme, TextTheme textTheme) {
     final availableCategories = TransactionCategory.values;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Category',
-          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+          style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 8),
         DropdownButtonFormField<TransactionCategory>(
           value: _selectedCategory,
-          decoration: InputDecoration(
+          decoration: const InputDecoration(
             hintText: 'Select category',
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 8,
-            ),
           ),
-          items:
-              availableCategories.map((category) {
-                return DropdownMenuItem(
-                  value: category,
-                  child: Text(_categoryToString(category)),
-                );
-              }).toList(),
+          items: availableCategories.map((category) {
+            return DropdownMenuItem(
+              value: category,
+              child: Text(_categoryToString(category)),
+            );
+          }).toList(),
           onChanged: (value) {
             setState(() {
               _selectedCategory = value;
@@ -515,18 +390,17 @@ Widget _buildDetailRow(String label, String value) {
     );
   }
 
-
-  Widget _buildDateRangeFilter(ColorScheme colorScheme) {
+  Widget _buildDateRangeFilter(ColorScheme colorScheme, TextTheme textTheme) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Date Range',
-          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+          style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 8),
-        InkWell(
-          onTap: () async {
+        FilledButton.tonal(
+          onPressed: () async {
             final picked = await showDateRangePicker(
               context: context,
               firstDate: DateTime(2020),
@@ -539,73 +413,41 @@ Widget _buildDetailRow(String label, String value) {
               });
             }
           },
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey.shade400),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.date_range, size: 20),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    _selectedDateRange == null
-                        ? 'Select date range'
-                        : '${_formatDate(_selectedDateRange!.start)} - ${_formatDate(_selectedDateRange!.end)}',
-                    style: TextStyle(
-                      color:
-                          _selectedDateRange == null
-                              ? Colors.grey.shade600
-                              : Colors.black87,
-                    ),
-                  ),
-                ),
-                if (_selectedDateRange != null)
-                  IconButton(
-                    icon: const Icon(Icons.clear, size: 20),
-                    onPressed: () {
-                      setState(() {
-                        _selectedDateRange = null;
-                      });
-                    },
-                  ),
-              ],
-            ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.calendar_month_rounded),
+              const SizedBox(width: 8),
+              Text(
+                _selectedDateRange == null
+                    ? 'Select date range'
+                    : '${_formatDate(_selectedDateRange!.start)} - ${_formatDate(_selectedDateRange!.end)}',
+              ),
+            ],
           ),
         ),
       ],
     );
   }
 
-  Widget _buildAmountRangeFilter(ColorScheme colorScheme) {
+  Widget _buildAmountRangeFilter(ColorScheme colorScheme, TextTheme textTheme) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Amount Range',
-          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+          style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 8),
         Row(
           children: [
             Expanded(
               child: TextFormField(
-                decoration: InputDecoration(
+                decoration: const InputDecoration(
                   hintText: 'Min amount',
                   prefixText: 'KSh ',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
                 ),
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 onChanged: (value) {
                   setState(() {
                     _minAmount = double.tryParse(value);
@@ -616,20 +458,11 @@ Widget _buildDetailRow(String label, String value) {
             const SizedBox(width: 12),
             Expanded(
               child: TextFormField(
-                decoration: InputDecoration(
+                decoration: const InputDecoration(
                   hintText: 'Max amount',
                   prefixText: 'KSh ',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
                 ),
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 onChanged: (value) {
                   setState(() {
                     _maxAmount = double.tryParse(value);
@@ -643,24 +476,19 @@ Widget _buildDetailRow(String label, String value) {
     );
   }
 
-  Widget _buildGoalFilter(ColorScheme colorScheme) {
+  Widget _buildGoalFilter(ColorScheme colorScheme, TextTheme textTheme) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Goal Assignment',
-          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+          style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 8),
         DropdownButtonFormField<Goal>(
           value: _selectedGoalFilter,
-          decoration: InputDecoration(
+          decoration: const InputDecoration(
             hintText: 'Filter by goal',
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 8,
-            ),
           ),
           items: [
             const DropdownMenuItem<Goal>(
@@ -684,7 +512,7 @@ Widget _buildDetailRow(String label, String value) {
     );
   }
 
-  Widget _buildSummaryCards(List<Transaction> transactions, ColorScheme colorScheme) {
+  Widget _buildSummaryCards(List<Transaction> transactions, ColorScheme colorScheme, TextTheme textTheme) {
     final income = transactions
         .where((t) => t.type == TransactionType.income)
         .fold(0.0, (sum, t) => sum + t.amount);
@@ -704,9 +532,10 @@ Widget _buildDetailRow(String label, String value) {
             child: _buildSummaryCard(
               'Income',
               'Ksh${income.toStringAsFixed(2)}',
-              colorScheme.primary,
-              Icons.trending_up,
+              FedhaColors.successGreen,
+              Icons.trending_up_rounded,
               colorScheme,
+              textTheme,
             ),
           ),
           const SizedBox(width: 8),
@@ -714,9 +543,10 @@ Widget _buildDetailRow(String label, String value) {
             child: _buildSummaryCard(
               'Expenses',
               'Ksh${expenses.toStringAsFixed(2)}',
-              colorScheme.error,
-              Icons.trending_down,
+              FedhaColors.errorRed,
+              Icons.trending_down_rounded,
               colorScheme,
+              textTheme,
             ),
           ),
           const SizedBox(width: 8),
@@ -724,9 +554,10 @@ Widget _buildDetailRow(String label, String value) {
             child: _buildSummaryCard(
               'Savings',
               'Ksh${savings.toStringAsFixed(2)}',
-              colorScheme.secondary,
-              Icons.savings,
+              FedhaColors.primaryGreen,
+              Icons.savings_rounded,
               colorScheme,
+              textTheme,
             ),
           ),
         ],
@@ -740,53 +571,49 @@ Widget _buildDetailRow(String label, String value) {
     Color color,
     IconData icon,
     ColorScheme colorScheme,
+    TextTheme textTheme,
   ) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        children: [
-          Icon(icon, color: color, size: 20),
-          const SizedBox(height: 4),
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 12,
-              color: colorScheme.onSurfaceVariant,
-              fontWeight: FontWeight.w500,
+    return Card(
+      color: color.withOpacity(0.1),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          children: [
+            Icon(icon, color: color, size: 20),
+            const SizedBox(height: 4),
+            Text(
+              title,
+              style: textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w500,
+              ),
             ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            amount,
-            style: TextStyle(
-              fontSize: 14,
-              color: colorScheme.onSurface,
-              fontWeight: FontWeight.bold,
+            const SizedBox(height: 2),
+            Text(
+              amount,
+              style: textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurface,
+                fontWeight: FontWeight.w600,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildTransactionsList(List<Transaction> transactions, ColorScheme colorScheme) {
+  Widget _buildTransactionsList(List<Transaction> transactions, ColorScheme colorScheme, TextTheme textTheme) {
     if (transactions.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.receipt_long, size: 64, color: colorScheme.onSurfaceVariant),
+            Icon(Icons.receipt_long_rounded, size: 64, color: colorScheme.onSurfaceVariant),
             const SizedBox(height: 16),
             Text(
               'No transactions found',
-              style: TextStyle(
-                fontSize: 16,
+              style: textTheme.bodyLarge?.copyWith(
                 color: colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w500,
               ),
             ),
           ],
@@ -799,38 +626,36 @@ Widget _buildDetailRow(String label, String value) {
       itemCount: transactions.length,
       itemBuilder: (context, index) {
         final transaction = transactions[index];
-        return _buildTransactionCard(transaction, colorScheme);
+        return _buildTransactionCard(transaction, colorScheme, textTheme);
       },
     );
   }
 
-  Widget _buildTransactionCard(Transaction transaction, ColorScheme colorScheme) {
+  Widget _buildTransactionCard(Transaction transaction, ColorScheme colorScheme, TextTheme textTheme) {
     late Color color;
     late IconData icon;
     late String prefix;
 
     switch (transaction.type) {
       case TransactionType.income:
-        color = colorScheme.primary;
-        icon = Icons.trending_up;
+        color = FedhaColors.successGreen;
+        icon = Icons.trending_up_rounded;
         prefix = '+';
         break;
       case TransactionType.expense:
-        color = colorScheme.error;
-        icon = Icons.trending_down;
+        color = FedhaColors.errorRed;
+        icon = Icons.trending_down_rounded;
         prefix = '-';
         break;
       case TransactionType.savings:
-        color = colorScheme.secondary;
-        icon = Icons.savings;
+        color = FedhaColors.primaryGreen;
+        icon = Icons.savings_rounded;
         prefix = '-';
         break;
     }
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      elevation: 2,
       child: ListTile(
         contentPadding: const EdgeInsets.all(16),
         leading: Container(
@@ -844,10 +669,8 @@ Widget _buildDetailRow(String label, String value) {
         ),
         title: Text(
           _categoryToString(transaction.category),
-          style: TextStyle(
-            fontSize: 16,
+          style: textTheme.bodyLarge?.copyWith(
             fontWeight: FontWeight.w600,
-            color: colorScheme.onSurface,
           ),
         ),
         subtitle: Column(
@@ -856,20 +679,23 @@ Widget _buildDetailRow(String label, String value) {
             const SizedBox(height: 4),
             Text(
               transaction.description ?? 'No description',
-              style: TextStyle(fontSize: 14, color: colorScheme.onSurfaceVariant),
+              style: textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
             ),
             const SizedBox(height: 2),
             Text(
               _formatDate(transaction.date),
-              style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant),
+              style: textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
             ),
           ],
         ),
         trailing: Text(
-          '$prefix${transaction.amount.toStringAsFixed(2)}',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
+          '$prefix KSh${transaction.amount.toStringAsFixed(2)}',
+          style: textTheme.bodyLarge?.copyWith(
+            fontWeight: FontWeight.w600,
             color: color,
           ),
         ),
@@ -877,52 +703,32 @@ Widget _buildDetailRow(String label, String value) {
       ),
     );
   }
-
-  void _showEditTransactionDialog(BuildContext context, Transaction transaction) {
-    showDialog(
-      context: context,
-      builder: (ctx) => TransactionDialog(
-        transaction: transaction,
-        onSave: (updatedTransaction) {
-          // Handle saving the updated transaction
-          setState(() {
-            // Update the transaction in the list or refresh the data
-            _transactionsFuture = Provider.of<OfflineDataService>(context, listen: false)
-                .getAllTransactions(int.parse(
-                    Provider.of<AuthService>(context, listen: false).currentProfile?.id ?? '0'));
-          });
-        },
-      ),
-    );
-  }
 }
 
-class TransactionDialog extends StatelessWidget {
+class _TransactionDetailsSheet extends StatelessWidget {
   final Transaction transaction;
 
-  const TransactionDialog({
-    super.key,
-    required this.transaction,
-    required this.onSave,
-  });
+  const _TransactionDetailsSheet({required this.transaction});
 
-  String _prettyEnum(Object? value) {
-    if (value == null) return 'Unknown';
-    final raw = value.toString().split('.').last;
-    return raw[0].toUpperCase() + raw.substring(1);
+  String _categoryToString(TransactionCategory? category) {
+    if (category == null) return 'Other';
+    return category.name.toUpperCase();
   }
-  
-  final void Function(Transaction) onSave;
+
+  String _formatDate(DateTime date) {
+    return '${date.day}/${date.month}/${date.year}';
+  }
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
 
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: colorScheme.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -941,38 +747,88 @@ class TransactionDialog extends StatelessWidget {
           const SizedBox(height: 24),
           Text(
             'Transaction Details',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: colorScheme.onSurface,
-                ),
+            style: textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
           ),
           const SizedBox(height: 20),
-
-          _buildDetailRow('Amount', 'KSh ${transaction.amount.toStringAsFixed(2)}', colorScheme),
-          _buildDetailRow('Category', _prettyEnum(transaction.category), colorScheme),
-          _buildDetailRow('Date', transaction.date.toString(), colorScheme),
-          _buildDetailRow('Type', _prettyEnum(transaction.type), colorScheme),
+          _buildDetailRow('Amount', 'KSh ${transaction.amount.toStringAsFixed(2)}', context),
+          _buildDetailRow('Type', _prettyEnum(transaction.type), context),
+          _buildDetailRow('Category', _categoryToString(transaction.category), context),
+          _buildDetailRow('Description', transaction.description ?? 'No description', context),
+          _buildDetailRow('Date', _formatDate(transaction.date), context),
+          if (transaction.notes?.isNotEmpty == true)
+            _buildDetailRow('Notes', transaction.notes!, context),
+          const SizedBox(height: 24),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Close'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: FilledButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _showEditTransactionDialog(context, transaction);
+                  },
+                  child: const Text('Edit'),
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildDetailRow(String label, String value, ColorScheme scheme) {
+  Widget _buildDetailRow(String label, String value, BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
     return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label,
-              style: TextStyle(
-                color: scheme.onSurface.withOpacity(0.7),
-              )),
-          Text(value,
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-                color: scheme.onSurface,
-              )),
+          Text(
+            label,
+            style: textTheme.bodyMedium?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          Text(
+            value,
+            style: textTheme.bodyMedium?.copyWith(
+              color: colorScheme.primary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
         ],
+      ),
+    );
+  }
+
+  String _prettyEnum(Object? value) {
+    if (value == null) return 'Unknown';
+    final raw = value.toString().split('.').last;
+    return raw[0].toUpperCase() + raw.substring(1);
+  }
+
+  void _showEditTransactionDialog(BuildContext context, Transaction transaction) {
+    showDialog(
+      context: context,
+      builder: (ctx) => TransactionDialog(
+        transaction: transaction,
+        onSave: (updatedTransaction) {
+          
+          // Handle saving the updated transaction
+          // This would typically refresh the data
+        },
       ),
     );
   }
