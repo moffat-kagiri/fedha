@@ -7,9 +7,7 @@ import 'package:fedha/services/api_client.dart';
 import '../theme/app_theme.dart';
 import '../utils/first_login_handler.dart';
 import 'welcome_onboarding_screen.dart';
-// Removed deprecated login_welcome_screen import
 import 'main_navigation.dart';
-import 'biometric_lock_screen.dart';
 import 'signup_screen.dart';
 import 'login_screen.dart' hide Theme;
 
@@ -23,7 +21,6 @@ class AuthWrapper extends StatefulWidget {
 class _AuthWrapperState extends State<AuthWrapper> {
   bool _isLoading = true;
   bool _onboardingCompleted = false;
-  bool _needsBiometricAuth = false;
   bool _accountCreationAttempted = false;
 
   @override
@@ -41,31 +38,13 @@ class _AuthWrapperState extends State<AuthWrapper> {
       if (mounted) {
         final authService = Provider.of<AuthService>(context, listen: false);
         await authService.initialize();
-        // NOTE: First-login prompts (biometric setup, permissions) are now
-        // invoked from the explicit login/signup flows so we don't present
-        // setup dialogs prematurely during app startup.
-        // Check backend health but do not force logout when offline
-        final apiClient = Provider.of<ApiClient>(context, listen: false);
-        bool serverHealthy = false;
-        try {
-          serverHealthy = await apiClient.checkServerHealth();
-        } catch (_) {}
-        // Retain session even if offline
         
-        final biometricService = BiometricAuthService.instance;
-        final biometricEnabled = await biometricService?.isBiometricEnabled() ?? false;
-        final hasValidSession = await biometricService?.hasValidBiometricSession() ?? false;
-        
-        // Check if user is logged in and biometric is enabled
-        bool needsBiometric = false;
-        if (await authService.isLoggedIn() && biometricEnabled && !hasValidSession) {
-          needsBiometric = true;
-        }
+        // NOTE: Biometric authentication is now handled at the root level in main.dart
+        // This wrapper only handles onboarding and auth state
         
         // Set state with all our flags
         setState(() {
           _onboardingCompleted = onboardingCompleted;
-          _needsBiometricAuth = needsBiometric;
           _accountCreationAttempted = accountCreationAttempted;
           _isLoading = false;
         });
@@ -74,7 +53,6 @@ class _AuthWrapperState extends State<AuthWrapper> {
       if (mounted) {
         setState(() {
           _onboardingCompleted = false;
-          _needsBiometricAuth = false;
           _isLoading = false;
           _accountCreationAttempted = false;
         });
@@ -117,23 +95,6 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
     if (!_onboardingCompleted) {
       return const WelcomeOnboardingScreen();
-    }
-    
-    // Show biometric lock if needed
-    if (_needsBiometricAuth) {
-      return BiometricLockScreen(
-        onAuthSuccess: () {
-          setState(() {
-            _needsBiometricAuth = false;
-          });
-        },
-        onSkip: () {
-          // Optional: allow skip in development
-          setState(() {
-            _needsBiometricAuth = false;
-          });
-        },
-      );
     }
 
     return Consumer<AuthService>(

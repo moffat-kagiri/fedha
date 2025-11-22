@@ -19,7 +19,10 @@ class BiometricAuthService {
   // Simple storage keys
   static const _biometricEnabledKey = 'biometric_enabled';
   static const _lastAuthTimeKey = 'last_biometric_auth';
-  static const _sessionDurationMinutes = 15;
+  
+  // Session timeout configuration
+  Duration sessionTimeout = const Duration(minutes: 15); // tweakable
+  int _lastSuccessfulAuthMs = 0;
 
   /// Check if device supports biometric authentication
   Future<bool> canAuthenticate() async {
@@ -58,7 +61,7 @@ class BiometricAuthService {
       );
 
       if (authenticated) {
-        await _saveAuthenticationSession();
+        await registerSuccessfulBiometricSession();
       }
 
       return authenticated;
@@ -66,6 +69,68 @@ class BiometricAuthService {
       _logger.warning('Biometric authentication error: $e');
       return false;
     }
+  }
+
+  /// Call this after a successful biometric auth
+  Future<void> registerSuccessfulBiometricSession() async {
+    _lastSuccessfulAuthMs = DateTime.now().millisecondsSinceEpoch;
+    
+    // Also persist to shared preferences for persistence across app restarts
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt(_lastAuthTimeKey, _lastSuccessfulAuthMs);
+      _logger.info('Biometric session registered and saved');
+    } catch (e) {
+      _logger.severe('Error saving biometric session: $e');
+    }
+  }
+
+  /// Check if current session is valid (user authenticated within timeout)
+  Future<bool> hasValidBiometricSession() async {
+    // First check in-memory session (faster)
+    if (_lastSuccessfulAuthMs > 0) {
+      final elapsed = DateTime.now().millisecondsSinceEpoch - _lastSuccessfulAuthMs;
+      if (elapsed < sessionTimeout.inMilliseconds) {
+        return true;
+      }
+    }
+
+    // If no valid in-memory session, check persisted storage
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final lastAuth = prefs.getInt(_lastAuthTimeKey);
+      
+      if (lastAuth == null) {
+        return false;
+      }
+
+      // Update in-memory value
+      _lastSuccessfulAuthMs = lastAuth;
+      
+      final elapsed = DateTime.now().millisecondsSinceEpoch - lastAuth;
+      return elapsed < sessionTimeout.inMilliseconds;
+    } catch (e) {
+      _logger.warning('Error checking session: $e');
+      return false;
+    }
+  }
+
+  Future<void> invalidateBiometricSession() async {
+    _lastSuccessfulAuthMs = 0;
+    
+    // Also remove persisted value
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_lastAuthTimeKey);
+      _logger.info('Biometric session invalidated');
+    } catch (e) {
+      _logger.severe('Error invalidating biometric session: $e');
+    }
+  }
+
+  /// Optional: call when user re-authenticates via password to set the session
+  Future<void> registerSuccessfulPasswordLogin() async {
+    await registerSuccessfulBiometricSession();
   }
 
   /// Compatibility wrapper: older callers used `isAvailable()`
@@ -98,45 +163,10 @@ class BiometricAuthService {
     }
   }
 
-  /// Check if current session is valid (user authenticated within timeout)
-  Future<bool> hasValidBiometricSession() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final lastAuth = prefs.getInt(_lastAuthTimeKey);
-      
-      if (lastAuth == null) {
-        return false;
-      }
-
-      final lastAuthTime = DateTime.fromMillisecondsSinceEpoch(lastAuth);
-      final now = DateTime.now();
-      final sessionExpiry = lastAuthTime.add(
-        Duration(minutes: _sessionDurationMinutes),
-      );
-
-      return now.isBefore(sessionExpiry);
-    } catch (e) {
-      _logger.warning('Error checking session: $e');
-      return false;
-    }
-  }
-
-  /// Save authentication session timestamp
-  Future<void> _saveAuthenticationSession() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final now = DateTime.now().millisecondsSinceEpoch;
-      await prefs.setInt(_lastAuthTimeKey, now);
-      _logger.info('Session saved');
-    } catch (e) {
-      _logger.severe('Error saving session: $e');
-    }
-  }
-
   /// Compatibility wrapper: allow callers to set session without calling
-  /// the private `_saveAuthenticationSession` directly.
+  /// the private method directly.
   Future<void> setBiometricSession() async {
-    await _saveAuthenticationSession();
+    await registerSuccessfulBiometricSession();
   }
 
   /// Clear all biometric data
@@ -145,7 +175,8 @@ class BiometricAuthService {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool(_biometricEnabledKey, false);
       await prefs.remove(_lastAuthTimeKey);
-      _logger.info('Biometric disabled');
+      _lastSuccessfulAuthMs = 0;
+      _logger.info('Biometric disabled and session cleared');
     } catch (e) {
       _logger.severe('Error disabling biometric: $e');
     }
@@ -153,11 +184,22 @@ class BiometricAuthService {
 
   /// Compatibility wrapper matching older `clearBiometricSession()` name
   Future<void> clearBiometricSession() async {
-    await disableBiometric();
+    await invalidateBiometricSession();
   }
 
   /// Initialize service (called once on app start)
   Future<void> initialize() async {
+    // Try to restore session from persistent storage on startup
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final lastAuth = prefs.getInt(_lastAuthTimeKey);
+      if (lastAuth != null) {
+        _lastSuccessfulAuthMs = lastAuth;
+      }
+    } catch (e) {
+      _logger.warning('Error initializing biometric session: $e');
+    }
+    
     _logger.info('BiometricAuthService initialized');
   }
 }

@@ -37,7 +37,10 @@ class _LoginScreenState extends State<LoginScreen> {
   void initState() {
     super.initState();
     _loadSavedEmail();
-    // Biometric and session checks are handled in AuthWrapper
+    _checkBiometricAvailability();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkRequirements(); // safe to call after first frame
+    });
   }
 
   @override
@@ -104,7 +107,6 @@ class _LoginScreenState extends State<LoginScreen> {
     }
     // Check for biometric session
     final authService = Provider.of<AuthService>(context, listen: false);
-    await authService.initialize();
     if (await authService.isLoggedIn()) {
       final biometricService = BiometricAuthService.instance;
       final biometricEnabled = await biometricService?.isBiometricEnabled() ?? false;
@@ -182,6 +184,28 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
 
       if (result.success) {
+        // Save last login email for biometric login
+        await prefs.setString('last_login_email', _emailController.text.trim());
+
+        // If this is the user's first login, run the first-login prompts
+        if (result.isFirstLogin) {
+          try {
+            await FirstLoginHandler(context, authService).handleFirstLogin();
+          } catch (e) {
+            // Non-fatal: continue even if prompts fail
+          }
+        }
+
+        // --- BIOMETRIC RECOMMENDATION FOR USERS WHO LOG IN WITHOUT BIOMETRICS ---
+        final biometricService = BiometricAuthService.instance;
+        final canAuth = await biometricService?.canAuthenticate() ?? false;
+        final isEnabled = await biometricService?.isBiometricEnabled() ?? false;
+
+        // Only recommend on a cold login (not resume), only if supported but disabled
+        if (canAuth && !isEnabled) {
+          await _showBiometricRecommendationDialog();
+        }
+
         // Start SMS listener
         final smsService = SmsListenerService.instance;
         final offlineDataService = Provider.of<OfflineDataService>(context, listen: false);
@@ -191,63 +215,26 @@ class _LoginScreenState extends State<LoginScreen> {
           profileId: profileId
         );
 
-        // If this is the user's first login, run the first-login prompts
-        // (biometric setup + permissions) and only after they complete
-        // proceed to the biometric unlock and main navigation.
-        if (result.isFirstLogin) {
-          try {
-            await FirstLoginHandler(context, authService).handleFirstLogin();
-          } catch (e) {
-            // Non-fatal: continue to biometric lock even if prompts fail
-          }
-        }
+        // Register successful password login session
+        await biometricService?.registerSuccessfulPasswordLogin();
 
-        // After login, prompt fingerprint or skip, then go home
+        // Navigate directly to main app - biometric will be handled by main.dart if needed
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(
-            builder: (_) => BiometricLockScreen(
-              onAuthSuccess: () {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (_) => const MainNavigation()),
-                );
-              },
-              onSkip: () {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (_) => const MainNavigation()),
-                );
-              },
-            ),
-          ),
+          MaterialPageRoute(builder: (_) => const MainNavigation()),
         );
-        
-        // If this is the user's first login, show first login prompts
-        if (result.isFirstLogin) {
-          // Small delay to allow the UI to update
-          await Future.delayed(const Duration(milliseconds: 300));
-          
-          if (mounted) {
-            // Show first login prompts
-            await _handleFirstLogin(authService);
-          }
-        }
-      } else {
+      }
+      else {
         setState(() {
+          _isLoading = false;
           _errorMessage = result.message;
         });
       }
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          _errorMessage = 'Login failed. Please try again.';
-        });
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'An error occurred during login. Please try again.';
+      });
     }
   }
 
@@ -307,6 +294,46 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     }
   }
+
+  Future<void> _showBiometricRecommendationDialog() async {
+    if (!mounted) return;
+
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Enable Biometric Login'),
+          content: const Text(
+            'You can enable biometric authentication for faster and more secure sign-ins. '
+            'Would you like to set it up now?',
+          ),
+          actions: [
+            TextButton(
+              child: const Text('Maybe Later'),
+              onPressed: () => Navigator.pop(context),
+            ),
+            ElevatedButton(
+              child: const Text('Set Up'),
+              onPressed: () async {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => BiometricLockScreen(
+                      onAuthSuccess: () {
+                        Navigator.pop(context);
+                      },
+                    ),
+                  ),
+                );
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
 
   @override
   Widget build(BuildContext context) {
