@@ -278,7 +278,7 @@ class _SignupScreenState extends State<SignupScreen> {
                   decoration: const InputDecoration(
                     labelText: 'Email Address',
                     hintText: 'Enter your email',
-                    prefixIcon: Icon(Icons.email_outlined_rounded),
+                    prefixIcon: Icon(Icons.email_outlined),
                   ),
                   keyboardType: TextInputType.emailAddress,
                   validator: (value) {
@@ -300,7 +300,7 @@ class _SignupScreenState extends State<SignupScreen> {
                   decoration: const InputDecoration(
                     labelText: 'Phone Number',
                     hintText: 'Enter your phone number',
-                    prefixIcon: Icon(Icons.phone_outlined_rounded),
+                    prefixIcon: Icon(Icons.phone_outlined),
                   ),
                   keyboardType: TextInputType.phone,
                   validator: (value) {

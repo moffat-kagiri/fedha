@@ -26,7 +26,7 @@ Transaction _$TransactionFromJson(Map<String, dynamic> json) => Transaction(
   reference: json['reference'] as String?,
   recipient: json['recipient'] as String?,
   isPending: json['isPending'] as bool? ?? false,
-  isExpense: json['isExpense'] as bool? ?? true,
+  isExpense: json['isExpense'] as bool?,
   isRecurring: json['isRecurring'] as bool? ?? false,
   paymentMethod: $enumDecodeNullable(
     _$PaymentMethodEnumMap,
@@ -67,14 +67,20 @@ const _$TransactionTypeEnumMap = {
 const _$TransactionCategoryEnumMap = {
   TransactionCategory.food: 'food',
   TransactionCategory.transport: 'transport',
-  TransactionCategory.entertainment: 'entertainment',
   TransactionCategory.utilities: 'utilities',
+  TransactionCategory.entertainment: 'entertainment',
   TransactionCategory.healthcare: 'healthcare',
   TransactionCategory.shopping: 'shopping',
   TransactionCategory.education: 'education',
+  TransactionCategory.salary: 'salary',
   TransactionCategory.business: 'business',
   TransactionCategory.investment: 'investment',
-  TransactionCategory.other: 'other',
+  TransactionCategory.gift: 'gift',
+  TransactionCategory.otherIncome: 'otherIncome',
+  TransactionCategory.otherExpense: 'otherExpense',
+  TransactionCategory.emergencyFund: 'emergencyFund',
+  TransactionCategory.retirement: 'retirement',
+  TransactionCategory.otherSavings: 'otherSavings',
 };
 
 const _$PaymentMethodEnumMap = {

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../models/goal.dart';
 import '../models/enums.dart';
 import '../services/offline_data_service.dart';
+import '../services/auth_service.dart';
 
 class AddGoalScreen extends StatefulWidget {
   const AddGoalScreen({super.key});
@@ -43,11 +44,13 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
 
     try {
       final dataService = Provider.of<OfflineDataService>(context, listen: false);
+      final authService = Provider.of<AuthService>(context, listen: false); // Moved here
       
       final targetDate = DateTime.now().add(Duration(days: _selectedMonths * 30));
       final targetAmount = double.parse(_amountController.text);
       
       final goal = Goal(
+        profileId: authService.currentProfile?.id ?? '0', // Fixed: Use authService
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         name: _titleController.text.trim(),
         description: _descriptionController.text.trim(),
@@ -55,18 +58,18 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
         currentAmount: 0.0,
         targetDate: targetDate,
         goalType: _selectedType,
-        status: 'active',
+        status: GoalStatus.active, // Fixed: Use enum instead of string
       );
 
-      dataService.addGoal(goal);
+      await dataService.addGoal(goal);
 
       if (mounted) {
         Navigator.pop(context, true);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('🎯 Quick Goal created! Start saving today.'),
-            backgroundColor: Color(0xFF007A39),
-            duration: Duration(seconds: 3),
+          SnackBar( // Fixed: Use theme color
+            content: const Text('🎯 Quick Goal created! Start saving today.'),
+            backgroundColor: Theme.of(context).colorScheme.primary,
+            duration: const Duration(seconds: 3),
           ),
         );
       }
@@ -75,7 +78,7 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error creating goal: ${e.toString()}'),
-            backgroundColor: Colors.red,
+            backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
       }
@@ -93,13 +96,13 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
+      backgroundColor: colorScheme.background,
       appBar: AppBar(
         title: const Text('Quick Goal'),
-        backgroundColor: const Color(0xFF007A39),
-        foregroundColor: Colors.white,
-        elevation: 0,
       ),
       body: SingleChildScrollView(
         child: Column(
@@ -108,30 +111,30 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(20),
-              decoration: const BoxDecoration(
-                color: Color(0xFF007A39),
-                borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
+              decoration: BoxDecoration(
+                color: colorScheme.primary,
+                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(20)),
               ),
               child: Column(
                 children: [
-                  const Icon(
-                    Icons.rocket_launch,
+                  Icon(
+                    Icons.rocket_launch_rounded,
                     size: 60,
-                    color: Colors.white,
+                    color: colorScheme.onPrimary,
                   ),
                   const SizedBox(height: 12),
-                  const Text(
+                  Text(
                     'Quick Goal Creation ⚡',
-                    style: TextStyle(
+                    style: textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                      color: colorScheme.onPrimary,
                     ),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     'Create simple goals up to 9 months',
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: Colors.white70,
+                    style: textTheme.bodyLarge?.copyWith(
+                      color: colorScheme.onPrimary.withOpacity(0.8),
                     ),
                   ),
                 ],
@@ -149,44 +152,42 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
                     // Goal Type Selection
                     Text(
                       'Goal Type',
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: const Color(0xFF007A39),
+                      style: textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                     const SizedBox(height: 16),
                     
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.grey.shade300),
-                      ),
+                    Card(
                       child: Column(
                         children: [
                           _buildGoalTypeOption(
                             GoalType.savings,
-                            Icons.savings,
+                            Icons.savings_rounded,
                             'Savings',
                             'Save for something special',
+                            colorScheme,
                           ),
                           _buildGoalTypeOption(
                             GoalType.emergencyFund,
-                            Icons.security,
+                            Icons.shield_rounded,
                             'Emergency Fund',
                             'Build your safety net',
+                            colorScheme,
                           ),
                           _buildGoalTypeOption(
                             GoalType.debtReduction,
-                            Icons.money_off,
+                            Icons.credit_card_off_rounded,
                             'Pay Off Debt',
                             'Reduce your debt burden',
+                            colorScheme,
                           ),
                           _buildGoalTypeOption(
                             GoalType.other,
-                            Icons.flag,
+                            Icons.flag_rounded,
                             'Other',
                             'Any other financial goal',
+                            colorScheme,
                           ),
                         ],
                       ),
@@ -197,22 +198,16 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
                     // Goal Title
                     Text(
                       'Goal Title',
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: const Color(0xFF007A39),
+                      style: textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                     const SizedBox(height: 8),
                     TextFormField(
                       controller: _titleController,
-                      decoration: InputDecoration(
+                      decoration: const InputDecoration(
                         hintText: 'e.g., "New Phone", "Emergency Fund"',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        prefixIcon: const Icon(Icons.title, color: Color(0xFF007A39)),
-                        filled: true,
-                        fillColor: Colors.white,
+                        prefixIcon: Icon(Icons.title_rounded),
                       ),
                       validator: (value) {
                         if (value == null || value.trim().isEmpty) {
@@ -227,22 +222,16 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
                     // Goal Description (Optional)
                     Text(
                       'Description (Optional)',
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: const Color(0xFF007A39),
+                      style: textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                     const SizedBox(height: 8),
                     TextFormField(
                       controller: _descriptionController,
-                      decoration: InputDecoration(
+                      decoration: const InputDecoration(
                         hintText: 'Why is this goal important to you?',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        prefixIcon: const Icon(Icons.description, color: Color(0xFF007A39)),
-                        filled: true,
-                        fillColor: Colors.white,
+                        prefixIcon: Icon(Icons.description_rounded),
                       ),
                       maxLines: 2,
                     ),
@@ -250,25 +239,18 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
                     const SizedBox(height: 24),
                     
                     // Target Amount
-                    const Text(
+                    Text(
                       'Target Amount (Ksh)',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF007A39),
+                      style: textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                     const SizedBox(height: 8),
                     TextFormField(
                       controller: _amountController,
-                      decoration: InputDecoration(
+                      decoration: const InputDecoration(
                         hintText: 'How much do you need?',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        prefixIcon: const Icon(Icons.savings, color: Color(0xFF007A39)),
-                        filled: true,
-                        fillColor: Colors.white,
+                        prefixIcon: Icon(Icons.savings_rounded),
                       ),
                       keyboardType: TextInputType.number,
                       inputFormatters: [
@@ -288,42 +270,32 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
                         return null;
                       },
                       onChanged: (value) {
-                        setState(() {
-                          // Trigger rebuild to update calculations
-                        });
+                        setState(() {});
                       },
                     ),
                     
                     const SizedBox(height: 24),
                     
                     // Time Frame Selection
-                    const Text(
+                    Text(
                       'Time Frame',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF007A39),
+                      style: textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                     const SizedBox(height: 8),
-                    const Text(
+                    Text(
                       'Quick goals are limited to 9 months maximum',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey,
+                      style: textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
                       ),
                     ),
                     const SizedBox(height: 16),
                     
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.grey.shade300),
-                      ),
+                    Card(
                       child: Column(
                         children: _quickMonthOptions.map((months) {
-                          return _buildTimeFrameOption(months);
+                          return _buildTimeFrameOption(months, colorScheme);
                         }).toList(),
                       ),
                     ),
@@ -332,63 +304,58 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
                     
                     // Calculation Summary
                     if (_targetAmount > 0) ...[
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF007A39).withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFF007A39).withValues(alpha: 0.3)),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                const Icon(Icons.calculate, color: Color(0xFF007A39)),
-                                const SizedBox(width: 8),
-                                const Text(
-                                  'Savings Breakdown',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFF007A39),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            _buildCalculationRow('Target Amount', 'Ksh ${_targetAmount.toStringAsFixed(2)}'),
-                            _buildCalculationRow('Time Frame', '$_selectedMonths months'),
-                            _buildCalculationRow('Monthly Savings', 'Ksh ${_monthlyContribution.toStringAsFixed(2)}'),
-                            _buildCalculationRow('Weekly Savings', 'Ksh ${_weeklyContribution.toStringAsFixed(2)}'),
-                            _buildCalculationRow('Daily Savings', 'Ksh ${_dailyContribution.toStringAsFixed(2)}'),
-                            
-                            const SizedBox(height: 12),
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.blue.shade50,
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: Colors.blue.shade200),
-                              ),
-                              child: Row(
+                      Card(
+                        color: colorScheme.primaryContainer,
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
                                 children: [
-                                  const Icon(Icons.lightbulb, color: Colors.blue, size: 20),
+                                  Icon(Icons.calculate_rounded, color: colorScheme.onPrimaryContainer),
                                   const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      'Pro tip: Set up automatic savings of Ksh ${_monthlyContribution.toStringAsFixed(0)} per month!',
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.blue,
-                                        fontWeight: FontWeight.w500,
-                                      ),
+                                  Text(
+                                    'Savings Breakdown',
+                                    style: textTheme.titleMedium?.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                      color: colorScheme.onPrimaryContainer,
                                     ),
                                   ),
                                 ],
                               ),
-                            ),
-                          ],
+                              const SizedBox(height: 12),
+                              _buildCalculationRow('Target Amount', 'Ksh ${_targetAmount.toStringAsFixed(2)}', textTheme),
+                              _buildCalculationRow('Time Frame', '$_selectedMonths months', textTheme),
+                              _buildCalculationRow('Monthly Savings', 'Ksh ${_monthlyContribution.toStringAsFixed(2)}', textTheme),
+                              _buildCalculationRow('Weekly Savings', 'Ksh ${_weeklyContribution.toStringAsFixed(2)}', textTheme),
+                              _buildCalculationRow('Daily Savings', 'Ksh ${_dailyContribution.toStringAsFixed(2)}', textTheme),
+                              
+                              const SizedBox(height: 12),
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: colorScheme.secondaryContainer,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.lightbulb_rounded, color: colorScheme.onSecondaryContainer, size: 20),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        'Pro tip: Set up automatic savings of Ksh ${_monthlyContribution.toStringAsFixed(0)} per month!',
+                                        style: textTheme.bodySmall?.copyWith(
+                                          color: colorScheme.onSecondaryContainer,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                       
@@ -398,16 +365,8 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
                     // Create Goal Button
                     SizedBox(
                       width: double.infinity,
-                      child: ElevatedButton(
+                      child: FilledButton(
                         onPressed: _isCreating ? null : _createQuickGoal,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF007A39),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
                         child: _isCreating
                             ? const Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
@@ -417,7 +376,6 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
                                     height: 20,
                                     child: CircularProgressIndicator(
                                       strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                                     ),
                                   ),
                                   SizedBox(width: 8),
@@ -428,7 +386,7 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
                                 'Create Quick Goal 🚀',
                                 style: TextStyle(
                                   fontSize: 16,
-                                  fontWeight: FontWeight.bold,
+                                  fontWeight: FontWeight.w600,
                                 ),
                               ),
                       ),
@@ -442,11 +400,10 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
                         onPressed: () {
                           Navigator.pushNamed(context, '/progressive-goal-wizard');
                         },
-                        child: const Text(
+                        child: Text(
                           'Need a more detailed goal? Try the SMART Goal Wizard',
                           style: TextStyle(
-                            color: Color(0xFF007A39),
-                            decoration: TextDecoration.underline,
+                            color: colorScheme.primary,
                           ),
                         ),
                       ),
@@ -461,7 +418,7 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
     );
   }
 
-  Widget _buildGoalTypeOption(GoalType type, IconData icon, String title, String subtitle) {
+  Widget _buildGoalTypeOption(GoalType type, IconData icon, String title, String subtitle, ColorScheme colorScheme) {
     final isSelected = _selectedType == type;
     
     return InkWell(
@@ -473,16 +430,16 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF007A39).withValues(alpha: 0.1) : Colors.transparent,
+          color: isSelected ? colorScheme.primaryContainer : Colors.transparent,
           border: type != GoalType.other ? Border(
-            bottom: BorderSide(color: Colors.grey.shade200),
+            bottom: BorderSide(color: colorScheme.outline),
           ) : null,
         ),
         child: Row(
           children: [
             Icon(
               icon,
-              color: isSelected ? const Color(0xFF007A39) : Colors.grey,
+              color: isSelected ? colorScheme.onPrimaryContainer : colorScheme.onSurfaceVariant,
               size: 24,
             ),
             const SizedBox(width: 12),
@@ -494,37 +451,31 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
                     title,
                     style: TextStyle(
                       fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: isSelected ? const Color(0xFF007A39) : Colors.black87,
+                      fontWeight: FontWeight.w600,
+                      color: isSelected ? colorScheme.onPrimaryContainer : colorScheme.onSurface,
                     ),
                   ),
                   Text(
                     subtitle,
                     style: TextStyle(
                       fontSize: 14,
-                      color: Colors.grey.shade600,
+                      color: colorScheme.onSurfaceVariant,
                     ),
                   ),
                 ],
               ),
             ),
-            if (isSelected)
-              const Icon(
-                Icons.check_circle,
-                color: Color(0xFF007A39),
-              )
-            else
-              Icon(
-                Icons.radio_button_unchecked,
-                color: Colors.grey.shade400,
-              ),
+            Icon(
+              isSelected ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
+              color: isSelected ? colorScheme.primary : colorScheme.onSurfaceVariant,
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildTimeFrameOption(int months) {
+  Widget _buildTimeFrameOption(int months, ColorScheme colorScheme) {
     final isSelected = _selectedMonths == months;
     
     return InkWell(
@@ -536,16 +487,16 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF007A39).withValues(alpha: 0.1) : Colors.transparent,
+          color: isSelected ? colorScheme.primaryContainer : Colors.transparent,
           border: months != 9 ? Border(
-            bottom: BorderSide(color: Colors.grey.shade200),
+            bottom: BorderSide(color: colorScheme.outline),
           ) : null,
         ),
         child: Row(
           children: [
             Icon(
-              Icons.schedule,
-              color: isSelected ? const Color(0xFF007A39) : Colors.grey,
+              Icons.schedule_rounded,
+              color: isSelected ? colorScheme.onPrimaryContainer : colorScheme.onSurfaceVariant,
               size: 24,
             ),
             const SizedBox(width: 12),
@@ -557,37 +508,31 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
                     '$months ${months == 1 ? 'Month' : 'Months'}',
                     style: TextStyle(
                       fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: isSelected ? const Color(0xFF007A39) : Colors.black87,
+                      fontWeight: FontWeight.w600,
+                      color: isSelected ? colorScheme.onPrimaryContainer : colorScheme.onSurface,
                     ),
                   ),
                   Text(
                     _getTimeFrameDescription(months),
                     style: TextStyle(
                       fontSize: 14,
-                      color: Colors.grey.shade600,
+                      color: colorScheme.onSurfaceVariant,
                     ),
                   ),
                 ],
               ),
             ),
-            if (isSelected)
-              const Icon(
-                Icons.check_circle,
-                color: Color(0xFF007A39),
-              )
-            else
-              Icon(
-                Icons.radio_button_unchecked,
-                color: Colors.grey.shade400,
-              ),
+            Icon(
+              isSelected ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
+              color: isSelected ? colorScheme.primary : colorScheme.onSurfaceVariant,
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildCalculationRow(String label, String value) {
+  Widget _buildCalculationRow(String label, String value, TextTheme textTheme) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
@@ -595,14 +540,12 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
         children: [
           Text(
             label,
-            style: const TextStyle(fontSize: 14),
+            style: textTheme.bodyMedium,
           ),
           Text(
             value,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF007A39),
+            style: textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],

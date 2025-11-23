@@ -1,110 +1,86 @@
-import 'enums.dart';
+import 'package:flutter/material.dart';
 import 'package:json_annotation/json_annotation.dart';
+import 'package:uuid/uuid.dart';
+import 'enums.dart';
 
 part 'goal.g.dart';
 
-/// Represents a financial goal with tracking capabilities
-/// 
-/// A Goal tracks progress towards a financial target with features for
-/// contributions, progress calculation, and status management.
-@JsonSerializable()
+@JsonSerializable(explicitToJson: true)
 class Goal {
-  /// Unique identifier for the goal
-  final String id;
-
-  /// Display name of the goal
-  final String name;
-
-  /// Optional description providing more context about the goal
-  final String? description;
-
-  /// Target amount to be saved/invested
-  @JsonKey(name: 'target_amount')
-  final double targetAmount;
-
-  /// Current amount saved/invested towards the goal
-  @JsonKey(name: 'current_amount')
+  String id;
+  String name;
+  String? description;
+  double targetAmount;
   double currentAmount;
-
-  /// Target completion date for the goal
-  @JsonKey(name: 'target_date')
-  final DateTime targetDate;
-
-  /// Priority level of the goal
-  final GoalPriority priority;
-
-  /// Current status of the goal
-  final GoalStatus status;
-
-  /// Whether the goal is currently active
-  @JsonKey(name: 'is_active')
-  final bool isActive;
-
-  /// Type/category of the goal
-  @JsonKey(name: 'goal_type')
-  final GoalType goalType;
-
-  /// Currency code for the goal amounts (default: KES - Kenyan Shilling)
-  final String currency;
-
-  /// Associated profile ID (for multi-user support)
-  @JsonKey(name: 'profile_id')
-  final String? profileId;
-
-  /// Whether the goal has been synced to remote server
-  @JsonKey(name: 'is_synced')
-  final bool isSynced;
-
-  /// When the goal was created
-  @JsonKey(name: 'created_at')
-  final DateTime createdAt;
-
-  /// When the goal was last updated
-  @JsonKey(name: 'updated_at')
+  DateTime targetDate;
+  DateTime? completedDate;
+  DateTime createdAt;
   DateTime updatedAt;
 
-  /// Creates a new financial goal
+  @JsonKey(fromJson: _priorityFromJson, toJson: _priorityToJson)
+  final GoalPriority priority;
+
+  @JsonKey(fromJson: _statusFromJson, toJson: _statusToJson)
+  final GoalStatus status;
+
+  GoalType goalType;
+  String? icon;
+  String profileId;
+
   Goal({
-    required this.id,
+    String? id,
     required this.name,
     this.description,
     required this.targetAmount,
     this.currentAmount = 0.0,
     required this.targetDate,
-    this.priority = GoalPriority.medium,
-    this.status = GoalStatus.active,
-    this.isActive = true,
-    this.goalType = GoalType.savings,
-    this.currency = 'KES',
-    this.profileId,
-    this.isSynced = false,
+    this.completedDate,
     DateTime? createdAt,
     DateTime? updatedAt,
-  })  : createdAt = createdAt ?? DateTime.now(),
-        updatedAt = updatedAt ?? DateTime.now();
+    GoalPriority? priority,
+    GoalStatus? status,
+    required this.goalType,
+    this.icon,
+    required this.profileId,
+  })  : id = id ?? const Uuid().v4(),
+        createdAt = createdAt ?? DateTime.now(),
+        updatedAt = updatedAt ?? DateTime.now(),
+        priority = priority ?? GoalPriority.medium,
+        status = status ?? GoalStatus.active;
 
-  /// Gets the progress percentage (0-100)
+  // Add these conversion methods for JSON serialization
+  static GoalPriority _priorityFromJson(String priority) {
+    return GoalPriority.values.firstWhere(
+      (e) => e.toString().split('.').last == priority,
+      orElse: () => GoalPriority.medium,
+    );
+  }
+
+  static String _priorityToJson(GoalPriority priority) {
+    return priority.toString().split('.').last;
+  }
+
+  static GoalStatus _statusFromJson(String status) {
+    return GoalStatus.values.firstWhere(
+      (e) => e.toString().split('.').last == status,
+      orElse: () => GoalStatus.active,
+    );
+  }
+
+  static String _statusToJson(GoalStatus status) {
+    return status.toString().split('.').last;
+  }
+
+  /// Calculates the progress percentage towards the goal
   double get progressPercentage {
-    if (targetAmount <= 0) return 0.0;
+    if (targetAmount == 0) return 0.0;
     return (currentAmount / targetAmount * 100).clamp(0.0, 100.0);
   }
 
-  /// Gets the remaining amount needed to complete the goal
-  double get remainingAmount => (targetAmount - currentAmount).clamp(0.0, double.infinity);
+  /// Checks if the goal is completed
+  bool get isCompleted => status == GoalStatus.completed;
 
-  /// Checks if the goal has been completed (current >= target)
-  bool get isCompleted => currentAmount >= targetAmount;
-
-  /// Checks if the goal is overdue (past target date and not completed)
-  bool get isOverdue => DateTime.now().isAfter(targetDate) && !isCompleted;
-
-  /// Gets days remaining until target date (negative if overdue)
-  int get daysRemaining => targetDate.difference(DateTime.now()).inDays;
-
-  /// Adds a contribution to the goal and updates progress
-  /// 
-  /// [amount] - The amount to add (can be negative for withdrawals)
-  /// Returns a new Goal instance with updated amounts
+  /// Adds a contribution to the current amount and updates status if needed
   Goal addContribution(double amount) {
     final newCurrentAmount = (currentAmount + amount).clamp(0.0, double.infinity);
     final newStatus = newCurrentAmount >= targetAmount ? GoalStatus.completed : status;
@@ -124,15 +100,14 @@ class Goal {
     double? targetAmount,
     double? currentAmount,
     DateTime? targetDate,
-    GoalPriority? priority,
-    GoalStatus? status,
-    bool? isActive,
-    GoalType? goalType,
-    String? currency,
-    String? profileId,
-    bool? isSynced,
+    DateTime? completedDate,
     DateTime? createdAt,
     DateTime? updatedAt,
+    GoalPriority? priority,
+    GoalStatus? status,
+    GoalType? goalType,
+    String? icon,
+    String? profileId,
   }) {
     return Goal(
       id: id ?? this.id,
@@ -141,15 +116,14 @@ class Goal {
       targetAmount: targetAmount ?? this.targetAmount,
       currentAmount: currentAmount ?? this.currentAmount,
       targetDate: targetDate ?? this.targetDate,
-      priority: priority ?? this.priority,
-      status: status ?? this.status,
-      isActive: isActive ?? this.isActive,
-      goalType: goalType ?? this.goalType,
-      currency: currency ?? this.currency,
-      profileId: profileId ?? this.profileId,
-      isSynced: isSynced ?? this.isSynced,
+      completedDate: completedDate ?? this.completedDate,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      priority: priority ?? this.priority,
+      status: status ?? this.status,
+      goalType: goalType ?? this.goalType,
+      icon: icon ?? this.icon,
+      profileId: profileId ?? this.profileId,
     );
   }
 
@@ -188,6 +162,41 @@ class Goal {
     }
   }
 
+  // Fix the GoalType switch cases
+  String get goalTypeName {
+    switch (goalType) {
+      case GoalType.savings:
+        return 'Savings';
+      case GoalType.debtReduction:
+        return 'Debt Reduction';
+      case GoalType.investment:
+        return 'Investment';
+      case GoalType.emergencyFund:
+        return 'Emergency Fund';
+      case GoalType.insurance:
+        return 'Insurance';
+      case GoalType.other:
+        return 'Other';
+    }
+  }
+
+  IconData get goalTypeIcon {
+    switch (goalType) {
+      case GoalType.savings:
+        return Icons.savings_rounded;
+      case GoalType.debtReduction:
+        return Icons.credit_card_off_rounded;
+      case GoalType.investment:
+        return Icons.trending_up_rounded;
+      case GoalType.emergencyFund:
+        return Icons.emergency_rounded;
+      case GoalType.insurance:
+        return Icons.health_and_safety_rounded;
+      case GoalType.other:
+        return Icons.flag_rounded;
+    }
+  }
+
   /// Gets a display-friendly status string
   String get statusDisplay {
     switch (status) {
@@ -197,6 +206,8 @@ class Goal {
         return 'Completed';
       case GoalStatus.paused:
         return 'Paused';
+      case GoalStatus.cancelled:
+        return 'Cancelled';
     }
   }
 
@@ -207,10 +218,12 @@ class Goal {
         return 'Savings';
       case GoalType.investment:
         return 'Investment';
-      case GoalType.debt:
+      case GoalType.debtReduction:
         return 'Debt Repayment';
-      case GoalType.emergency:
+      case GoalType.emergencyFund:
         return 'Emergency Fund';
+      case GoalType.insurance:
+        return 'Insurance';
       case GoalType.other:
         return 'Other';
     }

@@ -1,8 +1,4 @@
-// Removed json_annotation import and part directive since no generated code is needed for enums
-// import 'package:json_annotation/json_annotation.dart';
-// part 'enums.g.dart';
-
-// Profile Types
+// enums.dart
 
 enum ProfileType {
   personal,
@@ -11,7 +7,13 @@ enum ProfileType {
   student
 }
 
-// Goal Types
+// Add the missing GoalPriority enum
+enum GoalPriority {
+  low,
+  medium,
+  high,
+  critical,
+}
 
 enum GoalType {
   savings,
@@ -22,8 +24,6 @@ enum GoalType {
   other,
 }
 
-// Goal Status
-
 enum GoalStatus {
   active,
   completed,
@@ -31,15 +31,31 @@ enum GoalStatus {
   cancelled
 }
 
-// Transaction Types
+enum TransactionCategory {
+  food,
+  transport,
+  utilities,
+  entertainment,
+  healthcare,
+  shopping,
+  education,
+  salary,
+  business,
+  investment,
+  gift,
+  otherIncome,
+  otherExpense,
+  emergencyFund,
+  retirement,
+  otherSavings,
+  // Add other categories as needed
+}
 
 enum TransactionType {
   income,
   expense,
   savings,
 }
-
-// Payment Methods
 
 enum PaymentMethod {
   cash,
@@ -50,23 +66,6 @@ enum PaymentMethod {
   cheque
 }
 
-// Transaction Categories
-
-enum TransactionCategory {
-  food,
-  transport,
-  entertainment,
-  utilities,
-  healthcare,
-  shopping,
-  education,
-  business,
-  investment,
-  other
-}
-
-// Budget Periods
-
 enum BudgetPeriod {
   daily,
   weekly,
@@ -75,16 +74,12 @@ enum BudgetPeriod {
   yearly
 }
 
-// Budget Status
-
 enum BudgetStatus {
   active,
   inactive,
   exceeded,
   completed
 }
-
-// Invoice Status
 
 enum InvoiceStatus {
   draft,
@@ -94,8 +89,6 @@ enum InvoiceStatus {
   cancelled
 }
 
-// Transaction Status
-
 enum TransactionStatus {
   pending,
   completed,
@@ -103,8 +96,6 @@ enum TransactionStatus {
   cancelled,
   refunded
 }
-
-// Recurring Type
 
 enum RecurringType {
   daily,
@@ -115,8 +106,6 @@ enum RecurringType {
   yearly
 }
 
-// Notification Type
-
 enum NotificationType {
   transactionAlert,
   budgetWarning,
@@ -125,8 +114,6 @@ enum NotificationType {
   accountUpdate,
   securityAlert
 }
-
-// Account Type
 
 enum AccountType {
   cash,
@@ -138,15 +125,12 @@ enum AccountType {
   mobile
 }
 
-// Interest calculation models
-
 enum InterestModel {
   simple,
   compound,
   reducingBalance,
 }
 
-// Invoice Line Item
 class InvoiceLineItem {
   final String description;
   final double quantity;
@@ -177,7 +161,6 @@ class InvoiceLineItem {
   }
 }
 
-// Budget Line Item
 class BudgetLineItem {
   final String categoryId;
   final String categoryName;
@@ -213,4 +196,3 @@ class BudgetLineItem {
     );
   }
 }
-

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import '../services/auth_service.dart';
 import '../models/goal.dart';
 import '../models/enums.dart';
 import '../services/offline_data_service.dart';
@@ -62,8 +63,10 @@ class _ProgressiveGoalWizardScreenState extends State<ProgressiveGoalWizardScree
 
     try {
       final dataService = Provider.of<OfflineDataService>(context, listen: false);
+      final authService = Provider.of<AuthService>(context, listen: false);
       
       final goal = Goal(
+        profileId: authService.currentProfile?.id ?? '0',
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         name: _goalTitle,
         description: _goalDescription,
@@ -71,7 +74,7 @@ class _ProgressiveGoalWizardScreenState extends State<ProgressiveGoalWizardScree
         currentAmount: 0.0,
         targetDate: _targetDate,
         goalType: _goalType,
-        status: 'active',
+        status: GoalStatus.active,
       );
 
       await dataService.addGoal(goal);

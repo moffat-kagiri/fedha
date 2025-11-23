@@ -6,6 +6,7 @@ import '../models/goal.dart';
 import '../theme/app_theme.dart';
 import 'add_goal_screen.dart';
 import 'progressive_goal_wizard_screen.dart';
+import '../models/enums.dart';
 
 class GoalsScreen extends StatefulWidget {
   const GoalsScreen({super.key});

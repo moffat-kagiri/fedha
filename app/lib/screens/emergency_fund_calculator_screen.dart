@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../models/goal.dart';
 import '../services/offline_data_service.dart';
 import '../services/auth_service.dart';
+import '../models/enums.dart';
 
 class EmergencyFundCalculatorScreen extends StatefulWidget {
   const EmergencyFundCalculatorScreen({Key? key}) : super(key: key);
@@ -55,16 +56,18 @@ class _EmergencyFundCalculatorScreenState
 
   Future<void> _saveAsGoal() async {
     final svc = Provider.of<OfflineDataService>(context, listen: false);
-    final auth = Provider.of<AuthService>(context, listen: false);
-    final profileIdStr = auth.currentProfile?.id ?? '';
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final dataService = Provider.of<OfflineDataService>(context, listen: false);
+    final profileIdStr = authService.currentProfile?.id ?? '';
     final goal = Goal(
+      profileId: profileIdStr,
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       name: 'Emergency Fund',
+      goalType: GoalType.emergencyFund, 
       description: 'Save Ksh ${_target!.toStringAsFixed(2)} for emergencies',
       targetAmount: _target!,
       currentAmount: 0.0,
       targetDate: DateTime.now().add(Duration(days: _monthsToSave * 30)),
-      profileId: profileIdStr,
     );
     await svc.addGoal(goal);
     ScaffoldMessenger.of(context).showSnackBar(

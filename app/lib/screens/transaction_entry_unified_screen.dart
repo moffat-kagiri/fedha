@@ -2,11 +2,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import 'package:flutter/services.dart';  // for FilteringTextInputFormatter
+import 'package:flutter/services.dart';  
 
-import '../models/transaction.dart';
 import '../models/goal.dart' as dom_goal;
+import '../models/goal.dart';
 import '../models/enums.dart';
+import '../models/transaction.dart';
 import '../services/offline_data_service.dart';
 import '../services/currency_service.dart';
 import '../services/auth_service.dart';
@@ -26,85 +27,148 @@ class TransactionEntryUnifiedScreen extends StatefulWidget {
 
 class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedScreen> {
   final _formKey = GlobalKey<FormState>();
-
   final TextEditingController _amountController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
 
   bool _showAdvancedOptions = false;
   DateTime _selectedDate = DateTime.now();
   TimeOfDay _selectedTime = TimeOfDay.now();
+  TransactionCategory? _selectedCategory;
   TransactionType _selectedType = TransactionType.expense;
-  String _selectedCategory = '';
+  String? _selectedGoalId;
   PaymentMethod _selectedPaymentMethod = PaymentMethod.cash;
   dom_goal.Goal? _selectedGoal;
   List<dom_goal.Goal> _goals = [];
+  List<Goal> _goalList = [];
   bool _isSaving = false;
   
-  final Map<TransactionType, List<String>> _categories = {
+  final Map<TransactionType, List<TransactionCategory>> _categories = {
     TransactionType.income: [
-      'Salary', 'Business Income', 'Freelance', 'Investment', 
-      'Rental Income', 'Bonus', 'Commission', 'Tips', 'Gift', 'Other'
+      TransactionCategory.salary,
+      TransactionCategory.business,
+      TransactionCategory.investment,
+      TransactionCategory.gift,
+      TransactionCategory.otherIncome,
     ],
     TransactionType.expense: [
-      'Food & Dining', 'Transportation', 'Shopping', 'Entertainment',
-      'Bills & Utilities', 'Healthcare', 'Education', 'Rent/Mortgage',
-      'Insurance', 'Personal Care', 'Travel', 'Other'
+      TransactionCategory.food,
+      TransactionCategory.transport,
+      TransactionCategory.utilities,
+      TransactionCategory.entertainment,
+      TransactionCategory.healthcare,
+      TransactionCategory.shopping,
+      TransactionCategory.education,
+      TransactionCategory.otherExpense,
     ],
-    TransactionType.savings: [], // Will be populated with goals
+    TransactionType.savings: [
+      TransactionCategory.emergencyFund,
+      TransactionCategory.investment,
+      TransactionCategory.retirement,
+      TransactionCategory.otherSavings,
+    ],
   };
+
+  // 3. Add helper methods for enum-string conversion
+  String _categoryToId(TransactionCategory? category) {
+    if (category == null) return 'other';
+    return category.name;
+  }
+
+  String _categoryToDisplayName(TransactionCategory? category) {
+    if (category == null) return 'Other';
+    final raw = category.toString().split('.').last;
+    // Convert camelCase to Title Case with spaces
+    return raw.replaceAllMapped(
+      RegExp(r'^([a-z])|[A-Z]'),
+      (Match m) => m[1] == null ? " ${m[0]}" : m[1]!.toUpperCase(),
+    ).trim();
+  }
+  // 4. Fix the variable initialization (line 67)
+  void _initializeCategory() {
+    final availableCategories = _categories[_selectedType];
+    if (availableCategories != null && availableCategories.isNotEmpty) {
+      _selectedCategory = availableCategories.first;
+    } else {
+      _selectedCategory = null;
+    }
+  }
 
   @override
   void initState() {
     super.initState();
+    _selectedGoalId = null;
+    _loadGoals();
     
     if (widget.editingTransaction != null) {
       _loadTransactionData(widget.editingTransaction!);
     } else {
-      _selectedCategory = _categories[_selectedType]!.first;
+      _initializeCategory();
     }
-    
-    // Load goals for savings
-    _loadGoals();
   }
-  
+
   Future<void> _loadGoals() async {
-    final dataService = Provider.of<OfflineDataService>(context, listen: false);
-    final authService = Provider.of<AuthService>(context, listen: false);
-    final profileId = int.tryParse(authService.currentProfile?.id ?? '0') ?? 0;
-    
     try {
-      final loaded = await dataService.getAllGoals(profileId);
+      final offlineDataService = Provider.of<OfflineDataService>(context, listen: false);
+      final authService = Provider.of<AuthService>(context, listen: false);
       
-      if (mounted) {
+      final profileIdStr = authService.currentProfile?.id ?? '';
+      final profileId = int.tryParse(profileIdStr) ?? 0;
+      
+      if (profileId > 0) {
+        final goals = await offlineDataService.getAllGoals(profileId);
         setState(() {
-          _goals = loaded;
-          
-          // For savings transactions, use goal names as categories
-          _categories[TransactionType.savings] = loaded.map((g) => g.name).toList();
-          
-          // If editing a savings transaction, find the matching goal
-          if (widget.editingTransaction != null && 
-              widget.editingTransaction!.type == TransactionType.savings &&
-              widget.editingTransaction!.goalId != null) {
-            _selectedGoal = loaded.firstWhere(
-              (goal) => goal.id == widget.editingTransaction!.goalId,
-              orElse: () => loaded.isNotEmpty ? loaded.first : dom_goal.Goal.empty(),
-            );
-          } else if (_selectedType == TransactionType.savings && _selectedGoal == null && loaded.isNotEmpty) {
-            _selectedGoal = loaded.first;
-          }
+          _goalList = goals;
         });
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error loading goals: ${e.toString()}'),
-            backgroundColor: Theme.of(context).colorScheme.error,
-          ),
-        );
-      }
+      // Handle error
+      print('Error loading goals: $e');
     }
+  }
+
+  Goal? _getDefaultGoal(List<Goal> availableGoals) {
+    if (availableGoals.isEmpty) {
+      return null;
+    }
+    
+    // Try to find the first active goal
+    try {
+      final activeGoal = availableGoals.firstWhere(
+        (goal) => goal.status == GoalStatus.active,
+        orElse: () => availableGoals.first,
+      );
+      
+      return activeGoal;
+    } catch (e) {
+      return availableGoals.isNotEmpty ? availableGoals.first : null;
+    }
+  }
+
+  // In your goal selection widget, update _selectedGoalId when user selects a goal
+  Widget _buildGoalSelector() {
+    return DropdownButtonFormField<String>(
+      value: _selectedGoalId,
+      decoration: const InputDecoration(
+        labelText: 'Assign to Goal (Optional)',
+      ),
+      items: [
+        const DropdownMenuItem(
+          value: null,
+          child: Text('No Goal'),
+        ),
+        ..._goalList.map((goal) {
+          return DropdownMenuItem(
+            value: goal.id,
+            child: Text(goal.name),
+          );
+        }).toList(),
+      ],
+      onChanged: (String? newValue) {
+        setState(() {
+          _selectedGoalId = newValue;
+        });
+      },
+    );
   }
 
   void _formatAmount() {
@@ -147,7 +211,12 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
     _amountController.text = transaction.amount.toStringAsFixed(2);
     _descriptionController.text = transaction.description ?? '';
     _selectedType = transaction.type;
-    _selectedCategory = transaction.category ?? _categories[transaction.type]!.first;
+    if (transaction.category != null) {
+      _selectedCategory = transaction.category;
+    } else {
+      final defaultCategories = _categories[transaction.type];
+      _selectedCategory = defaultCategories?.isNotEmpty == true ? defaultCategories?.first : null;
+    }
     _selectedDate = transaction.date;
     
     // Extract time from the transaction date
@@ -257,8 +326,8 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
         }
       } else {
         // For income/expense, use the selected category
-        categoryId = _selectedCategory;
-        categoryName = _selectedCategory;
+        categoryId = _categoryToId(_selectedCategory);
+        categoryName = _categoryToDisplayName(_selectedCategory);
       }
       
       final transaction = Transaction(
@@ -266,8 +335,8 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
         amount: double.parse(formattedAmount),
         description: _descriptionController.text.trim(),
         type: _selectedType,
-        categoryId: categoryId,
-        category: categoryName,
+        categoryId: categoryId ?? '',
+        category: _selectedCategory,
         date: _selectedDate,
         goalId: goalId,
         paymentMethod: _selectedPaymentMethod,
@@ -580,7 +649,7 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
           _selectedType = newSelection.first;
           // Reset category to first in list when changing type
           if (_categories[_selectedType]!.isNotEmpty) {
-            _selectedCategory = _categories[_selectedType]!.first;
+            _initializeCategory();
           }
           // Reset goal when switching away from savings
           if (_selectedType != TransactionType.savings) {
@@ -592,21 +661,19 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
   }
 
   Widget _buildCategorySelector() {
-    return DropdownButtonFormField<String>(
-      value: _selectedCategory.isEmpty && _categories[_selectedType]!.isNotEmpty 
-          ? _categories[_selectedType]!.first 
-          : _selectedCategory,
+    return DropdownButtonFormField<TransactionCategory>(
+      value: _selectedCategory,
       decoration: InputDecoration(
         labelText: _selectedType == TransactionType.savings ? 'Goal' : 'Category',
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       ),
-      items: _categories[_selectedType]!.map((String category) {
-        return DropdownMenuItem<String>(
+      items: _categories[_selectedType]!.map((TransactionCategory category) {
+        return DropdownMenuItem<TransactionCategory>(
           value: category,
-          child: Text(category),
+          child: Text(_categoryToDisplayName(category)),
         );
       }).toList(),
-      onChanged: (String? value) {
+      onChanged: (TransactionCategory? value) {
         if (value != null) {
           setState(() {
             _selectedCategory = value;
@@ -614,102 +681,11 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
         }
       },
       validator: (value) {
-        if (value == null || value.isEmpty) {
+        if (value == null) {
           return _selectedType == TransactionType.savings
               ? 'Please select a goal'
               : 'Please select a category';
         }
-        return null;
-      },
-    );
-  }
-  
-  /// Build goal selector when type is savings
-  Widget _buildGoalSelector() {
-    if (_goals.isEmpty) {
-      return Card(
-        color: Theme.of(context).colorScheme.surfaceVariant,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(
-                Icons.flag_outlined,
-                size: 32,
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'No goals available',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Create a goal first to track savings',
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: 12),
-              OutlinedButton(
-                onPressed: () {
-                  Navigator.pushNamed(context, '/progressive_goal_wizard');
-                },
-                child: const Text('Create Goal'),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-    
-    return DropdownButtonFormField<dom_goal.Goal>(
-      value: _selectedGoal ?? (_goals.isNotEmpty ? _goals.first : null),
-      decoration: const InputDecoration(
-        labelText: 'Select Goal',
-        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-      ),
-      items: _goals.map((goal) {
-        final progress = goal.targetAmount > 0 
-            ? (goal.currentAmount / goal.targetAmount * 100) 
-            : 0.0;
-            
-        return DropdownMenuItem<dom_goal.Goal>(
-          value: goal,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(goal.name, style: const TextStyle(fontWeight: FontWeight.w500)),
-              const SizedBox(height: 2),
-              LinearProgressIndicator(
-                value: progress / 100,
-                backgroundColor: Theme.of(context).colorScheme.surfaceVariant,
-                color: Theme.of(context).colorScheme.primary,
-                minHeight: 4,
-                borderRadius: BorderRadius.circular(2),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                '${progress.toStringAsFixed(1)}% complete',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-                ),
-              ),
-            ],
-          ),
-        );
-      }).toList(),
-      onChanged: (dom_goal.Goal? value) {
-        setState(() {
-          _selectedGoal = value;
-        });
-      },
-      validator: (value) {
-        if (value == null) return 'Please select a goal';
         return null;
       },
     );
@@ -774,40 +750,40 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
         ),
         const SizedBox(height: 12),
         DropdownButtonFormField<PaymentMethod>(
-          value: _selectedPaymentMethod,
-          items: PaymentMethod.values.map((PaymentMethod method) {
-            String label;
-            
-            switch (method) {
-              case PaymentMethod.cash:
-                label = 'Cash';
-                break;
-              case PaymentMethod.card:
-                label = 'Card';
-                break;
-              case PaymentMethod.bank:
-                label = 'Bank Transfer';
-                break;
-              case PaymentMethod.mobile:
-                label = 'Mobile Money';
-                break;
-              default:
-                label = method.toString().split('.').last;
-            }
-            
-            return DropdownMenuItem<PaymentMethod>(
-              value: method,
-              child: Text(label),
-            );
-          }).toList(),
-          onChanged: (PaymentMethod? value) {
-            if (value != null) {
-              setState(() {
-                _selectedPaymentMethod = value;
-              });
-            }
-          },
-        ),
+      value: _selectedPaymentMethod,
+      items: PaymentMethod.values.map((PaymentMethod method) {
+        String label;
+        
+        switch (method) {
+          case PaymentMethod.cash:
+            label = 'Cash';
+            break;
+          case PaymentMethod.card:
+            label = 'Card';
+            break;
+          case PaymentMethod.bank:
+            label = 'Bank Transfer';
+            break;
+          case PaymentMethod.mobile:
+            label = 'Mobile Money';
+            break;
+          default:
+            label = method.toString().split('.').last;
+        }
+        
+        return DropdownMenuItem<PaymentMethod>(
+          value: method,
+          child: Text(label),
+        );
+      }).toList(),
+      onChanged: (PaymentMethod? value) {
+        if (value != null) {
+          setState(() {
+            _selectedPaymentMethod = value;
+          });
+        }
+      },
+    ),
       ],
     );
   }

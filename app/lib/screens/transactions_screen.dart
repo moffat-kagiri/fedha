@@ -17,6 +17,10 @@ class TransactionsScreen extends StatefulWidget {
 }
 
 class _TransactionsScreenState extends State<TransactionsScreen> {
+  List<Transaction> _transactions = [];
+  bool _isLoading = false;
+  String? _errorMessage;
+
   String _selectedFilter = 'All';
   final List<String> _filterOptions = ['All', 'Income', 'Expense', 'Savings'];
 
@@ -31,29 +35,13 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
   Goal? _selectedGoalFilter;
   List<Goal> _availableGoals = [];
 
-  late Future<List<Transaction>> _transactionsFuture;
-  late Future<List<Goal>> _goalsFuture;
-
-  bool _didLoadDependencies = false;
-
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (!_didLoadDependencies) {
-      final dataService = Provider.of<OfflineDataService>(context, listen: false);
-      final profileId = int.tryParse(
-              Provider.of<AuthService>(context, listen: false).currentProfile?.id ?? '0') ??
-          0;
-
-      _transactionsFuture = dataService.getAllTransactions(profileId);
-      _goalsFuture = dataService.getAllGoals(profileId);
-
-      _goalsFuture.then((goals) {
-        if (mounted) setState(() => _availableGoals = goals);
-      });
-
-      _didLoadDependencies = true;
-    }
+  void initState() {
+    super.initState();
+    // Load transactions when screen initializes
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _refreshTransactions();
+    });
   }
 
   @override
@@ -61,6 +49,203 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     _searchController.dispose();
     super.dispose();
   }
+
+  Future<void> _refreshTransactions() async {
+    if (!mounted) return;
+    
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final offlineDataService = Provider.of<OfflineDataService>(context, listen: false);
+      final authService = Provider.of<AuthService>(context, listen: false);
+      
+      final profileIdStr = authService.currentProfile?.id ?? '';
+      final profileId = int.tryParse(profileIdStr) ?? 0;
+      
+      if (profileId == 0) {
+        throw Exception('No active profile found');
+      }
+
+      List<Transaction> transactions = await offlineDataService.getAllTransactions(profileId);
+
+      // Apply current filters
+      transactions = _filterTransactions(transactions);
+
+      if (mounted) {
+        setState(() {
+          _transactions = transactions;
+          _isLoading = false;
+        });
+      }
+
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'Failed to load transactions: ${e.toString()}';
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  // Pull-to-refresh wrapper
+  Future<void> _handleRefresh() async {
+    await _refreshTransactions();
+  }
+
+  // Delete transaction method
+  Future<void> _deleteTransaction(String transactionId) async {
+    try {
+      final offlineDataService = Provider.of<OfflineDataService>(context, listen: false);
+      await offlineDataService.deleteTransaction(transactionId);
+      
+      await _refreshTransactions();
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Transaction deleted successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to delete transaction: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  // Show transaction details
+  void _showTransactionDetails(Transaction transaction) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => _TransactionDetailsSheet(
+        transaction: transaction,
+        onRefresh: _refreshTransactions,
+        onEdit: _showEditTransactionDialog, // Add this
+      ),
+    );
+  }
+
+  // Edit transaction dialog
+  void _showEditTransactionDialog(Transaction transaction) {
+    showDialog(
+      context: context,
+      builder: (ctx) => TransactionDialog(
+        transaction: transaction,
+        onSave: (updatedTransaction) {
+          _refreshTransactions();
+        },
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Transactions'),
+        backgroundColor: colorScheme.primary,
+        foregroundColor: colorScheme.onPrimary,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.add),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const TransactionEntryUnifiedScreen(),
+                ),
+              ).then((_) => _refreshTransactions());
+            },
+          ),
+        ],
+      ),
+      body: RefreshIndicator(
+        onRefresh: _handleRefresh,
+        child: Column(
+          children: [
+            // Search and Filter Section
+            _buildSearchAndFilterSection(colorScheme, textTheme),
+            
+            // Summary Cards
+            _buildSummaryCards(_transactions, colorScheme, textTheme),
+            
+            // Loading and Error States
+            if (_isLoading) ...[
+              const LinearProgressIndicator(),
+              const SizedBox(height: 16),
+              Text(
+                'Loading transactions...',
+                style: textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.onSurface.withOpacity(0.6),
+                ),
+              ),
+            ] else if (_errorMessage != null) ...[
+              Container(
+                padding: const EdgeInsets.all(16),
+                margin: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: colorScheme.error.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.error_outline, color: colorScheme.error),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Failed to load transactions',
+                            style: textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                              color: colorScheme.error,
+                            ),
+                          ),
+                          Text(
+                            _errorMessage!,
+                            style: textTheme.bodySmall?.copyWith(
+                              color: colorScheme.error,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.refresh, color: colorScheme.error),
+                      onPressed: _refreshTransactions,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            
+            // Transactions List
+            Expanded(
+              child: _buildTransactionsList(_transactions, colorScheme, textTheme),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ========== FILTERING AND SEARCH METHODS ==========
 
   List<Transaction> _filterTransactions(List<Transaction> transactions) {
     var filtered = transactions;
@@ -77,6 +262,8 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
         case 'Savings':
           type = TransactionType.savings;
           break;
+        default:
+          type = TransactionType.income;
       }
       filtered = filtered.where((t) => t.type == type).toList();
     }
@@ -146,7 +333,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
 
   String _categoryToString(TransactionCategory? category) {
     if (category == null) return 'Other';
-    return category.name.toUpperCase();
+    return category.toString().split('.').last;
   }
 
   String _formatDate(DateTime date) {
@@ -181,47 +368,10 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
       _sortBy = 'Date (Newest)';
       _selectedGoalFilter = null;
     });
+    _refreshTransactions();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Transactions'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add_rounded),
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (ctx) => const TransactionEntryUnifiedScreen()),
-            ),
-          )
-        ],
-      ),
-      body: FutureBuilder<List<Transaction>>(
-        future: _transactionsFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          final transactions = snapshot.data ?? [];
-          final filtered = _filterTransactions(transactions);
-
-          return Column(
-            children: [
-              _buildSearchAndFilterSection(colorScheme, textTheme),
-              _buildSummaryCards(transactions, colorScheme, textTheme),
-              Expanded(child: _buildTransactionsList(filtered, colorScheme, textTheme)),
-            ],
-          );
-        },
-      ),
-    );
-  }
+  // ========== UI COMPONENTS ==========
 
   Widget _buildSearchAndFilterSection(ColorScheme colorScheme, TextTheme textTheme) {
     return Container(
@@ -244,6 +394,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                             _searchController.clear();
                             _searchQuery = '';
                           });
+                          _refreshTransactions();
                         },
                       )
                     : null,
@@ -252,6 +403,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                 setState(() {
                   _searchQuery = value;
                 });
+                _refreshTransactions();
               },
             ),
           ),
@@ -276,6 +428,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                               setState(() {
                                 _selectedFilter = option;
                               });
+                              _refreshTransactions();
                             },
                           ),
                         );
@@ -294,7 +447,10 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                 ),
                 PopupMenuButton<String>(
                   icon: Icon(Icons.sort_rounded, color: colorScheme.onSurfaceVariant),
-                  onSelected: (value) => setState(() => _sortBy = value),
+                  onSelected: (value) {
+                    setState(() => _sortBy = value);
+                    _refreshTransactions();
+                  },
                   itemBuilder: (_) => [
                     const PopupMenuItem(value: 'Date (Newest)', child: Text('Date (Newest)')),
                     const PopupMenuItem(value: 'Date (Oldest)', child: Text('Date (Oldest)')),
@@ -343,18 +499,8 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
           _buildDateRangeFilter(colorScheme, textTheme),
           const SizedBox(height: 16),
           _buildAmountRangeFilter(colorScheme, textTheme),
-          const SizedBox(height: 16),
-          _buildGoalFilter(colorScheme, textTheme),
         ],
       ),
-    );
-  }
-
-  void _showTransactionDetails(Transaction transaction) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (context) => _TransactionDetailsSheet(transaction: transaction),
     );
   }
 
@@ -384,6 +530,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
             setState(() {
               _selectedCategory = value;
             });
+            _refreshTransactions();
           },
         ),
       ],
@@ -411,6 +558,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
               setState(() {
                 _selectedDateRange = picked;
               });
+              _refreshTransactions();
             }
           },
           child: Row(
@@ -452,6 +600,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                   setState(() {
                     _minAmount = double.tryParse(value);
                   });
+                  _refreshTransactions();
                 },
               ),
             ),
@@ -467,46 +616,11 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                   setState(() {
                     _maxAmount = double.tryParse(value);
                   });
+                  _refreshTransactions();
                 },
               ),
             ),
           ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildGoalFilter(ColorScheme colorScheme, TextTheme textTheme) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Goal Assignment',
-          style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
-        ),
-        const SizedBox(height: 8),
-        DropdownButtonFormField<Goal>(
-          value: _selectedGoalFilter,
-          decoration: const InputDecoration(
-            hintText: 'Filter by goal',
-          ),
-          items: [
-            const DropdownMenuItem<Goal>(
-              value: null,
-              child: Text('All transactions'),
-            ),
-            ..._availableGoals.map((goal) {
-              return DropdownMenuItem<Goal>(
-                value: goal,
-                child: Text(goal.name),
-              );
-            }),
-          ],
-          onChanged: (value) {
-            setState(() {
-              _selectedGoalFilter = value;
-            });
-          },
         ),
       ],
     );
@@ -611,11 +725,24 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
             Icon(Icons.receipt_long_rounded, size: 64, color: colorScheme.onSurfaceVariant),
             const SizedBox(height: 16),
             Text(
-              'No transactions found',
+              _hasActiveFilters() ? 'No matching transactions' : 'No transactions yet',
               style: textTheme.bodyLarge?.copyWith(
                 color: colorScheme.onSurfaceVariant,
               ),
             ),
+            const SizedBox(height: 8),
+            if (!_hasActiveFilters())
+              FilledButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const TransactionEntryUnifiedScreen(),
+                    ),
+                  ).then((_) => _refreshTransactions());
+                },
+                child: const Text('Add Your First Transaction'),
+              ),
           ],
         ),
       );
@@ -705,18 +832,60 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
   }
 }
 
+// ========== TRANSACTION DETAILS BOTTOM SHEET ==========
+
 class _TransactionDetailsSheet extends StatelessWidget {
   final Transaction transaction;
+  final VoidCallback onRefresh;
+  final Function(Transaction) onEdit;
 
-  const _TransactionDetailsSheet({required this.transaction});
+  const _TransactionDetailsSheet({
+    required this.transaction, 
+    required this.onRefresh,
+    required this.onEdit,
+  });
 
   String _categoryToString(TransactionCategory? category) {
     if (category == null) return 'Other';
-    return category.name.toUpperCase();
+    return category.toString().split('.').last;
   }
 
   String _formatDate(DateTime date) {
     return '${date.day}/${date.month}/${date.year}';
+  }
+
+  String _prettyEnum(Object? value) {
+    if (value == null) return 'Unknown';
+    final raw = value.toString().split('.').last;
+    return raw[0].toUpperCase() + raw.substring(1);
+  }
+
+  Widget _buildDetailRow(String label, String value, BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: textTheme.bodyMedium?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          Text(
+            value,
+            style: textTheme.bodyMedium?.copyWith(
+              color: colorScheme.primary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -773,7 +942,7 @@ class _TransactionDetailsSheet extends StatelessWidget {
                 child: FilledButton(
                   onPressed: () {
                     Navigator.pop(context);
-                    _showEditTransactionDialog(context, transaction);
+                    onEdit(transaction);
                   },
                   child: const Text('Edit'),
                 ),
@@ -781,54 +950,6 @@ class _TransactionDetailsSheet extends StatelessWidget {
             ],
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildDetailRow(String label, String value, BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: textTheme.bodyMedium?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          Text(
-            value,
-            style: textTheme.bodyMedium?.copyWith(
-              color: colorScheme.primary,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _prettyEnum(Object? value) {
-    if (value == null) return 'Unknown';
-    final raw = value.toString().split('.').last;
-    return raw[0].toUpperCase() + raw.substring(1);
-  }
-
-  void _showEditTransactionDialog(BuildContext context, Transaction transaction) {
-    showDialog(
-      context: context,
-      builder: (ctx) => TransactionDialog(
-        transaction: transaction,
-        onSave: (updatedTransaction) {
-          
-          // Handle saving the updated transaction
-          // This would typically refresh the data
-        },
       ),
     );
   }
