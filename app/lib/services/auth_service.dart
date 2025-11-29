@@ -13,6 +13,8 @@ import 'api_client.dart';
 import 'biometric_auth_service.dart';
 import 'offline_data_service.dart';
 import 'sms_listener_service.dart';
+import 'unified_sync_service.dart';
+import 'budget_service.dart';
 
 class AuthService with ChangeNotifier {
   static AuthService? _instance;
@@ -21,6 +23,8 @@ class AuthService with ChangeNotifier {
   // ✅ Dependencies injected, not created
   OfflineDataService? _offlineDataService;
   BiometricAuthService? _biometricService;
+  UnifiedSyncService? _syncService;
+  BudgetService? _budgetService;
   
   final _uuid = const Uuid();
   final _secureStorage = const FlutterSecureStorage();
@@ -38,7 +42,51 @@ class AuthService with ChangeNotifier {
   bool get isInitialized => _isInitialized;
   bool get hasActiveProfile => _currentProfile != null && _currentProfile!.id.isNotEmpty;
 
-  /// ✅ NEW: Initialize with dependency injection
+  /// Initialize with all dependencies including sync services
+  Future<void> initializeWithAllDependencies({
+    required OfflineDataService offlineDataService,
+    BiometricAuthService? biometricService,
+    UnifiedSyncService? syncService,
+    BudgetService? budgetService,
+  }) async {
+    if (_isInitialized) {
+      _logger.warning('AuthService already initialized');
+      return;
+    }
+    
+    try {
+      _logger.info('Initializing AuthService with all dependencies...');
+      
+      // Inject dependencies
+      _offlineDataService = offlineDataService;
+      _biometricService = biometricService;
+      _syncService = syncService;
+      _budgetService = budgetService;
+      
+      // Restore active profile
+      await _restoreActiveProfile();
+      
+      // Sync data if profile is restored
+      if (_currentProfile != null && _syncService != null) {
+        _logger.info('Syncing data for restored profile...');
+        _syncService!.setCurrentProfile(_currentProfile!.id);
+        await _syncService!.syncAll();
+        
+        // Load budgets
+        if (_budgetService != null) {
+          await _budgetService!.loadBudgetsForProfile(_currentProfile!.id);
+        }
+      }
+      
+      _isInitialized = true;
+      _logger.info('AuthService initialized - Active profile: ${_currentProfile?.name ?? "None"}');
+    } catch (e, stackTrace) {
+      _logger.severe('AuthService initialization failed', e, stackTrace);
+      _isInitialized = false;
+      rethrow;
+    }
+  }
+  /// Initialize with essential dependencies only
   Future<void> initializeWithDependencies({
     required OfflineDataService offlineDataService,
     BiometricAuthService? biometricService,
@@ -265,6 +313,7 @@ class AuthService with ChangeNotifier {
     }
   }
 
+  /// Login with data sync
   Future<LoginResult> login({
     required String email,
     required String password,
@@ -298,6 +347,18 @@ class AuthService with ChangeNotifier {
       await setCurrentProfile(profile.id);
       await _biometricService?.registerSuccessfulPasswordLogin();
 
+      // ✅ CRITICAL: Sync all data after login
+      if (_syncService != null) {
+        _logger.info('Syncing data after login...');
+        _syncService!.setCurrentProfile(profile.id);
+        await _syncService!.syncAll();
+        
+        // Load budgets
+        if (_budgetService != null) {
+          await _budgetService!.loadBudgetsForProfile(profile.id);
+        }
+      }
+
       _logger.info('User logged in: $email (First login: $isFirstLogin)');
       return LoginResult.success(
         profile: profile,
@@ -310,6 +371,7 @@ class AuthService with ChangeNotifier {
     }
   }
 
+  /// Signup with data sync
   Future<bool> signup({
     required String firstName,
     required String lastName,
@@ -342,6 +404,11 @@ class AuthService with ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('account_creation_attempted', true);
 
+      // ✅ Initialize sync for new profile
+      if (_syncService != null) {
+        _syncService!.setCurrentProfile(newProfile.id);
+      }
+
       // Try to sync with server
       try {
         final isConnected = await _apiClient.checkServerHealth();
@@ -365,9 +432,20 @@ class AuthService with ChangeNotifier {
     }
   }
 
+  /// Logout with data sync
   Future<void> logout() async {
     try {
       await _biometricService?.clearBiometricSession();
+      
+      // ✅ CRITICAL: Sync data before logout
+      if (_syncService != null && _currentProfile != null) {
+        _logger.info('Syncing data before logout...');
+        try {
+          await _syncService!.syncAll();
+        } catch (e) {
+          _logger.warning('Failed to sync before logout: $e');
+        }
+      }
       
       if (_currentProfile != null) {
         try {
@@ -377,6 +455,10 @@ class AuthService with ChangeNotifier {
         }
       }
       
+      // Clear service caches
+      _syncService?.clearCache();
+      _budgetService?.clearCache();
+      
       await _clearSession();
       _logger.info('User logged out');
     } catch (e, stackTrace) {
@@ -384,6 +466,7 @@ class AuthService with ChangeNotifier {
     }
   }
 
+  // Biometric login with data sync
   Future<LoginResult> biometricLogin() async {
     try {
       if (_biometricService == null) {
@@ -417,6 +500,18 @@ class AuthService with ChangeNotifier {
       await _storeProfile(updatedProfile);
       _currentProfile = updatedProfile;
       await _initializeProfileServices(updatedProfile.id);
+
+      // ✅ CRITICAL: Sync data after biometric login
+      if (_syncService != null) {
+        _logger.info('Syncing data after biometric login...');
+        _syncService!.setCurrentProfile(updatedProfile.id);
+        await _syncService!.syncAll();
+        
+        // Load budgets
+        if (_budgetService != null) {
+          await _budgetService!.loadBudgetsForProfile(updatedProfile.id);
+        }
+      }
       
       notifyListeners();
       

@@ -1,4 +1,5 @@
 import 'dart:math';
+import '../data/app_database.dart';
 
 /// Utility class for investment calculations: NPV, IRR, and annual profit margin.
 class InvestmentCalculator {

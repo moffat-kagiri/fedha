@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
@@ -101,6 +102,132 @@ class OfflineDataService {
     }
   }
 
+  // ==================== BUDGETS (IMPLEMENTATION) ====================
+
+  Future<void> saveBudget(dom_budget.Budget budget) async {
+    _validateProfileId(budget.profileId);
+    
+    try {
+      // Store in SharedPreferences as JSON for now
+      // TODO: Move to Drift database when budget table is added
+      final prefs = await SharedPreferences.getInstance();
+      final budgetsKey = 'budgets_${_profileIdToInt(budget.profileId)}';
+      
+      // Get existing budgets
+      final existingJson = prefs.getString(budgetsKey);
+      List<Map<String, dynamic>> budgets = [];
+      
+      if (existingJson != null) {
+        final decoded = jsonDecode(existingJson) as List;
+        budgets = decoded.cast<Map<String, dynamic>>();
+      }
+      
+      // Add or update budget
+      final budgetJson = budget.toJson();
+      final index = budgets.indexWhere((b) => b['id'] == budget.id);
+      
+      if (index != -1) {
+        budgets[index] = budgetJson;
+      } else {
+        budgets.add(budgetJson);
+      }
+      
+      // Save back
+      await prefs.setString(budgetsKey, jsonEncode(budgets));
+      
+      if (kDebugMode) {
+        print('Budget saved: ${budget.name}');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error saving budget: $e');
+      }
+      rethrow;
+    }
+  }
+  
+  Future<void> addBudget(dom_budget.Budget budget) async {
+    await saveBudget(budget);
+  }
+  
+  Future<List<dom_budget.Budget>> getAllBudgets(String profileId) async {
+    _validateProfileId(profileId);
+    
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final budgetsKey = 'budgets_${_profileIdToInt(profileId)}';
+      
+      final existingJson = prefs.getString(budgetsKey);
+      if (existingJson == null) return [];
+      
+      final decoded = jsonDecode(existingJson) as List;
+      final budgets = decoded.cast<Map<String, dynamic>>();
+      
+      return budgets.map((json) {
+        // Ensure profileId is set correctly
+        json['profileId'] = profileId;
+        return dom_budget.Budget.fromJson(json);
+      }).toList();
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error loading budgets: $e');
+      }
+      return [];
+    }
+  }
+  
+  Future<dom_budget.Budget?> getCurrentBudget(String profileId) async {
+    final budgets = await getAllBudgets(profileId);
+    if (budgets.isEmpty) return null;
+    
+    // Get most recent active budget
+    final activeBudgets = budgets.where((b) => b.isActive).toList();
+    if (activeBudgets.isEmpty) return null;
+    
+    activeBudgets.sort((a, b) => b.startDate.compareTo(a.startDate));
+    return activeBudgets.first;
+  }
+
+  Future<void> updateBudget(dom_budget.Budget budget) async {
+    // Update is the same as save for budgets
+    await saveBudget(budget);
+  }
+
+  Future<void> deleteBudget(String budgetId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      
+      // We need to find which profile this budget belongs to
+      // For now, check all profile budgets (not ideal, but works)
+      final keys = prefs.getKeys().where((k) => k.startsWith('budgets_'));
+      
+      for (final key in keys) {
+        final existingJson = prefs.getString(key);
+        if (existingJson == null) continue;
+        
+        final decoded = jsonDecode(existingJson) as List;
+        var budgets = decoded.cast<Map<String, dynamic>>();
+        
+        final originalLength = budgets.length;
+        budgets.removeWhere((b) => b['id'] == budgetId);
+        
+        if (budgets.length < originalLength) {
+          // Budget was found and removed
+          await prefs.setString(key, jsonEncode(budgets));
+          if (kDebugMode) {
+            print('Budget deleted: $budgetId');
+          }
+          return;
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error deleting budget: $e');
+      }
+      rethrow;
+    }
+  }
+
   // Goals
   Future<void> saveGoal(dom_goal.Goal goal) async {
     _validateProfileId(goal.profileId);
@@ -140,7 +267,8 @@ class OfflineDataService {
       .toList();
   }
 
-  // Loans
+  // ==================== LOANS (FIX STRING PARAMETER) ====================
+
   Future<void> saveLoan(dom_loan.Loan loan) async {
     final companion = LoansCompanion.insert(
       name: loan.name,
@@ -149,7 +277,7 @@ class OfflineDataService {
       interestRate: Value(loan.interestRate),
       startDate: loan.startDate,
       endDate: loan.endDate,
-      profileId: loan.profileId,
+      profileId: _profileIdToInt(loan.profileId.toString()),
     );
     await _db.into(_db.loans).insert(companion);
   }
@@ -170,30 +298,39 @@ class OfflineDataService {
         interestRate: r.interestRate,
         startDate: r.startDate,
         endDate: r.endDate,
-        profileId: r.profileId,
+        profileId: profileId, // Return original UUID string
       ))
       .toList();
   }
 
-  // Budgets
-  Future<void> saveBudget(dom_budget.Budget budget) async {
-    if (kDebugMode) {
-      print('Budget saving not implemented yet: ${budget.name}');
+  Future<void> deleteLoan(String loanId) async {
+    final loanIdInt = int.tryParse(loanId);
+    if (loanIdInt == null) {
+      throw Exception('Invalid loan ID format: $loanId');
     }
-  }
-  
-  Future<void> addBudget(dom_budget.Budget budget) async {
-    await saveBudget(budget);
-  }
-  
-  Future<List<dom_budget.Budget>> getAllBudgets(String? profileId) async {
-    return [];
-  }
-  
-  Future<dom_budget.Budget?> getCurrentBudget(String profileId) async {
-    return null;
+    
+    await (_db.delete(_db.loans)..where((l) => l.id.equals(loanIdInt))).go();
   }
 
+  Future<void> updateLoan(dom_loan.Loan loan) async {
+    final loanIdInt = int.tryParse(loan.id.toString());
+    if (loanIdInt == null) {
+      throw Exception('Invalid loan ID format: ${loan.id}');
+    }
+
+    await _db.update(_db.loans).replace(
+      LoansCompanion(
+        id: Value(loanIdInt),
+        name: Value(loan.name),
+        principalMinor: Value(loan.principalMinor.toInt()),
+        currency: Value(loan.currency),
+        interestRate: Value(loan.interestRate),
+        startDate: Value(loan.startDate),
+        endDate: Value(loan.endDate),
+        profileId: Value(_profileIdToInt(loan.profileId.toString())),
+      ),
+    );
+  }
   // SMS-review helpers (pending transactions)
   Future<void> savePendingTransaction(dom_tx.Transaction tx) async {
     _validateProfileId(tx.profileId);

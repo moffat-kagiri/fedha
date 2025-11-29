@@ -5,6 +5,8 @@ import 'package:drift/drift.dart' show OrderingTerm, OrderingMode;
 import 'investment_irr_calculator_screen.dart';
 import 'investment_recommendations_screen.dart';
 import 'investment_risk_assessment_screen.dart';
+import '../data/app_database.dart';
+import '../utils/logger.dart';
 
 class InvestmentCalculatorScreen extends StatefulWidget {
   const InvestmentCalculatorScreen({Key? key}) : super(key: key);

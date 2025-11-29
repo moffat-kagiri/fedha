@@ -1,31 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:json_annotation/json_annotation.dart';
-import 'package:uuid/uuid.dart';
 import 'enums.dart';
+import 'package:uuid/uuid.dart';
 
 part 'goal.g.dart';
 
 @JsonSerializable(explicitToJson: true)
 class Goal {
-  String id;
-  String name;
-  String? description;
-  double targetAmount;
-  double currentAmount;
-  DateTime targetDate;
-  DateTime? completedDate;
-  DateTime createdAt;
-  DateTime updatedAt;
-
-  @JsonKey(fromJson: _priorityFromJson, toJson: _priorityToJson)
-  final GoalPriority priority;
-
-  @JsonKey(fromJson: _statusFromJson, toJson: _statusToJson)
+  final String id;
+  final String name;
+  final String? description;
+  final double targetAmount;
+  final double currentAmount;
+  final DateTime targetDate;
+  final String profileId;
+  final GoalType goalType;
   final GoalStatus status;
-
-  GoalType goalType;
-  String? icon;
-  String profileId;
+  final GoalPriority priority;
+  final DateTime createdAt;
+  final DateTime? updatedAt;
+  final bool isSynced;
+  final DateTime? completedDate;
 
   Goal({
     String? id,
@@ -34,42 +29,16 @@ class Goal {
     required this.targetAmount,
     this.currentAmount = 0.0,
     required this.targetDate,
-    this.completedDate,
-    DateTime? createdAt,
-    DateTime? updatedAt,
-    GoalPriority? priority,
-    GoalStatus? status,
-    required this.goalType,
-    this.icon,
     required this.profileId,
+    required this.goalType,
+    this.status = GoalStatus.active,
+    this.priority = GoalPriority.medium,
+    DateTime? createdAt,
+    this.updatedAt,
+    this.isSynced = false,
+    this.completedDate,
   })  : id = id ?? const Uuid().v4(),
-        createdAt = createdAt ?? DateTime.now(),
-        updatedAt = updatedAt ?? DateTime.now(),
-        priority = priority ?? GoalPriority.medium,
-        status = status ?? GoalStatus.active;
-
-  // Add these conversion methods for JSON serialization
-  static GoalPriority _priorityFromJson(String priority) {
-    return GoalPriority.values.firstWhere(
-      (e) => e.toString().split('.').last == priority,
-      orElse: () => GoalPriority.medium,
-    );
-  }
-
-  static String _priorityToJson(GoalPriority priority) {
-    return priority.toString().split('.').last;
-  }
-
-  static GoalStatus _statusFromJson(String status) {
-    return GoalStatus.values.firstWhere(
-      (e) => e.toString().split('.').last == status,
-      orElse: () => GoalStatus.active,
-    );
-  }
-
-  static String _statusToJson(GoalStatus status) {
-    return status.toString().split('.').last;
-  }
+        createdAt = createdAt ?? DateTime.now();
 
   /// Calculates the progress percentage towards the goal
   double get progressPercentage {
@@ -80,15 +49,42 @@ class Goal {
   /// Checks if the goal is completed
   bool get isCompleted => status == GoalStatus.completed;
 
+  /// Checks if goal is overdue
+  bool get isOverdue => !isCompleted && targetDate.isBefore(DateTime.now());
+
+  /// Days remaining until target date
+  int get daysRemaining {
+    final now = DateTime.now();
+    return targetDate.difference(now).inDays;
+  }
+
+  /// Amount needed to complete the goal
+  double get amountNeeded => (targetAmount - currentAmount).clamp(0.0, double.infinity);
+
+  /// Daily savings needed to reach goal on time
+  double get dailySavingsNeeded {
+    final days = daysRemaining;
+    if (days <= 0) return amountNeeded;
+    return amountNeeded / days;
+  }
+
+  /// Monthly savings needed to reach goal on time
+  double get monthlySavingsNeeded {
+    final months = (daysRemaining / 30).ceil();
+    if (months <= 0) return amountNeeded;
+    return amountNeeded / months;
+  }
+
   /// Adds a contribution to the current amount and updates status if needed
   Goal addContribution(double amount) {
-    final newCurrentAmount = (currentAmount + amount).clamp(0.0, double.infinity);
+    final newCurrentAmount = (currentAmount + amount).clamp(0.0, targetAmount);
     final newStatus = newCurrentAmount >= targetAmount ? GoalStatus.completed : status;
-    
+    final newCompletedDate = newStatus == GoalStatus.completed ? DateTime.now() : completedDate;
+
     return copyWith(
       currentAmount: newCurrentAmount,
       status: newStatus,
-      updatedAt: DateTime.now(),
+      completedDate: newCompletedDate,
     );
   }
 
@@ -106,8 +102,8 @@ class Goal {
     GoalPriority? priority,
     GoalStatus? status,
     GoalType? goalType,
-    String? icon,
     String? profileId,
+    bool? isSynced,
   }) {
     return Goal(
       id: id ?? this.id,
@@ -118,12 +114,12 @@ class Goal {
       targetDate: targetDate ?? this.targetDate,
       completedDate: completedDate ?? this.completedDate,
       createdAt: createdAt ?? this.createdAt,
-      updatedAt: updatedAt ?? this.updatedAt,
+      updatedAt: updatedAt ?? DateTime.now(),
       priority: priority ?? this.priority,
       status: status ?? this.status,
       goalType: goalType ?? this.goalType,
-      icon: icon ?? this.icon,
       profileId: profileId ?? this.profileId,
+      isSynced: isSynced ?? this.isSynced,
     );
   }
 
@@ -133,36 +129,124 @@ class Goal {
   /// Converts this Goal to JSON data
   Map<String, dynamic> toJson() => _$GoalToJson(this);
 
+  // =============================================
+  // ENHANCED GOAL TYPE ICON & THEME IMPLEMENTATION
+  // =============================================
+
+  /// Enhanced goal type information with icons, colors, and descriptions
+  GoalTypeTheme get typeTheme {
+    switch (goalType) {
+      case GoalType.savings:
+        return const GoalTypeTheme(
+          icon: Icons.savings_rounded,
+          color: Color(0xFF007A39), // Green
+          description: 'Build your savings for future needs',
+        );
+      case GoalType.debtReduction:
+        return const GoalTypeTheme(
+          icon: Icons.credit_card_off_rounded,
+          color: Color(0xFFD32F2F), // Red
+          description: 'Pay down debts and reduce interest payments',
+        );
+      case GoalType.investment:
+        return const GoalTypeTheme(
+          icon: Icons.trending_up_rounded,
+          color: Color(0xFF1976D2), // Blue
+          description: 'Grow your wealth through investments',
+        );
+      case GoalType.emergencyFund:
+        return const GoalTypeTheme(
+          icon: Icons.emergency_rounded,
+          color: Color(0xFFFF9800), // Orange
+          description: 'Prepare for unexpected expenses',
+        );
+      case GoalType.insurance:
+        return const GoalTypeTheme(
+          icon: Icons.health_and_safety_rounded,
+          color: Color(0xFF7B1FA2), // Purple
+          description: 'Protect yourself and your assets',
+        );
+      case GoalType.other:
+        return const GoalTypeTheme(
+          icon: Icons.flag_rounded,
+          color: Color(0xFF757575), // Grey
+          description: 'Custom financial goal',
+        );
+    }
+  }
+
+  /// Gets the icon for this goal type
+  IconData get icon => typeTheme.icon;
+
+  /// Gets the color for this goal type
+  Color get color => typeTheme.color;
+
   /// Gets a human-readable progress description
   String get progressDescription {
     if (isCompleted) {
-      return 'Goal completed!';
+      return 'Goal completed! 🎉';
+    } else if (progressPercentage >= 90) {
+      return 'Almost there! Just ${amountNeeded.toStringAsFixed(0)} left';
     } else if (progressPercentage >= 75) {
-      return 'Almost there!';
+      return 'Great progress! ${progressPercentage.toStringAsFixed(0)}% complete';
     } else if (progressPercentage >= 50) {
-      return 'Halfway there!';
+      return 'Halfway there! Keep going';
     } else if (progressPercentage >= 25) {
-      return 'Making progress';
+      return 'Making steady progress';
+    } else if (progressPercentage > 0) {
+      return 'Getting started - every bit counts!';
     } else {
-      return 'Getting started';
+      return 'Ready to begin your journey';
     }
   }
 
-  /// Gets a display-friendly priority string
+  /// Gets a display-friendly priority string with emoji
   String get priorityDisplay {
     switch (priority) {
       case GoalPriority.low:
-        return 'Low';
+        return 'Low 🔽';
       case GoalPriority.medium:
-        return 'Medium';
+        return 'Medium ⏸️';
       case GoalPriority.high:
-        return 'High';
+        return 'High 🔼';
       case GoalPriority.critical:
-        return 'Critical';
+        return 'Critical 🚨';
     }
   }
 
-  // Fix the GoalType switch cases
+  /// Gets priority color
+  Color get priorityColor {
+    switch (priority) {
+      case GoalPriority.low:
+        return Colors.grey;
+      case GoalPriority.medium:
+        return Colors.blue;
+      case GoalPriority.high:
+        return Colors.orange;
+      case GoalPriority.critical:
+        return Colors.red;
+    }
+  }
+
+  /// Enhanced goal type name with emoji
+  String get goalTypeDisplay {
+    switch (goalType) {
+      case GoalType.savings:
+        return 'Savings 💰';
+      case GoalType.debtReduction:
+        return 'Debt Reduction 💳';
+      case GoalType.investment:
+        return 'Investment 📈';
+      case GoalType.emergencyFund:
+        return 'Emergency Fund 🛡️';
+      case GoalType.insurance:
+        return 'Insurance 🏥';
+      case GoalType.other:
+        return 'Other 🎯';
+    }
+  }
+
+  /// Simple goal type name (no emoji)
   String get goalTypeName {
     switch (goalType) {
       case GoalType.savings:
@@ -180,53 +264,42 @@ class Goal {
     }
   }
 
-  IconData get goalTypeIcon {
-    switch (goalType) {
-      case GoalType.savings:
-        return Icons.savings_rounded;
-      case GoalType.debtReduction:
-        return Icons.credit_card_off_rounded;
-      case GoalType.investment:
-        return Icons.trending_up_rounded;
-      case GoalType.emergencyFund:
-        return Icons.emergency_rounded;
-      case GoalType.insurance:
-        return Icons.health_and_safety_rounded;
-      case GoalType.other:
-        return Icons.flag_rounded;
-    }
-  }
-
-  /// Gets a display-friendly status string
+  /// Gets a display-friendly status string with icon
   String get statusDisplay {
     switch (status) {
       case GoalStatus.active:
-        return 'Active';
+        return isOverdue ? 'Overdue ⚠️' : 'Active 📍';
       case GoalStatus.completed:
-        return 'Completed';
+        return 'Completed ✅';
       case GoalStatus.paused:
-        return 'Paused';
+        return 'Paused ⏸️';
       case GoalStatus.cancelled:
-        return 'Cancelled';
+        return 'Cancelled ❌';
     }
   }
 
-  /// Gets a display-friendly type string
-  String get typeDisplay {
-    switch (goalType) {
-      case GoalType.savings:
-        return 'Savings';
-      case GoalType.investment:
-        return 'Investment';
-      case GoalType.debtReduction:
-        return 'Debt Repayment';
-      case GoalType.emergencyFund:
-        return 'Emergency Fund';
-      case GoalType.insurance:
-        return 'Insurance';
-      case GoalType.other:
-        return 'Other';
+  /// Status color
+  Color get statusColor {
+    switch (status) {
+      case GoalStatus.active:
+        return isOverdue ? Colors.orange : Colors.green;
+      case GoalStatus.completed:
+        return const Color(0xFF007A39);
+      case GoalStatus.paused:
+        return Colors.blueGrey;
+      case GoalStatus.cancelled:
+        return Colors.red;
     }
+  }
+
+  /// Progress color based on completion
+  Color get progressColor {
+    if (isCompleted) return const Color(0xFF007A39);
+    if (isOverdue) return Colors.orange;
+    if (progressPercentage >= 75) return Colors.green;
+    if (progressPercentage >= 50) return Colors.lightGreen;
+    if (progressPercentage >= 25) return Colors.yellow;
+    return Colors.grey;
   }
 
   @override
@@ -242,4 +315,67 @@ class Goal {
 
   @override
   int get hashCode => id.hashCode;
+}
+
+// =============================================
+// SUPPORTING CLASSES FOR ENHANCED THEMING
+// =============================================
+
+/// Enhanced theming information for goal types
+class GoalTypeTheme {
+  final IconData icon;
+  final Color color;
+  final String description;
+
+  const GoalTypeTheme({
+    required this.icon,
+    required this.color,
+    required this.description,
+  });
+}
+
+/// Extension methods for Goal lists
+extension GoalListExtensions on List<Goal> {
+  /// Filter goals by status
+  List<Goal> whereStatus(GoalStatus status) =>
+      where((goal) => goal.status == status).toList();
+
+  /// Filter goals by type
+  List<Goal> whereType(GoalType type) =>
+      where((goal) => goal.goalType == type).toList();
+
+  /// Get active goals
+  List<Goal> get active => whereStatus(GoalStatus.active);
+
+  /// Get completed goals
+  List<Goal> get completed => whereStatus(GoalStatus.completed);
+
+  /// Get overdue goals
+  List<Goal> get overdue => where((goal) => goal.isOverdue).toList();
+
+  /// Sort by priority (critical to low)
+  List<Goal> sortedByPriority() => List.of(this)
+    ..sort((a, b) => b.priority.index.compareTo(a.priority.index));
+
+  /// Sort by due date (nearest first)
+  List<Goal> sortedByDueDate() => List.of(this)
+    ..sort((a, b) => a.targetDate.compareTo(b.targetDate));
+
+  /// Sort by progress (highest first)
+  List<Goal> sortedByProgress() => List.of(this)
+    ..sort((a, b) => b.progressPercentage.compareTo(a.progressPercentage));
+
+  /// Total amount of all goals
+  double get totalTargetAmount =>
+      fold(0.0, (sum, goal) => sum + goal.targetAmount);
+
+  /// Total current amount across all goals
+  double get totalCurrentAmount =>
+      fold(0.0, (sum, goal) => sum + goal.currentAmount);
+
+  /// Overall progress percentage
+  double get overallProgress {
+    if (totalTargetAmount == 0) return 0.0;
+    return (totalCurrentAmount / totalTargetAmount * 100).clamp(0.0, 100.0);
+  }
 }

@@ -1,66 +1,13 @@
+// risk_assessment_service.dart
 import 'dart:convert';
-import 'dart:io';
-
-import 'package:drift/drift.dart';
-import 'package:drift/native.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:path/path.dart' as p;
-
-part 'risk_assessment_service.g.dart';
-
-// ----------------------
-// Drift table + Database (Service file)
-// ----------------------
-
-class RiskAssessments extends Table {
-  IntColumn get id => integer().autoIncrement()();
-  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
-  TextColumn get userId => text().nullable()();
-
-  TextColumn get goal => text().nullable()();
-  RealColumn get incomeRatio => real().withDefault(Constant(50.0))();
-  RealColumn get desiredReturnRatio => real().withDefault(Constant(50.0))();
-  IntColumn get timeHorizon => integer().withDefault(Constant(5))();
-
-  IntColumn get lossToleranceIndex => integer().nullable()();
-  IntColumn get experienceIndex => integer().nullable()();
-  IntColumn get volatilityReactionIndex => integer().nullable()();
-  IntColumn get liquidityNeedIndex => integer().nullable()();
-  IntColumn get emergencyFundMonths => integer().withDefault(Constant(3))();
-
-  RealColumn get riskScore => real().withDefault(Constant(0.0))();
-  TextColumn get profile => text().nullable()();
-  TextColumn get allocationJson => text().nullable()();
-  TextColumn get answersJson => text().nullable()();
-}
-
-@DriftDatabase(tables: [RiskAssessments])
-class AppDatabase extends _$AppDatabase {
-  AppDatabase(NativeDatabase db) : super(db);
-
-  @override
-  int get schemaVersion => 1;
-
-  static Future<AppDatabase> openOnDevice() async {
-    final dir = await getApplicationDocumentsDirectory();
-    final file = File(p.join(dir.path, 'app_db.sqlite'));
-    final db = NativeDatabase(file);
-    return AppDatabase(db);
-  }
-}
-
-
-
-// ----------------------
-// RiskAssessmentService (single source of truth for scoring + persistence)
-// ----------------------
+import 'package:drift/drift.dart'; // Add this import
+import '../data/app_database.dart';
 
 class RiskAssessmentService {
   final AppDatabase db;
 
   RiskAssessmentService(this.db);
 
-  // Choices (same as UI). Keep here so scoring logic is single-source-of-truth.
   static const lossToleranceOptions = [
     {'label': 'I cannot accept any loss; I would sell', 'score': 10.0},
     {'label': 'I would be worried and likely sell', 'score': 25.0},
@@ -235,8 +182,8 @@ class RiskAssessmentService {
       emergencyFundMonths: Value(emergencyFundMonths),
       riskScore: Value(score),
       profile: Value(profile),
-  allocationJson: Value(allocation.isNotEmpty ? jsonEncode(allocation) : null),
-  answersJson: Value(jsonEncode(answers)),
+      allocationJson: Value(allocation.isNotEmpty ? jsonEncode(allocation) : null),
+      answersJson: Value(jsonEncode(answers)),
     );
 
     return await db.into(db.riskAssessments).insert(companion);
@@ -249,25 +196,22 @@ class RiskAssessmentService {
 
     if (userId != null) query.where((tbl) => tbl.userId.equals(userId));
 
-  final row = await query.getSingleOrNull();
-  // `getSingleOrNull` already returns a RiskAssessment DataClass
-  return row;
+    final row = await query.getSingleOrNull();
+    return row;
   }
 
-  /// Retrieve the latest assessment with parsed allocation and answers
   Future<RiskAssessment?> getDetailedLatest(String? userId) async {
     final row = await getLatestForUser(userId);
     if (row == null) return null;
-    // row.profile already parsed
-    // Parse allocationJson
+    
     final allocation = row.allocationJson != null
       ? Map<String, int>.from(jsonDecode(row.allocationJson!))
       : recommendedAllocation(row.profile!);
-    // Parse answers
+      
     final answers = row.answersJson != null
       ? Map<String, dynamic>.from(jsonDecode(row.answersJson!))
       : {};
-    // We could wrap into a DTO if needed, but return original with JSON fields
+      
     return row;
   }
 }

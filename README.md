@@ -1,6 +1,7 @@
 # Fedha – Personal Finance Tracker
 
 Fedha is a cross-platform (iOS, Android, Web, Desktop) personal finance app with:
+
 - Offline-first storage (Hive)
 - Secure authentication (password + biometric)
 - SMS transaction ingestion (Android native + iOS fallback)
@@ -10,31 +11,49 @@ Fedha is a cross-platform (iOS, Android, Web, Desktop) personal finance app with
 ## 🚀 Quick Start
 
 Prerequisites:
+
 - Flutter SDK ≥3.7
 - Dart SDK (bundled with Flutter)
 - Python ≥3.8 for backend
 - Node.js ≥16 for web (optional)
 - Git
 
-### 1. Clone & Setup
+### 1. App initialization
+
 ```bash
-git clone https://github.com/moffat-kagiri/fedha.git
-cd fedha/app
-flutter pub get
-flutter pub run build_runner build --delete-conflicting-outputs
+1. main() starts
+   ↓
+2. Initialize OfflineDataService (database)
+   ↓
+3. Initialize AuthService with dependencies
+   ↓
+4. Restore profile (if logged in)
+   ↓
+5. Initialize UnifiedSyncService
+   ↓
+6. Sync all data for profile
+   ↓
+7. Initialize BudgetService
+   ↓
+8. Load budgets for profile
+   ↓
+9. Launch app (with biometric overlay if needed)
 ```
 
-### 2. Android/iOS 
+### 2. Android/iOS
+
 ```bash
 flutter run -d android   # or -d ios on macOS
 ```
 
 ### 3. Web (optional)
+
 ```bash
 cd ../web && npm install && npm start
 ```
 
 ### 4. Backend (Django)
+
 ```bash
 cd ../backend
 python -m venv .venv && .venv/Scripts/activate
@@ -48,6 +67,7 @@ python manage.py runserver
 For production deployments you should use a KMS or secrets service instead of embedding the master key in the environment or code. Example environment variables (set in your host/CI/containers):
 
 PowerShell example (Windows):
+
 ```powershell
 $env:KMS_PROVIDER = 'aws-secrets-manager'
 $env:AWS_SECRET_NAME = 'fedha/encryption/master-key'
@@ -55,6 +75,7 @@ $env:AWS_REGION = 'us-east-1'
 ```
 
 Bash example (Linux/macOS):
+
 ```bash
 export KMS_PROVIDER=aws-secrets-manager
 export AWS_SECRET_NAME=fedha/encryption/master-key
@@ -62,6 +83,7 @@ export AWS_REGION=us-east-1
 ```
 
 If you are using HashiCorp Vault:
+
 ```bash
 export KMS_PROVIDER=vault
 export VAULT_ADDR=https://vault.example.com:8200
@@ -80,6 +102,7 @@ python manage.py bootstrap_master_key --create
 ```
 
 Notes:
+
 - In production prefer manually provisioning the key in Secrets Manager or Vault and pointing the app to it.
 - `--create` will attempt to store a generated key in the configured adapter — use with care in production.
 
@@ -116,7 +139,7 @@ Recent backend & security work (Nov 2025):
 - Key rotation orchestration and management command: `rotate_encryption_keys`.
 - Monitoring command: `monitor_encryption` to report key health and coverage.
 - KMS adapter implemented (`backend/api/utils/kms_adapter.py`) with support for:
-	- `env` (development), `aws-secrets-manager`, `aws-kms`, and `vault` providers.
+  - `env` (development), `aws-secrets-manager`, `aws-kms`, and `vault` providers.
 - Runtime wiring: `KeyManager` now retrieves master key via the adapter; `KeyBootstrap` helper + `bootstrap_master_key` command added.
 - A safe bootstrap guard was added: auto-creation of master keys is blocked unless `ALLOW_AUTO_CREATE_MASTER=yes` is set in environment.
 - `encrypt_existing_pii` management command for zero-downtime plaintext→encrypted migration (dry-run supported).
@@ -126,8 +149,8 @@ Recent backend & security work (Nov 2025):
 Start server helpers
 
 - `start_server.py` supports automated steps (migrations, checks), and new flags to bootstrap keys and run encryption migration:
-	- `--ensure-master-key` and `--create-master-key` (requires `ALLOW_AUTO_CREATE_MASTER=yes` to create)
-	- `--encrypt-existing`, `--encrypt-dry-run`, `--encrypt-limit`, `--encrypt-batch-size`
+  - `--ensure-master-key` and `--create-master-key` (requires `ALLOW_AUTO_CREATE_MASTER=yes` to create)
+  - `--encrypt-existing`, `--encrypt-dry-run`, `--encrypt-limit`, `--encrypt-batch-size`
 
 Local quick commands (PowerShell):
 

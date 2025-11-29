@@ -52,7 +52,7 @@ class AppTheme {
           color: colorScheme.onPrimary,
         ),
       ),
-      cardTheme: CardThemeData(
+      cardTheme: CardTheme(
         elevation: 1,
         margin: const EdgeInsets.symmetric(vertical: 8),
         clipBehavior: Clip.antiAlias,
@@ -94,7 +94,7 @@ class AppTheme {
           borderSide: BorderSide(color: colorScheme.primary, width: 2),
         ),
       ),
-      dialogTheme: DialogThemeData(
+      dialogTheme: DialogTheme(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         elevation: 3,
         backgroundColor: colorScheme.surface,
@@ -144,7 +144,7 @@ class AppTheme {
           color: colorScheme.onPrimary,
         ),
       ),
-      cardTheme: CardThemeData(
+      cardTheme: CardTheme(
         elevation: 1,
         margin: const EdgeInsets.symmetric(vertical: 8),
         surfaceTintColor: colorScheme.surface,
@@ -183,7 +183,7 @@ class AppTheme {
           borderSide: BorderSide(color: colorScheme.primary, width: 2),
         ),
       ),
-      dialogTheme: DialogThemeData(
+      dialogTheme: DialogTheme(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         elevation: 3,
         backgroundColor: colorScheme.surface,

@@ -32,7 +32,7 @@ class Loan {
 
   /// Associated profile ID.
   @JsonKey(name: 'profile_id')
-  final int profileId;
+  final String profileId; 
 
   Loan({
     this.id,

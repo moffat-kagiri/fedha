@@ -14,7 +14,7 @@ Loan _$LoanFromJson(Map<String, dynamic> json) => Loan(
   interestRate: (json['interest_rate'] as num).toDouble(),
   startDate: DateTime.parse(json['start_date'] as String),
   endDate: DateTime.parse(json['end_date'] as String),
-  profileId: (json['profile_id'] as num).toInt(),
+  profileId: json['profile_id'] as String,
 );
 
 Map<String, dynamic> _$LoanToJson(Loan instance) => <String, dynamic>{

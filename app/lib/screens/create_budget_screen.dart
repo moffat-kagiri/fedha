@@ -4,6 +4,9 @@ import 'package:provider/provider.dart';
 import '../models/budget.dart';
 import '../models/enums.dart';
 import '../services/offline_data_service.dart';
+import '../services/auth_service.dart';
+import '../utils/logger.dart';
+import '../theme/app_theme.dart';
 
 class CreateBudgetScreen extends StatefulWidget {
   const CreateBudgetScreen({Key? key}) : super(key: key);
@@ -77,6 +80,8 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
 
     try {
       final dataService = Provider.of<OfflineDataService>(context, listen: false);
+      final authService = Provider.of<AuthService>(context, listen: false);
+      final dataServiceId = authService.profileId ?? '';
       
       final budget = Budget(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -86,6 +91,7 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
         startDate: DateTime.now(),
         endDate: _getEndDate(),
         isActive: true,
+        profileId: dataServiceId,
       );
 
       dataService.addBudget(budget);
@@ -403,20 +409,22 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
                 padding: const EdgeInsets.all(20),
                 child: Column(
                   children: [
-                    Icon(Icons.lightbulb_outline, color: colorScheme.primary, size: 32),
+                    Icon(Icons.lightbulb_outline, color: colorScheme.onPrimaryContainer, size: 32),
                     const SizedBox(height: 12),
                     Text(
                       'Smart Budgeting Tip',
                       style: textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
-                        color: colorScheme.primary,
+                        color: colorScheme.onPrimaryContainer,
                       ),
                     ),
                     const SizedBox(height: 12),
                     Text(
                       'Follow the 50/30/20 rule:\n• 50% for needs (housing, food, utilities)\n• 30% for wants (entertainment, dining out)\n• 20% for savings and debt payment',
                       textAlign: TextAlign.center,
-                      style: textTheme.bodyMedium,
+                      style: textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.onPrimaryContainer,
+                      ),
                     ),
                     const SizedBox(height: 16),
                     Text(
@@ -424,7 +432,7 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
                       textAlign: TextAlign.center,
                       style: textTheme.bodyMedium?.copyWith(
                         fontWeight: FontWeight.bold,
-                        color: colorScheme.primary,
+                        color: colorScheme.onPrimaryContainer,
                       ),
                     ),
                   ],
@@ -552,7 +560,7 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
               ),
               child: Row(
                 children: [
-                  Icon(Icons.warning_outlined, color: colorScheme.error),
+                  Icon(Icons.warning_outlined, color: colorScheme.onErrorContainer),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
@@ -718,20 +726,22 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
               padding: const EdgeInsets.all(20),
               child: Column(
                 children: [
-                  Icon(Icons.emoji_events_outlined, color: colorScheme.primary, size: 32),
+                  Icon(Icons.emoji_events_outlined, color: colorScheme.onPrimaryContainer, size: 32),
                   const SizedBox(height: 12),
                   Text(
                     'You\'re on your way to financial success! 🎉',
                     style: textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
-                      color: colorScheme.primary,
+                      color: colorScheme.onPrimaryContainer,
                     ),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 8),
                   Text(
                     'We\'ll send you helpful notifications to keep you on track and celebrate your progress along the way.',
-                    style: textTheme.bodyMedium,
+                    style: textTheme.bodyMedium?.copyWith(
+                      color: colorScheme.onPrimaryContainer,
+                    ),
                     textAlign: TextAlign.center,
                   ),
                 ],

@@ -6,9 +6,33 @@ import 'package:drift/native.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 
- part 'app_database.g.dart';
+part 'app_database.g.dart';
 
-/// Table for storing transactions with an encrypted relational schema.
+// ----------------------
+// Drift table + Database (Service file)
+class RiskAssessments extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  TextColumn get userId => text().nullable()();
+  TextColumn get goal => text().nullable()();
+  RealColumn get incomeRatio => real().withDefault(Constant(50.0))();
+  RealColumn get desiredReturnRatio => real().withDefault(Constant(50.0))();
+  IntColumn get timeHorizon => integer().withDefault(Constant(5))();
+  IntColumn get lossToleranceIndex => integer().nullable()();
+  IntColumn get experienceIndex => integer().nullable()();
+  IntColumn get volatilityReactionIndex => integer().nullable()();
+  IntColumn get liquidityNeedIndex => integer().nullable()();
+  IntColumn get emergencyFundMonths => integer().withDefault(Constant(3))();
+  RealColumn get riskScore => real().withDefault(Constant(0.0))();
+  TextColumn get profile => text().nullable()();
+  TextColumn get allocationJson => text().nullable()();
+  TextColumn get answersJson => text().nullable()();
+}
+
+// Update the DriftDatabase annotation:
+@DriftDatabase(tables: [Transactions, Goals, Loans, PendingTransactions, RiskAssessments])
+
+// Table for storing financial transactions.
 class Transactions extends Table {
   IntColumn get id => integer().autoIncrement()();
 
@@ -70,9 +94,8 @@ class _DecimalConverter extends TypeConverter<double, double> {
   double toSql(double value) => value * 100;
 }
 
-@DriftDatabase(tables: [Transactions, Goals, Loans, PendingTransactions])
+@DriftDatabase(tables: [Transactions, Goals, Loans, PendingTransactions, RiskAssessments])
 class AppDatabase extends _$AppDatabase {
-  // Singleton instance
   AppDatabase._internal(QueryExecutor e) : super(e);
 
   static AppDatabase? _instance;
@@ -114,8 +137,6 @@ LazyDatabase _openEncryptedConnection() {
   return LazyDatabase(() async {
     final docs = await getApplicationDocumentsDirectory();
     final file = File(p.join(docs.path, 'fedha.sqlite'));
-    
-    // Open a normal SQLite database without encryption
     return NativeDatabase(file);
   });
 }

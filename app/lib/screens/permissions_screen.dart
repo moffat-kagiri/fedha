@@ -62,8 +62,8 @@ class _PermissionsScreenState extends State<PermissionsScreen> {
       // Update status
       await _checkPermissions();
       
-  // Mark as done
-  widget.onPermissionsSet(context);
+      // Mark as done
+      widget.onPermissionsSet(context);
     } finally {
       if (mounted) {
         setState(() {
@@ -75,8 +75,11 @@ class _PermissionsScreenState extends State<PermissionsScreen> {
   
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: colorScheme.background,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24.0),
@@ -86,23 +89,26 @@ class _PermissionsScreenState extends State<PermissionsScreen> {
               const Spacer(),
               Center(
                 child: Icon(
-                  Icons.security,
+                  Icons.security_rounded,
                   size: 80,
-                  color: Theme.of(context).primaryColor,
+                  color: colorScheme.primary,
                 ),
               ),
               const SizedBox(height: 32),
               Text(
                 'App Permissions',
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                style: textTheme.headlineMedium?.copyWith(
                   fontWeight: FontWeight.bold,
+                  color: colorScheme.onBackground,
                 ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 16),
               Text(
                 'Fedha needs the following permissions to provide you with the best experience:',
-                style: Theme.of(context).textTheme.bodyLarge,
+                style: textTheme.bodyLarge?.copyWith(
+                  color: colorScheme.onBackground.withOpacity(0.8),
+                ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 32),
@@ -115,13 +121,21 @@ class _PermissionsScreenState extends State<PermissionsScreen> {
                 onPressed: _isRequestingPermissions ? null : _requestPermissions,
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
-                  backgroundColor: Theme.of(context).primaryColor,
+                  backgroundColor: colorScheme.primary,
+                  foregroundColor: colorScheme.onPrimary,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(14),
                   ),
                 ),
                 child: _isRequestingPermissions
-                  ? const CircularProgressIndicator(color: Colors.white)
+                  ? SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        color: colorScheme.onPrimary,
+                        strokeWidth: 2,
+                      ),
+                    )
                   : const Text('Grant Permissions'),
               ),
               const SizedBox(height: 16),
@@ -134,7 +148,7 @@ class _PermissionsScreenState extends State<PermissionsScreen> {
                 child: Text(
                   'Skip for Now',
                   style: TextStyle(
-                    color: Theme.of(context).primaryColor.withOpacity(0.8),
+                    color: colorScheme.primary.withOpacity(0.8),
                   ),
                 ),
               ),
@@ -147,16 +161,21 @@ class _PermissionsScreenState extends State<PermissionsScreen> {
   }
   
   List<Widget> _buildPermissionItems() {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    
     final items = <Widget>[];
     
     // SMS Permission (Android only)
     if (Platform.isAndroid) {
       items.add(
         _PermissionItem(
-          icon: Icons.sms,
+          icon: Icons.sms_rounded,
           title: 'SMS',
           description: 'To automatically detect transactions from SMS notifications',
           isGranted: _permissionStatus[Permission.sms] ?? false,
+          colorScheme: colorScheme,
+          textTheme: textTheme,
         ),
       );
     }
@@ -164,30 +183,36 @@ class _PermissionsScreenState extends State<PermissionsScreen> {
     // Notifications
     items.add(
       _PermissionItem(
-        icon: Icons.notifications,
+        icon: Icons.notifications_rounded,
         title: 'Notifications',
         description: 'For important alerts about your finances',
         isGranted: _permissionStatus[Permission.notification] ?? false,
+        colorScheme: colorScheme,
+        textTheme: textTheme,
       ),
     );
     
     // Storage
     items.add(
       _PermissionItem(
-        icon: Icons.folder,
+        icon: Icons.folder_rounded,
         title: 'Storage',
         description: 'To save and access your financial data and receipts',
         isGranted: _permissionStatus[Permission.storage] ?? false,
+        colorScheme: colorScheme,
+        textTheme: textTheme,
       ),
     );
     
     // Camera
     items.add(
       _PermissionItem(
-        icon: Icons.camera_alt,
+        icon: Icons.camera_alt_rounded,
         title: 'Camera',
         description: 'To scan receipts and documents',
         isGranted: _permissionStatus[Permission.camera] ?? false,
+        colorScheme: colorScheme,
+        textTheme: textTheme,
       ),
     );
     
@@ -200,12 +225,16 @@ class _PermissionItem extends StatelessWidget {
   final String title;
   final String description;
   final bool isGranted;
+  final ColorScheme colorScheme;
+  final TextTheme textTheme;
   
   const _PermissionItem({
     required this.icon,
     required this.title,
     required this.description,
     required this.isGranted,
+    required this.colorScheme,
+    required this.textTheme,
   });
   
   @override
@@ -218,12 +247,12 @@ class _PermissionItem extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: Theme.of(context).primaryColor.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
+              color: colorScheme.primary.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
               icon,
-              color: Theme.of(context).primaryColor,
+              color: colorScheme.primary,
             ),
           ),
           const SizedBox(width: 16),
@@ -233,21 +262,24 @@ class _PermissionItem extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  style: textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.bold,
+                    color: colorScheme.onBackground,
                   ),
                 ),
                 Text(
                   description,
-                  style: Theme.of(context).textTheme.bodyMedium,
+                  style: textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onBackground.withOpacity(0.7),
+                  ),
                 ),
               ],
             ),
           ),
           const SizedBox(width: 8),
           Icon(
-            isGranted ? Icons.check_circle : Icons.radio_button_unchecked,
-            color: isGranted ? Colors.green : Colors.grey,
+            isGranted ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
+            color: isGranted ? colorScheme.primary : colorScheme.outline,
           ),
         ],
       ),
