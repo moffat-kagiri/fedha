@@ -105,24 +105,31 @@ class _LoginScreenState extends State<LoginScreen> {
       );
       return;
     }
-    // Check for biometric session
+
     final authService = Provider.of<AuthService>(context, listen: false);
+    
+    // Check if user is already logged in
     if (await authService.isLoggedIn()) {
       final biometricService = BiometricAuthService.instance;
       final biometricEnabled = await biometricService?.isBiometricEnabled() ?? false;
-      final hasValid = await biometricService?.hasValidBiometricSession() ?? false;
-      if (biometricEnabled && !hasValid && mounted) {
+      
+      if (biometricEnabled && mounted) {
+        // User is logged in AND has biometric enabled
+        // Show biometric lock screen for privacy protection
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
             builder: (context) => BiometricLockScreen(
               onAuthSuccess: () {
+                // Biometric verified - proceed to main app
                 Navigator.pushReplacement(
                   context,
                   MaterialPageRoute(builder: (_) => const MainNavigation()),
                 );
               },
               onSkip: () {
+                // User skipped biometric - still proceed to main app
+                // (data remains protected by device security)
                 Navigator.pushReplacement(
                   context,
                   MaterialPageRoute(builder: (_) => const MainNavigation()),
@@ -132,15 +139,19 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         );
         return;
-      }
-      // Already logged in
-      if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const MainNavigation()),
-        );
+      } else {
+        // User is logged in but no biometric required
+        // Go directly to main app
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const MainNavigation()),
+          );
+        }
       }
     }
+    
+    // If not logged in, stay on login screen (default behavior)
   }
 
   Future<void> _login() async {
@@ -249,42 +260,30 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _biometricLogin() async {
     try {
-      final biometricService = BiometricAuthService.instance;
-      if (biometricService == null) return;
-      
-      final success = await biometricService.authenticate(
-        localizedReason: 'Please authenticate to sign in',
-      );
-      
-      if (success) {
-        final authService = Provider.of<AuthService>(context, listen: false);
-        
-        // Get the last email used for login
-        final prefs = await SharedPreferences.getInstance();
-        final lastEmail = prefs.getString('last_login_email');
-        
-        if (lastEmail == null) {
-          if (mounted) {
-            setState(() {
-              _errorMessage = 'Please login with email first before using biometric';
-            });
-          }
-          return;
-        }
+      final authService = Provider.of<AuthService>(context, listen: false);
+      final result = await authService.biometricLogin();
 
-        final result = await authService.enhancedLogin(
-          email: lastEmail,
-          password: '', // Not needed for biometric auth
-          useBiometric: true,
+      if (!mounted) return;
+
+      if (result.success) {
+        // Start SMS listener
+        final smsService = SmsListenerService.instance;
+        final offlineDataService = Provider.of<OfflineDataService>(context, listen: false);
+        final profileId = authService.currentProfile!.id;
+        await smsService.startListening(
+          offlineDataService: offlineDataService,
+          profileId: profileId
         );
-        
-        if (!mounted) return;
 
-        if (!result.success) {
-          setState(() {
-            _errorMessage = result.message;
-          });
-        }
+        // Navigate to main app
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const MainNavigation()),
+        );
+      } else {
+        setState(() {
+          _errorMessage = result.message;
+        });
       }
     } catch (e) {
       if (mounted) {

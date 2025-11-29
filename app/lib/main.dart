@@ -28,7 +28,6 @@ import 'services/api_client.dart';
 import 'services/theme_service.dart';
 import 'config/api_config.dart';
 import 'config/environment_config.dart';
-// import 'config/local_server_config.dart';  // removed: file not found
 import 'services/currency_service.dart';
 import 'services/biometric_auth_service.dart';
 import 'services/service_stubs.dart' as stubs;
@@ -39,13 +38,13 @@ import 'services/sms_listener_service.dart';
 import 'services/permissions_service.dart';
 import 'theme/app_theme.dart';
 import 'services/risk_assessment_service.dart';
+import 'services/profile_management_extension.dart';
 
 // Background services
 import 'services/background_service.dart';
 
 // Screens
 import 'screens/auth_wrapper.dart';
-// import 'screens/loan_calculator_screen.dart'; // Replaced with investment calculator
 import 'screens/progressive_goal_wizard_screen.dart';
 import 'screens/investment_calculator_screen.dart';
 import 'screens/investment_irr_calculator_screen.dart';
@@ -55,6 +54,7 @@ import 'screens/goals_screen.dart';
 import 'screens/spending_overview_screen.dart';
 import 'screens/loans_tracker_screen.dart';
 import 'screens/transaction_entry_unified_screen.dart';
+import 'screens/transactions_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/signup_screen.dart';
 import 'screens/biometric_lock_screen.dart';
@@ -65,7 +65,6 @@ import 'screens/welcome_onboarding_screen.dart';
 import 'device_network_info.dart';
 import 'ip_settings.dart';
 import 'screens/debt_repayment_planner_screen.dart';
-// import 'screens/asset_protection_screen.dart';
 import 'screens/asset_protection_intro_screen.dart';
 import 'screens/health_cover_screen.dart';
 import 'screens/vehicle_cover_screen.dart';
@@ -73,33 +72,37 @@ import 'screens/home_cover_screen.dart';
 import 'screens/emergency_fund_screen.dart';
 import 'screens/sms_review_screen.dart';
 
+/// ✅ Background task handler - isolated from main app
 void callbackDispatcher() {
   Workmanager().executeTask((task, inputData) async {
     try {
-      // Background task handler for various scheduled tasks
       if (task == 'daily_review_task') {
-        // Determine current profile id from SharedPreferences
         final prefs = await SharedPreferences.getInstance();
-        final profileIdStr = prefs.getString('profile_id') ?? '';
-        final profileId = int.tryParse(profileIdStr) ?? 0;
+        // ✅ FIXED: Use correct key
+        final profileId = prefs.getString('current_profile_id') ?? '';
+        
+        if (profileId.isEmpty) {
+          return Future.value(false);
+        }
 
-        // Initialize DB helper and count pending transactions
         final offline = OfflineDataService();
         await offline.initialize();
+        
+        // ✅ FIXED: Pass String profileId
         final pendingCount = await offline.getPendingTransactionCount(profileId);
 
-        // Initialize notifications (safe to call repeatedly)
         await NotificationService.instance.initialize();
         await NotificationService.instance.showPendingTransactionsNotification(pendingCount);
         return Future.value(true);
       }
 
       if (task == 'sms_listener_task') {
-        // existing SMS listener work is handled elsewhere; keep alive
         return Future.value(true);
       }
     } catch (e) {
-      // Swallow errors to avoid crashing the background isolate
+      if (kDebugMode) {
+        print('Background task error: $e');
+      }
       return Future.value(false);
     }
     return Future.value(true);
@@ -109,84 +112,79 @@ void callbackDispatcher() {
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // ---- Background / scheduler initialization ----
-  await Workmanager().initialize(
-    callbackDispatcher,
-    isInDebugMode: false,
-  );
-
-  // Register periodic SMS listener task 
-  await Workmanager().registerPeriodicTask(
-    'sms_listener',
-    'sms_listener_task',
-    frequency: const Duration(hours: 3),
-    initialDelay: const Duration(minutes: 1),
-    constraints: Constraints(
-      networkType: NetworkType.connected,
-      requiresBatteryNotLow: false,
-      requiresCharging: false,
-      requiresDeviceIdle: false,
-      requiresStorageNotLow: true,
-    ),
-    inputData: {
-      'profileId': '1'
-    },
-  );
-
-  // ---- Global debug and logger setup ----
+  // ✅ Initialize logging first
   Provider.debugCheckInvalidValueType = null;
   AppLogger.init();
+  final logger = AppLogger.getLogger('Main');
 
-  // ---- Core local services that need early init ----
-  final offlineDataService = OfflineDataService();
-  await offlineDataService.initialize();
-
-  // ---- Consolidated service boot (AuthService only once here) ----
   try {
-    final envConfig = EnvironmentConfig.current();
+    // ✅ STEP 1: Initialize WorkManager
+    await Workmanager().initialize(
+      callbackDispatcher,
+      isInDebugMode: kDebugMode,
+    );
 
-    // Initialize AuthService exactly once at cold start.
+    // ✅ STEP 2: Initialize core singleton services
+    logger.info('Initializing core services...');
+    
+    // Create single instance of OfflineDataService
+    final offlineDataService = OfflineDataService();
+    await offlineDataService.initialize();
+    
+    // Initialize BiometricAuthService
+    final biometricAuthService = BiometricAuthService.instance;
+    await biometricAuthService?.initialize();
+    
+    // Initialize AuthService WITH dependency injection
     final authService = AuthService.instance;
-    await authService.initialize();
-
-    // Initialize permissions service (dialogs to be invoked after UI is ready)
+    await authService.initializeWithDependencies(
+      offlineDataService: offlineDataService,
+      biometricService: biometricAuthService,
+    );
+    
+    // Initialize PermissionsService
     final permissionsService = PermissionsService.instance;
     await permissionsService.initialize();
+    
+    // Initialize ThemeService
+    final themeService = ThemeService.instance;
+    await themeService.initialize();
 
-    // Initialize API connectivity detection and configuration
-    final tempApiClient = ApiClient.instance;
-    tempApiClient.init(config: ApiConfig.development());
-    final connectivityService = conn_svc.ConnectivityService(tempApiClient);
+    // ✅ STEP 3: Initialize network services
+    logger.info('Initializing network services...');
+    
+    final apiClient = ApiClient.instance;
+    apiClient.init(config: ApiConfig.development());
+    
+    final connectivityService = conn_svc.ConnectivityService(apiClient);
     await connectivityService.initialize();
+    
     final hasConnectivity = await connectivityService.hasInternetConnection();
-    AppLogger.getLogger('Main').info('Internet connectivity available: $hasConnectivity');
+    logger.info('Internet connectivity: $hasConnectivity');
 
+    // ✅ STEP 4: Find best API connection
     String? bestConnectionUrl;
     if (hasConnectivity) {
       bestConnectionUrl = await ConnectionManager.findWorkingConnection();
-      AppLogger.getLogger('Main').info('Best available connection: $bestConnectionUrl');
-    }
-
-    ApiConfig apiConfig;
-    if (bestConnectionUrl != null) {
-      if (bestConnectionUrl.contains('trycloudflare.com')) {
-        apiConfig = ApiConfig.cloudflare();
-      } else if (bestConnectionUrl.contains('192.168.')) {
-        apiConfig = ApiConfig.development();
-      } else if (bestConnectionUrl.contains('localhost') || bestConnectionUrl.contains('127.0.0.1')) {
-        apiConfig = ApiConfig.development();
-      } else {
-        apiConfig = ApiConfig.development().copyWith(primaryApiUrl: bestConnectionUrl);
+      logger.info('Best connection: $bestConnectionUrl');
+      
+      // Update API config with best connection
+      ApiConfig apiConfig;
+      if (bestConnectionUrl != null) {
+        if (bestConnectionUrl.contains('trycloudflare.com')) {
+          apiConfig = ApiConfig.cloudflare();
+        } else if (bestConnectionUrl.contains('192.168.')) {
+          apiConfig = ApiConfig.development();
+        } else {
+          apiConfig = ApiConfig.development().copyWith(primaryApiUrl: bestConnectionUrl);
+        }
+        apiClient.init(config: apiConfig);
       }
-    } else {
-      apiConfig = ApiConfig.development();
     }
 
-    // Finalize API client for the app
-    final apiClient = ApiClient.instance;
-    apiClient.init(config: apiConfig);
-
-    // Instantiate other core services (stubs / singletons)
+    // ✅ STEP 5: Initialize remaining services
+    logger.info('Initializing app services...');
+    
     final goalTransactionService = stubs.GoalTransactionService(offlineDataService);
     final textRecognitionService = stubs.TextRecognitionService(offlineDataService);
     final csvUploadService = stubs.CSVUploadService(offlineDataService);
@@ -195,32 +193,37 @@ Future<void> main() async {
     final syncService = EnhancedSyncService(offlineDataService, apiClient);
     final navigationService = stubs.NavigationService.instance;
     final senderManagementService = stubs.SenderManagementService.instance;
-    final backgroundTransactionMonitor = stubs.BackgroundTransactionMonitor(offlineDataService, smsTransactionExtractor);
-    final biometricAuthService = BiometricAuthService.instance; // may be null-safe in your implementation
-    final themeService = ThemeService.instance;
-    await themeService.initialize();
+    final backgroundTransactionMonitor = stubs.BackgroundTransactionMonitor(
+      offlineDataService, 
+      smsTransactionExtractor
+    );
     final currencyService = CurrencyService();
-
-    // DB / risk service init
+    
     final db = await AppDatabase.openOnDevice();
     final riskAssessmentService = RiskAssessmentService(db);
 
-    // -------- Determine whether we should require biometric on cold launch ----------
-    // Desired behavior: if user previously logged in AND biometrics are enabled,
-    // the app should present the biometric lock screen before showing app content.
-    final bool isLoggedIn = await authService.isLoggedIn();
-    final bool biometricEnabled = (biometricAuthService != null)
-        ? await (biometricAuthService.isBiometricEnabled() ?? Future.value(false))
+    // ✅ STEP 6: Determine biometric requirements
+    final isLoggedIn = authService.hasActiveProfile;
+    final biometricEnabled = biometricAuthService != null
+        ? await biometricAuthService.isBiometricEnabled()
         : false;
-    final bool requireBiometricOnLaunch = isLoggedIn && biometricEnabled;
+    final hasValidSession = biometricAuthService != null
+        ? await biometricAuthService.hasValidBiometricSession()
+        : false;
+    
+    final requireBiometricOnLaunch = isLoggedIn && biometricEnabled && !hasValidSession;
+    
+    logger.info('Auth state - Logged in: $isLoggedIn, Biometric enabled: $biometricEnabled, '
+                'Valid session: $hasValidSession, Require unlock: $requireBiometricOnLaunch');
 
-    AppLogger.getLogger('Main').info('requireBiometricOnLaunch: $requireBiometricOnLaunch');
+    // ✅ STEP 7: Register background tasks
+    if (isLoggedIn && authService.profileId != null) {
+      await _registerBackgroundTasks(authService.profileId!);
+    }
 
-    // -------- Provide services and hand off to MyApp (root) ----------
-    // NOTE: MyApp will be updated next to:
-    //   - accept `requireBiometricOnLaunch` and handle the root-level biometric gating,
-    //   - own lifecycle invalidation on paused, and
-    //   - avoid re-initializing AuthService (we already did it here).
+    // ✅ STEP 8: Launch app with providers
+    logger.info('Launching app...');
+    
     runApp(
       MultiProvider(
         providers: [
@@ -244,28 +247,93 @@ Future<void> main() async {
           Provider<CurrencyService>.value(value: currencyService),
           Provider<RiskAssessmentService>.value(value: riskAssessmentService),
         ],
-        // Pass the flag into MyApp; next edit will make MyApp consume it.
         child: MyApp(requireBiometricOnLaunch: requireBiometricOnLaunch),
       ),
     );
-  } catch (e) {
-    if (kDebugMode) {
-      print('Error initializing app: $e');
-    }
-    // Fallback UI when initialization fails
+  } catch (e, stackTrace) {
+    logger.severe('App initialization failed: $e', e, stackTrace);
+    
+    // Fallback error UI
     runApp(
       MaterialApp(
         theme: AppTheme.lightTheme,
         darkTheme: AppTheme.darkTheme,
         themeMode: ThemeMode.system,
         home: Scaffold(
-          body: Center(child: Text('Error initializing app: $e')),
+          body: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.error_outline, size: 64, color: Colors.red),
+                  const SizedBox(height: 24),
+                  const Text(
+                    'Failed to Initialize App',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    e.toString(),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 14, color: Colors.grey),
+                  ),
+                  const SizedBox(height: 24),
+                  ElevatedButton(
+                    onPressed: () {
+                      // Restart app
+                      main();
+                    },
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
       ),
     );
   }
 }
 
+/// ✅ Centralized background task registration
+Future<void> _registerBackgroundTasks(String profileId) async {
+  final logger = AppLogger.getLogger('BackgroundTasks');
+  
+  try {
+    // Cancel existing tasks first
+    await Workmanager().cancelAll();
+    
+    // Register SMS listener
+    await Workmanager().registerPeriodicTask(
+      'sms_listener',
+      'sms_listener_task',
+      frequency: const Duration(hours: 3),
+      initialDelay: const Duration(minutes: 1),
+      constraints: Constraints(
+        networkType: NetworkType.connected,
+        requiresBatteryNotLow: false,
+        requiresCharging: false,
+        requiresDeviceIdle: false,
+        requiresStorageNotLow: true,
+      ),
+      inputData: {'profileId': profileId},
+    );
+    
+    // Register daily review notification
+    await Workmanager().registerPeriodicTask(
+      'daily_review',
+      'daily_review_task',
+      frequency: const Duration(hours: 24),
+      initialDelay: const Duration(hours: 1),
+      inputData: {'profileId': profileId},
+    );
+    
+    logger.info('Background tasks registered for profile: $profileId');
+  } catch (e) {
+    logger.warning('Failed to register background tasks: $e');
+  }
+}
 
 class MyApp extends StatefulWidget {
   final bool requireBiometricOnLaunch;
@@ -281,73 +349,65 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
+  final _logger = AppLogger.getLogger('MyApp');
 
-  bool _biometricAuthenticated = false;
-  bool _loadingInitialState = true;
   bool _showBiometricLock = false;
+  bool _isInitializing = true;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _prepareRootState();
+    _initialize();
   }
 
-  // ---------------------------------------------------------------------------
-  // PREPARE ROOT STATE (cold launch gating)
-  // ---------------------------------------------------------------------------
-  Future<void> _prepareRootState() async {
-    final authService = AuthService.instance;
-    final biometricService = BiometricAuthService.instance;
-
-    final isLoggedIn = await authService.isLoggedIn();
-    final biometricEnabled =
-        await (biometricService?.isBiometricEnabled() ?? Future.value(false));
-
-    // Should we require biometric lock *right now* on cold launch?
-    if (widget.requireBiometricOnLaunch) {
-      setState(() {
-        _showBiometricLock = true;
-      });
-    }
-
+  /// ✅ Simplified initialization
+  Future<void> _initialize() async {
+    _logger.info('MyApp initializing...');
+    
+    // Set biometric lock state based on launch requirement
     setState(() {
-      _loadingInitialState = false;
+      _showBiometricLock = widget.requireBiometricOnLaunch;
+      _isInitializing = false;
     });
+    
+    _logger.info('MyApp ready - Biometric lock: $_showBiometricLock');
   }
 
-  // ---------------------------------------------------------------------------
-  // APP LIFECYCLE HANDLER (resume + pause)
-  // ---------------------------------------------------------------------------
-  
+  /// ✅ Improved lifecycle handling
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) async {
-    final biometricService = BiometricAuthService.instance;
+    _logger.info('App lifecycle state: $state');
+    
+    final authService = context.read<AuthService>();
+    final biometricService = context.read<BiometricAuthService>();
 
-    if (state == AppLifecycleState.paused) {
-      // Invalidate the biometric session for security
-      await biometricService?.invalidateBiometricSession();
-    }
+    switch (state) {
+      case AppLifecycleState.paused:
+      case AppLifecycleState.inactive:
+        // Invalidate session when app goes to background
+        await biometricService.invalidateBiometricSession();
+        _logger.info('Biometric session invalidated');
+        break;
 
-    if (state == AppLifecycleState.resumed) {
-      // Only require biometric if user is logged in, biometric is enabled, 
-      // AND there's no valid session
-      final authService = AuthService.instance;
-      final isLoggedIn = await authService.isLoggedIn();
-      
-      // Use explicit null checks and await
-      final biometricEnabled = biometricService != null 
-          ? await biometricService.isBiometricEnabled() 
-          : false;
-      final hasValidSession = biometricService != null 
-          ? await biometricService.hasValidBiometricSession() 
-          : false;
+      case AppLifecycleState.resumed:
+        // Check if we need to show biometric lock
+        final isLoggedIn = authService.hasActiveProfile;
+        final biometricEnabled = await biometricService.isBiometricEnabled();
+        final hasValidSession = await biometricService.hasValidBiometricSession();
 
-      if (isLoggedIn && biometricEnabled && !hasValidSession && mounted) {
-        setState(() {
-          _showBiometricLock = true;
-        });
-      }
+        if (isLoggedIn && biometricEnabled && !hasValidSession) {
+          if (mounted) {
+            setState(() {
+              _showBiometricLock = true;
+            });
+            _logger.info('Biometric lock required on resume');
+          }
+        }
+        break;
+
+      default:
+        break;
     }
   }
 
@@ -357,102 +417,110 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     super.dispose();
   }
 
-  // ---------------------------------------------------------------------------
-  // BIOMETRIC UNLOCK CALLBACK
-  // ---------------------------------------------------------------------------
+  /// ✅ Simplified biometric unlock
   Future<void> _handleBiometricUnlock() async {
-    final biometricService = BiometricAuthService.instance;
-    await biometricService?.registerSuccessfulBiometricSession();
+    _logger.info('Biometric unlock successful');
+    
+    final biometricService = context.read<BiometricAuthService>();
+    await biometricService.registerSuccessfulBiometricSession();
 
-    setState(() {
-      _showBiometricLock = false;
-      _biometricAuthenticated = true;
-    });
+    if (mounted) {
+      setState(() {
+        _showBiometricLock = false;
+      });
+    }
   }
 
-  // ---------------------------------------------------------------------------
-  // ROOT BUILD METHOD
-  // ---------------------------------------------------------------------------
   @override
   Widget build(BuildContext context) {
-    final themeService = Provider.of<ThemeService>(context);
+    final themeService = context.watch<ThemeService>();
 
-    // Still loading initial state? Show splash.
-    if (_loadingInitialState) {
+    // Show splash while initializing
+    if (_isInitializing) {
       return MaterialApp(
         theme: AppTheme.lightTheme,
         darkTheme: AppTheme.darkTheme,
         themeMode: themeService.themeMode,
-        home: Scaffold(
-          body: Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SvgPicture.asset(
-                  'assets/icons/fedha_logo.svg',
-                  height: 100,
-                ),
-                const SizedBox(height: 24),
-                const CircularProgressIndicator(),
-              ],
-            ),
-          ),
-        ),
+        home: _buildSplashScreen(),
       );
     }
 
-    // If biometric lock required, render it *as the root page*
+    // Show biometric lock if required
     if (_showBiometricLock) {
       return MaterialApp(
-        navigatorKey: _navigatorKey,                 
+        navigatorKey: _navigatorKey,
         theme: AppTheme.lightTheme,
         darkTheme: AppTheme.darkTheme,
-        themeMode: themeService.themeMode,          
+        themeMode: themeService.themeMode,
         home: BiometricLockScreen(
           onAuthSuccess: _handleBiometricUnlock,
         ),
-        routes: { /* same routes map as below if needed */ },
       );
     }
 
-    // Otherwise, load the normal app routing
+    // Show normal app
     return MaterialApp(
       navigatorKey: _navigatorKey,
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: themeService.themeMode,
       home: const AuthWrapper(),
-      // (Keep your routes unchanged)
-      routes: {
-        '/investment_calculator': (context) => const InvestmentCalculatorScreen(),
-        '/investment_irr_calculator': (context) => const InvestmentIRRCalculatorScreen(),
-        '/progressive_goal_wizard': (context) => const ProgressiveGoalWizardScreen(),
-        '/add_goal': (context) => const AddGoalScreen(),
-        '/create_budget': (context) => const CreateBudgetScreen(),
-        '/goals': (context) => const GoalsScreen(),
-        '/add_transaction': (context) => const TransactionEntryUnifiedScreen(),
-        '/loan_calculator': (context) => const LoanCalculatorScreen(),
-        '/transaction_entry': (context) => const TransactionEntryUnifiedScreen(),
-        '/detailed_transaction_entry': (context) => const TransactionEntryUnifiedScreen(),
-        '/login': (context) => const LoginScreen(),
-        '/signup': (context) => const SignupScreen(),
-        '/test_profiles': (context) => const TestProfilesScreen(),
-        '/spending_overview': (context) => const SpendingOverviewScreen(),
-        '/loans_tracker': (context) => const LoansTrackerScreen(),
-        '/connection_diagnostics': (context) => ConnectionDiagnosticsScreen(
-              apiClient: Provider.of<ApiClient>(context, listen: false),
-            ),
-        '/device_network_info': (context) => const DeviceInfoScreen(),
-        '/ip_settings': (context) => const IpSettingsScreen(),
-        '/debt_repayment_planner': (context) => const DebtRepaymentPlannerScreen(),
-        '/asset_protection': (context) => AssetProtectionIntroScreen(),
-        '/asset_protection_intro': (context) => AssetProtectionIntroScreen(),
-        '/asset_protection_health': (context) => HealthCoverScreen(),
-        '/asset_protection_vehicle': (context) => VehicleCoverScreen(),
-        '/asset_protection_home': (context) => HomeCoverScreen(),
-        '/emergency-fund': (context) => const EmergencyFundScreen(),
-        '/sms_review': (context) => const SmsReviewScreen(),
-      },
+      routes: _buildRoutes(),
     );
+  }
+
+  Widget _buildSplashScreen() {
+    return Scaffold(
+      body: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SvgPicture.asset(
+              'assets/icons/fedha_logo.svg',
+              height: 100,
+            ),
+            const SizedBox(height: 24),
+            const CircularProgressIndicator(),
+            const SizedBox(height: 16),
+            const Text('Loading...'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Map<String, WidgetBuilder> _buildRoutes() {
+    return {
+      '/welcome_onboarding': (context) => const WelcomeOnboardingScreen(),
+      '/transactions': (context) => const TransactionsScreen(),
+      '/investment_calculator': (context) => const InvestmentCalculatorScreen(),
+      '/investment_irr_calculator': (context) => const InvestmentIRRCalculatorScreen(),
+      '/progressive_goal_wizard': (context) => const ProgressiveGoalWizardScreen(),
+      '/add_goal': (context) => const AddGoalScreen(),
+      '/create_budget': (context) => const CreateBudgetScreen(),
+      '/goals': (context) => const GoalsScreen(),
+      '/add_transaction': (context) => const TransactionEntryUnifiedScreen(),
+      '/loan_calculator': (context) => const LoanCalculatorScreen(),
+      '/transaction_entry': (context) => const TransactionEntryUnifiedScreen(),
+      '/detailed_transaction_entry': (context) => const TransactionEntryUnifiedScreen(),
+      '/login': (context) => const LoginScreen(),
+      '/signup': (context) => const SignupScreen(),
+      '/test_profiles': (context) => const TestProfilesScreen(),
+      '/spending_overview': (context) => const SpendingOverviewScreen(),
+      '/loans_tracker': (context) => const LoansTrackerScreen(),
+      '/connection_diagnostics': (context) => ConnectionDiagnosticsScreen(
+            apiClient: context.read<ApiClient>(),
+          ),
+      '/device_network_info': (context) => const DeviceInfoScreen(),
+      '/ip_settings': (context) => const IpSettingsScreen(),
+      '/debt_repayment_planner': (context) => const DebtRepaymentPlannerScreen(),
+      '/asset_protection': (context) => AssetProtectionIntroScreen(),
+      '/asset_protection_intro': (context) => AssetProtectionIntroScreen(),
+      '/asset_protection_health': (context) => HealthCoverScreen(),
+      '/asset_protection_vehicle': (context) => VehicleCoverScreen(),
+      '/asset_protection_home': (context) => HomeCoverScreen(),
+      '/emergency-fund': (context) => const EmergencyFundScreen(),
+      '/sms_review': (context) => const SmsReviewScreen(),
+    };
   }
 }

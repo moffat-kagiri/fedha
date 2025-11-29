@@ -115,9 +115,9 @@ class DashboardContent extends StatelessWidget {
 
   Future<DashboardData> _loadDashboardData(OfflineDataService dataService, String profileId) async {
     try {
-      final profileIdInt = int.tryParse(profileId) ?? 0;
-      final goals = await dataService.getAllGoals(profileIdInt);
-      final allTransactions = await dataService.getAllTransactions(profileIdInt);
+      // No more int parsing!
+      final goals = await dataService.getAllGoals(profileId);
+      final allTransactions = await dataService.getAllTransactions(profileId);
       allTransactions.sort((a, b) => b.date.compareTo(a.date));
       final recentTransactions = allTransactions.take(5).toList();
       
@@ -476,12 +476,10 @@ class DashboardContent extends StatelessWidget {
               ),
             ),
             TextButton(
-              onPressed: () {
-                // Navigate to transactions screen
-              },
+              onPressed: () => Navigator.of(context).pushNamed('/transactions'),
               child: const Text('View All'),
-            ),
-          ],
+              ),
+            ],
         ),
         const SizedBox(height: 16),
         if (transactions.isEmpty)

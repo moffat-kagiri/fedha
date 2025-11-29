@@ -47,7 +47,14 @@ class _SmsTransactionReviewScreenState extends State<SmsTransactionReviewScreen>
     try {
       final dataService = Provider.of<OfflineDataService>(context, listen: false);
       final authService = Provider.of<AuthService>(context, listen: false);
-      final profileId = int.tryParse(authService.currentProfile?.id ?? '') ?? 0;
+      
+      // ✅ FIXED: Use string profileId directly
+      final profileId = authService.currentProfile?.id ?? '';
+      
+      if (profileId.isEmpty) {
+        throw Exception('No active profile found');
+      }
+
       final pending = await dataService.getPendingTransactions(profileId);
       setState(() {
         _pendingTransactions = pending;
@@ -59,8 +66,10 @@ class _SmsTransactionReviewScreenState extends State<SmsTransactionReviewScreen>
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Error loading pending transactions'),
+          content: Text('Error loading pending transactions: ${e.toString()}'),
           backgroundColor: Theme.of(context).colorScheme.error,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       );
     }
@@ -75,15 +84,19 @@ class _SmsTransactionReviewScreenState extends State<SmsTransactionReviewScreen>
       
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Transaction approved'),
+          content: const Text('Transaction approved successfully'),
           backgroundColor: Theme.of(context).colorScheme.primary,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error approving transaction: $e'),
+          content: Text('Error approving transaction: ${e.toString()}'),
           backgroundColor: Theme.of(context).colorScheme.error,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       );
     }
@@ -99,13 +112,17 @@ class _SmsTransactionReviewScreenState extends State<SmsTransactionReviewScreen>
         SnackBar(
           content: const Text('Transaction rejected'),
           backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error rejecting transaction: $e'),
+          content: Text('Error rejecting transaction: ${e.toString()}'),
           backgroundColor: Theme.of(context).colorScheme.error,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       );
     }
@@ -123,15 +140,21 @@ class _SmsTransactionReviewScreenState extends State<SmsTransactionReviewScreen>
     return Scaffold(
       appBar: AppBar(
         title: const Text('SMS Transactions'),
+        backgroundColor: colorScheme.primary,
+        foregroundColor: colorScheme.onPrimary,
+        elevation: 0,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
             onPressed: _refreshTransactions,
+            tooltip: 'Refresh',
           ),
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(
+              child: CircularProgressIndicator(),
+            )
           : _buildBody(),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
@@ -147,6 +170,8 @@ class _SmsTransactionReviewScreenState extends State<SmsTransactionReviewScreen>
             await _checkPermissions();
           }
         },
+        backgroundColor: colorScheme.primary,
+        foregroundColor: colorScheme.onPrimary,
         child: Icon(_hasPermissions && SmsListenerService.instance.isListening
             ? Icons.pause_rounded
             : Icons.play_arrow_rounded),
@@ -176,12 +201,17 @@ class _SmsTransactionReviewScreenState extends State<SmsTransactionReviewScreen>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.sms_rounded, size: 64, color: colorScheme.primary),
-            const SizedBox(height: 16),
+            Icon(
+              Icons.sms_rounded, 
+              size: 64, 
+              color: colorScheme.primary.withOpacity(0.7)
+            ),
+            const SizedBox(height: 24),
             Text(
               'SMS Permission Required',
               style: textTheme.headlineSmall?.copyWith(
                 fontWeight: FontWeight.w600,
+                color: colorScheme.onSurface,
               ),
             ),
             const SizedBox(height: 16),
@@ -189,12 +219,22 @@ class _SmsTransactionReviewScreenState extends State<SmsTransactionReviewScreen>
               'To automatically detect financial transactions from SMS messages, '
               'Fedha needs permission to read your SMS messages.',
               textAlign: TextAlign.center,
-              style: textTheme.bodyLarge,
+              style: textTheme.bodyLarge?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 32),
             FilledButton(
               onPressed: _checkPermissions,
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+              ),
               child: const Text('Grant Permission'),
+            ),
+            const SizedBox(height: 16),
+            OutlinedButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Maybe Later'),
             ),
           ],
         ),
@@ -212,29 +252,58 @@ class _SmsTransactionReviewScreenState extends State<SmsTransactionReviewScreen>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.inbox_rounded, size: 64, color: colorScheme.outline),
-            const SizedBox(height: 16),
+            Icon(
+              Icons.inbox_rounded, 
+              size: 64, 
+              color: colorScheme.outline.withOpacity(0.5)
+            ),
+            const SizedBox(height: 24),
             Text(
               'No Pending Transactions',
               style: textTheme.headlineSmall?.copyWith(
                 fontWeight: FontWeight.w600,
+                color: colorScheme.onSurface,
               ),
             ),
             const SizedBox(height: 16),
             Text(
-              'Fedha will automatically detect financial transactions from your SMS messages.',
+              'Fedha will automatically detect financial transactions from your SMS messages '
+              'and show them here for review.',
               textAlign: TextAlign.center,
-              style: textTheme.bodyLarge,
+              style: textTheme.bodyLarge?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
             ),
-            const SizedBox(height: 8),
-            Text(
-              SmsListenerService.instance.isListening
-                  ? 'SMS monitoring is active'
-                  : 'SMS monitoring is paused',
-              style: TextStyle(
-                color: SmsListenerService.instance.isListening
-                    ? FedhaColors.successGreen
-                    : FedhaColors.warningOrange,
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: colorScheme.surfaceVariant,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.info_outline_rounded,
+                    color: SmsListenerService.instance.isListening
+                        ? FedhaColors.successGreen
+                        : FedhaColors.warningOrange,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    SmsListenerService.instance.isListening
+                        ? 'SMS monitoring is active'
+                        : 'SMS monitoring is paused',
+                    style: textTheme.bodyMedium?.copyWith(
+                      color: SmsListenerService.instance.isListening
+                          ? FedhaColors.successGreen
+                          : FedhaColors.warningOrange,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -247,90 +316,168 @@ class _SmsTransactionReviewScreenState extends State<SmsTransactionReviewScreen>
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
 
-    return ListView.builder(
-      itemCount: _pendingTransactions.length,
-      itemBuilder: (context, index) {
-        final transaction = _pendingTransactions[index];
-        return Card(
-          margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '${transaction.description ?? 'Transaction'}',
-                            style: textTheme.bodyLarge?.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'KES ${transaction.amount.toStringAsFixed(2)}',
-                            style: textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w600,
-                              color: transaction.type == TransactionType.expense
-                                  ? FedhaColors.errorRed
-                                  : FedhaColors.successGreen,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Text(
-                      _formatDate(transaction.date),
-                      style: textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
+    return Column(
+      children: [
+        // Header with count
+        Container(
+          padding: const EdgeInsets.all(16),
+          color: colorScheme.surfaceVariant,
+          child: Row(
+            children: [
+              Icon(Icons.pending_actions_rounded, color: colorScheme.primary),
+              const SizedBox(width: 12),
+              Text(
+                '${_pendingTransactions.length} Pending Transactions',
+                style: textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: colorScheme.onSurface,
                 ),
-                const SizedBox(height: 8),
-                if (transaction.smsSource != null)
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: colorScheme.surfaceVariant,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      transaction.smsSource!,
-                      style: textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+        // Transactions list
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: _pendingTransactions.length,
+            itemBuilder: (context, index) {
+              final transaction = _pendingTransactions[index];
+              return _buildTransactionCard(transaction, colorScheme, textTheme);
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTransactionCard(Transaction transaction, ColorScheme colorScheme, TextTheme textTheme) {
+    final isExpense = transaction.type == TransactionType.expense;
+    
+    return Card(
+      margin: const EdgeInsets.only(bottom: 16),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header row
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        transaction.description ?? 'Transaction',
+                        style: textTheme.bodyLarge?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: colorScheme.onSurface,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'KES ${transaction.amount.toStringAsFixed(2)}',
+                        style: textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: isExpense ? FedhaColors.errorRed : FedhaColors.successGreen,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: isExpense 
+                        ? FedhaColors.errorRed.withOpacity(0.1)
+                        : FedhaColors.successGreen.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    isExpense ? 'Expense' : 'Income',
+                    style: textTheme.labelSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: isExpense ? FedhaColors.errorRed : FedhaColors.successGreen,
                     ),
                   ),
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    OutlinedButton(
-                      onPressed: () => _rejectTransaction(transaction),
-                      child: const Text('Reject'),
-                    ),
-                    const SizedBox(width: 16),
-                    FilledButton(
-                      onPressed: () => _approveTransaction(transaction),
-                      child: const Text('Approve'),
-                    ),
-                  ],
                 ),
               ],
             ),
-          ),
-        );
-      },
+            
+            const SizedBox(height: 16),
+            
+            // Date and source
+            Row(
+              children: [
+                Icon(Icons.calendar_today_rounded, size: 16, color: colorScheme.onSurfaceVariant),
+                const SizedBox(width: 8),
+                Text(
+                  _formatDate(transaction.date),
+                  style: textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const Spacer(),
+                if (transaction.smsSource != null) ...[
+                  Icon(Icons.sms_rounded, size: 16, color: colorScheme.onSurfaceVariant),
+                  const SizedBox(width: 8),
+                  Text(
+                    transaction.smsSource!,
+                    style: textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ],
+            ),
+            
+            const SizedBox(height: 20),
+            
+            // Action buttons
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                OutlinedButton(
+                  onPressed: () => _rejectTransaction(transaction),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  ),
+                  child: const Text('Reject'),
+                ),
+                const SizedBox(width: 12),
+                FilledButton(
+                  onPressed: () => _approveTransaction(transaction),
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  ),
+                  child: const Text('Approve'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 
   String _formatDate(DateTime date) {
-    return '${date.day}/${date.month}/${date.year}';
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final transactionDate = DateTime(date.year, date.month, date.day);
+    
+    if (transactionDate == today) {
+      return 'Today';
+    } else if (transactionDate == today.subtract(const Duration(days: 1))) {
+      return 'Yesterday';
+    } else {
+      return '${date.day}/${date.month}/${date.year}';
+    }
   }
 }

@@ -93,10 +93,12 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
       if (mounted) {
         Navigator.pop(context, true);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('🎉 Budget created successfully! You\'re on your way to better financial control.'),
-            backgroundColor: Color(0xFF007A39),
-            duration: Duration(seconds: 3),
+          SnackBar(
+            content: const Text('🎉 Budget created successfully! You\'re on your way to better financial control.'),
+            backgroundColor: Theme.of(context).colorScheme.primary,
+            duration: const Duration(seconds: 3),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
         );
       }
@@ -105,7 +107,9 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error creating budget: ${e.toString()}'),
-            backgroundColor: Colors.red,
+            backgroundColor: Theme.of(context).colorScheme.error,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
         );
       }
@@ -137,22 +141,26 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
+      backgroundColor: colorScheme.surface,
       appBar: AppBar(
         title: const Text('Create Budget'),
-        backgroundColor: const Color(0xFF007A39),
-        foregroundColor: Colors.white,
+        backgroundColor: colorScheme.primary,
+        foregroundColor: colorScheme.onPrimary,
         elevation: 0,
+        surfaceTintColor: Colors.transparent,
       ),
       body: Column(
         children: [
           // Progress indicator
           Container(
             padding: const EdgeInsets.all(20),
-            decoration: const BoxDecoration(
-              color: Color(0xFF007A39),
-              borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
+            decoration: BoxDecoration(
+              color: colorScheme.primary,
+              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(20)),
             ),
             child: Column(
               children: [
@@ -160,20 +168,21 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
                   children: [
                     Text(
                       'Step ${_currentPage + 1} of $_totalPages',
-                      style: const TextStyle(color: Colors.white70, fontSize: 14),
+                      style: TextStyle(color: colorScheme.onPrimary.withOpacity(0.8), fontSize: 14),
                     ),
                     const Spacer(),
                     Text(
                       '${((_currentPage + 1) / _totalPages * 100).round()}% Complete',
-                      style: const TextStyle(color: Colors.white70, fontSize: 14),
+                      style: TextStyle(color: colorScheme.onPrimary.withOpacity(0.8), fontSize: 14),
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 12),
                 LinearProgressIndicator(
                   value: (_currentPage + 1) / _totalPages,
-                  backgroundColor: Colors.white.withValues(red: 255, green: 255, blue: 255, alpha: 0.3),
-                  valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                  backgroundColor: colorScheme.onPrimary.withOpacity(0.3),
+                  valueColor: AlwaysStoppedAnimation<Color>(colorScheme.onPrimary),
+                  borderRadius: BorderRadius.circular(8),
                 ),
               ],
             ),
@@ -189,10 +198,10 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
                 });
               },
               children: [
-                _buildWelcomePage(),
-                _buildIncomeSetupPage(),
-                _buildCategoryBudgetPage(),
-                _buildReviewPage(),
+                _buildWelcomePage(context),
+                _buildIncomeSetupPage(context),
+                _buildCategoryBudgetPage(context),
+                _buildReviewPage(context),
               ],
             ),
           ),
@@ -201,38 +210,30 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.grey.withValues(red: 158, green: 158, blue: 158, alpha: 0.1),
-                  blurRadius: 10,
-                  offset: const Offset(0, -2),
-                ),
-              ],
+              color: colorScheme.surface,
+              border: Border(
+                top: BorderSide(color: colorScheme.outline.withOpacity(0.2)),
+              ),
             ),
             child: Row(
               children: [
                 if (_currentPage > 0)
                   Expanded(
-                    child: OutlinedButton(
+                    child: FilledButton.tonal(
                       onPressed: _previousPage,
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFF007A39),
-                        side: const BorderSide(color: Color(0xFF007A39)),
+                      style: FilledButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 16),
                       ),
                       child: const Text('Previous'),
                     ),
                   ),
-                if (_currentPage > 0) const SizedBox(width: 16),
+                if (_currentPage > 0) const SizedBox(width: 12),
                 Expanded(
-                  child: ElevatedButton(
+                  child: FilledButton(
                     onPressed: _currentPage == _totalPages - 1 
                         ? (_isCreating ? null : _createBudget)
                         : _nextPage,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF007A39),
-                      foregroundColor: Colors.white,
+                    style: FilledButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 16),
                     ),
                     child: _isCreating
@@ -244,7 +245,6 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
                                 height: 20,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                                 ),
                               ),
                               SizedBox(width: 8),
@@ -262,66 +262,63 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
     );
   }
 
-  Widget _buildWelcomePage() {
+  Widget _buildWelcomePage(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 20),
-          const Icon(
-            Icons.account_balance_wallet,
+          Icon(
+            Icons.account_balance_wallet_outlined,
             size: 80,
-            color: Color(0xFF007A39),
+            color: colorScheme.primary,
           ),
-          const SizedBox(height: 20),
-          const Text(
+          const SizedBox(height: 24),
+          Text(
             'Great Choice! 🎉',
-            style: TextStyle(
-              fontSize: 28,
+            style: textTheme.headlineMedium?.copyWith(
               fontWeight: FontWeight.bold,
-              color: Color(0xFF007A39),
+              color: colorScheme.primary,
             ),
           ),
           const SizedBox(height: 16),
-          const Text(
+          Text(
             'You\'re taking a fantastic step toward financial wellness! Creating a budget is one of the most powerful tools for achieving your financial goals.',
-            style: TextStyle(fontSize: 16, height: 1.5),
+            style: textTheme.bodyLarge?.copyWith(height: 1.5),
           ),
           const SizedBox(height: 24),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: const Color(0xFF007A39).withValues(red: 0, green: 122, blue: 57, alpha: 0.1),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFF007A39).withValues(red: 0, green: 122, blue: 57, alpha: 0.3)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'What you\'ll accomplish:',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF007A39),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'What you\'ll accomplish:',
+                    style: textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: colorScheme.primary,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 12),
-                _buildBenefitItem('📊', 'Track spending across categories'),
-                _buildBenefitItem('🎯', 'Set realistic financial goals'),
-                _buildBenefitItem('📱', 'Get progress notifications'),
-                _buildBenefitItem('💰', 'Build healthy money habits'),
-              ],
+                  const SizedBox(height: 16),
+                  _buildBenefitItem('📊', 'Track spending across categories'),
+                  _buildBenefitItem('🎯', 'Set realistic financial goals'),
+                  _buildBenefitItem('📱', 'Get progress notifications'),
+                  _buildBenefitItem('💰', 'Build healthy money habits'),
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 24),
           TextFormField(
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               labelText: 'Budget Name',
               hintText: 'e.g., "January 2025 Budget" or "Monthly Expenses"',
-              border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.edit, color: Color(0xFF007A39)),
+              prefixIcon: Icon(Icons.edit_outlined, color: colorScheme.primary),
             ),
             onChanged: (value) {
               setState(() {
@@ -332,10 +329,9 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
           const SizedBox(height: 16),
           DropdownButtonFormField<BudgetPeriod>(
             value: _budgetPeriod,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               labelText: 'Budget Period',
-              border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.calendar_today, color: Color(0xFF007A39)),
+              prefixIcon: Icon(Icons.calendar_today_outlined, color: colorScheme.primary),
             ),
             items: BudgetPeriod.values.map((period) {
               return DropdownMenuItem(
@@ -354,39 +350,40 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
     );
   }
 
-  Widget _buildIncomeSetupPage() {
+  Widget _buildIncomeSetupPage(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 20),
-          const Icon(
-            Icons.attach_money,
+          Icon(
+            Icons.attach_money_outlined,
             size: 80,
-            color: Color(0xFF007A39),
+            color: colorScheme.primary,
           ),
-          const SizedBox(height: 20),
-          const Text(
+          const SizedBox(height: 24),
+          Text(
             'Your Income 💚',
-            style: TextStyle(
-              fontSize: 28,
+            style: textTheme.headlineMedium?.copyWith(
               fontWeight: FontWeight.bold,
-              color: Color(0xFF007A39),
+              color: colorScheme.primary,
             ),
           ),
           const SizedBox(height: 16),
           Text(
             'Let\'s start with your ${_budgetPeriod.name} income. This will help us suggest realistic budget amounts for each category.',
-            style: const TextStyle(fontSize: 16, height: 1.5),
+            style: textTheme.bodyLarge?.copyWith(height: 1.5),
           ),
           const SizedBox(height: 32),
           TextFormField(
             decoration: InputDecoration(
               labelText: '${_budgetPeriod.name.toUpperCase()} Income (Ksh)',
               hintText: 'Enter your total income for this period',
-              border: const OutlineInputBorder(),
-              prefixIcon: const Icon(Icons.account_balance, color: Color(0xFF007A39)),
+              prefixIcon: Icon(Icons.account_balance_outlined, color: colorScheme.primary),
             ),
             keyboardType: TextInputType.number,
             inputFormatters: [
@@ -400,42 +397,38 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
           ),
           const SizedBox(height: 24),
           if (_totalIncome > 0) ...[
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.green.shade50,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.green.shade200),
-              ),
-              child: Column(
-                children: [
-                  const Icon(Icons.lightbulb, color: Color(0xFF007A39), size: 32),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Smart Budgeting Tip',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF007A39),
+            Card(
+              color: colorScheme.primaryContainer,
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  children: [
+                    Icon(Icons.lightbulb_outline, color: colorScheme.primary, size: 32),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Smart Budgeting Tip',
+                      style: textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: colorScheme.primary,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Follow the 50/30/20 rule:\n• 50% for needs (housing, food, utilities)\n• 30% for wants (entertainment, dining out)\n• 20% for savings and debt payment',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 14),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'For Ksh ${_totalIncome.toStringAsFixed(2)}:\n• Needs: Ksh ${(_totalIncome * 0.5).toStringAsFixed(2)}\n• Wants: Ksh ${(_totalIncome * 0.3).toStringAsFixed(2)}\n• Savings: Ksh ${(_totalIncome * 0.2).toStringAsFixed(2)}',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF007A39),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Follow the 50/30/20 rule:\n• 50% for needs (housing, food, utilities)\n• 30% for wants (entertainment, dining out)\n• 20% for savings and debt payment',
+                      textAlign: TextAlign.center,
+                      style: textTheme.bodyMedium,
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 16),
+                    Text(
+                      'For Ksh ${_totalIncome.toStringAsFixed(2)}:\n• Needs: Ksh ${(_totalIncome * 0.5).toStringAsFixed(2)}\n• Wants: Ksh ${(_totalIncome * 0.3).toStringAsFixed(2)}\n• Savings: Ksh ${(_totalIncome * 0.2).toStringAsFixed(2)}',
+                      textAlign: TextAlign.center,
+                      style: textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: colorScheme.primary,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
@@ -444,83 +437,82 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
     );
   }
 
-  Widget _buildCategoryBudgetPage() {
+  Widget _buildCategoryBudgetPage(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 20),
-          const Icon(
-            Icons.category,
+          Icon(
+            Icons.category_outlined,
             size: 80,
-            color: Color(0xFF007A39),
+            color: colorScheme.primary,
           ),
-          const SizedBox(height: 20),
-          const Text(
+          const SizedBox(height: 24),
+          Text(
             'Allocate Your Budget 📊',
-            style: TextStyle(
-              fontSize: 28,
+            style: textTheme.headlineMedium?.copyWith(
               fontWeight: FontWeight.bold,
-              color: Color(0xFF007A39),
+              color: colorScheme.primary,
             ),
           ),
           const SizedBox(height: 16),
-          const Text(
+          Text(
             'Now let\'s allocate your income across different spending categories. You can adjust these amounts as needed.',
-            style: TextStyle(fontSize: 16, height: 1.5),
+            style: textTheme.bodyLarge?.copyWith(height: 1.5),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 24),
           
           // Budget summary card
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: const Color(0xFF007A39).withValues(red: 0, green: 122, blue: 57, alpha: 0.1),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFF007A39).withValues(red: 0, green: 122, blue: 57, alpha: 0.3)),
-            ),
-            child: Column(
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text('Total Income:', style: TextStyle(fontSize: 16)),
-                    Text('Ksh ${_totalIncome.toStringAsFixed(2)}', 
-                         style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text('Allocated:', style: TextStyle(fontSize: 16)),
-                    Text('Ksh ${_totalAllocated.toStringAsFixed(2)}', 
-                         style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text('Remaining:', style: TextStyle(fontSize: 16)),
-                    Text('Ksh ${_remainingBudget.toStringAsFixed(2)}', 
-                         style: TextStyle(
-                           fontSize: 16, 
-                           fontWeight: FontWeight.bold,
-                           color: _remainingBudget >= 0 ? const Color(0xFF007A39) : Colors.red,
-                         )),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                LinearProgressIndicator(
-                  value: _totalIncome > 0 ? (_totalAllocated / _totalIncome).clamp(0.0, 1.0) : 0.0,
-                  backgroundColor: Colors.grey.shade300,
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                    _remainingBudget >= 0 ? const Color(0xFF007A39) : Colors.red,
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Total Income:', style: textTheme.bodyLarge),
+                      Text('Ksh ${_totalIncome.toStringAsFixed(2)}', 
+                           style: textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.bold)),
+                    ],
                   ),
-                ),
-              ],
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Allocated:', style: textTheme.bodyLarge),
+                      Text('Ksh ${_totalAllocated.toStringAsFixed(2)}', 
+                           style: textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Remaining:', style: textTheme.bodyLarge),
+                      Text('Ksh ${_remainingBudget.toStringAsFixed(2)}', 
+                           style: textTheme.bodyLarge?.copyWith(
+                             fontWeight: FontWeight.bold,
+                             color: _remainingBudget >= 0 ? colorScheme.primary : colorScheme.error,
+                           )),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  LinearProgressIndicator(
+                    value: _totalIncome > 0 ? (_totalAllocated / _totalIncome).clamp(0.0, 1.0) : 0.0,
+                    backgroundColor: colorScheme.surfaceVariant,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      _remainingBudget >= 0 ? colorScheme.primary : colorScheme.error,
+                    ),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ],
+              ),
             ),
           ),
           
@@ -534,8 +526,7 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
                 child: TextFormField(
                   decoration: InputDecoration(
                     labelText: '$category (Ksh)',
-                    border: const OutlineInputBorder(),
-                    prefixIcon: Icon(_getCategoryIcon(category), color: const Color(0xFF007A39)),
+                    prefixIcon: Icon(_getCategoryIcon(category), color: colorScheme.primary),
                   ),
                   keyboardType: TextInputType.number,
                   inputFormatters: [
@@ -554,20 +545,19 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
           if (_remainingBudget < 0) ...[
             const SizedBox(height: 16),
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.red.shade50,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.red.shade200),
+                color: colorScheme.errorContainer,
+                borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.warning, color: Colors.red),
-                  const SizedBox(width: 8),
+                  Icon(Icons.warning_outlined, color: colorScheme.error),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: Text(
                       'You\'ve allocated more than your income! Please reduce some category amounts by Ksh ${(-_remainingBudget).toStringAsFixed(2)}',
-                      style: const TextStyle(color: Colors.red, fontSize: 14),
+                      style: textTheme.bodyMedium?.copyWith(color: colorScheme.onErrorContainer),
                     ),
                   ),
                 ],
@@ -579,187 +569,173 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
     );
   }
 
-  Widget _buildReviewPage() {
+  Widget _buildReviewPage(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 20),
-          const Icon(
-            Icons.check_circle,
+          Icon(
+            Icons.check_circle_outline,
             size: 80,
-            color: Color(0xFF007A39),
+            color: colorScheme.primary,
           ),
-          const SizedBox(height: 20),
-          const Text(
+          const SizedBox(height: 24),
+          Text(
             'Review Your Budget ✨',
-            style: TextStyle(
-              fontSize: 28,
+            style: textTheme.headlineMedium?.copyWith(
               fontWeight: FontWeight.bold,
-              color: Color(0xFF007A39),
+              color: colorScheme.primary,
             ),
           ),
           const SizedBox(height: 16),
-          const Text(
+          Text(
             'Perfect! Here\'s a summary of your budget. You can always adjust it later from the budget management screen.',
-            style: TextStyle(fontSize: 16, height: 1.5),
+            style: textTheme.bodyLarge?.copyWith(height: 1.5),
           ),
           const SizedBox(height: 24),
           
           // Budget summary
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey.shade200),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.grey.withValues(red: 158, green: 158, blue: 158, alpha: 0.1),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _budgetName.isEmpty ? 'Your Budget' : _budgetName,
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF007A39),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _budgetName.isEmpty ? 'Your Budget' : _budgetName,
+                    style: textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: colorScheme.primary,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Period: ${_budgetPeriod.name.toUpperCase()}',
-                  style: const TextStyle(fontSize: 14, color: Colors.grey),
-                ),
-                const Divider(height: 24),
-                
-                // Income
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Total Income:',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                    ),
-                    Text(
-                      'Ksh ${_totalIncome.toStringAsFixed(2)}',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF007A39),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Period: ${_budgetPeriod.name.toUpperCase()}',
+                    style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
+                  ),
+                  const SizedBox(height: 20),
+                  
+                  // Income
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Total Income:',
+                        style: textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.bold),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                
-                // Categories
-                const Text(
-                  'Budget Allocation:',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 12),
-                
-                // Category budget allocation
-                if (_categoryBudgets.entries.where((entry) => entry.value > 0).isNotEmpty)
-                  Column(
-                    children: _categoryBudgets.entries
-                        .where((entry) => entry.value > 0)
-                        .map((entry) {
-                      final percentage = _totalIncome > 0 ? (entry.value / _totalIncome * 100) : 0.0;
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: Row(
-                          children: [
-                            Icon(_getCategoryIcon(entry.key), 
-                                 size: 16, color: const Color(0xFF007A39)),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(entry.key, style: const TextStyle(fontSize: 14)),
-                            ),
-                            Text(
-                              'Ksh ${entry.value.toStringAsFixed(2)} (${percentage.toStringAsFixed(1)}%)',
-                              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                            ),
-                          ],
+                      Text(
+                        'Ksh ${_totalIncome.toStringAsFixed(2)}',
+                        style: textTheme.bodyLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: colorScheme.primary,
                         ),
-                      );
-                    }).toList(),
-                  ),
-                
-                const Divider(height: 24),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Total Allocated:',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                    ),
-                    Text(
-                      'Ksh ${_totalAllocated.toStringAsFixed(2)}',
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Remaining:',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                    ),
-                    Text(
-                      'Ksh ${_remainingBudget.toStringAsFixed(2)}',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: _remainingBudget >= 0 ? const Color(0xFF007A39) : Colors.red,
                       ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  
+                  // Categories
+                  Text(
+                    'Budget Allocation:',
+                    style: textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Category budget allocation
+                  if (_categoryBudgets.entries.where((entry) => entry.value > 0).isNotEmpty)
+                    Column(
+                      children: _categoryBudgets.entries
+                          .where((entry) => entry.value > 0)
+                          .map((entry) {
+                        final percentage = _totalIncome > 0 ? (entry.value / _totalIncome * 100) : 0.0;
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: Row(
+                            children: [
+                              Icon(_getCategoryIcon(entry.key), 
+                                   size: 18, color: colorScheme.primary),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(entry.key, style: textTheme.bodyMedium),
+                              ),
+                              Text(
+                                'Ksh ${entry.value.toStringAsFixed(2)} (${percentage.toStringAsFixed(1)}%)',
+                                style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
                     ),
-                  ],
-                ),
-              ],
+                  
+                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Total Allocated:',
+                        style: textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.bold),
+                      ),
+                      Text(
+                        'Ksh ${_totalAllocated.toStringAsFixed(2)}',
+                        style: textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Remaining:',
+                        style: textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.bold),
+                      ),
+                      Text(
+                        'Ksh ${_remainingBudget.toStringAsFixed(2)}',
+                        style: textTheme.bodyLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: _remainingBudget >= 0 ? colorScheme.primary : colorScheme.error,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
           
           const SizedBox(height: 24),
           
           // Encouragement message
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: const Color(0xFF007A39).withValues(red: 0, green: 122, blue: 57, alpha: 0.1),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFF007A39).withValues(red: 0, green: 122, blue: 57, alpha: 0.3)),
-            ),
-            child: Column(
-              children: [
-                const Icon(Icons.emoji_events, color: Color(0xFF007A39), size: 32),
-                const SizedBox(height: 8),
-                const Text(
-                  'You\'re on your way to financial success! 🎉',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF007A39),
+          Card(
+            color: colorScheme.primaryContainer,
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                children: [
+                  Icon(Icons.emoji_events_outlined, color: colorScheme.primary, size: 32),
+                  const SizedBox(height: 12),
+                  Text(
+                    'You\'re on your way to financial success! 🎉',
+                    style: textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: colorScheme.primary,
+                    ),
+                    textAlign: TextAlign.center,
                   ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'We\'ll send you helpful notifications to keep you on track and celebrate your progress along the way.',
-                  style: TextStyle(fontSize: 14),
-                  textAlign: TextAlign.center,
-                ),
-              ],
+                  const SizedBox(height: 8),
+                  Text(
+                    'We\'ll send you helpful notifications to keep you on track and celebrate your progress along the way.',
+                    style: textTheme.bodyMedium,
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
             ),
           ),
         ],
@@ -768,8 +744,10 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
   }
 
   Widget _buildBenefitItem(String emoji, String text) {
+    final textTheme = Theme.of(context).textTheme;
+    
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.only(bottom: 12),
       child: Row(
         children: [
           Text(emoji, style: const TextStyle(fontSize: 16)),
@@ -777,7 +755,7 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
           Expanded(
             child: Text(
               text,
-              style: const TextStyle(fontSize: 14),
+              style: textTheme.bodyMedium,
             ),
           ),
         ],
@@ -788,25 +766,25 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
   IconData _getCategoryIcon(String category) {
     switch (category) {
       case 'Food & Dining':
-        return Icons.restaurant;
+        return Icons.restaurant_outlined;
       case 'Transportation':
-        return Icons.directions_car;
+        return Icons.directions_car_outlined;
       case 'Housing & Utilities':
-        return Icons.home;
+        return Icons.home_outlined;
       case 'Shopping':
-        return Icons.shopping_bag;
+        return Icons.shopping_bag_outlined;
       case 'Entertainment':
-        return Icons.movie;
+        return Icons.movie_outlined;
       case 'Healthcare':
-        return Icons.local_hospital;
+        return Icons.local_hospital_outlined;
       case 'Education':
-        return Icons.school;
+        return Icons.school_outlined;
       case 'Savings':
-        return Icons.savings;
+        return Icons.savings_outlined;
       case 'Emergency Fund':
-        return Icons.security;
+        return Icons.shield_outlined;
       default:
-        return Icons.category;
+        return Icons.category_outlined;
     }
   }
 }

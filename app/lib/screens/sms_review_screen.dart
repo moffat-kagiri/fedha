@@ -47,7 +47,7 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
     try {
       final dataService = Provider.of<OfflineDataService>(context, listen: false);
       final authService = Provider.of<AuthService>(context, listen: false);
-      final profileId = int.tryParse(authService.currentProfile?.id ?? '') ?? 0;
+      final profileId = authService.currentProfile?.id ?? '';
       final pendingTxList = await dataService.getPendingTransactions(profileId);
       _pendingCandidates = pendingTxList.map((transaction) {
         final raw = transaction.smsSource ?? '';

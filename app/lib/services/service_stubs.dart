@@ -71,7 +71,7 @@ class GoalTransactionService {
       type: TransactionType.savings,
       categoryId: '',
       date: DateTime.now(),
-      profileId: '0', // Default profile
+      profileId: '', // Default profile
       goalId: goalId,
     );
     
@@ -80,7 +80,7 @@ class GoalTransactionService {
 
   Future<List<dom_goal.Goal>> getSuggestedGoals() async {
     // Return the user's goals from the DB
-    return await _offlineService.getAllGoals(0);
+    return await _offlineService.getAllGoals('');
   }
 
   Future<Map<String, dynamic>> getGoalProgressSummary(String goalId) async {
@@ -88,7 +88,7 @@ class GoalTransactionService {
     if (goal == null) return {'progress': 0.0};
     
     // Get all transactions for this goal
-    final transactions = await _offlineService.getAllTransactions(0);
+    final transactions = await _offlineService.getAllTransactions('');
     final goalTransactions = transactions.where((t) => 
         t.goalId == goalId && t.type == TransactionType.savings).toList();
     

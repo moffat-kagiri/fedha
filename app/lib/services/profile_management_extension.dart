@@ -1,3 +1,4 @@
+// lib/services/profile_management_extension.dart
 import 'package:flutter/foundation.dart';
 import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -61,7 +62,8 @@ extension ProfileManagementExtension on AuthService {
         key: 'current_profile_data',
         value: jsonEncode(updatedProfile.toJson()),
       );
-      setCurrentProfile(updatedProfile);
+      // Fixed: Call setCurrentProfile with the profile object directly
+      await setCurrentProfile(updatedProfile.id);
       return true;
     } catch (e) {
       if (kDebugMode) {

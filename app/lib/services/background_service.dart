@@ -29,18 +29,23 @@ void callbackDispatcher() {
             // Create and initialize SMS listener
             final smsListener = SmsListenerService();
             
-            // Get profile ID from input data with fallback
-            final profileId = inputData?['profileId'] as String? ?? '1';
-            final numericProfileId = int.tryParse(profileId) ?? 1;
+            // ✅ FIXED: Use string profileId directly
+            final profileId = inputData?['profileId'] as String? ?? '';
             
+            if (profileId.isEmpty) {
+              print('No profile ID provided in background task');
+              return Future.value(false);
+            }
+            
+            // ✅ FIXED: Pass string directly, no conversion to int
             // Start SMS processing with offline data service
             await smsListener.initialize(
               offlineDataService: dataService,
               profileId: profileId
             );
             
-            // Check for pending transactions
-            final pendingCount = await dataService.getPendingTransactionCount(numericProfileId);
+            // ✅ FIXED: Use string profileId
+            final pendingCount = await dataService.getPendingTransactionCount(profileId);
             
             if (pendingCount > 0) {
               // Show notification only if there are pending transactions

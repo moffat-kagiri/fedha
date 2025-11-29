@@ -111,10 +111,9 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
       final offlineDataService = Provider.of<OfflineDataService>(context, listen: false);
       final authService = Provider.of<AuthService>(context, listen: false);
       
-      final profileIdStr = authService.currentProfile?.id ?? '';
-      final profileId = int.tryParse(profileIdStr) ?? 0;
+      final profileId = authService.currentProfile?.id ?? '';
       
-      if (profileId > 0) {
+      if (profileId.isNotEmpty) {
         final goals = await offlineDataService.getAllGoals(profileId);
         setState(() {
           _goalList = goals;

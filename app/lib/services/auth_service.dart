@@ -18,146 +18,186 @@ class AuthService with ChangeNotifier {
   static AuthService? _instance;
   static AuthService get instance => _instance ??= AuthService._();
 
-  final _uuid = Uuid();
-  final _secureStorage = FlutterSecureStorage();
+  // ✅ Dependencies injected, not created
+  OfflineDataService? _offlineDataService;
+  BiometricAuthService? _biometricService;
+  
+  final _uuid = const Uuid();
+  final _secureStorage = const FlutterSecureStorage();
   final _apiClient = ApiClient.instance;
   final _logger = AppLogger.getLogger('AuthService');
-  final _offlineDataService = OfflineDataService();
-  BiometricAuthService? _biometricService;
 
   Profile? _currentProfile;
+  bool _isInitialized = false;
 
   AuthService._();
 
+  // ✅ Getters
   Profile? get currentProfile => _currentProfile;
-  
-  void setCurrentProfile(Profile profile) {
-    _currentProfile = profile;
-    notifyListeners();
-  }
+  String? get profileId => _currentProfile?.id;
+  bool get isInitialized => _isInitialized;
+  bool get hasActiveProfile => _currentProfile != null && _currentProfile!.id.isNotEmpty;
 
-  Future<void> initialize() async {
-    _biometricService = BiometricAuthService.instance;
-    await _biometricService?.initialize();
+  /// ✅ NEW: Initialize with dependency injection
+  Future<void> initializeWithDependencies({
+    required OfflineDataService offlineDataService,
+    BiometricAuthService? biometricService,
+  }) async {
+    if (_isInitialized) {
+      _logger.warning('AuthService already initialized');
+      return;
+    }
     
-    // Try to restore existing session on startup
-    await _restoreExistingSession();
-  }
-
-  Future<void> _restoreExistingSession() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final isLoggedIn = prefs.getBool('is_logged_in') ?? false;
+      _logger.info('Initializing AuthService with dependencies...');
       
-      if (isLoggedIn) {
-        final profileData = await _secureStorage.read(key: 'current_profile_data');
-        if (profileData != null) {
-          final profileJson = jsonDecode(profileData);
-          _currentProfile = Profile.fromJson(profileJson);
-          _logger.info('Restored existing session for: ${_currentProfile?.email}');
-        }
-      }
-    } catch (e) {
-      _logger.warning('Failed to restore session: $e');
+      // Inject dependencies
+      _offlineDataService = offlineDataService;
+      _biometricService = biometricService;
+      
+      // Restore active profile
+      await _restoreActiveProfile();
+      
+      _isInitialized = true;
+      _logger.info('AuthService initialized - Active profile: ${_currentProfile?.name ?? "None"}');
+    } catch (e, stackTrace) {
+      _logger.severe('AuthService initialization failed', e, stackTrace);
+      _isInitialized = false;
+      rethrow;
     }
   }
 
-  Future<bool> isLoggedIn() async {
+  /// ✅ DEPRECATED: Use initializeWithDependencies instead
+  @Deprecated('Use initializeWithDependencies() for proper dependency injection')
+  Future<void> initialize() async {
+    _logger.warning('Using deprecated initialize() method. Use initializeWithDependencies() instead.');
+    
+    if (!_isInitialized) {
+      // Fallback for backward compatibility
+      _offlineDataService ??= OfflineDataService();
+      await _offlineDataService!.initialize();
+      await initializeWithDependencies(
+        offlineDataService: _offlineDataService!,
+        biometricService: _biometricService,
+      );
+    }
+  }
+
+  /// ✅ Restore active profile from persistent storage
+  Future<void> _restoreActiveProfile() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      return prefs.getBool('is_logged_in') ?? false;
-    } catch (e) {
-      _logger.severe('Failed to check login status: $e');
+      final isLoggedIn = prefs.getBool('is_logged_in') ?? false;
+      final currentProfileId = prefs.getString('current_profile_id');
+      
+      _logger.info('Restoring session - logged in: $isLoggedIn, profile ID: $currentProfileId');
+      
+      if (isLoggedIn && currentProfileId != null && currentProfileId.isNotEmpty) {
+        final profileData = await _secureStorage.read(key: 'profile_$currentProfileId');
+        
+        if (profileData != null) {
+          final profileJson = jsonDecode(profileData);
+          _currentProfile = Profile.fromJson(profileJson);
+          _logger.info('Profile restored: ${_currentProfile!.name} (${_currentProfile!.id})');
+        } else {
+          _logger.warning('Profile data not found for ID: $currentProfileId');
+          await _clearSession();
+        }
+      } else {
+        _logger.info('No active session to restore');
+        _currentProfile = null;
+      }
+    } catch (e, stackTrace) {
+      _logger.severe('Failed to restore active profile', e, stackTrace);
+      await _clearSession();
+    }
+  }
+
+  /// ✅ Set current profile by ID
+  Future<bool> setCurrentProfile(String profileId) async {
+    try {
+      _logger.info('Setting current profile: $profileId');
+      
+      final profileData = await _secureStorage.read(key: 'profile_$profileId');
+      if (profileData == null) {
+        _logger.warning('Profile data not found for ID: $profileId');
+        return false;
+      }
+      
+      final profileJson = jsonDecode(profileData);
+      final profile = Profile.fromJson(profileJson);
+      
+      _currentProfile = profile;
+      
+      // Persist active profile selection
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('current_profile_id', profileId);
+      await prefs.setBool('is_logged_in', true);
+      
+      // Initialize profile-specific services
+      await _initializeProfileServices(profileId);
+      
+      notifyListeners();
+      _logger.info('Current profile set: ${profile.name}');
+      return true;
+    } catch (e, stackTrace) {
+      _logger.severe('Failed to set current profile', e, stackTrace);
       return false;
     }
   }
 
-  Future<String?> getStoredProfile() async {
+  /// ✅ Store profile data with proper key
+  Future<void> _storeProfile(Profile profile) async {
     try {
-      return await _secureStorage.read(key: 'current_profile_data');
-    } catch (e) {
-      _logger.severe('Failed to get stored profile: $e');
-      return null;
+      final profileJson = jsonEncode(profile.toJson());
+      
+      // Store with unique profile key
+      await _secureStorage.write(
+        key: 'profile_${profile.id}',
+        value: profileJson,
+      );
+      
+      // Legacy compatibility key
+      await _secureStorage.write(
+        key: 'current_profile_data',
+        value: profileJson,
+      );
+      
+      _logger.info('Profile stored: ${profile.name} (${profile.id})');
+    } catch (e, stackTrace) {
+      _logger.severe('Failed to store profile', e, stackTrace);
+      rethrow;
     }
   }
-  Future<LoginResult> login({
-    required String email,
-    required String password,
-    }) async {
-    try {
-        // Check if we already have a profile for this email
-        final existingProfile = await _getProfileByEmail(email);
-        final bool isFirstLogin = existingProfile == null;
 
-        Profile profile;
-        if (existingProfile != null) {
-        // Use existing profile
-        profile = existingProfile.copyWith(
-            authToken: _createSessionToken(),
-            sessionToken: _createSessionToken(),
-        );
-        } else {
-        // Create new profile for first login
-        final deviceId = await _getOrCreateDeviceId();
-        final userId = _uuid.v4();
-        
-        // For first-time login, we don't have first/last name yet
-        // Use email username as temporary name - user can update later
-        final tempName = email.split('@')[0];
-        
-        profile = Profile.defaultProfile(
-            id: userId,
-            name: tempName, // Temporary name until user updates profile
-            email: email.trim(),
-            password: password,
-        ).copyWith(
-            authToken: _createSessionToken(),
-            sessionToken: _createSessionToken(),
-        );
-        }
-
-        // Persist profile and session
-        await _secureStorage.write(
-            key: 'current_profile_data',
-            value: jsonEncode(profile.toJson()),
-        );
-        await _secureStorage.write(key: 'session_token', value: profile.sessionToken!);
-
-        // Store login state
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setBool('is_logged_in', true);
-        await prefs.setString('profile_id', profile.id);
-
-        // Register biometric session for password login
-        await _biometricService?.registerSuccessfulPasswordLogin();
-
-        // Initialize SMS listener (only once)
-        await _initializeSmsListener(profile.id);
-
-        _currentProfile = profile;
-        notifyListeners();
-
-        _logger.info('User logged in successfully: $email (First login: $isFirstLogin)');
-        return LoginResult.success(
-            profile: profile, 
-            sessionToken: profile.sessionToken!,
-            isFirstLogin: isFirstLogin
-        );
-
-        } catch (e) {
-        _logger.severe('Login failed: $e');
-        return LoginResult.error(message: 'Login failed: ${e.toString()}');
-        }
-    }
-
+  /// ✅ Get profile by email
   Future<Profile?> _getProfileByEmail(String email) async {
     try {
-      final profileData = await _secureStorage.read(key: 'current_profile_data');
-      if (profileData != null) {
-        final profileJson = jsonDecode(profileData);
-        final existingProfile = Profile.fromJson(profileJson);
-        if (existingProfile.email?.toLowerCase() == email.toLowerCase()) {
-          return existingProfile;
+      // Check current profile first
+      if (_currentProfile?.email?.toLowerCase() == email.toLowerCase()) {
+        return _currentProfile;
+      }
+      
+      // Check stored profile
+      final prefs = await SharedPreferences.getInstance();
+      final currentProfileId = prefs.getString('current_profile_id');
+      
+      if (currentProfileId != null) {
+        final profileData = await _secureStorage.read(key: 'profile_$currentProfileId');
+        if (profileData != null) {
+          final profile = Profile.fromJson(jsonDecode(profileData));
+          if (profile.email?.toLowerCase() == email.toLowerCase()) {
+            return profile;
+          }
+        }
+      }
+      
+      // Check legacy storage
+      final legacyData = await _secureStorage.read(key: 'current_profile_data');
+      if (legacyData != null) {
+        final profile = Profile.fromJson(jsonDecode(legacyData));
+        if (profile.email?.toLowerCase() == email.toLowerCase()) {
+          return profile;
         }
       }
     } catch (e) {
@@ -165,6 +205,111 @@ class AuthService with ChangeNotifier {
     }
     return null;
   }
+
+  /// ✅ Initialize services for specific profile
+  Future<void> _initializeProfileServices(String profileId) async {
+    if (_offlineDataService == null) {
+      _logger.warning('OfflineDataService not available for profile initialization');
+      return;
+    }
+
+    try {
+      // Cancel existing background tasks
+      await Workmanager().cancelAll();
+      
+      // Initialize SMS listener
+      final smsService = SmsListenerService.instance;
+      await smsService.initialize(
+        offlineDataService: _offlineDataService!,
+        profileId: profileId,
+      );
+      
+      _logger.info('Profile services initialized for: $profileId');
+    } catch (e) {
+      _logger.warning('Failed to initialize profile services: $e');
+    }
+  }
+
+  /// ✅ Clear all session data
+  Future<void> _clearSession() async {
+    _currentProfile = null;
+    
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('is_logged_in', false);
+    await prefs.remove('current_profile_id');
+    
+    try {
+      await Workmanager().cancelAll();
+    } catch (e) {
+      _logger.warning('Failed to cancel background tasks: $e');
+    }
+    
+    notifyListeners();
+  }
+
+  // ==================== PUBLIC AUTH METHODS ====================
+
+  Future<bool> isLoggedIn() async {
+    return hasActiveProfile;
+  }
+
+  Future<String?> getStoredProfile() async {
+    try {
+      if (_currentProfile != null) {
+        return jsonEncode(_currentProfile!.toJson());
+      }
+      return await _secureStorage.read(key: 'current_profile_data');
+    } catch (e) {
+      _logger.severe('Failed to get stored profile: $e');
+      return null;
+    }
+  }
+
+  Future<LoginResult> login({
+    required String email,
+    required String password,
+  }) async {
+    try {
+      final existingProfile = await _getProfileByEmail(email);
+      final isFirstLogin = existingProfile == null;
+
+      Profile profile;
+      if (existingProfile != null) {
+        profile = existingProfile.copyWith(
+          authToken: _createSessionToken(),
+          sessionToken: _createSessionToken(),
+        );
+      } else {
+        final userId = _uuid.v4();
+        final tempName = email.split('@')[0];
+        
+        profile = Profile.defaultProfile(
+          id: userId,
+          name: tempName,
+          email: email.trim(),
+          password: password,
+        ).copyWith(
+          authToken: _createSessionToken(),
+          sessionToken: _createSessionToken(),
+        );
+      }
+
+      await _storeProfile(profile);
+      await setCurrentProfile(profile.id);
+      await _biometricService?.registerSuccessfulPasswordLogin();
+
+      _logger.info('User logged in: $email (First login: $isFirstLogin)');
+      return LoginResult.success(
+        profile: profile,
+        sessionToken: profile.sessionToken!,
+        isFirstLogin: isFirstLogin,
+      );
+    } catch (e, stackTrace) {
+      _logger.severe('Login failed', e, stackTrace);
+      return LoginResult.error(message: 'Login failed: ${e.toString()}');
+    }
+  }
+
   Future<bool> signup({
     required String firstName,
     required String lastName,
@@ -172,103 +317,143 @@ class AuthService with ChangeNotifier {
     required String password,
     String? phone,
     String? avatarPath,
-    }) async {
+  }) async {
     try {
-        final deviceId = await _getOrCreateDeviceId();
-        final sessionToken = _createSessionToken();
-        final userId = _uuid.v4();
-        final fullName = '$firstName $lastName'.trim(); // Use actual names from form
-        
-        final newProfile = Profile.defaultProfile(
+      final deviceId = await _getOrCreateDeviceId();
+      final sessionToken = _createSessionToken();
+      final userId = _uuid.v4();
+      final fullName = '$firstName $lastName'.trim();
+      
+      final newProfile = Profile.defaultProfile(
         id: userId,
-        name: fullName, // Use the combined first + last name
+        name: fullName,
         email: email.trim(),
         password: password,
-        );
-        
-        final updatedProfile = newProfile.copyWith(
+      ).copyWith(
         authToken: sessionToken,
         sessionToken: sessionToken,
         phoneNumber: phone ?? '',
         photoUrl: avatarPath ?? '',
-        );
-        
-        // Persist new profile JSON
-        await _secureStorage.write(
-            key: 'current_profile_data',
-            value: jsonEncode(updatedProfile.toJson()),
-        );
-        await _secureStorage.write(key: 'session_token', value: sessionToken);
-        
-        // Persist that an account has been created
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setBool('account_creation_attempted', true);
+      );
+      
+      await _storeProfile(newProfile);
+      await setCurrentProfile(newProfile.id);
+      
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('account_creation_attempted', true);
 
-        _currentProfile = updatedProfile;
-        notifyListeners();
-
-        // Try to sync with server if available
-        try {
-            final isConnected = await _apiClient.checkServerHealth();
-            if (isConnected) {
-            await _apiClient.createAccount(
-                email: email,
-                password: password,
-                firstName: firstName,
-                lastName: lastName,
-                deviceId: deviceId,
-            );
-            }
-        } catch (e) {
-            _logger.warning('Could not sync new account to server: $e');
+      // Try to sync with server
+      try {
+        final isConnected = await _apiClient.checkServerHealth();
+        if (isConnected) {
+          await _apiClient.createAccount(
+            email: email,
+            password: password,
+            firstName: firstName,
+            lastName: lastName,
+            deviceId: deviceId,
+          );
         }
-        return true;
-        } catch (e) {
-        _logger.severe('Signup failed: $e');
-        return false;
-        }
+      } catch (e) {
+        _logger.warning('Could not sync new account to server: $e');
+      }
+      
+      return true;
+    } catch (e, stackTrace) {
+      _logger.severe('Signup failed', e, stackTrace);
+      return false;
     }
+  }
 
   Future<void> logout() async {
     try {
-      if (_biometricService != null) {
-        await _biometricService!.clearBiometricSession();
-      }
+      await _biometricService?.clearBiometricSession();
+      
       if (_currentProfile != null) {
         try {
           await _apiClient.invalidateSession();
         } catch (e) {
-          _logger.severe('Failed to invalidate server session: $e');
+          _logger.warning('Failed to invalidate server session: $e');
         }
       }
-      _currentProfile = null;
-      await _secureStorage.delete(key: 'current_profile_data');
-      await _secureStorage.delete(key: 'session_token');
       
-      // Clear login state
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool('is_logged_in', false);
-      await prefs.remove('profile_id');
-
-      // Cancel SMS listener service
-      await Workmanager().cancelByUniqueName('sms_listener');
-      
-      notifyListeners();
+      await _clearSession();
       _logger.info('User logged out');
-    } catch (e) {
-      _logger.severe('Logout failed: $e');
+    } catch (e, stackTrace) {
+      _logger.severe('Logout failed', e, stackTrace);
     }
   }
+
+  Future<LoginResult> biometricLogin() async {
+    try {
+      if (_biometricService == null) {
+        return LoginResult.error(message: 'Biometric service not available');
+      }
+
+      if (_currentProfile == null) {
+        await _restoreActiveProfile();
+      }
+
+      if (_currentProfile == null) {
+        return LoginResult.error(
+          message: 'No existing profile found. Please login with email and password first.',
+        );
+      }
+
+      final isAuthenticated = await _biometricService!.authenticateWithBiometric(
+        'Authenticate to access your Fedha account',
+      );
+
+      if (!isAuthenticated) {
+        return LoginResult.error(message: 'Biometric authentication failed or canceled');
+      }
+
+      final sessionToken = _createSessionToken();
+      final updatedProfile = _currentProfile!.copyWith(
+        authToken: sessionToken,
+        sessionToken: sessionToken,
+      );
+
+      await _storeProfile(updatedProfile);
+      _currentProfile = updatedProfile;
+      await _initializeProfileServices(updatedProfile.id);
+      
+      notifyListeners();
+      
+      _logger.info('Biometric login successful: ${updatedProfile.email}');
+      return LoginResult.success(
+        profile: updatedProfile,
+        sessionToken: sessionToken,
+        isFirstLogin: false,
+      );
+    } catch (e, stackTrace) {
+      _logger.severe('Biometric login failed', e, stackTrace);
+      return LoginResult.error(message: 'Biometric login failed: ${e.toString()}');
+    }
+  }
+
+  Future<bool> canUseBiometricLogin() async {
+    try {
+      if (_currentProfile == null) {
+        await _restoreActiveProfile();
+      }
+      
+      return _biometricService != null &&
+          await _biometricService!.canAuthenticate() &&
+          _currentProfile != null;
+    } catch (e) {
+      _logger.warning('Error checking biometric availability: $e');
+      return false;
+    }
+  }
+
+  // ==================== PROFILE MANAGEMENT ====================
 
   Future<bool> updateProfileName(String newName) async {
     if (_currentProfile == null) return false;
     try {
       final updatedProfile = _currentProfile!.copyWith(name: newName.trim());
-      // Persist updated profile JSON
-      await _secureStorage.write(
-        key: 'current_profile_data',
-        value: jsonEncode(updatedProfile.toJson()),
-      );
+      await _storeProfile(updatedProfile);
       _currentProfile = updatedProfile;
       notifyListeners();
       return true;
@@ -279,14 +464,13 @@ class AuthService with ChangeNotifier {
   }
 
   Future<bool> updateProfileEmail(String newEmail) async {
-    if (_currentProfile == null || (_currentProfile!.email ?? '').toLowerCase() == newEmail.trim().toLowerCase()) return false;
+    if (_currentProfile == null) return false;
+    if ((_currentProfile!.email ?? '').toLowerCase() == newEmail.trim().toLowerCase()) {
+      return false;
+    }
     try {
       final updatedProfile = _currentProfile!.copyWith(email: newEmail.trim());
-      // Persist updated profile JSON
-      await _secureStorage.write(
-        key: 'current_profile_data',
-        value: jsonEncode(updatedProfile.toJson()),
-      );
+      await _storeProfile(updatedProfile);
       _currentProfile = updatedProfile;
       notifyListeners();
       return true;
@@ -296,30 +480,15 @@ class AuthService with ChangeNotifier {
     }
   }
 
-  Future<String> _getOrCreateDeviceId() async {
-    final prefs = await SharedPreferences.getInstance();
-    String? deviceId = prefs.getString('device_id');
-    if (deviceId == null) {
-      deviceId = _uuid.v4();
-      await prefs.setString('device_id', deviceId);
-    }
-    return deviceId;
-  }
-
-  String _createSessionToken() {
-    final random = Random.secure();
-    final values = List<int>.generate(32, (i) => random.nextInt(256));
-    return base64Url.encode(values);
-  }
-
-
   Future<bool> changePassword({
     required String currentPassword,
     required String newPassword,
   }) async {
     if (_currentProfile == null) return false;
     try {
-      // Simulate password change; in real apps validate with server
+      final updatedProfile = _currentProfile!.copyWith(password: newPassword);
+      await _storeProfile(updatedProfile);
+      _currentProfile = updatedProfile;
       return true;
     } catch (e) {
       _logger.severe('Failed to change password: $e');
@@ -329,128 +498,55 @@ class AuthService with ChangeNotifier {
 
   Future<bool> createProfile(Map<String, dynamic> profileData) async {
     try {
-        final userId = _uuid.v4();
-        final sessionToken = _createSessionToken();
-        final name = '${profileData['firstName']} ${profileData['lastName']}'.trim(); // Combine names
-        final email = profileData['email'] as String;
-        
-        final newProfile = Profile.defaultProfile(
+      final userId = _uuid.v4();
+      final sessionToken = _createSessionToken();
+      final name = '${profileData['firstName']} ${profileData['lastName']}'.trim();
+      final email = profileData['email'] as String;
+      
+      final newProfile = Profile.defaultProfile(
         id: userId,
-        name: name, // Use combined first + last name
+        name: name,
         email: email.trim(),
         password: profileData['password'] as String? ?? 'ChangeMe123!',
-        );
-        
-        final updatedProfile = newProfile.copyWith(
+      ).copyWith(
         authToken: sessionToken,
         sessionToken: sessionToken,
         phoneNumber: profileData['phoneNumber'] as String? ?? '',
         photoUrl: profileData['photoUrl'] as String? ?? '',
         baseCurrency: profileData['baseCurrency'] as String? ?? 'KES',
         timezone: profileData['timezone'] as String? ?? 'GMT +3',
-        );
-        
-        // Persist new profile
-        await _secureStorage.write(
-        key: 'current_profile_data',
-        value: jsonEncode(updatedProfile.toJson()),
-        );
-        await _secureStorage.write(key: 'session_token', value: sessionToken);
-        _currentProfile = updatedProfile;
-        notifyListeners();
-        return true;
-    } catch (e) {
-        _logger.severe('Failed to create profile: $e');
-        return false;
-    }
-    }
-
-
-  Future<LoginResult> enhancedLogin({
-    required String email,
-    required String password,
-    bool useBiometric = false,
-    }) async {
-    try {
-        // Handle biometric authentication if requested
-        if (useBiometric) {
-        if (_biometricService == null) {
-            return LoginResult.error(message: 'Biometric service not available');
-        }
-        final isAuthenticated = await _biometricService!.authenticateWithBiometric('Please authenticate');
-        if (!isAuthenticated) {
-            return LoginResult.error(message: 'Biometric authentication failed');
-        }
-        
-        // Check for existing profile matching email
-        final existingProfile = await _getProfileByEmail(email);
-        if (existingProfile != null) {
-            final sessionToken = _createSessionToken();
-            final updatedProfile = existingProfile.copyWith(
-            authToken: sessionToken,
-            sessionToken: sessionToken,
-            );
-            
-            await _secureStorage.write(
-            key: 'current_profile_data',
-            value: jsonEncode(updatedProfile.toJson()),
-            );
-            await _secureStorage.write(key: 'session_token', value: sessionToken);
-
-            // Register biometric session
-            await _biometricService?.registerSuccessfulBiometricSession();
-
-            _currentProfile = updatedProfile;
-            notifyListeners();
-            
-            return LoginResult.success(
-            profile: updatedProfile, 
-            sessionToken: sessionToken,
-            isFirstLogin: false // Biometric login is never first login
-            );
-        } else {
-            return LoginResult.error(message: 'No existing profile found for biometric login');
-        }
-        }
-
-        // Fall back to regular login if not using biometric or no matching profile
-        return await login(email: email, password: password);
-
-    } catch (e) {
-        _logger.severe('Enhanced login failed: $e');
-        return LoginResult.error(message: 'Login failed: ${e.toString()}');
-    }
-    }
-
-
-  /// Initialize the SMS listener service with the current profile
-  Future<void> _initializeSmsListener(String profileId) async {
-    try {
-      // Cancel any existing SMS listener first
-      await Workmanager().cancelByUniqueName('sms_listener');
+      );
       
-      // Initialize background SMS listener with offline data service
-      final smsService = SmsListenerService.instance;
-      await smsService.initialize(
-        offlineDataService: _offlineDataService,
-        profileId: profileId
-      );
-    
-      // Register background task
-      await Workmanager().registerPeriodicTask(
-        'sms_listener',
-        'sms_listener_task',
-        frequency: const Duration(hours: 3),
-        inputData: {
-          'profileId': profileId
-        }
-      );
+      await _storeProfile(newProfile);
+      await setCurrentProfile(newProfile.id);
+      
+      return true;
     } catch (e) {
-      _logger.warning('Failed to initialize SMS listener: $e');
+      _logger.severe('Failed to create profile: $e');
+      return false;
     }
   }
 
-  // First login methods
+  Future<List<Profile>> getStoredProfiles() async {
+    final List<Profile> profiles = [];
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final currentProfileId = prefs.getString('current_profile_id');
+      
+      if (currentProfileId != null) {
+        final profileData = await _secureStorage.read(key: 'profile_$currentProfileId');
+        if (profileData != null) {
+          profiles.add(Profile.fromJson(jsonDecode(profileData)));
+        }
+      }
+    } catch (e) {
+      _logger.warning('Error loading stored profiles: $e');
+    }
+    return profiles;
+  }
+
+  // ==================== FIRST LOGIN FLOW ====================
+
   Future<bool> isFirstLogin() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getBool('is_first_login') ?? true;
@@ -476,6 +572,11 @@ class AuthService with ChangeNotifier {
     await prefs.setBool('show_biometric_prompt', false);
   }
 
+  Future<void> markPermissionsPromptShown() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('show_permissions_prompt', false);
+  }
+
   Future<bool> enableBiometricAuth(bool enable) async {
     if (_biometricService != null) {
       await _biometricService!.setBiometricEnabled(enable);
@@ -484,11 +585,26 @@ class AuthService with ChangeNotifier {
     return false;
   }
 
-  Future<void> markPermissionsPromptShown() async {
+  // ==================== HELPERS ====================
+
+  Future<String> _getOrCreateDeviceId() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('show_permissions_prompt', false);
+    String? deviceId = prefs.getString('device_id');
+    if (deviceId == null) {
+      deviceId = _uuid.v4();
+      await prefs.setString('device_id', deviceId);
+    }
+    return deviceId;
+  }
+
+  String _createSessionToken() {
+    final random = Random.secure();
+    final values = List<int>.generate(32, (i) => random.nextInt(256));
+    return base64Url.encode(values);
   }
 }
+
+// ==================== LOGIN RESULT ====================
 
 class LoginResult {
   final bool success;
@@ -497,8 +613,12 @@ class LoginResult {
   final bool isFirstLogin;
   final String? sessionToken;
 
-  LoginResult.success({this.profile, this.sessionToken, this.isFirstLogin = false, String? message})
-      : success = true,
+  LoginResult.success({
+    this.profile,
+    this.sessionToken,
+    this.isFirstLogin = false,
+    String? message,
+  })  : success = true,
         message = message ?? 'Login successful';
 
   LoginResult.error({required this.message})

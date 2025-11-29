@@ -62,16 +62,15 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
       final offlineDataService = Provider.of<OfflineDataService>(context, listen: false);
       final authService = Provider.of<AuthService>(context, listen: false);
       
-      final profileIdStr = authService.currentProfile?.id ?? '';
-      final profileId = int.tryParse(profileIdStr) ?? 0;
+      final profileId = authService.currentProfile?.id ?? '';
       
-      if (profileId == 0) {
+      if (profileId.isEmpty) {
         throw Exception('No active profile found');
       }
 
+      // Now this works with UUID strings!
       List<Transaction> transactions = await offlineDataService.getAllTransactions(profileId);
 
-      // Apply current filters
       transactions = _filterTransactions(transactions);
 
       if (mounted) {

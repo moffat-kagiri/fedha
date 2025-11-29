@@ -287,7 +287,7 @@ class SmsListenerService extends ChangeNotifier {
           if (searchText.contains(keyword)) {
             // Find matching category ID
       // TODO: fetch categories via OfflineDataService
-      final cats = await _offlineDataService.getCategories(int.tryParse(_currentProfileId!) ?? 0);
+      final cats = await _offlineDataService.getCategories(_currentProfileId!) ?? [];
       final match = cats.firstWhere(
         (c) => c.name.toLowerCase() == entry.key,
         orElse: () => models.Category(id: '', name: ''));
@@ -298,13 +298,13 @@ class SmsListenerService extends ChangeNotifier {
       
       // Fall back to default categories
       if (data.type == 'received' || data.type == 'credit') {
-  final cats = await _offlineDataService.getCategories(int.tryParse(_currentProfileId!) ?? 0);
+  final cats = await _offlineDataService.getCategories(_currentProfileId!) ?? [];
   return cats.firstWhere(
     (c) => c.name.toLowerCase() == defaultIncomeCategory,
     orElse: () => models.Category(id: '', name: ''))
       .id;
       } else {
-  final cats = await _offlineDataService.getCategories(int.tryParse(_currentProfileId!) ?? 0);
+  final cats = await _offlineDataService.getCategories(_currentProfileId!) ?? [];
   return cats.firstWhere(
     (c) => c.name.toLowerCase() == defaultExpenseCategory,
     orElse: () => models.Category(id: '', name: ''))

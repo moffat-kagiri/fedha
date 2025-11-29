@@ -26,8 +26,8 @@ class _SpendingOverviewScreenState extends State<SpendingOverviewScreen> {
       ),
       body: FutureBuilder<List<Transaction>>(
         future: Provider.of<OfflineDataService>(context, listen: false)
-            .getAllTransactions(int.tryParse(Provider.of<AuthService>(context, listen: false)
-                    .currentProfile?.id ?? '') ?? 0),
+            .getAllTransactions(Provider.of<AuthService>(context, listen: false)
+                    .currentProfile?.id ?? ''),
         builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) {
             return const Center(child: CircularProgressIndicator());

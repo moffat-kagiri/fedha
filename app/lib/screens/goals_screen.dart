@@ -81,8 +81,8 @@ class _GoalsScreenState extends State<GoalsScreen> {
       ),
       body: FutureBuilder<List<Goal>>(
         future: Provider.of<OfflineDataService>(context, listen: false)
-            .getAllGoals(int.tryParse(Provider.of<AuthService>(context, listen: false)
-                    .currentProfile?.id ?? '') ?? 0),
+            .getAllGoals(Provider.of<AuthService>(context, listen: false)
+                    .currentProfile?.id ?? ''),
         builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) {
             return Center(

@@ -37,7 +37,7 @@ class _EmergencyFundScreenState extends State<EmergencyFundScreen> {
   Widget build(BuildContext context) {
     final auth = Provider.of<AuthService>(context, listen: false);
     final svc = Provider.of<OfflineDataService>(context, listen: false);
-    final profileId = int.tryParse(auth.currentProfile?.id ?? '') ?? 0;
+    final profileId = auth.currentProfile?.id ?? '';
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       // Header section

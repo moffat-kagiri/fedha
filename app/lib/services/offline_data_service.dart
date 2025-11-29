@@ -31,8 +31,29 @@ class OfflineDataService {
   set darkMode(bool v) =>
     _prefs.setBool('dark_mode', v);
 
+  /// Helper to convert UUID string to int for database storage
+  /// Returns 0 if conversion fails (for backwards compatibility)
+  int _profileIdToInt(String profileId) {
+    // Try to parse as int first (for backwards compatibility)
+    final parsed = int.tryParse(profileId);
+    if (parsed != null) return parsed;
+    
+    // If it's a UUID, generate a consistent hash
+    // This maintains consistency for the same UUID
+    return profileId.hashCode.abs();
+  }
+
+  /// Helper to validate profile ID
+  void _validateProfileId(String profileId) {
+    if (profileId.isEmpty) {
+      throw Exception('Profile ID cannot be empty');
+    }
+  }
+
   // Transactions
   Future<void> saveTransaction(dom_tx.Transaction tx) async {
+    _validateProfileId(tx.profileId);
+    
     final companion = TransactionsCompanion.insert(
       amountMinor: tx.amount,
       currency: 'KES',
@@ -41,15 +62,19 @@ class OfflineDataService {
       date: tx.date,
       isExpense: Value(tx.isExpense),
       rawSms: Value(tx.smsSource),
-      profileId: int.tryParse(tx.profileId) ?? 0,
+      profileId: _profileIdToInt(tx.profileId),
     );
     await _db.insertTransaction(companion);
   }
 
-  Future<List<dom_tx.Transaction>> getAllTransactions([int profileId = 0]) async {
+  Future<List<dom_tx.Transaction>> getAllTransactions(String profileId) async {
+    _validateProfileId(profileId);
+    
+    final profileIdInt = _profileIdToInt(profileId);
     final rows = await _db.getAllTransactions();
+    
     return rows
-      .where((r) => r.profileId == profileId)
+      .where((r) => r.profileId == profileIdInt)
       .map((r) => dom_tx.Transaction(
         amount: r.amountMinor,
         type: r.isExpense ? TransactionType.expense : TransactionType.income,
@@ -58,7 +83,7 @@ class OfflineDataService {
         description: r.description,
         date: r.date,
         smsSource: r.rawSms ?? '',
-        profileId: r.profileId.toString(),
+        profileId: profileId, // Return original UUID string
         isExpense: r.isExpense,
       ))
       .toList();
@@ -78,13 +103,15 @@ class OfflineDataService {
 
   // Goals
   Future<void> saveGoal(dom_goal.Goal goal) async {
+    _validateProfileId(goal.profileId);
+    
     final companion = GoalsCompanion.insert(
       title: goal.name,
       targetMinor: goal.targetAmount,
       currency: 'KES',
       dueDate: goal.targetDate,
       completed: Value(goal.status == GoalStatus.completed),
-      profileId: int.tryParse(goal.profileId) ?? 0,
+      profileId: _profileIdToInt(goal.profileId),
     );
     await _db.insertGoal(companion);
   }
@@ -93,16 +120,20 @@ class OfflineDataService {
     await saveGoal(goal);
   }
 
-  Future<List<dom_goal.Goal>> getAllGoals([int profileId = 0]) async {
+  Future<List<dom_goal.Goal>> getAllGoals(String profileId) async {
+    _validateProfileId(profileId);
+    
+    final profileIdInt = _profileIdToInt(profileId);
     final rows = await _db.getAllGoals();
+    
     return rows
-      .where((r) => r.profileId == profileId)
+      .where((r) => r.profileId == profileIdInt)
       .map((r) => dom_goal.Goal(
         id: r.id.toString(),
         name: r.title,
         targetAmount: r.targetMinor,
         targetDate: r.dueDate,
-        profileId: r.profileId.toString(),
+        profileId: profileId, // Return original UUID string
         goalType: GoalType.other,
         status: r.completed ? GoalStatus.completed : GoalStatus.active,
       ))
@@ -123,10 +154,14 @@ class OfflineDataService {
     await _db.into(_db.loans).insert(companion);
   }
 
-  Future<List<dom_loan.Loan>> getAllLoans(int profileId) async {
+  Future<List<dom_loan.Loan>> getAllLoans(String profileId) async {
+    _validateProfileId(profileId);
+    
+    final profileIdInt = _profileIdToInt(profileId);
     final rows = await _db.select(_db.loans).get();
+    
     return rows
-      .where((r) => r.profileId == profileId)
+      .where((r) => r.profileId == profileIdInt)
       .map((r) => dom_loan.Loan(
         id: r.id,
         name: r.name,
@@ -151,16 +186,18 @@ class OfflineDataService {
     await saveBudget(budget);
   }
   
-  Future<List<dom_budget.Budget>> getAllBudgets([int? profileId]) async {
+  Future<List<dom_budget.Budget>> getAllBudgets(String? profileId) async {
     return [];
   }
   
-  Future<dom_budget.Budget?> getCurrentBudget(int profileId) async {
+  Future<dom_budget.Budget?> getCurrentBudget(String profileId) async {
     return null;
   }
 
   // SMS-review helpers (pending transactions)
   Future<void> savePendingTransaction(dom_tx.Transaction tx) async {
+    _validateProfileId(tx.profileId);
+    
     final companion = PendingTransactionsCompanion.insert(
       id: tx.id ?? const Uuid().v4(),
       amountMinor: tx.amount,
@@ -169,30 +206,33 @@ class OfflineDataService {
       date: tx.date,
       isExpense: Value(tx.isExpense),
       rawSms: Value(tx.smsSource),
-      profileId: int.tryParse(tx.profileId) ?? 0,
+      profileId: _profileIdToInt(tx.profileId),
     );
     await _db.insertPending(companion);
   }
 
-  Future<List<dom_tx.Transaction>> getPendingTransactions(int profileId) async {
-    final rows = await _db.getAllPending(profileId);
+  Future<List<dom_tx.Transaction>> getPendingTransactions(String profileId) async {
+    _validateProfileId(profileId);
+    
+    final profileIdInt = _profileIdToInt(profileId);
+    final rows = await _db.getAllPending(profileIdInt);
+    
     return rows.map((r) => dom_tx.Transaction(
       id: r.id,
       amount: r.amountMinor,
       type: r.isExpense ? TransactionType.expense : TransactionType.income,
-      categoryId: '', // Fixed: Pending transactions don't have categoryId in database
-      category: null, // Fixed: Pending transactions don't have category initially
+      categoryId: '',
+      category: null,
       description: r.description ?? '',
       date: r.date,
       smsSource: r.rawSms ?? '',
-      profileId: r.profileId.toString(),
+      profileId: profileId, // Return original UUID string
       isPending: true,
       isExpense: r.isExpense,
     )).toList();
   }
 
   Future<void> approvePendingTransaction(dom_tx.Transaction tx) async {
-    // Create a new transaction without the pending flag for the main transactions table
     final mainTransaction = dom_tx.Transaction(
       id: tx.id,
       amount: tx.amount,
@@ -223,7 +263,7 @@ class OfflineDataService {
     }
   }
 
-  Future<List<dom_cat.Category>> getCategories(int profileId) async {
+  Future<List<dom_cat.Category>> getCategories(String profileId) async {
     return [];
   }
 
@@ -247,14 +287,13 @@ class OfflineDataService {
     }
   }
 
-  Future<int> getPendingTransactionCount(int profileId) async {
+  Future<int> getPendingTransactionCount(String profileId) async {
     final pending = await getPendingTransactions(profileId);
     return pending.length;
   }
 
   Future<double> getAverageMonthlySpending(String profileId) async {
-    final numericProfileId = int.tryParse(profileId) ?? 0;
-    final transactions = await getAllTransactions(numericProfileId);
+    final transactions = await getAllTransactions(profileId);
     
     if (transactions.isEmpty) return 0;
 
@@ -270,14 +309,14 @@ class OfflineDataService {
     return total / 3;
   }
 
-  // Fixed: Implement updateGoal using Drift's update statement
   Future<void> updateGoal(dom_goal.Goal goal) async {
+    _validateProfileId(goal.profileId);
+    
     final goalId = int.tryParse(goal.id);
     if (goalId == null) {
       throw Exception('Invalid goal ID format: ${goal.id}');
     }
 
-    // Use Drift's update statement to update the goal
     await _db.update(_db.goals)
       .replace(GoalsCompanion(
         id: Value(goalId),
@@ -286,7 +325,7 @@ class OfflineDataService {
         currency: const Value('KES'),
         dueDate: Value(goal.targetDate),
         completed: Value(goal.status == GoalStatus.completed),
-        profileId: Value(int.tryParse(goal.profileId) ?? 0),
+        profileId: Value(_profileIdToInt(goal.profileId)),
       ));
   }
 }
