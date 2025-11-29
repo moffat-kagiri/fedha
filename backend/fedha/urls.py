@@ -29,6 +29,8 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     # Health check endpoint - important for testing connectivity
     path('api/health/', health_check, name='health_check'),
+
     # Include API routes from the api app
-    # path('api/', include('api.urls')),  # Uncomment when api.urls is configured
+    path('api/', include('api.urls')), 
+    path('v1/api/', include('api.urls')), 
 ]

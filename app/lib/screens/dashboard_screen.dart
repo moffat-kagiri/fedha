@@ -244,75 +244,72 @@ class DashboardContent extends StatelessWidget {
     );
   }
 
-  Widget _buildQuickActions(BuildContext context) {
-    final actions = [
-      QuickActionItem(
-        title: 'Add Transaction',
-        icon: Icons.add,
-        color: Colors.green,
-        onTap: () {
-          TransactionDialog.showAddDialog(
-            context,
-            onTransactionSaved: (transaction) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Transaction added successfully'),
-                  backgroundColor: Color(0xFF007A39),
-                ),
-              );
-            },
-          );
-        },
-      ),
-      QuickActionItem(
-        title: 'SMS Review',
-        icon: Icons.sms,
-        color: Colors.blue,
-        onTap: () async {
-          // Request SMS permission before starting listener
-          final permissionsService = Provider.of<PermissionsService>(context, listen: false);
-          final granted = await permissionsService.requestSmsPermission();
-          if (!granted) {
+Widget _buildQuickActions(BuildContext context) {
+  final actions = [
+    QuickActionItem(
+      title: 'Add Transaction',
+      icon: Icons.add,
+      color: Colors.green,
+      onTap: () {
+        TransactionDialog.showAddDialog(
+          context,
+          onTransactionSaved: (transaction) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('SMS permission required to review messages'),
-                backgroundColor: Colors.red,
+                content: Text('Transaction added successfully'),
+                backgroundColor: Color(0xFF007A39),
               ),
             );
-            return;
-          }
-          // Set current profile for SMS listener
-          final smsService = SmsListenerService.instance;
-          final authService = Provider.of<AuthService>(context, listen: false);
-          final offlineDataService = Provider.of<OfflineDataService>(context, listen: false);
-          final profileId = authService.currentProfile?.id ?? '';
-          
-          // Initialize SMS listener if not already running
-          if (!smsService.isListening) {
-            await smsService.startListening(
-              offlineDataService: offlineDataService,
-              profileId: profileId
-            );
-          }
-          Navigator.of(context).pushNamed('/sms_review');
-        },
-      ),
-      QuickActionItem(
-        title: 'View Goals',
-        icon: Icons.flag,
-        color: Colors.purple,
-        onTap: () => Navigator.of(context).pushNamed('/goals'),
-      ),
-      QuickActionItem(
-        title: 'Loan Calculator',
-        icon: Icons.calculate,
-        color: Colors.orange,
-        onTap: () => Navigator.of(context).pushNamed('/loan_calculator'),
-      ),
-    ];
+          },
+        );
+      },
+    ),
+    QuickActionItem(
+      title: 'SMS Review',
+      icon: Icons.sms,
+      color: Colors.blue,
+      onTap: () async {
+        final permissionsService = Provider.of<PermissionsService>(context, listen: false);
+        final granted = await permissionsService.requestSmsPermission();
+        if (!granted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('SMS permission required to review messages'),
+              backgroundColor: Colors.red,
+            ),
+          );
+          return;
+        }
+        final smsService = SmsListenerService.instance;
+        final authService = Provider.of<AuthService>(context, listen: false);
+        final offlineDataService = Provider.of<OfflineDataService>(context, listen: false);
+        final profileId = authService.currentProfile?.id ?? '';
+        
+        if (!smsService.isListening) {
+          await smsService.startListening(
+            offlineDataService: offlineDataService,
+            profileId: profileId
+          );
+        }
+        Navigator.of(context).pushNamed('/sms_review');
+      },
+    ),
+    QuickActionItem(
+      title: 'Budget Progress',
+      icon: Icons.account_balance_wallet,
+      color: Colors.purple,
+      onTap: () => Navigator.of(context).pushNamed('/budget_progress'),
+    ),
+    QuickActionItem(
+      title: 'Analytics',
+      icon: Icons.analytics,
+      color: Colors.orange,
+      onTap: () => Navigator.of(context).pushNamed('/analytics'),
+    ),
+  ];
 
-    return QuickActionsGrid(actions: actions);
-  }
+  return QuickActionsGrid(actions: actions);
+}
 
   Widget _buildQuickActionCard(QuickAction action, BuildContext context) {
     return Card(

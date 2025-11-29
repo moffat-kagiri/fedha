@@ -72,6 +72,8 @@ import 'screens/vehicle_cover_screen.dart';
 import 'screens/home_cover_screen.dart';
 import 'screens/emergency_fund_screen.dart';
 import 'screens/sms_review_screen.dart';
+import 'screens/budget_progress_screen.dart';
+import 'screens/analytics_screen.dart';
 
 void callbackDispatcher() {
   Workmanager().executeTask((task, inputData) async {
@@ -508,6 +510,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       '/asset_protection_home': (context) => HomeCoverScreen(),
       '/emergency-fund': (context) => const EmergencyFundScreen(),
       '/sms_review': (context) => const SmsReviewScreen(),
+      '/budget_progress': (context) => const BudgetProgressScreen(),
+      '/analytics': (context) => const AnalyticsScreen(),
     };
   }
 }

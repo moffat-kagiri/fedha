@@ -55,6 +55,30 @@ class OfflineDataService {
   Future<void> saveTransaction(dom_tx.Transaction tx) async {
     _validateProfileId(tx.profileId);
     
+    // Check if this is an update (transaction has an ID that exists in DB)
+    if (tx.id != null && tx.id!.isNotEmpty) {
+      final existingId = int.tryParse(tx.id!);
+      if (existingId != null) {
+        // Check if transaction exists
+        try {
+          final existing = await _db.getTransactionById(existingId);
+          if (existing != null) {
+            // Update existing transaction
+            await updateTransaction(tx);
+            
+            // If it's a savings transaction, update the goal
+            if (tx.type == TransactionType.savings && tx.goalId != null) {
+              await _updateGoalProgress(tx.goalId!);
+            }
+            return;
+          }
+        } catch (e) {
+          // Transaction doesn't exist, proceed with insert
+        }
+      }
+    }
+    
+    // Insert new transaction
     final companion = TransactionsCompanion.insert(
       amountMinor: tx.amount,
       currency: 'KES',
@@ -64,8 +88,57 @@ class OfflineDataService {
       isExpense: Value(tx.isExpense),
       rawSms: Value(tx.smsSource),
       profileId: _profileIdToInt(tx.profileId),
+      // Store transaction type properly
+      transactionType: Value(tx.type.toString()),
+      goalId: Value(tx.goalId),
     );
-    await _db.insertTransaction(companion);
+    
+    final insertedId = await _db.insertTransaction(companion);
+    
+    // If it's a savings transaction, update the goal
+    if (tx.type == TransactionType.savings && tx.goalId != null) {
+      await _updateGoalProgress(tx.goalId!);
+    }
+  }
+
+  Future<void> updateTransaction(dom_tx.Transaction tx) async {
+    _validateProfileId(tx.profileId);
+    
+    final txId = int.tryParse(tx.id ?? '');
+    if (txId == null) {
+      throw Exception('Invalid transaction ID for update: ${tx.id}');
+    }
+    
+    // Get old transaction to check if goal changed
+    final oldTx = await _db.getTransactionById(txId);
+    final oldGoalId = oldTx?.goalId;
+    
+    await _db.update(_db.transactions).replace(
+      TransactionsCompanion(
+        id: Value(txId),
+        amountMinor: Value(tx.amount),
+        currency: const Value('KES'),
+        description: Value(tx.description ?? ''),
+        categoryId: Value(tx.categoryId),
+        date: Value(tx.date),
+        isExpense: Value(tx.isExpense),
+        rawSms: Value(tx.smsSource),
+        profileId: Value(_profileIdToInt(tx.profileId)),
+        transactionType: Value(tx.type.toString()),
+      ),
+    );
+    
+    // Update affected goals
+    if (tx.type == TransactionType.savings) {
+      // Update new goal if exists
+      if (tx.goalId != null) {
+        await _updateGoalProgress(tx.goalId!);
+      }
+      // Update old goal if it changed
+      if (oldGoalId != null && oldGoalId != tx.goalId) {
+        await _updateGoalProgress(oldGoalId);
+      }
+    }
   }
 
   Future<List<dom_tx.Transaction>> getAllTransactions(String profileId) async {
@@ -76,18 +149,76 @@ class OfflineDataService {
     
     return rows
       .where((r) => r.profileId == profileIdInt)
-      .map((r) => dom_tx.Transaction(
-        amount: r.amountMinor,
-        type: r.isExpense ? TransactionType.expense : TransactionType.income,
-        categoryId: r.categoryId ?? '',
-        category: _getTransactionCategoryFromId(r.categoryId),
-        description: r.description,
-        date: r.date,
-        smsSource: r.rawSms ?? '',
-        profileId: profileId, // Return original UUID string
-        isExpense: r.isExpense,
-      ))
+      .map((r) {
+        // Determine transaction type from stored type or fallback to isExpense
+        TransactionType type;
+        if (r.transactionType != null && r.transactionType!.isNotEmpty) {
+          // Parse stored type
+          if (r.transactionType!.contains('savings')) {
+            type = TransactionType.savings;
+          } else if (r.transactionType!.contains('expense')) {
+            type = TransactionType.expense;
+          } else {
+            type = TransactionType.income;
+          }
+        } else {
+          // Fallback for old data
+          type = r.isExpense ? TransactionType.expense : TransactionType.income;
+        }
+        
+        return dom_tx.Transaction(
+          id: r.id.toString(),
+          amount: r.amountMinor,
+          type: type,
+          categoryId: r.categoryId ?? '',
+          category: _getTransactionCategoryFromId(r.categoryId),
+          description: r.description,
+          date: r.date,
+          smsSource: r.rawSms ?? '',
+          profileId: profileId,
+          isExpense: r.isExpense,
+          goalId: r.goalId, // FIXED: This now references the actual column
+        );
+      })
       .toList();
+  }
+
+  // Helper to update goal progress when savings transactions change
+  Future<void> _updateGoalProgress(String goalId) async {
+    try {
+      final goal = await getGoal(goalId);
+      if (goal == null) return;
+      
+      // Calculate total savings for this goal
+      final profileId = goal.profileId;
+      final allTransactions = await getAllTransactions(profileId);
+      
+      final savingsForGoal = allTransactions
+          .where((tx) => 
+              tx.type == TransactionType.savings && 
+              tx.goalId == goalId)
+          .fold(0.0, (sum, tx) => sum + tx.amount);
+      
+      // Update goal's current amount
+      final updatedGoal = dom_goal.Goal(
+        id: goal.id,
+        name: goal.name,
+        description: goal.description,
+        targetAmount: goal.targetAmount,
+        currentAmount: savingsForGoal,
+        targetDate: goal.targetDate,
+        profileId: goal.profileId,
+        goalType: goal.goalType,
+        status: goal.status,
+        isSynced: false, // Mark for sync
+      );
+      
+      await updateGoal(updatedGoal);
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error updating goal progress: $e');
+      }
+    }
   }
 
   // Helper method to convert categoryId to TransactionCategory

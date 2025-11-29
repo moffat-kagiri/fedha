@@ -1,6 +1,7 @@
 // auth_service.dart
 import 'dart:async';
 import 'dart:convert';
+import 'package:crypto/crypto.dart';
 import 'dart:math';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -313,53 +314,121 @@ class AuthService with ChangeNotifier {
     }
   }
 
-  /// Login with data sync
+  /// ✅ SECURE LOGIN - Validates credentials with server
   Future<LoginResult> login({
     required String email,
     required String password,
   }) async {
     try {
-      final existingProfile = await _getProfileByEmail(email);
-      final isFirstLogin = existingProfile == null;
-
-      Profile profile;
-      if (existingProfile != null) {
-        profile = existingProfile.copyWith(
-          authToken: _createSessionToken(),
-          sessionToken: _createSessionToken(),
-        );
-      } else {
-        final userId = _uuid.v4();
-        final tempName = email.split('@')[0];
+      _logger.info('Attempting login for: $email');
+      
+      // ✅ STEP 1: Try server authentication first
+      bool serverAuthSuccess = false;
+      Map<String, dynamic>? serverResponse;
+      
+      try {
+        final isOnline = await _apiClient.checkServerHealth();
         
-        profile = Profile.defaultProfile(
-          id: userId,
-          name: tempName,
-          email: email.trim(),
-          password: password,
-        ).copyWith(
-          authToken: _createSessionToken(),
+        if (isOnline) {
+          _logger.info('Server available - authenticating...');
+          serverResponse = await _apiClient.login(
+            email: email,
+            password: password,
+          );
+          
+          serverAuthSuccess = serverResponse['success'] == true || 
+                            serverResponse['token'] != null;
+          
+          if (serverAuthSuccess) {
+            _logger.info('Server authentication successful');
+          } else {
+            _logger.warning('Server authentication failed: ${serverResponse['error'] ?? serverResponse['body']}');
+            return LoginResult.error(
+              message: 'Invalid email or password',
+            );
+          }
+        } else {
+          _logger.warning('Server unavailable - checking offline credentials');
+        }
+      } catch (e) {
+        _logger.warning('Server authentication error: $e');
+        // Proceed to offline check
+      }
+      // ✅ STEP 2: Check/create local profile
+      Profile? profile;
+      bool isFirstLogin = false;
+      
+      if (serverAuthSuccess && serverResponse != null) {
+        // Server auth succeeded - create/update local profile
+        final existingProfile = await _getProfileByEmail(email);
+        
+        if (existingProfile != null) {
+          // Update existing profile
+          profile = existingProfile.copyWith(
+            authToken: serverResponse['token'] as String?,
+            sessionToken: _createSessionToken(),
+          );
+        } else {
+          // Create new profile from server response
+          isFirstLogin = true;
+          final userId = _uuid.v4();
+          final userData = serverResponse['user'] as Map<String, dynamic>?;
+          
+          final firstName = userData?['first_name'] ?? email.split('@')[0];
+          final lastName = userData?['last_name'] ?? '';
+          final fullName = '$firstName $lastName'.trim();
+          
+          profile = Profile.defaultProfile(
+            id: userId,
+            name: fullName,
+            email: email.trim(),
+            password: _hashPassword(password), // Store hashed locally
+          ).copyWith(
+            authToken: serverResponse['token'] as String?,
+            sessionToken: _createSessionToken(),
+          );
+        }
+      } else {
+        // ✅ STEP 3: Offline fallback - verify against stored credentials
+        final existingProfile = await _getProfileByEmail(email);
+        
+        if (existingProfile == null) {
+          return LoginResult.error(
+            message: 'No account found. Please connect to the internet to create an account.',
+          );
+        }
+        
+        // Verify password matches stored hash
+        if (!_verifyPassword(password, existingProfile.password)) {
+          _logger.warning('Offline password verification failed');
+          return LoginResult.error(
+            message: 'Invalid email or password',
+          );
+        }
+        
+        _logger.info('Offline authentication successful');
+        profile = existingProfile.copyWith(
           sessionToken: _createSessionToken(),
         );
       }
-
+      
+      // ✅ STEP 4: Store profile and set as active
       await _storeProfile(profile);
       await setCurrentProfile(profile.id);
       await _biometricService?.registerSuccessfulPasswordLogin();
-
-      // ✅ CRITICAL: Sync all data after login
+      
+      // ✅ STEP 5: Sync data
       if (_syncService != null) {
         _logger.info('Syncing data after login...');
         _syncService!.setCurrentProfile(profile.id);
         await _syncService!.syncAll();
         
-        // Load budgets
         if (_budgetService != null) {
           await _budgetService!.loadBudgetsForProfile(profile.id);
         }
       }
-
-      _logger.info('User logged in: $email (First login: $isFirstLogin)');
+      
+      _logger.info('User logged in successfully: $email (First login: $isFirstLogin)');
       return LoginResult.success(
         profile: profile,
         sessionToken: profile.sessionToken!,
@@ -371,7 +440,7 @@ class AuthService with ChangeNotifier {
     }
   }
 
-  /// Signup with data sync
+  /// ✅ SECURE SIGNUP - Validates with server
   Future<bool> signup({
     required String firstName,
     required String lastName,
@@ -381,18 +450,69 @@ class AuthService with ChangeNotifier {
     String? avatarPath,
   }) async {
     try {
-      final deviceId = await _getOrCreateDeviceId();
-      final sessionToken = _createSessionToken();
+      _logger.info('Attempting signup for: $email');
+      
+      // ✅ STEP 1: Validate email format
+      if (!_isValidEmail(email)) {
+        throw Exception('Invalid email format');
+      }
+      
+      // ✅ STEP 2: Validate password strength
+      final passwordError = _validatePassword(password);
+      if (passwordError != null) {
+        throw Exception(passwordError);
+      }
+      
+      // ✅ STEP 3: Try server registration first
+      bool serverRegistrationSuccess = false;
+      String? serverToken;
+      
+      try {
+        final isOnline = await _apiClient.checkServerHealth();
+        
+        if (isOnline) {
+          _logger.info('Server available - registering account...');
+          final response = await _apiClient.createAccount(
+            email: email,
+            password: password,
+            firstName: firstName,
+            lastName: lastName,
+            phone: phone,
+            avatarPath: avatarPath,
+          );
+          
+          serverRegistrationSuccess = response['success'] == true || 
+                                      response['token'] != null;
+          serverToken = response['token'] as String?;
+          
+          if (serverRegistrationSuccess) {
+            _logger.info('Server registration successful');
+          } else {
+            final errorMsg = response['error']?.toString() ?? 
+                            response['errors']?.toString() ?? 
+                            'Registration failed';
+            throw Exception(errorMsg);
+          }
+        } else {
+          _logger.warning('Server unavailable - creating offline account');
+        }
+      } catch (e) {
+        _logger.severe('Server registration error: $e');
+        rethrow;
+      }
+      
+      // ✅ STEP 4: Create local profile
       final userId = _uuid.v4();
+      final sessionToken = _createSessionToken();
       final fullName = '$firstName $lastName'.trim();
       
       final newProfile = Profile.defaultProfile(
         id: userId,
         name: fullName,
         email: email.trim(),
-        password: password,
+        password: _hashPassword(password), // Store hashed
       ).copyWith(
-        authToken: sessionToken,
+        authToken: serverToken ?? sessionToken,
         sessionToken: sessionToken,
         phoneNumber: phone ?? '',
         photoUrl: avatarPath ?? '',
@@ -403,33 +523,64 @@ class AuthService with ChangeNotifier {
       
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('account_creation_attempted', true);
-
-      // ✅ Initialize sync for new profile
+      
+      // ✅ Initialize sync
       if (_syncService != null) {
         _syncService!.setCurrentProfile(newProfile.id);
       }
-
-      // Try to sync with server
-      try {
-        final isConnected = await _apiClient.checkServerHealth();
-        if (isConnected) {
-          await _apiClient.createAccount(
-            email: email,
-            password: password,
-            firstName: firstName,
-            lastName: lastName,
-            deviceId: deviceId,
-          );
-        }
-      } catch (e) {
-        _logger.warning('Could not sync new account to server: $e');
-      }
       
+      _logger.info('Signup successful for: $email');
       return true;
     } catch (e, stackTrace) {
       _logger.severe('Signup failed', e, stackTrace);
-      return false;
+      rethrow;
     }
+  }
+
+  // ==================== PASSWORD SECURITY HELPERS ====================
+
+  /// Hash password using SHA-256
+  String _hashPassword(String password) {
+    // Simple hash for local storage
+    // In production, use a proper key derivation function
+    final bytes = utf8.encode(password);
+    final hash = sha256.convert(bytes);
+    return hash.toString();
+  }
+
+  /// Verify password against stored hash
+  bool _verifyPassword(String password, String storedHash) {
+    final hash = _hashPassword(password);
+    return hash == storedHash;
+  }
+
+  /// Validate email format
+  bool _isValidEmail(String email) {
+    final emailRegex = RegExp(
+      r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
+    );
+    return emailRegex.hasMatch(email);
+  }
+
+  /// Validate password strength
+  String? _validatePassword(String password) {
+    if (password.length < 8) {
+      return 'Password must be at least 8 characters';
+    }
+    
+    if (!password.contains(RegExp(r'[A-Z]'))) {
+      return 'Password must contain at least one uppercase letter';
+    }
+    
+    if (!password.contains(RegExp(r'[a-z]'))) {
+      return 'Password must contain at least one lowercase letter';
+    }
+    
+    if (!password.contains(RegExp(r'[0-9]'))) {
+      return 'Password must contain at least one number';
+    }
+    
+    return null; // Password is valid
   }
 
   /// Logout with data sync

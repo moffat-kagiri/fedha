@@ -1,358 +1,173 @@
-# Fedha Budget Tracker
+# Fedha – Personal Finance Tracker
 
-**Your Personal Finance Companion** 🏦
+Fedha is a cross-platform (iOS, Android, Web, Desktop) personal finance app with:
 
-A privacy-focused, cross-platform personal and business finance management application designed for individuals and SMEs. Fedha combines advanced financial calculations, intelligent transaction tracking, and comprehensive budget management in a beautiful, offline-first mobile experience.
+- Offline-first storage (Hive)
+- Secure authentication (password + biometric)
+- SMS transaction ingestion (Android native + iOS fallback)
+- Advanced loan & APR calculators
+- Budget, goal, and multi-currency support
 
-**Current Status:** 90% Complete - Advanced Development Phase  
-**Last Updated:** June 15, 2025
+## 🚀 Quick Start
 
----
+Prerequisites:
 
-## 🎯 Project Overview
+- Flutter SDK ≥3.7
+- Dart SDK (bundled with Flutter)
+- Python ≥3.8 for backend
+- Node.js ≥16 for web (optional)
+- Git
 
-Fedha is an advanced financial management platform that prioritizes user privacy while delivering professional-grade features. Built with Flutter for mobile-first experience, the app operates entirely offline with optional cloud synchronization.
-
-### 🚀 Recent Major Achievement
-
-✅ **Transaction Ingestion System Completed** - Smart SMS text recognition and progressive CSV upload capabilities with complete privacy protection.
-
----
-
-## 📁 Documentation Structure
-
-### Core Documentation
-
-- [`roadmap.md`](roadmap.md) - Development roadmap and project phases (90% complete)
-- [`README.md`](README.md) - This comprehensive project guide
-
-### 📖 Implementation Guides
-
-Professional technical documentation in [`guides/`](guides/):
-
-- [`TRANSACTION_INGESTION_IMPLEMENTATION.md`](guides/TRANSACTION_INGESTION_IMPLEMENTATION.md) - Complete SMS & CSV system implementation
-- [`TRANSACTION_INGESTION_ARCHITECTURE.md`](guides/TRANSACTION_INGESTION_ARCHITECTURE.md) - Privacy-first system architecture
-- [`TRANSACTION_INGESTION_ALTERNATIVES.md`](guides/TRANSACTION_INGESTION_ALTERNATIVES.md) - Alternative implementation approaches
-- [`api-reference.md`](guides/api-reference.md) - API endpoints and integration guide
-- [`PRIVACY_POLICY.md`](guides/PRIVACY_POLICY.md) - Data protection and privacy guidelines
-
-### 📊 Status Reports & Summaries
-
-Project progress documentation in [`summaries/`](summaries/):
-
-- [`PROJECT_FINAL_STATUS_JUNE_2025.md`](summaries/PROJECT_FINAL_STATUS_JUNE_2025.md) - **Current project status overview**
-- [`TRANSACTION_INGESTION_FINAL_COMPLETION.md`](summaries/TRANSACTION_INGESTION_FINAL_COMPLETION.md) - **Latest feature completion report**
-- [`SESSION_COMPLETION_JUNE_15_2025.md`](summaries/SESSION_COMPLETION_JUNE_15_2025.md) - Recent development session summary
-- [`SMART_GOALS_COMPLETION_REPORT.md`](summaries/SMART_GOALS_COMPLETION_REPORT.md) - Goals system implementation
-- [`GOAL_TRANSACTION_INTEGRATION_REPORT.md`](summaries/GOAL_TRANSACTION_INTEGRATION_REPORT.md) - Feature integration summary
-
----
-
-## 🏦 About Fedha Budget Tracker
-
-### Core Philosophy
-
-- **Privacy-First Design**: All sensitive processing happens on-device
-- **Offline-Capable**: Full functionality without internet connectivity
-- **User-Centric**: Intuitive interfaces with comprehensive feedback
-- **Business-Ready**: Professional features for SME financial management
-
-### Technology Stack
-
-**Frontend:**
-
-- **Flutter 3.7+** - Cross-platform mobile development with Dart
-- **Material Design 3** - Modern, accessible user interface
-
-**Backend:**
-
-- **Django REST Framework** - Robust API development
-- **Python 3.11+** - Financial calculations and business logic
-
-**Database:**
-
-- **Hive** - Local offline storage for mobile app
-- **SQLite/PostgreSQL** - Backend data persistence
-
-**Key Dependencies:**
-
-- **Flutter**: `hive_flutter`, `provider`, `syncfusion_flutter_charts`, `permission_handler`, `file_picker`, `csv`
-- **Python**: `django`, `djangorestframework`, `numpy`, `scipy`
-
----
-
-## ✨ Key Features
-
-### Core Financial Management
-
-- **UUID-based Authentication**: Complete privacy with randomized profile IDs
-- **Offline-First Design**: Hive database ensures functionality without internet
-- **Multi-Profile Support**: Separate business and personal financial tracking
-- **Real-time Analytics**: Live financial health indicators and insights
-
-### Advanced Financial Tools
-
-- **Loan Calculators**:
-  - Total cost of credit calculation with multiple interest models
-  - Reverse interest rate calculation from known repayment amounts
-  - Amortization schedule generation
-  - API-based complex financial calculations
-- **Investment Tracking**: ROI calculations and portfolio performance monitoring
-- **Goal Setting**: Financial targets with progress tracking and projections
-
-### Transaction Management
-
-- **Smart Text Recognition**: On-device SMS analysis for transaction detection
-- **Progressive CSV Upload**: Bulk import with real-time validation
-- **Intelligent Categorization**: Auto-assignment based on merchant patterns
-- **Duplicate Detection**: Automatic identification and handling of duplicate transactions
-
-### Business Features
-
-- **Invoice Management**:
-  - Professional invoice generation
-  - Payment tracking and reminders
-  - Client management system
-- **Cash Flow Analysis**: SME-focused financial reporting
-- **Tax Preparation**: Transaction categorization for compliance
-
-### Privacy & Security
-
-- **On-Device Processing**: SMS and sensitive data never leave the device
-- **PIN-based Authentication**: Secure 4-digit PIN with salted hashing
-- **Encrypted Local Storage**: All data encrypted at rest
-- **No Cloud Dependency**: Full functionality offline
-
----
-
-## 📂 Project Structure
+### 1. App initialization
 
 ```bash
-fedha/
-├── app/                          # Flutter Mobile Application
-│   ├── lib/
-│   │   ├── main.dart            # Application entry point
-│   │   ├── models/              # Data models with Hive adapters
-│   │   │   ├── profile.dart     # User profile model
-│   │   │   ├── transaction.dart # Transaction model
-│   │   │   ├── goal.dart        # Financial goal model
-│   │   │   ├── loan.dart        # Loan tracking model
-│   │   │   └── csv_upload_result.dart # CSV processing models
-│   │   ├── screens/             # Application screens
-│   │   │   ├── dashboard_screen.dart
-│   │   │   ├── transaction_screen.dart
-│   │   │   ├── text_recognition_setup_screen.dart
-│   │   │   ├── csv_upload_screen.dart
-│   │   │   └── calculator_screen.dart
-│   │   ├── services/            # Business logic services
-│   │   │   ├── hive_service.dart # Local database management
-│   │   │   ├── transaction_service.dart # Transaction operations
-│   │   │   ├── text_recognition_service.dart # SMS processing
-│   │   │   └── csv_upload_service.dart # CSV import handling
-│   │   ├── widgets/             # Reusable UI components
-│   │   └── utils/               # Utility functions and themes
-│   ├── assets/                  # Application assets
-│   │   ├── icons/              # SVG icons and logos
-│   │   ├── images/             # Image assets
-│   │   └── fonts/              # Custom fonts
-│   └── pubspec.yaml            # Flutter dependencies
-│
-├── backend/                     # Django REST API Backend
-│   ├── manage.py               # Django management script
-│   ├── requirements.txt        # Python dependencies
-│   ├── api/                    # Main API application
-│   │   ├── models.py          # Database models
-│   │   ├── serializers.py     # API serializers
-│   │   ├── views.py           # API endpoints
-│   │   └── migrations/        # Database migrations
-│   └── backend/               # Django project settings
-│
-├── calculators-microservice/   # Financial Calculation Engine
-│   ├── interest_calculator.py # Loan and interest calculations
-│   └── requirements.txt       # Scientific computing dependencies
-│
-├── web/                       # React.js Web Application (Planned)
-│   ├── src/                   # React source code
-│   └── package.json          # Node.js dependencies
-│
-└── docs/                      # Project Documentation
-    ├── roadmap.md            # Development roadmap
-    ├── guides/               # Technical implementation guides
-    └── summaries/            # Status reports and completion summaries
+1. main() starts
+   ↓
+2. Initialize OfflineDataService (database)
+   ↓
+3. Initialize AuthService with dependencies
+   ↓
+4. Restore profile (if logged in)
+   ↓
+5. Initialize UnifiedSyncService
+   ↓
+6. Sync all data for profile
+   ↓
+7. Initialize BudgetService
+   ↓
+8. Load budgets for profile
+   ↓
+9. Launch app (with biometric overlay if needed)
 ```
 
----
-
-## 🚀 Getting Started
-
-### Prerequisites
-
-- **Flutter SDK 3.7+** with Dart 3.7+
-- **Android Studio** or **VS Code** with Flutter extension
-- **Python 3.11+** for backend development
-- **Git** for version control
-
-### Quick Setup
-
-#### 1. Clone the Repository
+### 2. Android/iOS
 
 ```bash
-git clone https://github.com/your-username/fedha.git
-cd fedha
+flutter run -d android   # or -d ios on macOS
 ```
 
-#### 2. Mobile App Setup (Flutter)
+### 3. Web (optional)
 
 ```bash
-cd app
-flutter pub get
-flutter doctor        # Verify setup
-flutter run           # Launch on connected device/emulator
+cd ../web && npm install && npm start
 ```
 
-#### 3. Backend Setup (Django) - Optional
+### 4. Backend (Django)
 
 ```bash
-cd backend
-python -m venv .venv
-.venv\Scripts\activate    # Windows
+cd ../backend
+python -m venv .venv && .venv/Scripts/activate
 pip install -r requirements.txt
 python manage.py migrate
-python manage.py runserver 8000
+python manage.py runserver
 ```
 
-#### 4. Generate Required Files
+#### Production KMS / Master Key (backend)
+
+For production deployments you should use a KMS or secrets service instead of embedding the master key in the environment or code. Example environment variables (set in your host/CI/containers):
+
+PowerShell example (Windows):
+
+```powershell
+$env:KMS_PROVIDER = 'aws-secrets-manager'
+$env:AWS_SECRET_NAME = 'fedha/encryption/master-key'
+$env:AWS_REGION = 'us-east-1'
+```
+
+Bash example (Linux/macOS):
 
 ```bash
-cd app
-flutter packages pub run build_runner build    # Generate Hive adapters
+export KMS_PROVIDER=aws-secrets-manager
+export AWS_SECRET_NAME=fedha/encryption/master-key
+export AWS_REGION=us-east-1
 ```
 
-### Development Environment
+If you are using HashiCorp Vault:
 
-- **Primary Platform**: Android (Flutter)
-- **Development IDE**: Android Studio or VS Code
-- **Testing**: Flutter test framework with device emulators
-- **Database**: Hive for local storage, SQLite for backend testing
+```bash
+export KMS_PROVIDER=vault
+export VAULT_ADDR=https://vault.example.com:8200
+export VAULT_TOKEN=<vault-token>
+export VAULT_SECRET_PATH=secret/fedha/encryption/master-key
+```
 
----
+Bootstrap master key (optional):
+After configuring the adapter and before serving traffic, you can ensure a master key exists by running:
 
-## 📱 App Features Overview
+```powershell
+# Windows PowerShell
+cd c:\GitHub\fedha\backend
+$env:KMS_PROVIDER='aws-secrets-manager'  # or 'vault' or 'env'
+python manage.py bootstrap_master_key --create
+```
 
-### Dashboard
+Notes:
 
-- Financial overview with charts and insights
-- Recent transactions and budget status
-- Quick access to calculators and tools
-- Goal progress tracking
+- In production prefer manually provisioning the key in Secrets Manager or Vault and pointing the app to it.
+- `--create` will attempt to store a generated key in the configured adapter — use with care in production.
 
-### Transaction Management
+## Android Permissions
 
-- Manual transaction entry with smart categorization
-- SMS-based automatic transaction detection
-- CSV bulk import with validation
-- Advanced search and filtering
+Be sure your AndroidManifest.xml includes:
 
-### Tools & Calculators
+```bash
+<uses-permission android:name="android.permission.READ_SMS" />
+<uses-permission android:name="android.permission.RECEIVE_SMS" />
+```
 
-- Comprehensive loan calculators
-- Interest rate solvers
-- Investment return calculators
-- Goal planning tools
+## 🗂️ Project Structure
 
-### Settings & Privacy
+```txt
+fedha/
+├─ app/           Flutter mobile & desktop
+├─ backend/       Django REST API
+├─ web/           React web frontend
+└─ docs/          Guides, [ROADMAP.md](http://_vscodecontentref_/3)
+```
 
-- Profile management (business/personal)
-- Privacy controls and permissions
-- Data export and backup options
-- Security settings
+## ✔️ Current Status (backend highlights)
 
----
+- Core features (auth, CRUD, sync, loan calculator) – ✅ Done
+- SMS ingestion (Android) – ✅ Done
+- SMS ingestion (iOS fallback UI) – ⚠️ Incomplete, needs wiring
+- Biometric auth flow – ✅ Done
 
-## 🔒 Privacy & Security
+Recent backend & security work (Nov 2025):
 
-### Privacy-First Architecture
+- Field-level encryption added for PII (AES-256-GCM) with per-profile key derivation.
+- Key management models and migrations (key versions, rotation logs) applied.
+- Key rotation orchestration and management command: `rotate_encryption_keys`.
+- Monitoring command: `monitor_encryption` to report key health and coverage.
+- KMS adapter implemented (`backend/api/utils/kms_adapter.py`) with support for:
+  - `env` (development), `aws-secrets-manager`, `aws-kms`, and `vault` providers.
+- Runtime wiring: `KeyManager` now retrieves master key via the adapter; `KeyBootstrap` helper + `bootstrap_master_key` command added.
+- A safe bootstrap guard was added: auto-creation of master keys is blocked unless `ALLOW_AUTO_CREATE_MASTER=yes` is set in environment.
+- `encrypt_existing_pii` management command for zero-downtime plaintext→encrypted migration (dry-run supported).
+- Migrations were corrected and a backfill migration added to make `KeyRotationLog.profile` non-nullable safely.
+- Unit tests added for rotation/monitoring; CI workflow added at `.github/workflows/ci.yml` to run checks and tests on PRs.
 
-- **On-Device Processing**: All SMS analysis happens locally
-- **No Cloud Transmission**: Sensitive data never leaves your device
-- **UUID-Based IDs**: No personal information in identifiers
-- **Permission-Based**: Explicit user consent for all data access
+Start server helpers
 
-### Security Features
+- `start_server.py` supports automated steps (migrations, checks), and new flags to bootstrap keys and run encryption migration:
+  - `--ensure-master-key` and `--create-master-key` (requires `ALLOW_AUTO_CREATE_MASTER=yes` to create)
+  - `--encrypt-existing`, `--encrypt-dry-run`, `--encrypt-limit`, `--encrypt-batch-size`
 
-- **Encrypted Storage**: All local data encrypted with device security
-- **PIN Authentication**: Secure 4-digit PIN with salt + hash
-- **Session Management**: Automatic logout for security
-- **Data Isolation**: Business and personal profiles completely separate
+Local quick commands (PowerShell):
 
----
+```powershell
+# Run system checks
+cd c:\GitHub\fedha\backend
+python manage.py check
 
-## 📈 Development Roadmap
+# Ensure master key (safe: will NOT create unless ALLOW_AUTO_CREATE_MASTER is set)
+python manage.py bootstrap_master_key
 
-### ✅ Completed Phases (90% Overall)
+# To allow auto-creation in a controlled environment:
+$env:ALLOW_AUTO_CREATE_MASTER = 'yes'
+python manage.py bootstrap_master_key --create
 
-- **Phase 1**: Foundation & Core Infrastructure (100%)
-- **Phase 2**: Core Financial Features (100%)
-- **Phase 3**: Transaction Ingestion Pipeline (100%)
+# Start server and bootstrap key automatically (create only if ALLOW_AUTO_CREATE_MASTER is set):
+python ..\backend\start_server.py --ensure-master-key --create-master-key
+```
 
-### 🔄 Current Phase
-
-- **Phase 4**: Enhanced Analytics & Intelligence
-  - Machine learning for spending patterns
-  - Predictive analytics for budget optimization
-  - Advanced reporting and insights
-
-### 🔮 Future Enhancements
-
-- iOS platform support
-- Web application for business users
-- Third-party bank integrations (with user consent)
-- Advanced security features (biometric authentication)
-
----
-
-## 🤝 Contributing
-
-We welcome contributions to make Fedha even better!
-
-### How to Contribute
-
-1. **Fork** the repository
-2. **Create** a feature branch (`git checkout -b feature/amazing-feature`)
-3. **Commit** your changes (`git commit -m 'Add amazing feature'`)
-4. **Push** to the branch (`git push origin feature/amazing-feature`)
-5. **Open** a Pull Request
-
-### Development Guidelines
-
-- Follow Flutter best practices and conventions
-- Maintain privacy-first architecture principles
-- Include comprehensive tests for new features
-- Update documentation for significant changes
-
----
-
-## 📄 License
-
-This project is licensed under the MIT License. See the [LICENSE](../LICENSE) file for details.
-
----
-
-## 📞 Support & Contact
-
-### Getting Help
-
-- **Documentation**: Check the [`guides/`](guides/) folder for technical documentation
-- **Issues**: Open an issue on GitHub for bug reports or feature requests
-- **Status**: Check [`summaries/`](summaries/) for current project status
-
-### Project Status
-
-- **Current Version**: 1.0.0+1
-- **Development Stage**: Advanced (90% complete)
-- **Production Readiness**: Core features ready for deployment
-- **Next Milestone**: Enhanced Analytics & Intelligence features
-
----
-
-**Built with ❤️ for privacy-conscious users who demand professional-grade financial management tools.**
+If you need a hand preparing a production KMS rollout or a PR for these security changes, I can draft the PR and the deployment checklist.

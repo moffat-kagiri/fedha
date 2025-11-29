@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'dart:math';
-
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:path_provider/path_provider.dart';
@@ -8,7 +7,6 @@ import 'package:path/path.dart' as p;
 
 part 'app_database.g.dart';
 
-// ----------------------
 // Drift table + Database (Service file)
 class RiskAssessments extends Table {
   IntColumn get id => integer().autoIncrement()();
@@ -45,6 +43,8 @@ class Transactions extends Table {
   BoolColumn get isExpense => boolean().withDefault(const Constant(true))();
   TextColumn get rawSms => text().nullable()();
   IntColumn get profileId => integer()();
+  TextColumn get goalId => text().nullable()();
+  TextColumn get transactionType => text().withDefault(const Constant('expense'))();
 }
 
 /// Table for storing goals.
@@ -71,7 +71,7 @@ class Loans extends Table {
   IntColumn get profileId => integer()();
 }
 
-/// Table for storing SMS-derived pending transactions prior to user review.
+// Table for storing SMS-derived pending transactions prior to user review.
 class PendingTransactions extends Table {
   TextColumn get id => text()();
   RealColumn get amountMinor => real().map(const _DecimalConverter())();
@@ -85,7 +85,7 @@ class PendingTransactions extends Table {
   Set<Column> get primaryKey => {id};
 }
 
-/// Converter for storing Decimal amounts in a real column
+// Converter for storing Decimal amounts in a real column
 class _DecimalConverter extends TypeConverter<double, double> {
   const _DecimalConverter();
   @override
@@ -97,9 +97,7 @@ class _DecimalConverter extends TypeConverter<double, double> {
 @DriftDatabase(tables: [Transactions, Goals, Loans, PendingTransactions, RiskAssessments])
 class AppDatabase extends _$AppDatabase {
   AppDatabase._internal(QueryExecutor e) : super(e);
-
   static AppDatabase? _instance;
-
   factory AppDatabase() {
     if (_instance != null) return _instance!;
     final executor = _openEncryptedConnection();
@@ -107,14 +105,29 @@ class AppDatabase extends _$AppDatabase {
     return _instance!;
   }
 
+  // UPDATE schema version:
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2; // Changed from 1 to 2
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+    onUpgrade: (migrator, from, to) async {
+      if (from < 2) {
+        // Add new columns for version 2
+        await migrator.addColumn(transactions, transactions.goalId);
+        await migrator.addColumn(transactions, transactions.transactionType);
+      }
+    },
+  );
 
   // CRUD helpers for Transactions
-  Future<int> insertTransaction(TransactionsCompanion companion) => into(transactions).insert(companion);
   Future<List<Transaction>> getAllTransactions() => select(transactions).get();
+    Future<Transaction?> getTransactionById(int id) async {
+    return await (select(transactions)..where((tbl) => tbl.id.equals(id))).getSingleOrNull();
+  }
   Future<int> deleteTransactionById(int id) => 
     (delete(transactions)..where((tbl) => tbl.id.equals(id))).go();
+  Future<int> insertTransaction(TransactionsCompanion companion) => into(transactions).insert(companion);
 
   // CRUD helpers for Goals
   Future<int> insertGoal(GoalsCompanion companion) => into(goals).insert(companion);
@@ -123,7 +136,7 @@ class AppDatabase extends _$AppDatabase {
   // CRUD helpers for Loans
   Future<int> insertLoan(LoansCompanion companion) => into(loans).insert(companion);
   Future<List<Loan>> getAllLoans() => select(loans).get();
-  
+
   // CRUD helpers for pending SMS transactions
   Future<int> insertPending(PendingTransactionsCompanion companion) => into(pendingTransactions).insert(companion);
   Future<List<PendingTransaction>> getAllPending(int profileId) =>

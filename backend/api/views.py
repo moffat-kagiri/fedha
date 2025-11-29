@@ -9,18 +9,28 @@ Author: Fedha Development Team
 Last Updated: November 15, 2025
 """
 
+from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.models import User
+from django.contrib.auth.hashers import make_password, check_password
+from django.core.mail import send_mail
+from django.conf import settings
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
 from django.shortcuts import render
 from django.utils import timezone
-from django.http import JsonResponse
+import json
 from rest_framework import generics, permissions, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from django.core.mail import send_mail
-from django.conf import settings
 from .services.sms_parser import RuleBasedSMSParser, TransactionCandidateFactory
 import logging
+from rest_framework import status
+from rest_framework.permissions import AllowAny
+from rest_framework.authtoken.models import Token
+from .serializers import UserSerializer, ProfileSerializer
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +47,58 @@ from .serializers import (
 # CONFIGURATION CONSTANTS AND MAPPINGS
 # =============================================================================
 
-# Profile type mappings
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def register_user(request):
+    """
+    User registration with token authentication
+    """
+    serializer = UserSerializer(data=request.data)
+    if serializer.is_valid():
+        user = serializer.save()
+        token, created = Token.objects.get_or_create(user=user)
+        return Response({
+            'user': serializer.data,
+            'token': token.key
+        }, status=status.HTTP_201_CREATED)
+    return Response(
+        {'errors': serializer.errors}, 
+        status=status.HTTP_400_BAD_REQUEST
+    )
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def login_user(request):
+    """
+    User login with token authentication
+    """
+    from django.contrib.auth import authenticate
+    username = request.data.get('username')
+    password = request.data.get('password')
+    
+    if not username or not password:
+        return Response(
+            {'error': 'Username and password are required'}, 
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    user = authenticate(username=username, password=password)
+    if user:
+        token, created = Token.objects.get_or_create(user=user)
+        return Response({
+            'token': token.key,
+            'user': {
+                'id': user.id,
+                'username': user.username,
+                'email': user.email
+            }
+        })
+    return Response(
+        {'error': 'Invalid credentials'}, 
+        status=status.HTTP_401_UNAUTHORIZED
+    )
+
+# Profile type mappings - moved to settings in production
 PROFILE_TYPE_MAPPINGS = {
     'business': {
         'code': 'BIZ',
@@ -59,13 +120,6 @@ DB_CODE_TO_TYPE = {
     'PERS': 'personal'
 }
 
-# Currency and timezone defaults
-DEFAULT_SETTINGS = {
-    'currency': 'KES',
-    'timezone': 'UTC',
-    'currencies': ['KES', 'USD', 'EUR', 'GBP', 'JPY']
-}
-
 # Response messages
 RESPONSE_MESSAGES = {
     'registration_success': 'Account created successfully',
@@ -73,14 +127,6 @@ RESPONSE_MESSAGES = {
     'profile_not_found': 'Profile not found',
     'invalid_credentials': 'Invalid email or password',
 }
-
-# Error messages
-ERROR_MESSAGES = {
-    'missing_fields': 'Missing required fields',
-    'invalid_email': 'Invalid email format',
-    'password_too_short': 'Password must be at least 6 characters',
-}
-
 
 # =============================================================================
 # HELPER FUNCTIONS
@@ -90,12 +136,10 @@ def get_profile_type_info(profile_type: str) -> Dict[str, Any]:
     """Get profile type information using dictionary lookup"""
     return PROFILE_TYPE_MAPPINGS.get(profile_type, PROFILE_TYPE_MAPPINGS['personal'])
 
-
 def get_dashboard_url(profile_type_code: str) -> str:
     """Get dashboard URL based on profile type code"""
     display_type = DB_CODE_TO_TYPE.get(profile_type_code, 'personal')
     return PROFILE_TYPE_MAPPINGS[display_type]['dashboard_url']
-
 
 def format_profile_response(profile: Profile) -> Dict[str, Any]:
     """Format profile data for API responses"""
@@ -110,7 +154,6 @@ def format_profile_response(profile: Profile) -> Dict[str, Any]:
         'last_login': profile.last_login.isoformat() if profile.last_login else None
     }
 
-
 def validate_required_fields(data: Dict[str, Any], required_fields: list) -> tuple:
     """Validate that all required fields are present"""
     missing_fields = [field for field in required_fields if not data.get(field)]
@@ -118,6 +161,12 @@ def validate_required_fields(data: Dict[str, Any], required_fields: list) -> tup
         return False, f"Missing required fields: {', '.join(missing_fields)}"
     return True, None
 
+def create_error_response(message: str, status_code: int, details=None):
+    """Create consistent error response"""
+    response = {'error': message}
+    if details:
+        response['details'] = details
+    return Response(response, status=status_code)
 
 # =============================================================================
 # API VIEWS
@@ -128,98 +177,114 @@ class HealthCheckView(APIView):
     permission_classes = [AllowAny]
     
     def get(self, request):
-        return Response({'status': 'ok', 'message': 'Fedha backend is running'})
+        return Response({
+            'status': 'ok', 
+            'message': 'Fedha backend is running',
+            'timestamp': timezone.now().isoformat()
+        })
 
-
-class ProfileRegistrationView(APIView):
-    """API endpoint for user profile registration"""
+class SecureProfileRegistrationView(APIView):
+    """Secure API endpoint for user profile registration with password hashing"""
     permission_classes = [AllowAny]
     
     def post(self, request):
         serializer = ProfileRegistrationSerializer(data=request.data)
         
-        if serializer.is_valid():
-            try:
-                # Create new profile
-                profile = Profile.objects.create(
-                    name=serializer.validated_data['name'],
-                    email=serializer.validated_data['email'],
-                    password=serializer.validated_data['password'],
-                    profile_type=serializer.validated_data.get('profile_type', 'PERS'),
-                    base_currency=serializer.validated_data.get('base_currency', 'KES'),
-                    timezone=serializer.validated_data.get('timezone', 'UTC'),
-                )
-                
-                profile_serializer = ProfileSerializer(profile)
-                return Response({
-                    'message': RESPONSE_MESSAGES['registration_success'],
-                    'profile': profile_serializer.data,
-                }, status=status.HTTP_201_CREATED)
-            
-            except Exception as e:
-                logger.error(f"Registration error: {str(e)}")
-                return Response(
-                    {'error': str(e)},
-                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                )
+        if not serializer.is_valid():
+            return create_error_response(
+                'Invalid registration data', 
+                status.HTTP_400_BAD_REQUEST,
+                serializer.errors
+            )
         
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            # Hash password before saving
+            validated_data = serializer.validated_data.copy()
+            raw_password = validated_data.pop('password')
+            
+            # Create new profile with hashed password
+            profile = Profile.objects.create(
+                name=validated_data['name'],
+                email=validated_data['email'],
+                profile_type=validated_data.get('profile_type', 'PERS'),
+                base_currency=validated_data.get('base_currency', 'KES'),
+                timezone=validated_data.get('timezone', 'UTC'),
+            )
+            
+            # Set hashed password
+            profile.set_password(raw_password)
+            profile.save()
+            
+            profile_serializer = ProfileSerializer(profile)
+            return Response({
+                'message': RESPONSE_MESSAGES['registration_success'],
+                'profile': profile_serializer.data,
+            }, status=status.HTTP_201_CREATED)
+        
+        except Exception as e:
+            logger.error(f"Registration error: {str(e)}")
+            return create_error_response(
+                'Registration failed',
+                status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
-
-class ProfileLoginView(APIView):
-    """API endpoint for user login"""
+class SecureProfileLoginView(APIView):
+    """Secure API endpoint for user login with password verification"""
     permission_classes = [AllowAny]
     
     def post(self, request):
         serializer = ProfileLoginSerializer(data=request.data)
         
-        if serializer.is_valid():
-            try:
-                # Find profile by email
-                profile = Profile.objects.get(
-                    email=serializer.validated_data['email'],
-                    is_active=True
-                )
-                
-                # Verify password
-                if profile.password != serializer.validated_data['password']:
-                    return Response(
-                        {'error': RESPONSE_MESSAGES['invalid_credentials']},
-                        status=status.HTTP_401_UNAUTHORIZED
-                    )
-                
-                # Update last login
-                profile.last_login = timezone.now()
-                profile.save(update_fields=['last_login'])
-                
-                profile_serializer = ProfileSerializer(profile)
-                return Response({
-                    'message': RESPONSE_MESSAGES['login_success'],
-                    'profile': profile_serializer.data,
-                    'dashboard_url': get_dashboard_url(profile.profile_type)
-                })
-            
-            except Profile.DoesNotExist:
-                return Response(
-                    {'error': RESPONSE_MESSAGES['invalid_credentials']},
-                    status=status.HTTP_401_UNAUTHORIZED
-                )
-            except Exception as e:
-                logger.error(f"Login error: {str(e)}")
-                return Response(
-                    {'error': str(e)},
-                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                )
+        if not serializer.is_valid():
+            return create_error_response(
+                'Invalid login data',
+                status.HTTP_400_BAD_REQUEST,
+                serializer.errors
+            )
         
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
+        try:
+            # Find profile by email
+            profile = Profile.objects.get(
+                email=serializer.validated_data['email'],
+                is_active=True
+            )
+            
+            # Verify password using hashed comparison
+            if not profile.check_password(serializer.validated_data['password']):
+                return create_error_response(
+                    RESPONSE_MESSAGES['invalid_credentials'],
+                    status.HTTP_401_UNAUTHORIZED
+                )
+            
+            # Update last login
+            profile.last_login = timezone.now()
+            profile.save(update_fields=['last_login'])
+            
+            profile_serializer = ProfileSerializer(profile)
+            return Response({
+                'message': RESPONSE_MESSAGES['login_success'],
+                'profile': profile_serializer.data,
+                'dashboard_url': get_dashboard_url(profile.profile_type)
+            })
+        
+        except Profile.DoesNotExist:
+            return create_error_response(
+                RESPONSE_MESSAGES['invalid_credentials'],
+                status.HTTP_401_UNAUTHORIZED
+            )
+        except Exception as e:
+            logger.error(f"Login error: {str(e)}")
+            return create_error_response(
+                'Login failed',
+                status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 class TransactionCandidateView(APIView):
     """
     API endpoint for creating and reviewing transaction candidates from SMS.
     Uses local rule-based SMS parsing.
     """
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]  # Changed to require authentication
     
     def post(self, request):
         """
@@ -231,16 +296,20 @@ class TransactionCandidateView(APIView):
             "profile_id": "uuid-here"
         }
         """
+        from .serializers import TransactionCandidateSerializer
+        
+        serializer = TransactionCandidateSerializer(data=request.data)
+        if not serializer.is_valid():
+            return create_error_response(
+                'Invalid transaction data',
+                status.HTTP_400_BAD_REQUEST,
+                serializer.errors
+            )
+        
         try:
-            sms_text = request.data.get('sms_text')
-            profile_id = request.data.get('profile_id')
+            sms_text = serializer.validated_data['sms_text']
+            profile_id = serializer.validated_data['profile_id']
             
-            if not sms_text or not profile_id:
-                return Response(
-                    {'error': 'Missing required fields: sms_text, profile_id'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-
             # Parse SMS using local rule-based parser only
             parse_result = RuleBasedSMSParser.parse(sms_text, profile_id)
             
@@ -269,7 +338,7 @@ class TransactionCandidateView(APIView):
         
         except Exception as e:
             logger.error(f"Transaction candidate creation error: {str(e)}")
-            return Response(
-                {'error': str(e)},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            return create_error_response(
+                'Transaction processing failed',
+                status.HTTP_500_INTERNAL_SERVER_ERROR
             )
