@@ -175,8 +175,7 @@ class Profile(EncryptedFieldsMixin, models.Model):
     
     Privacy Features:
     - UUID primary key prevents enumeration
-    - PIN-based authentication (no passwords stored)
-    - Hashed PIN with application secret salt
+    - SHA-256 password hashing (frontend compatible)
     - Optional display name for customization
     
     Business vs Personal:
@@ -228,9 +227,21 @@ class Profile(EncryptedFieldsMixin, models.Model):
         default=ProfileType.PERSONAL,
         help_text="Determines available features and UI"
     )
+    
+    # SHA-256 password hash (frontend compatible)
+    password_hash = models.CharField(
+        max_length=64,
+        null=True,
+        blank=True,
+        help_text="SHA-256 hash of password for frontend-compatible offline login"
+    )
+    
+    # Legacy PIN hash (kept for backward compatibility)
     pin_hash = models.CharField(
         max_length=128,
-        help_text="SHA-256 hash of 4-digit PIN with application salt"
+        null=True,
+        blank=True,
+        help_text="SHA-256 hash of 4-digit PIN with application salt (legacy)"
     )
     
     # Base currency and localization
@@ -241,10 +252,19 @@ class Profile(EncryptedFieldsMixin, models.Model):
     )
     timezone = models.CharField(
         max_length=50,
-        default='GMT+3',
+        default='Africa/Nairobi',
         help_text="Timezone for date/time display"
     )
-      # Status tracking
+    
+    # Phone number for SMS-based features
+    phone = models.CharField(
+        max_length=20,
+        blank=True,
+        null=True,
+        help_text="Phone number for SMS notifications and recovery"
+    )
+    
+    # Status tracking
     created_at = models.DateTimeField(auto_now_add=True)
     last_modified = models.DateTimeField(auto_now=True)
     last_login = models.DateTimeField(null=True, blank=True)
@@ -271,8 +291,7 @@ class Profile(EncryptedFieldsMixin, models.Model):
             models.Index(fields=['profile_type']),
             models.Index(fields=['created_at']),
             models.Index(fields=['is_active']),
-            models.Index(fields=['user_id']),  # Enhanced: Index for user_id lookups
-            models.Index(fields=['email']),     # Enhanced: Index for email lookups
+            models.Index(fields=['email']),
         ]
         ordering = ['-created_at']
         verbose_name = "User Profile"

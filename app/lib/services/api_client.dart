@@ -143,12 +143,55 @@ class ApiClient {
 	Future<bool> testConnection() => checkServerHealth();
 
 	// --- Profile management stubs ---
+	Future<Map<String, dynamic>> getProfile({required String sessionToken}) async {
+		final url = Uri.parse(_config.getEndpoint('api/auth/profile/'));
+		try {
+			final resp = await _http
+					.get(url, headers: _headers)
+					.timeout(const Duration(seconds: 10));
+			if (resp.statusCode == 200) {
+				return jsonDecode(resp.body) as Map<String, dynamic>;
+			}
+			return {'success': false, 'status': resp.statusCode, 'body': resp.body};
+		} catch (e) {
+			return {'success': false, 'error': e.toString()};
+		}
+	}
+
 	Future<Map<String, dynamic>> updateProfile({required String userId, required String sessionToken, required Map<String, dynamic> profileData}) async {
-		return {'success': true};
+		final url = Uri.parse(_config.getEndpoint('api/auth/profile/update/'));
+		try {
+			final resp = await _http
+					.put(url, headers: _headers, body: jsonEncode(profileData))
+					.timeout(const Duration(seconds: 10));
+			if (resp.statusCode == 200) {
+				return jsonDecode(resp.body) as Map<String, dynamic>;
+			}
+			return {'success': false, 'status': resp.statusCode, 'body': resp.body};
+		} catch (e) {
+			return {'success': false, 'error': e.toString()};
+		}
 	}
 
 	Future<Map<String, dynamic>> updatePassword({required String userId, required String sessionToken, required String currentPassword, required String newPassword}) async {
-		return {'success': true};
+		final url = Uri.parse(_config.getEndpoint('api/auth/password/change/'));
+		try {
+			final resp = await _http
+					.post(url, 
+						headers: _headers, 
+						body: jsonEncode({
+							'current_password': currentPassword,
+							'new_password': newPassword
+						})
+					)
+					.timeout(const Duration(seconds: 10));
+			if (resp.statusCode == 200) {
+				return jsonDecode(resp.body) as Map<String, dynamic>;
+			}
+			return {'success': false, 'status': resp.statusCode, 'body': resp.body};
+		} catch (e) {
+			return {'success': false, 'error': e.toString()};
+		}
 	}
 
 	Future<Map<String, dynamic>> requestPasswordReset({required String email}) async {
@@ -161,7 +204,24 @@ class ApiClient {
 	}
 
 	Future<List<dynamic>> fetchUserGoals({required String userId, required String sessionToken}) async {
-		return <dynamic>[]; // return empty list for now
+		final url = Uri.parse(_config.getEndpoint('api/goals/'));
+		try {
+			final resp = await _http
+					.get(url, headers: _headers)
+					.timeout(const Duration(seconds: 10));
+			if (resp.statusCode == 200) {
+				final data = jsonDecode(resp.body);
+				if (data is List) {
+					return data;
+				} else if (data is Map && data['results'] is List) {
+					return data['results'] as List<dynamic>;
+				}
+			}
+			return <dynamic>[];
+		} catch (e) {
+			logger.warning('Failed to fetch user goals: $e');
+			return <dynamic>[];
+		}
 	}
 
 	Future<Map<String, dynamic>> fetchBudgetSummary({required String userId, required String sessionToken}) async {

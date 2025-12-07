@@ -8,8 +8,10 @@ class Profile {
   final String id;
   final String name;
   final String? email;
+  final String password;  // hashed locally
+  final String? authToken;  // from server
+  final String? sessionToken;  // local session
   final ProfileType type;
-  final String password;
   final String baseCurrency;
   final String timezone;
   final DateTime createdAt;
@@ -19,12 +21,11 @@ class Profile {
   final DateTime lastLogin;
   final DateTime? lastSynced;
   final DateTime? lastModified;
-  final String? sessionToken;
   final Map<String, dynamic>? preferences;
   final String? displayName;
   final String? phoneNumber;
   final String? photoUrl;
-  final String? authToken;
+
 
   Profile({
     required this.id,

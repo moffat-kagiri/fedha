@@ -1,15 +1,12 @@
+// lib/screens/auth_wrapper.dart 
+
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
-import '../services/biometric_auth_service.dart';
-import 'package:fedha/services/api_client.dart';
-import '../theme/app_theme.dart';
-import '../utils/first_login_handler.dart';
+import '../services/offline_data_service.dart';
+import 'login_screen.dart';
 import 'welcome_onboarding_screen.dart';
-import 'main_navigation.dart';
-import 'signup_screen.dart';
-import 'login_screen.dart' hide Theme;
+import 'dashboard_screen.dart'; 
 
 class AuthWrapper extends StatefulWidget {
   const AuthWrapper({super.key});
@@ -19,42 +16,45 @@ class AuthWrapper extends StatefulWidget {
 }
 
 class _AuthWrapperState extends State<AuthWrapper> {
-  bool _isLoading = true;
-  bool _onboardingCompleted = false;
-  bool _accountCreationAttempted = false;
+  bool _isChecking = true;
+  bool _isFirstTime = true;
 
   @override
   void initState() {
     super.initState();
-    _checkInitialState();
+    _checkAuthState();
   }
 
-  Future<void> _checkInitialState() async {
+  Future<void> _checkAuthState() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final onboardingCompleted = prefs.getBool('onboarding_completed') ?? false;
-      final accountCreationAttempted = prefs.getBool('account_creation_attempted') ?? false;
+      final authService = context.read<AuthService>();
+      final offlineDataService = context.read<OfflineDataService>();
+
+      // Ensure auth service is initialized with dependencies
+      if (!authService.isInitialized) {
+        await authService.initializeWithDependencies(
+          offlineDataService: offlineDataService,
+          biometricService: null,
+        );
+      }
+
+      // Check if first time user
+      final isFirstTime = await authService.isFirstLogin();
       
+      // Check if logged in
+      final isLoggedIn = await authService.isLoggedIn();
+
       if (mounted) {
-        final authService = Provider.of<AuthService>(context, listen: false);
-        await authService.initialize();
-        
-        // NOTE: Biometric authentication is now handled at the root level in main.dart
-        // This wrapper only handles onboarding and auth state
-        
-        // Set state with all our flags
         setState(() {
-          _onboardingCompleted = onboardingCompleted;
-          _accountCreationAttempted = accountCreationAttempted;
-          _isLoading = false;
+          _isFirstTime = isFirstTime;
+          _isChecking = false;
         });
       }
     } catch (e) {
+      debugPrint('Error checking auth state: $e');
       if (mounted) {
         setState(() {
-          _onboardingCompleted = false;
-          _isLoading = false;
-          _accountCreationAttempted = false;
+          _isChecking = false;
         });
       }
     }
@@ -62,58 +62,28 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return Scaffold(
-        backgroundColor: FedhaColors.primaryGreen,
+    if (_isChecking) {
+      return const Scaffold(
         body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(
-                Icons.account_balance_wallet,
-                size: 80,
-                color: Colors.white,
-              ),
-              const SizedBox(height: 20),
-              Text(
-                'Fedha',
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-              const SizedBox(height: 20),
-              const CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-              ),
-            ],
-          ),
+          child: CircularProgressIndicator(),
         ),
       );
     }
 
-    if (!_onboardingCompleted) {
+    // Show onboarding for first-time users
+    if (_isFirstTime) {
       return const WelcomeOnboardingScreen();
     }
 
+    // Use Consumer to listen to auth state changes
     return Consumer<AuthService>(
       builder: (context, authService, child) {
-        // Use FutureBuilder to handle async isLoggedIn check
-        return FutureBuilder<bool>(
-          future: authService.isLoggedIn(),
-          builder: (context, snapshot) {
-            if (snapshot.hasData && snapshot.data!) {
-              return const MainNavigation();
-            } else if (!_accountCreationAttempted) {
-              // No account attempt yet: prompt signup first
-              return const SignupScreen();
-            } else {
-              // After account creation attempt: present login screen
-              return const LoginScreen();
-            }
-          },
-        );
+        if (authService.hasActiveProfile) {
+          // FIXED: Use DashboardScreen instead of HomeScreen
+          return const DashboardScreen();
+        } else {
+          return const LoginScreen();
+        }
       },
     );
   }

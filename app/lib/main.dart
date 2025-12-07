@@ -8,6 +8,8 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:workmanager/workmanager.dart';
 import 'package:awesome_notifications/awesome_notifications.dart';
 import 'services/notification_service.dart';
+import 'package:flutter/widgets.dart'; 
+import 'package:provider/single_child_widget.dart';
 
 // Models
 import 'models/profile.dart';
@@ -75,6 +77,8 @@ import 'screens/sms_review_screen.dart';
 import 'screens/budget_progress_screen.dart';
 import 'screens/analytics_screen.dart';
 
+// ==================== BACKGROUND TASK DISPATCHER ====================
+
 void callbackDispatcher() {
   Workmanager().executeTask((task, inputData) async {
     try {
@@ -104,6 +108,8 @@ void callbackDispatcher() {
   });
 }
 
+// ==================== MAIN ENTRY POINT ====================
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -112,97 +118,19 @@ Future<void> main() async {
   final logger = AppLogger.getLogger('Main');
 
   try {
+    logger.info('🚀 Starting Fedha app...');
+    
     // Initialize WorkManager
     await Workmanager().initialize(callbackDispatcher, isInDebugMode: kDebugMode);
+    logger.info('✅ WorkManager initialized');
 
-    logger.info('Initializing core services...');
-    
-    // Core services
-    final offlineDataService = OfflineDataService();
-    await offlineDataService.initialize();
-    
-    final biometricAuthService = BiometricAuthService.instance;
-    await biometricAuthService?.initialize();
-    
-    final authService = AuthService.instance;
-    await authService.initializeWithDependencies(
-      offlineDataService: offlineDataService,
-      biometricService: biometricAuthService,
-    );
-    
-    final permissionsService = PermissionsService.instance;
-    await permissionsService.initialize();
-    
-    final themeService = ThemeService.instance;
-    await themeService.initialize();
-
-    // Network services
-    final apiClient = ApiClient.instance;
-    apiClient.init(config: ApiConfig.development());
-    
-    final connectivityService = conn_svc.ConnectivityService(apiClient);
-    await connectivityService.initialize();
-    
-    final hasConnectivity = await connectivityService.hasInternetConnection();
-    logger.info('Internet connectivity: $hasConnectivity');
-
-    if (hasConnectivity) {
-      final bestConnectionUrl = await ConnectionManager.findWorkingConnection();
-      if (bestConnectionUrl != null) {
-        ApiConfig apiConfig;
-        if (bestConnectionUrl.contains('trycloudflare.com')) {
-          apiConfig = ApiConfig.cloudflare();
-        } else if (bestConnectionUrl.contains('192.168.')) {
-          apiConfig = ApiConfig.development();
-        } else {
-          apiConfig = ApiConfig.development().copyWith(primaryApiUrl: bestConnectionUrl);
-        }
-        apiClient.init(config: apiConfig);
-      }
-    }
-
-    // Initialize remaining services
-    final goalTransactionService = stubs.GoalTransactionService(offlineDataService);
-    final textRecognitionService = stubs.TextRecognitionService(offlineDataService);
-    final csvUploadService = stubs.CSVUploadService(offlineDataService);
-    final smsTransactionExtractor = stubs.SmsTransactionExtractor(offlineDataService);
-    final notificationService = stubs.NotificationService.instance;
-    final navigationService = stubs.NavigationService.instance;
-    final senderManagementService = stubs.SenderManagementService.instance;
-    final backgroundTransactionMonitor = stubs.BackgroundTransactionMonitor(
-      offlineDataService, 
-      smsTransactionExtractor
-    );
-    final currencyService = CurrencyService();
-    
-    final mainDb = data_db.AppDatabase();
-    final riskAssessmentService = RiskAssessmentService(mainDb);
-
-    // Initialize sync service
-    final unifiedSyncService = UnifiedSyncService.instance;
-    await unifiedSyncService.initialize(
-      offlineDataService: offlineDataService,
-      apiClient: apiClient,
-    );
-
-    // Initialize budget service
-    final budgetService = BudgetService.instance;
-    await budgetService.initialize(offlineDataService);
-
-    // Sync data for current profile if logged in
-    if (authService.hasActiveProfile && authService.profileId != null) {
-      logger.info('Syncing data for profile: ${authService.profileId}');
-      unifiedSyncService.setCurrentProfile(authService.profileId!);
-      await unifiedSyncService.syncAll(); // Load all data on startup
-      
-      // Load budgets
-      await budgetService.loadBudgetsForProfile(authService.profileId!);
-      
-      // Register background tasks
-      await _registerBackgroundTasks(authService.profileId!);
-    }
+    // Initialize all services
+    await _initializeServices();
 
     // Determine biometric requirements
+    final authService = AuthService.instance;
+    final biometricAuthService = BiometricAuthService.instance;
+    
     final isLoggedIn = authService.hasActiveProfile;
     final biometricEnabled = biometricAuthService != null
         ? await biometricAuthService.isBiometricEnabled()
@@ -213,43 +141,313 @@ Future<void> main() async {
     
     final requireBiometricOnLaunch = isLoggedIn && biometricEnabled && !hasValidSession;
     
-    logger.info('Auth state - Logged in: $isLoggedIn, Biometric enabled: $biometricEnabled, '
-                'Valid session: $hasValidSession, Require unlock: $requireBiometricOnLaunch');
+    logger.info('''
+╔════════════════════════════════════════════════════════════════
+║ Auth State Summary
+╠════════════════════════════════════════════════════════════════
+║ Logged in: $isLoggedIn
+║ Biometric enabled: $biometricEnabled
+║ Valid session: $hasValidSession
+║ Require unlock: $requireBiometricOnLaunch
+╚════════════════════════════════════════════════════════════════
+    ''');
 
-    logger.info('Launching app...');
+    logger.info('✅ All services initialized successfully');
+    logger.info('🎉 Launching app...');
     
     runApp(
       MultiProvider(
-        providers: [
-          Provider<ApiClient>.value(value: apiClient),
-          Provider<OfflineDataService>.value(value: offlineDataService),
-          Provider<conn_svc.ConnectivityService>.value(value: connectivityService),
-          Provider<stubs.GoalTransactionService>.value(value: goalTransactionService),
-          Provider<stubs.TextRecognitionService>.value(value: textRecognitionService),
-          Provider<stubs.CSVUploadService>.value(value: csvUploadService),
-          Provider<stubs.SmsTransactionExtractor>.value(value: smsTransactionExtractor),
-          Provider<stubs.NotificationService>.value(value: notificationService),
-          ChangeNotifierProvider<SmsListenerService>.value(value: SmsListenerService.instance),
-          ChangeNotifierProvider<UnifiedSyncService>.value(value: unifiedSyncService),
-          Provider<stubs.NavigationService>.value(value: navigationService),
-          Provider<stubs.SenderManagementService>.value(value: senderManagementService),
-          Provider<stubs.BackgroundTransactionMonitor>.value(value: backgroundTransactionMonitor),
-          Provider<BiometricAuthService>.value(value: biometricAuthService!),
-          ChangeNotifierProvider<PermissionsService>.value(value: permissionsService),
-          ChangeNotifierProvider<AuthService>.value(value: authService),
-          ChangeNotifierProvider<ThemeService>.value(value: themeService),
-          ChangeNotifierProvider<BudgetService>.value(value: budgetService),
-          Provider<CurrencyService>.value(value: currencyService),
-          Provider<RiskAssessmentService>.value(value: riskAssessmentService),
-        ],
+        providers: _buildProviders(),
         child: MyApp(requireBiometricOnLaunch: requireBiometricOnLaunch),
       ),
     );
   } catch (e, stackTrace) {
-    logger.severe('App initialization failed: $e', e, stackTrace);
+    logger.severe('❌ App initialization failed', e, stackTrace);
     _launchErrorApp(e);
   }
 }
+
+// ==================== SERVICE INITIALIZATION ====================
+
+Future<void> _initializeServices() async {
+  final logger = AppLogger.getLogger('ServiceInit');
+  
+  // ==================== CORE SERVICES ====================
+  logger.info('Initializing core services...');
+  
+  final offlineDataService = OfflineDataService();
+  await offlineDataService.initialize();
+  logger.info('✅ Offline data service initialized');
+  
+  final biometricAuthService = BiometricAuthService.instance;
+  await biometricAuthService?.initialize();
+  logger.info('✅ Biometric auth service initialized');
+  
+  final permissionsService = PermissionsService.instance;
+  await permissionsService.initialize();
+  logger.info('✅ Permissions service initialized');
+  
+  final themeService = ThemeService.instance;
+  await themeService.initialize();
+  logger.info('✅ Theme service initialized');
+
+  // ==================== NETWORK SERVICES ====================
+  await _initializeNetworkServices();
+
+  // ==================== SYNC & BUDGET SERVICES ====================
+  final apiClient = ApiClient.instance;
+  
+  final unifiedSyncService = UnifiedSyncService.instance;
+  await unifiedSyncService.initialize(
+    offlineDataService: offlineDataService,
+    apiClient: apiClient,
+  );
+  logger.info('✅ Sync service initialized');
+
+  final budgetService = BudgetService.instance;
+  await budgetService.initialize(offlineDataService);
+  logger.info('✅ Budget service initialized');
+
+  // ==================== AUTH SERVICE (WITH ALL DEPENDENCIES) ====================
+  final authService = AuthService.instance;
+  await authService.initializeWithAllDependencies(
+    offlineDataService: offlineDataService,
+    biometricService: biometricAuthService,
+    syncService: unifiedSyncService,
+    budgetService: budgetService,
+  );
+  logger.info('✅ Auth service initialized with all dependencies');
+
+  // ==================== STUB SERVICES ====================
+  // Initialize stub services (these are local-only)
+  final goalTransactionService = stubs.GoalTransactionService(offlineDataService);
+  final textRecognitionService = stubs.TextRecognitionService(offlineDataService);
+  final csvUploadService = stubs.CSVUploadService(offlineDataService);
+  final smsTransactionExtractor = stubs.SmsTransactionExtractor(offlineDataService);
+  logger.info('✅ Stub services initialized');
+
+  // ==================== DATABASE & RISK SERVICES ====================
+  final mainDb = data_db.AppDatabase();
+  final riskAssessmentService = RiskAssessmentService(mainDb);
+  logger.info('✅ Database and risk assessment services initialized');
+
+  // ==================== BACKGROUND TASKS ====================
+  if (authService.hasActiveProfile && authService.profileId != null) {
+    logger.info('Registering background tasks for profile: ${authService.profileId}');
+    await _registerBackgroundTasks(authService.profileId!);
+  }
+}
+
+/// Initialize network services and find optimal connection
+Future<void> _initializeNetworkServices() async {
+  final logger = AppLogger.getLogger('NetworkInit');
+  
+  // ==================== STEP 1: Initialize API Client ====================
+  final apiClient = ApiClient.instance;
+  
+  // Set initial config based on build mode
+  final initialConfig = kDebugMode 
+      ? ApiConfig.development() 
+      : ApiConfig.production();
+  
+  apiClient.init(config: initialConfig);
+  logger.info('API client initialized with ${kDebugMode ? "development" : "production"} config');
+  
+  // ==================== STEP 2: Check Connectivity ====================
+  final connectivityService = conn_svc.ConnectivityService(apiClient);
+  await connectivityService.initialize();
+  
+  final hasConnectivity = await connectivityService.hasInternetConnection();
+  logger.info('Internet connectivity: ${hasConnectivity ? "✅ Available" : "❌ Unavailable"}');
+  
+  // ==================== STEP 3: Find Best Connection (Development Only) ====================
+  if (hasConnectivity && kDebugMode) {
+    logger.info('Development mode: Searching for best connection...');
+    
+    try {
+      final bestConnectionUrl = await ConnectionManager.findWorkingConnection();
+      
+      if (bestConnectionUrl != null) {
+        logger.info('✅ Found working connection: $bestConnectionUrl');
+        
+        // Determine appropriate config based on connection type
+        final ApiConfig optimalConfig;
+        
+        if (bestConnectionUrl.contains('trycloudflare.com')) {
+          // Cloudflare tunnel detected
+          logger.info('Using Cloudflare tunnel configuration');
+          optimalConfig = ApiConfig.cloudflare(tunnelUrl: bestConnectionUrl);
+          
+        } else if (bestConnectionUrl.contains('192.168.') || 
+                   bestConnectionUrl.contains('10.0.2.2') ||
+                   bestConnectionUrl.contains('localhost')) {
+          // Local network detected
+          logger.info('Using local network configuration');
+          optimalConfig = ApiConfig.development().copyWith(
+            primaryApiUrl: _extractHost(bestConnectionUrl),
+          );
+          
+        } else {
+          // Custom host
+          logger.info('Using custom host configuration');
+          optimalConfig = ApiConfig.custom(
+            apiUrl: _extractHost(bestConnectionUrl),
+            useSecureConnections: bestConnectionUrl.startsWith('https'),
+          );
+        }
+        
+        // Apply optimal config
+        apiClient.init(config: optimalConfig);
+        logger.info('API client reconfigured with optimal connection');
+        
+        // Verify the connection works
+        final isHealthy = await apiClient.checkServerHealth();
+        if (isHealthy) {
+          logger.info('✅ Server health check passed');
+        } else {
+          logger.warning('⚠️ Server health check failed, falling back to initial config');
+          apiClient.init(config: initialConfig);
+        }
+        
+      } else {
+        logger.warning('No working connection found, using initial config');
+      }
+      
+    } catch (e, stackTrace) {
+      logger.severe('Error finding optimal connection', e, stackTrace);
+      logger.info('Falling back to initial configuration');
+      // Keep initial config
+    }
+  }
+  
+  // ==================== STEP 4: Final Status ====================
+  final finalConfig = apiClient.config;
+  logger.info('''
+╔════════════════════════════════════════════════════════════════
+║ Network Configuration Complete
+╠════════════════════════════════════════════════════════════════
+║ Environment: ${kDebugMode ? "Development" : "Production"}
+║ Base URL: ${apiClient.baseUrl}
+║ Secure: ${finalConfig.useSecureConnections}
+║ Timeout: ${finalConfig.timeoutSeconds}s
+║ Connected: ${hasConnectivity ? "Yes" : "No"}
+╚════════════════════════════════════════════════════════════════
+  ''');
+}
+
+/// Extract host from full URL
+String _extractHost(String url) {
+  try {
+    final uri = Uri.parse(url);
+    return uri.host + (uri.hasPort ? ':${uri.port}' : '');
+  } catch (e) {
+    // If parsing fails, return as-is
+    return url.replaceAll(RegExp(r'https?://'), '').split('/')[0];
+  }
+}
+
+// ==================== PROVIDER SETUP ====================
+
+List<SingleChildWidget> _buildProviders() {
+  return [
+    Provider<ApiClient>.value(value: ApiClient.instance),
+    Provider<OfflineDataService>.value(value: OfflineDataService()),
+    Provider<conn_svc.ConnectivityService>.value(
+      value: conn_svc.ConnectivityService(ApiClient.instance),
+    ),
+    Provider<stubs.GoalTransactionService>.value(
+      value: stubs.GoalTransactionService(OfflineDataService()),
+    ),
+    Provider<stubs.TextRecognitionService>.value(
+      value: stubs.TextRecognitionService(OfflineDataService()),
+    ),
+    Provider<stubs.CSVUploadService>.value(
+      value: stubs.CSVUploadService(OfflineDataService()),
+    ),
+    Provider<stubs.SmsTransactionExtractor>.value(
+      value: stubs.SmsTransactionExtractor(OfflineDataService()),
+    ),
+    Provider<stubs.NotificationService>.value(
+      value: stubs.NotificationService.instance,
+    ),
+    Provider<stubs.NavigationService>.value(
+      value: stubs.NavigationService.instance,
+    ),
+    Provider<stubs.SenderManagementService>.value(
+      value: stubs.SenderManagementService.instance,
+    ),
+    Provider<stubs.BackgroundTransactionMonitor>.value(
+      value: stubs.BackgroundTransactionMonitor(
+        OfflineDataService(),
+        stubs.SmsTransactionExtractor(OfflineDataService()),
+      ),
+    ),
+    Provider<BiometricAuthService>.value(
+      value: BiometricAuthService.instance!,
+    ),
+    Provider<CurrencyService>.value(value: CurrencyService()),
+    Provider<RiskAssessmentService>.value(
+      value: RiskAssessmentService(data_db.AppDatabase()),
+    ),
+    ChangeNotifierProvider<SmsListenerService>.value(
+      value: SmsListenerService.instance,
+    ),
+    ChangeNotifierProvider<UnifiedSyncService>.value(
+      value: UnifiedSyncService.instance,
+    ),
+    ChangeNotifierProvider<PermissionsService>.value(
+      value: PermissionsService.instance,
+    ),
+    ChangeNotifierProvider<AuthService>.value(
+      value: AuthService.instance,
+    ),
+    ChangeNotifierProvider<ThemeService>.value(
+      value: ThemeService.instance,
+    ),
+    ChangeNotifierProvider<BudgetService>.value(
+      value: BudgetService.instance,
+    ),
+  ];
+}
+
+// ==================== BACKGROUND TASKS ====================
+
+Future<void> _registerBackgroundTasks(String profileId) async {
+  final logger = AppLogger.getLogger('BackgroundTasks');
+  
+  try {
+    await Workmanager().cancelAll();
+    
+    await Workmanager().registerPeriodicTask(
+      'sms_listener',
+      'sms_listener_task',
+      frequency: const Duration(hours: 3),
+      initialDelay: const Duration(minutes: 1),
+      constraints: Constraints(
+        networkType: NetworkType.connected,
+        requiresBatteryNotLow: false,
+        requiresCharging: false,
+        requiresDeviceIdle: false,
+        requiresStorageNotLow: true,
+      ),
+      inputData: {'profileId': profileId},
+    );
+    
+    await Workmanager().registerPeriodicTask(
+      'daily_review',
+      'daily_review_task',
+      frequency: const Duration(hours: 24),
+      initialDelay: const Duration(hours: 1),
+      inputData: {'profileId': profileId},
+    );
+    
+    logger.info('✅ Background tasks registered for profile: $profileId');
+  } catch (e) {
+    logger.warning('⚠️ Failed to register background tasks: $e');
+  }
+}
+
+// ==================== ERROR APP ====================
 
 void _launchErrorApp(dynamic error) {
   runApp(
@@ -288,40 +486,7 @@ void _launchErrorApp(dynamic error) {
   );
 }
 
-Future<void> _registerBackgroundTasks(String profileId) async {
-  final logger = AppLogger.getLogger('BackgroundTasks');
-  
-  try {
-    await Workmanager().cancelAll();
-    
-    await Workmanager().registerPeriodicTask(
-      'sms_listener',
-      'sms_listener_task',
-      frequency: const Duration(hours: 3),
-      initialDelay: const Duration(minutes: 1),
-      constraints: Constraints(
-        networkType: NetworkType.connected,
-        requiresBatteryNotLow: false,
-        requiresCharging: false,
-        requiresDeviceIdle: false,
-        requiresStorageNotLow: true,
-      ),
-      inputData: {'profileId': profileId},
-    );
-    
-    await Workmanager().registerPeriodicTask(
-      'daily_review',
-      'daily_review_task',
-      frequency: const Duration(hours: 24),
-      initialDelay: const Duration(hours: 1),
-      inputData: {'profileId': profileId},
-    );
-    
-    logger.info('Background tasks registered for profile: $profileId');
-  } catch (e) {
-    logger.warning('Failed to register background tasks: $e');
-  }
-}
+// ==================== MY APP ====================
 
 class MyApp extends StatefulWidget {
   final bool requireBiometricOnLaunch;
@@ -336,7 +501,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
   final _logger = AppLogger.getLogger('MyApp');
 
-  // ✅ CRITICAL: Use overlay to avoid flashing
   bool _showBiometricOverlay = false;
   bool _isInitializing = true;
 
@@ -350,7 +514,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   Future<void> _initialize() async {
     _logger.info('MyApp initializing...');
     
-    // Show biometric overlay if needed (doesn't rebuild entire app)
     setState(() {
       _showBiometricOverlay = widget.requireBiometricOnLaunch;
       _isInitializing = false;
@@ -400,7 +563,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   }
 
   Future<void> _handleBiometricUnlock() async {
-    _logger.info('Biometric unlock successful');
+    _logger.info('✅ Biometric unlock successful');
     
     final biometricService = context.read<BiometricAuthService>();
     final authService = context.read<AuthService>();
@@ -409,7 +572,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     
     await biometricService.registerSuccessfulBiometricSession();
 
-    // ✅ CRITICAL: Reload all data after unlock
+    // Reload all data after unlock
     if (authService.profileId != null) {
       _logger.info('Reloading data after biometric unlock...');
       await syncService.syncAll();
@@ -436,14 +599,12 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       );
     }
 
-    // ✅ CRITICAL: Build app normally, show biometric as OVERLAY
     return MaterialApp(
       navigatorKey: _navigatorKey,
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: themeService.themeMode,
       builder: (context, child) {
-        // ✅ Wrap child with biometric overlay if needed
         return Stack(
           children: [
             child!,
@@ -481,6 +642,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       ),
     );
   }
+
   Map<String, WidgetBuilder> _buildRoutes() {
     return {
       '/welcome_onboarding': (context) => const WelcomeOnboardingScreen(),

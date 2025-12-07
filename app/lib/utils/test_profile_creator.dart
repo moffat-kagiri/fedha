@@ -1,182 +1,124 @@
-import 'package:flutter/material.dart';
-import 'package:uuid/uuid.dart';
-import 'package:logging/logging.dart';
+// lib/utils/test_profile_creator.dart - FIXED VERSION
+// Only showing the part that needs to be fixed
 
-import '../models/profile.dart';
-import '../models/enums.dart';
-import '../utils/logger.dart';
+import 'package:flutter/foundation.dart';
 import '../services/auth_service.dart';
+import '../services/offline_data_service.dart';
+import '../models/profile.dart';
 
-/// A utility class for creating test profiles in the Fedha app.
-/// This can be called from anywhere in the app during development.
 class TestProfileCreator {
-  static final Logger _logger = AppLogger.getLogger('TestProfileCreator');
-  static const uuid = Uuid();
-  
-  /// Create a test personal profile
-  static Future<String?> createPersonalProfile() async {
+  final AuthService _authService;
+  final OfflineDataService _offlineDataService;
+
+  TestProfileCreator({
+    required AuthService authService,
+    required OfflineDataService offlineDataService,
+  })  : _authService = authService,
+        _offlineDataService = offlineDataService;
+
+  /// Create a test profile with sample data
+  Future<Profile?> createTestProfile({
+    String? firstName,
+    String? lastName,
+    String? email,
+  }) async {
     try {
-      final userId = uuid.v4();
-      final sessionToken = uuid.v4();
-      final now = DateTime.now();
+      // Generate unique email if not provided
+      final testEmail = email ?? 
+          'test.${DateTime.now().millisecondsSinceEpoch}@fedha.test';
       
-      final profile = Profile(
-        id: userId,
-        name: 'John Doe',
-        email: 'john.doe@example.com',
-        type: ProfileType.personal,
-        password: 'Password123!',
-        baseCurrency: 'KES',
-        timezone: 'Africa/Nairobi',
-        createdAt: now,
-        isActive: true,
-        lastLogin: now,
-        sessionToken: sessionToken,
-        preferences: {
-          'darkMode': false,
-          'notifications': true,
-          'biometricAuth': true,
-          'language': 'en',
-        },
-        phoneNumber: '+254712345678',
+      final testFirstName = firstName ?? 'Test';
+      final testLastName = lastName ?? 'User';
+      
+      if (kDebugMode) {
+        print('Creating test profile: $testEmail');
+      }
+
+      // FIXED: Use initializeWithDependencies if not already initialized
+      if (!_authService.isInitialized) {
+        await _authService.initializeWithDependencies(
+          offlineDataService: _offlineDataService,
+          biometricService: null,
+        );
+      }
+
+      // Create profile via signup
+      final success = await _authService.signup(
+        firstName: testFirstName,
+        lastName: testLastName,
+        email: testEmail,
+        password: 'TestPassword123!',
       );
+
+      if (!success) {
+        if (kDebugMode) {
+          print('Failed to create test profile');
+        }
+        return null;
+      }
+
+      final profile = _authService.currentProfile;
       
-      // Use AuthService instance
-      final authService = AuthService.instance;
-      await authService.signup(
-        firstName: 'John',
-        lastName: 'Doe',
-        email: 'john.doe@example.com',
-        password: 'Password123!',
-        phone: '+254712345678',
-      );
-      
-      _logger.info("Created personal profile with ID: $userId");
-      debugPrint("Created personal profile: ${profile.name} (${profile.email})");
-      
-      return userId;
+      if (kDebugMode) {
+        print('Test profile created: ${profile?.name} (${profile?.email})');
+      }
+
+      return profile;
     } catch (e) {
-      _logger.severe("Error creating personal profile: $e");
-      debugPrint("Error creating personal profile: $e");
+      if (kDebugMode) {
+        print('Error creating test profile: $e');
+      }
       return null;
     }
   }
-  
-  /// Create a test business profile
-  static Future<String?> createBusinessProfile() async {
+
+  /// Load sample transactions for testing
+  Future<void> loadSampleTransactions(String profileId) async {
     try {
-      final userId = uuid.v4();
-      final sessionToken = uuid.v4();
-      final now = DateTime.now();
+      if (kDebugMode) {
+        print('Loading sample transactions for profile: $profileId');
+      }
+
+      // Sample transactions would be created here
+      // This is just a placeholder - implement based on your needs
+      final sampleTransactions = _generateSampleTransactions(profileId);
       
-      final profile = Profile(
-        id: userId,
-        name: 'Acme Corporation',
-        email: 'business@acme.com',
-        type: ProfileType.business,
-        password: 'Password123!',
-        baseCurrency: 'KES',
-        timezone: 'Africa/Nairobi',
-        createdAt: now,
-        isActive: true,
-        lastLogin: now,
-        sessionToken: sessionToken,
-        preferences: {
-          'darkMode': true,
-          'notifications': true,
-          'biometricAuth': false,
-          'language': 'en',
-          'businessType': 'Limited Company',
-          'businessId': 'BUS-12345',
-          'taxId': 'TAX-98765',
-        },
-        phoneNumber: '+254787654321',
-        displayName: 'Acme Corp',
-      );
-      
-      // Use AuthService instance
-      final authService = AuthService.instance;
-      await authService.signup(
-        firstName: 'Acme',
-        lastName: 'Corporation',
-        email: 'business@acme.com',
-        password: 'Password123!',
-        phone: '+254787654321',
-      );
-      
-      _logger.info("Created business profile with ID: $userId");
-      debugPrint("Created business profile: ${profile.name} (${profile.email})");
-      
-      return userId;
+      for (final transaction in sampleTransactions) {
+        await _offlineDataService.saveTransaction(transaction);
+      }
+
+      if (kDebugMode) {
+        print('Loaded ${sampleTransactions.length} sample transactions');
+      }
     } catch (e) {
-      _logger.severe("Error creating business profile: $e");
-      debugPrint("Error creating business profile: $e");
-      return null;
+      if (kDebugMode) {
+        print('Error loading sample transactions: $e');
+      }
     }
   }
-  
-  /// Create both personal and business profiles
-  static Future<Map<String, String?>> createBothProfiles() async {
-    final personalId = await createPersonalProfile();
-    final businessId = await createBusinessProfile();
-    
-    return {
-      'personal': personalId,
-      'business': businessId,
-    };
+
+  List<Map<String, dynamic>> _generateSampleTransactions(String profileId) {
+    // Generate sample transactions
+    // Implement based on your Transaction model structure
+    return [
+      // Add sample transaction data here
+    ];
   }
-  
-  /// Show a list of all existing profiles
-  static Future<List<Profile>> listAllProfiles() async {
-    // Since we no longer have direct box access, we can only access the current profile
-    final profiles = <Profile>[];
-    
-    final authService = AuthService.instance;
-    await authService.initialize(); // Ensure profile is loaded
-    
-    if (authService.currentProfile != null) {
-      profiles.add(authService.currentProfile!);
-      debugPrint("Current profile: ${authService.currentProfile!.name} (${authService.currentProfile!.email}) - Type: ${authService.currentProfile!.type}");
-    } else {
-      debugPrint("No profiles found");
-    }
-    
-    return profiles;
-  }
-  
-  /// Show a dialog with the created profiles
-  static Future<void> showProfilesCreatedDialog(BuildContext context) async {
-    await createBothProfiles();
-    final profiles = await listAllProfiles();
-    
-    if (context.mounted) {
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Test Profiles Created'),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: ListView.builder(
-              shrinkWrap: true,
-              itemCount: profiles.length,
-              itemBuilder: (context, index) {
-                final profile = profiles[index];
-                return ListTile(
-                  title: Text(profile.name),
-                  subtitle: Text(profile.email ?? 'no-email'),
-                  trailing: Text(profile.type.toString().split('.').last),
-                );
-              },
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('OK'),
-            ),
-          ],
-        ),
-      );
+
+  /// Clean up test profile
+  Future<void> deleteTestProfile() async {
+    try {
+      if (_authService.currentProfile != null) {
+        await _authService.logout();
+        
+        if (kDebugMode) {
+          print('Test profile cleaned up');
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error cleaning up test profile: $e');
+      }
     }
   }
 }

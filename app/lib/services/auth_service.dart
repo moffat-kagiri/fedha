@@ -21,7 +21,7 @@ class AuthService with ChangeNotifier {
   static AuthService? _instance;
   static AuthService get instance => _instance ??= AuthService._();
 
-  // ✅ Dependencies injected, not created
+  // Dependencies
   OfflineDataService? _offlineDataService;
   BiometricAuthService? _biometricService;
   UnifiedSyncService? _syncService;
@@ -37,13 +37,13 @@ class AuthService with ChangeNotifier {
 
   AuthService._();
 
-  // ✅ Getters
+  // Getters
   Profile? get currentProfile => _currentProfile;
   String? get profileId => _currentProfile?.id;
   bool get isInitialized => _isInitialized;
   bool get hasActiveProfile => _currentProfile != null && _currentProfile!.id.isNotEmpty;
 
-  /// Initialize with all dependencies including sync services
+  /// Initialize with all dependencies
   Future<void> initializeWithAllDependencies({
     required OfflineDataService offlineDataService,
     BiometricAuthService? biometricService,
@@ -58,22 +58,18 @@ class AuthService with ChangeNotifier {
     try {
       _logger.info('Initializing AuthService with all dependencies...');
       
-      // Inject dependencies
       _offlineDataService = offlineDataService;
       _biometricService = biometricService;
       _syncService = syncService;
       _budgetService = budgetService;
       
-      // Restore active profile
       await _restoreActiveProfile();
       
-      // Sync data if profile is restored
       if (_currentProfile != null && _syncService != null) {
         _logger.info('Syncing data for restored profile...');
         _syncService!.setCurrentProfile(_currentProfile!.id);
         await _syncService!.syncAll();
         
-        // Load budgets
         if (_budgetService != null) {
           await _budgetService!.loadBudgetsForProfile(_currentProfile!.id);
         }
@@ -87,6 +83,7 @@ class AuthService with ChangeNotifier {
       rethrow;
     }
   }
+
   /// Initialize with essential dependencies only
   Future<void> initializeWithDependencies({
     required OfflineDataService offlineDataService,
@@ -100,11 +97,9 @@ class AuthService with ChangeNotifier {
     try {
       _logger.info('Initializing AuthService with dependencies...');
       
-      // Inject dependencies
       _offlineDataService = offlineDataService;
       _biometricService = biometricService;
       
-      // Restore active profile
       await _restoreActiveProfile();
       
       _isInitialized = true;
@@ -116,23 +111,7 @@ class AuthService with ChangeNotifier {
     }
   }
 
-  /// ✅ DEPRECATED: Use initializeWithDependencies instead
-  @Deprecated('Use initializeWithDependencies() for proper dependency injection')
-  Future<void> initialize() async {
-    _logger.warning('Using deprecated initialize() method. Use initializeWithDependencies() instead.');
-    
-    if (!_isInitialized) {
-      // Fallback for backward compatibility
-      _offlineDataService ??= OfflineDataService();
-      await _offlineDataService!.initialize();
-      await initializeWithDependencies(
-        offlineDataService: _offlineDataService!,
-        biometricService: _biometricService,
-      );
-    }
-  }
-
-  /// ✅ Restore active profile from persistent storage
+  /// Restore active profile from persistent storage
   Future<void> _restoreActiveProfile() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -162,7 +141,7 @@ class AuthService with ChangeNotifier {
     }
   }
 
-  /// ✅ Set current profile by ID
+  /// Set current profile by ID
   Future<bool> setCurrentProfile(String profileId) async {
     try {
       _logger.info('Setting current profile: $profileId');
@@ -178,12 +157,10 @@ class AuthService with ChangeNotifier {
       
       _currentProfile = profile;
       
-      // Persist active profile selection
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('current_profile_id', profileId);
       await prefs.setBool('is_logged_in', true);
       
-      // Initialize profile-specific services
       await _initializeProfileServices(profileId);
       
       notifyListeners();
@@ -195,18 +172,16 @@ class AuthService with ChangeNotifier {
     }
   }
 
-  /// ✅ Store profile data with proper key
+  /// Store profile data
   Future<void> _storeProfile(Profile profile) async {
     try {
       final profileJson = jsonEncode(profile.toJson());
       
-      // Store with unique profile key
       await _secureStorage.write(
         key: 'profile_${profile.id}',
         value: profileJson,
       );
       
-      // Legacy compatibility key
       await _secureStorage.write(
         key: 'current_profile_data',
         value: profileJson,
@@ -219,15 +194,13 @@ class AuthService with ChangeNotifier {
     }
   }
 
-  /// ✅ Get profile by email
+  /// Get profile by email
   Future<Profile?> _getProfileByEmail(String email) async {
     try {
-      // Check current profile first
       if (_currentProfile?.email?.toLowerCase() == email.toLowerCase()) {
         return _currentProfile;
       }
       
-      // Check stored profile
       final prefs = await SharedPreferences.getInstance();
       final currentProfileId = prefs.getString('current_profile_id');
       
@@ -241,7 +214,6 @@ class AuthService with ChangeNotifier {
         }
       }
       
-      // Check legacy storage
       final legacyData = await _secureStorage.read(key: 'current_profile_data');
       if (legacyData != null) {
         final profile = Profile.fromJson(jsonDecode(legacyData));
@@ -255,7 +227,7 @@ class AuthService with ChangeNotifier {
     return null;
   }
 
-  /// ✅ Initialize services for specific profile
+  /// Initialize services for specific profile
   Future<void> _initializeProfileServices(String profileId) async {
     if (_offlineDataService == null) {
       _logger.warning('OfflineDataService not available for profile initialization');
@@ -263,10 +235,8 @@ class AuthService with ChangeNotifier {
     }
 
     try {
-      // Cancel existing background tasks
       await Workmanager().cancelAll();
       
-      // Initialize SMS listener
       final smsService = SmsListenerService.instance;
       await smsService.initialize(
         offlineDataService: _offlineDataService!,
@@ -279,7 +249,7 @@ class AuthService with ChangeNotifier {
     }
   }
 
-  /// ✅ Clear all session data
+  /// Clear all session data
   Future<void> _clearSession() async {
     _currentProfile = null;
     
@@ -296,7 +266,7 @@ class AuthService with ChangeNotifier {
     notifyListeners();
   }
 
-  // ==================== PUBLIC AUTH METHODS ====================
+  // ==================== AUTH METHODS ====================
 
   Future<bool> isLoggedIn() async {
     return hasActiveProfile;
@@ -314,7 +284,7 @@ class AuthService with ChangeNotifier {
     }
   }
 
-  /// ✅ SECURE LOGIN - Validates credentials with server
+  /// SECURE LOGIN - Validates credentials with server
   Future<LoginResult> login({
     required String email,
     required String password,
@@ -322,7 +292,7 @@ class AuthService with ChangeNotifier {
     try {
       _logger.info('Attempting login for: $email');
       
-      // ✅ STEP 1: Try server authentication first
+      // CRITICAL FIX: Check server first
       bool serverAuthSuccess = false;
       Map<String, dynamic>? serverResponse;
       
@@ -336,60 +306,95 @@ class AuthService with ChangeNotifier {
             password: password,
           );
           
-          serverAuthSuccess = serverResponse['success'] == true || 
-                            serverResponse['token'] != null;
+          // FIXED: Properly check success - token existence is key
+          serverAuthSuccess = serverResponse['token'] != null;
           
           if (serverAuthSuccess) {
-            _logger.info('Server authentication successful');
+            _logger.info('✅ Server authentication successful');
           } else {
-            _logger.warning('Server authentication failed: ${serverResponse['error'] ?? serverResponse['body']}');
-            return LoginResult.error(
-              message: 'Invalid email or password',
-            );
+            _logger.warning('❌ Server authentication failed');
+            final errorMsg = serverResponse['error']?.toString() ?? 
+                            serverResponse['body']?.toString() ?? 
+                            'Invalid email or password';
+            return LoginResult.error(message: errorMsg);
           }
         } else {
           _logger.warning('Server unavailable - checking offline credentials');
         }
       } catch (e) {
-        _logger.warning('Server authentication error: $e');
-        // Proceed to offline check
+        _logger.warning('Server authentication error: $e - falling back to offline');
       }
-      // ✅ STEP 2: Check/create local profile
+      
+      // Check/create local profile
       Profile? profile;
       bool isFirstLogin = false;
       
       if (serverAuthSuccess && serverResponse != null) {
-        // Server auth succeeded - create/update local profile
+        // Server auth succeeded
         final existingProfile = await _getProfileByEmail(email);
         
         if (existingProfile != null) {
-          // Update existing profile
+          // Update existing profile with new token
           profile = existingProfile.copyWith(
             authToken: serverResponse['token'] as String?,
             sessionToken: _createSessionToken(),
           );
         } else {
-          // Create new profile from server response
+          // Create new profile
           isFirstLogin = true;
           final userId = _uuid.v4();
           final userData = serverResponse['user'] as Map<String, dynamic>?;
           
-          final firstName = userData?['first_name'] ?? email.split('@')[0];
-          final lastName = userData?['last_name'] ?? '';
+          final firstName = userData?['first_name']?.toString() ?? email.split('@')[0];
+          final lastName = userData?['last_name']?.toString() ?? '';
           final fullName = '$firstName $lastName'.trim();
           
           profile = Profile.defaultProfile(
             id: userId,
             name: fullName,
             email: email.trim(),
-            password: _hashPassword(password), // Store hashed locally
+            password: _hashPassword(password),
           ).copyWith(
             authToken: serverResponse['token'] as String?,
             sessionToken: _createSessionToken(),
           );
         }
+        
+        // CRITICAL: Set API token for subsequent requests
+        if (serverResponse['token'] != null) {
+          _apiClient.setAuthToken(serverResponse['token'] as String);
+          
+          // CRITICAL FIX: Fetch full profile data from server
+          try {
+            final profileResponse = await _apiClient.getProfile(
+              sessionToken: serverResponse['token'] as String,
+            );
+            
+            if (profileResponse['success'] == true && profileResponse['profile'] != null) {
+              final serverProfile = profileResponse['profile'] as Map<String, dynamic>;
+              _logger.info('Merged server profile data: $serverProfile');
+              
+              // Merge server profile data with local profile
+              if (profile != null) {
+                profile = profile.copyWith(
+                  baseCurrency: serverProfile['base_currency'] as String? ?? 'KES',
+                  timezone: serverProfile['timezone'] as String? ?? 'Africa/Nairobi',
+                  lastModified: serverProfile['last_modified'] != null
+                      ? DateTime.parse(serverProfile['last_modified'] as String)
+                      : null,
+                  lastLogin: serverProfile['last_login'] != null
+                      ? DateTime.parse(serverProfile['last_login'] as String)
+                      : null,
+                );
+              }
+            }
+          } catch (e) {
+            _logger.warning('Failed to fetch server profile data: $e');
+            // Continue with existing profile data
+          }
+        }
       } else {
-        // ✅ STEP 3: Offline fallback - verify against stored credentials
+        // Offline fallback
         final existingProfile = await _getProfileByEmail(email);
         
         if (existingProfile == null) {
@@ -398,26 +403,30 @@ class AuthService with ChangeNotifier {
           );
         }
         
-        // Verify password matches stored hash
         if (!_verifyPassword(password, existingProfile.password)) {
           _logger.warning('Offline password verification failed');
-          return LoginResult.error(
-            message: 'Invalid email or password',
-          );
+          return LoginResult.error(message: 'Invalid email or password');
         }
         
-        _logger.info('Offline authentication successful');
+        _logger.info('✅ Offline authentication successful');
         profile = existingProfile.copyWith(
           sessionToken: _createSessionToken(),
         );
       }
       
-      // ✅ STEP 4: Store profile and set as active
+      // Ensure profile is not null before proceeding
+      if (profile == null) {
+        return LoginResult.error(
+          message: 'Failed to create or retrieve profile',
+        );
+      }
+      
+      // Store profile and set as active
       await _storeProfile(profile);
       await setCurrentProfile(profile.id);
       await _biometricService?.registerSuccessfulPasswordLogin();
       
-      // ✅ STEP 5: Sync data
+      // Sync data
       if (_syncService != null) {
         _logger.info('Syncing data after login...');
         _syncService!.setCurrentProfile(profile.id);
@@ -428,7 +437,7 @@ class AuthService with ChangeNotifier {
         }
       }
       
-      _logger.info('User logged in successfully: $email (First login: $isFirstLogin)');
+      _logger.info('✅ User logged in successfully: $email (First login: $isFirstLogin)');
       return LoginResult.success(
         profile: profile,
         sessionToken: profile.sessionToken!,
@@ -440,7 +449,7 @@ class AuthService with ChangeNotifier {
     }
   }
 
-  /// ✅ SECURE SIGNUP - Validates with server
+  /// SECURE SIGNUP
   Future<bool> signup({
     required String firstName,
     required String lastName,
@@ -452,18 +461,16 @@ class AuthService with ChangeNotifier {
     try {
       _logger.info('Attempting signup for: $email');
       
-      // ✅ STEP 1: Validate email format
       if (!_isValidEmail(email)) {
         throw Exception('Invalid email format');
       }
       
-      // ✅ STEP 2: Validate password strength
       final passwordError = _validatePassword(password);
       if (passwordError != null) {
         throw Exception(passwordError);
       }
       
-      // ✅ STEP 3: Try server registration first
+      // Try server registration
       bool serverRegistrationSuccess = false;
       String? serverToken;
       
@@ -481,36 +488,42 @@ class AuthService with ChangeNotifier {
             avatarPath: avatarPath,
           );
           
-          serverRegistrationSuccess = response['success'] == true || 
-                                      response['token'] != null;
+          // FIXED: Check for token OR status 201
+          serverRegistrationSuccess = response['token'] != null || 
+                                      response['status'] == 201;
           serverToken = response['token'] as String?;
           
           if (serverRegistrationSuccess) {
-            _logger.info('Server registration successful');
+            _logger.info('✅ Server registration successful');
+            
+            // Set token if provided
+            if (serverToken != null) {
+              _apiClient.setAuthToken(serverToken);
+            }
           } else {
             final errorMsg = response['error']?.toString() ?? 
-                            response['errors']?.toString() ?? 
+                            response['body']?.toString() ?? 
                             'Registration failed';
             throw Exception(errorMsg);
           }
         } else {
-          _logger.warning('Server unavailable - creating offline account');
+          throw Exception('Server unavailable - cannot create account offline');
         }
       } catch (e) {
         _logger.severe('Server registration error: $e');
         rethrow;
       }
       
-      // ✅ STEP 4: Create local profile
+      // Create local profile
       final userId = _uuid.v4();
       final sessionToken = _createSessionToken();
       final fullName = '$firstName $lastName'.trim();
       
-      final newProfile = Profile.defaultProfile(
+      var newProfile = Profile.defaultProfile(
         id: userId,
         name: fullName,
         email: email.trim(),
-        password: _hashPassword(password), // Store hashed
+        password: _hashPassword(password),
       ).copyWith(
         authToken: serverToken ?? sessionToken,
         sessionToken: sessionToken,
@@ -518,18 +531,49 @@ class AuthService with ChangeNotifier {
         photoUrl: avatarPath ?? '',
       );
       
+      // CRITICAL FIX: Fetch full profile data from server after signup
+      if (serverToken != null) {
+        try {
+          final profileResponse = await _apiClient.getProfile(
+            sessionToken: serverToken,
+          );
+          
+          if (profileResponse['success'] == true && profileResponse['profile'] != null) {
+            final serverProfile = profileResponse['profile'] as Map<String, dynamic>;
+            _logger.info('Merged server profile data from signup: $serverProfile');
+            
+            // Merge server profile data with local profile
+            newProfile = newProfile.copyWith(
+              baseCurrency: serverProfile['base_currency'] as String? ?? 'KES',
+              timezone: serverProfile['timezone'] as String? ?? 'Africa/Nairobi',
+              lastModified: serverProfile['last_modified'] != null
+                  ? DateTime.parse(serverProfile['last_modified'] as String)
+                  : null,
+              lastLogin: serverProfile['last_login'] != null
+                  ? DateTime.parse(serverProfile['last_login'] as String)
+                  : null,
+            );
+          }
+        } catch (e) {
+          _logger.warning('Failed to fetch server profile data after signup: $e');
+          // Continue with default profile data
+        }
+      }
+      
       await _storeProfile(newProfile);
       await setCurrentProfile(newProfile.id);
       
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('account_creation_attempted', true);
       
-      // ✅ Initialize sync
+      // CRITICAL FIX: Mark first login as completed
+      await prefs.setBool('is_first_login', false);
+      
       if (_syncService != null) {
         _syncService!.setCurrentProfile(newProfile.id);
       }
       
-      _logger.info('Signup successful for: $email');
+      _logger.info('✅ Signup successful for: $email');
       return true;
     } catch (e, stackTrace) {
       _logger.severe('Signup failed', e, stackTrace);
@@ -537,24 +581,19 @@ class AuthService with ChangeNotifier {
     }
   }
 
-  // ==================== PASSWORD SECURITY HELPERS ====================
+  // ==================== PASSWORD HELPERS ====================
 
-  /// Hash password using SHA-256
   String _hashPassword(String password) {
-    // Simple hash for local storage
-    // In production, use a proper key derivation function
     final bytes = utf8.encode(password);
     final hash = sha256.convert(bytes);
     return hash.toString();
   }
 
-  /// Verify password against stored hash
   bool _verifyPassword(String password, String storedHash) {
     final hash = _hashPassword(password);
     return hash == storedHash;
   }
 
-  /// Validate email format
   bool _isValidEmail(String email) {
     final emailRegex = RegExp(
       r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
@@ -562,25 +601,20 @@ class AuthService with ChangeNotifier {
     return emailRegex.hasMatch(email);
   }
 
-  /// Validate password strength
   String? _validatePassword(String password) {
     if (password.length < 8) {
       return 'Password must be at least 8 characters';
     }
-    
     if (!password.contains(RegExp(r'[A-Z]'))) {
       return 'Password must contain at least one uppercase letter';
     }
-    
     if (!password.contains(RegExp(r'[a-z]'))) {
       return 'Password must contain at least one lowercase letter';
     }
-    
     if (!password.contains(RegExp(r'[0-9]'))) {
       return 'Password must contain at least one number';
     }
-    
-    return null; // Password is valid
+    return null;
   }
 
   /// Logout with data sync
@@ -588,7 +622,6 @@ class AuthService with ChangeNotifier {
     try {
       await _biometricService?.clearBiometricSession();
       
-      // ✅ CRITICAL: Sync data before logout
       if (_syncService != null && _currentProfile != null) {
         _logger.info('Syncing data before logout...');
         try {
@@ -606,9 +639,9 @@ class AuthService with ChangeNotifier {
         }
       }
       
-      // Clear service caches
       _syncService?.clearCache();
       _budgetService?.clearCache();
+      _apiClient.clearAuthToken();
       
       await _clearSession();
       _logger.info('User logged out');
@@ -617,7 +650,7 @@ class AuthService with ChangeNotifier {
     }
   }
 
-  // Biometric login with data sync
+  // Biometric login
   Future<LoginResult> biometricLogin() async {
     try {
       if (_biometricService == null) {
@@ -652,13 +685,11 @@ class AuthService with ChangeNotifier {
       _currentProfile = updatedProfile;
       await _initializeProfileServices(updatedProfile.id);
 
-      // ✅ CRITICAL: Sync data after biometric login
       if (_syncService != null) {
         _logger.info('Syncing data after biometric login...');
         _syncService!.setCurrentProfile(updatedProfile.id);
         await _syncService!.syncAll();
         
-        // Load budgets
         if (_budgetService != null) {
           await _budgetService!.loadBudgetsForProfile(updatedProfile.id);
         }
@@ -693,8 +724,7 @@ class AuthService with ChangeNotifier {
     }
   }
 
-  // ==================== PROFILE MANAGEMENT ====================
-
+  // Profile management methods
   Future<bool> updateProfileName(String newName) async {
     if (_currentProfile == null) return false;
     try {
@@ -791,8 +821,7 @@ class AuthService with ChangeNotifier {
     return profiles;
   }
 
-  // ==================== FIRST LOGIN FLOW ====================
-
+  // First login flow
   Future<bool> isFirstLogin() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getBool('is_first_login') ?? true;
@@ -831,8 +860,7 @@ class AuthService with ChangeNotifier {
     return false;
   }
 
-  // ==================== HELPERS ====================
-
+  // Helpers
   Future<String> _getOrCreateDeviceId() async {
     final prefs = await SharedPreferences.getInstance();
     String? deviceId = prefs.getString('device_id');
