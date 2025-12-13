@@ -1,7 +1,7 @@
 # apps/budgets/models.py
 from django.db import models
 from apps.accounts.models import User
-import uuid
+import uuid as uuid_lib  # FIXED
 
 class Budget(models.Model):
     """
@@ -17,7 +17,7 @@ class Budget(models.Model):
         ('yearly', 'Yearly'),
     ]
     
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    id = models.UUIDField(primary_key=True, default=uuid_lib.uuid4)  # FIXED
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='budgets')
     
     # Matches Flutter fields exactly

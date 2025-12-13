@@ -1,7 +1,7 @@
 # apps/goals/models.py
 from django.db import models
 from apps.accounts.models import User
-import uuid
+import uuid as uuid_lib  # FIXED
 from datetime import datetime
 
 class Goal(models.Model):
@@ -36,7 +36,7 @@ class Goal(models.Model):
         ('critical', 'Critical'),
     ]
     
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    id = models.UUIDField(primary_key=True, default=uuid_lib.uuid4)  # FIXED
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='goals')
     profile_id = models.UUIDField()  # Matches Flutter profileId
     

@@ -1,7 +1,7 @@
 # apps/invoicing/models.py
 from django.db import models
 from apps.accounts.models import User
-import uuid
+import uuid as uuid_lib  # FIXED
 from datetime import datetime
 
 class Client(models.Model):
@@ -10,7 +10,7 @@ class Client(models.Model):
     Client/customer management for invoicing
     """
     
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    id = models.UUIDField(primary_key=True, default=uuid_lib.uuid4)  # FIXED
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='clients')
     
     # Core fields - exact Flutter mapping
@@ -51,13 +51,12 @@ class Invoice(models.Model):
         ('cancelled', 'Cancelled'),
     ]
     
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    id = models.UUIDField(primary_key=True, default=uuid_lib.uuid4)  # FIXED
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='invoices')
     client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name='invoices')
     
     # Core fields - exact Flutter mapping
     invoice_number = models.CharField(max_length=50, unique=True)  # Matches invoiceNumber
-    client_id = models.UUIDField()  # Matches Flutter clientId (redundant but for compatibility)
     amount = models.DecimalField(max_digits=12, decimal_places=2)
     currency = models.CharField(max_length=3, default='KES')
     
@@ -91,13 +90,10 @@ class Invoice(models.Model):
                 datetime.now().date() > self.due_date)
     
     def save(self, *args, **kwargs):
-        # Auto-set client_id from client
-        if not self.client_id:
-            self.client_id = self.client.id
-        
         # Auto-update status to overdue if applicable
         if self.is_overdue and self.status not in ['paid', 'cancelled']:
             self.status = 'overdue'
+        super().save(*args, **kwargs)
         
         super().save(*args, **kwargs)
     

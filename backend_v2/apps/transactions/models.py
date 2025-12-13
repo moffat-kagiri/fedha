@@ -1,7 +1,7 @@
 # apps/transactions/models.py
 from django.db import models
 from apps.accounts.models import User
-import uuid
+import uuid as uuid_lib  # FIXED: Renamed to avoid conflict
 
 class Transaction(models.Model):
     """
@@ -27,8 +27,8 @@ class Transaction(models.Model):
     ]
     
     # Primary fields - exact Flutter mapping
-    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    uuid = models.UUIDField(default=uuid_lib.uuid4, editable=False, unique=True)  # FIXED
+    id = models.UUIDField(primary_key=True, default=uuid_lib.uuid4, editable=False)  # FIXED
     
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='transactions')
     profile_id = models.UUIDField()  # Matches Flutter profileId
@@ -102,7 +102,7 @@ class TransactionCandidate(models.Model):
         ('refunded', 'Refunded'),
     ]
     
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    id = models.UUIDField(primary_key=True, default=uuid_lib.uuid4)  # FIXED
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='transaction_candidates')
     
     # Raw SMS data
@@ -166,7 +166,7 @@ class Category(models.Model):
         ('both', 'Both'),
     ]
     
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    id = models.UUIDField(primary_key=True, default=uuid_lib.uuid4)  # FIXED
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='categories')
     
     name = models.CharField(max_length=100)

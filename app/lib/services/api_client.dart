@@ -143,19 +143,23 @@ class ApiClient {
 	Future<bool> testConnection() => checkServerHealth();
 
 	// --- Profile management stubs ---
-	Future<Map<String, dynamic>> getProfile({required String sessionToken}) async {
-		final url = Uri.parse(_config.getEndpoint('api/auth/profile/'));
-		try {
-			final resp = await _http
-					.get(url, headers: _headers)
-					.timeout(const Duration(seconds: 10));
-			if (resp.statusCode == 200) {
-				return jsonDecode(resp.body) as Map<String, dynamic>;
-			}
-			return {'success': false, 'status': resp.statusCode, 'body': resp.body};
-		} catch (e) {
-			return {'success': false, 'error': e.toString()};
+	Future<Map<String, dynamic>> getProfile({
+	required String sessionToken,
+	}) async {
+	final url = Uri.parse(_config.getEndpoint('api/profile/'));
+	try {
+		final resp = await _http.get(
+		url, 
+		headers: {..._headers, 'Authorization': 'Bearer $sessionToken'}
+		).timeout(const Duration(seconds: 10));
+		
+		if (resp.statusCode == 200) {
+		return jsonDecode(resp.body) as Map<String, dynamic>;
 		}
+		return {'success': false, 'status': resp.statusCode};
+	} catch (e) {
+		return {'success': false, 'error': e.toString()};
+	}
 	}
 
 	Future<Map<String, dynamic>> updateProfile({required String userId, required String sessionToken, required Map<String, dynamic> profileData}) async {

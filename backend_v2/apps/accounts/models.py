@@ -1,14 +1,14 @@
 # apps/accounts/models.py
 from django.contrib.auth.models import AbstractUser
 from django.db import models
-import uuid
+import uuid as uuid_lib  # FIXED
 
 class User(AbstractUser):
     """
     Custom user model that matches Flutter Profile model
     Maps to: lib/models/profile.dart
     """
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    id = models.UUIDField(primary_key=True, default=uuid_lib.uuid4, editable=False)  # FIXED
     email = models.EmailField(unique=True, db_index=True)
     phone = models.CharField(max_length=20, blank=True)
     

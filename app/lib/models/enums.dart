@@ -37,6 +37,8 @@ enum TransactionCategory {
   utilities,
   entertainment,
   healthcare,
+  groceries,
+  diningOut,
   shopping,
   education,
   salary,
@@ -46,7 +48,10 @@ enum TransactionCategory {
   otherIncome,
   otherExpense,
   emergencyFund,
+  rent,
   retirement,
+  other,
+  savings,
   otherSavings,
   // Add other categories as needed
 }
