@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'risk_assessment_service.dart';
+import '../services/risk_assessment_service.dart';
 
 class InvestmentRiskAssessmentScreen extends StatefulWidget {
   final RiskAssessmentService? service;

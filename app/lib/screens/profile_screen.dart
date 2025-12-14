@@ -106,7 +106,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Profile Settings'),
+        title: Text(
+          'Profile Settings',
+          style: Theme.of(context)
+              .textTheme
+              .headlineSmall
+              ?.copyWith(color: Colors.white),
+        ),
         backgroundColor: const Color(0xFF007A39),
         foregroundColor: Colors.white,
         elevation: 0,

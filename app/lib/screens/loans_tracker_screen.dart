@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'dart:math' as math;
+
 import '../services/offline_data_service.dart';
+import '../services/auth_service.dart';
+import '../models/loan.dart' as domain_loan;
 
 class LoansTrackerScreen extends StatefulWidget {
   const LoansTrackerScreen({Key? key}) : super(key: key);
@@ -11,13 +15,13 @@ class LoansTrackerScreen extends StatefulWidget {
 
 class _LoansTrackerScreenState extends State<LoansTrackerScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  
+
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 2, vsync: this);
   }
-  
+
   @override
   void dispose() {
     _tabController.dispose();
@@ -29,7 +33,7 @@ class _LoansTrackerScreenState extends State<LoansTrackerScreen> with SingleTick
     return Scaffold(
       appBar: AppBar(
         title: const Text('Loans Tracker'),
-        backgroundColor: const Color(0xFF007A39),
+        backgroundColor: Theme.of(context).colorScheme.background,
         foregroundColor: Colors.white,
         bottom: TabBar(
           controller: _tabController,
@@ -37,199 +41,627 @@ class _LoansTrackerScreenState extends State<LoansTrackerScreen> with SingleTick
           labelColor: Colors.white,
           unselectedLabelColor: Colors.white70,
           tabs: const [
-            Tab(text: 'ACTIVE'),
-            Tab(text: 'PAID OFF'),
-            Tab(text: 'ADD NEW'),
+            Tab(text: 'Active Loans'),
+            Tab(text: 'Paid Off Loans'),
           ],
         ),
       ),
       body: TabBarView(
         controller: _tabController,
         children: [
-          _buildActiveLoansTab(),
+          // Active tab renders the persistent LoansTrackerTab
+          LoansTrackerTab(),
           _buildPaidLoansTab(),
-          _buildAddLoanTab(),
         ],
       ),
     );
   }
-  
-  Widget _buildActiveLoansTab() {
-    return Consumer<OfflineDataService>(
-      builder: (context, dataService, child) {
-        // This would normally fetch loans from the service
-        return _buildEmptyState(
-          'No active loans',
-          'You have no active loans at the moment',
-          'Add a loan to start tracking it',
-          () {
-            _tabController.animateTo(2);
-          },
-        );
-      },
-    );
-  }
-  
+
   Widget _buildPaidLoansTab() {
-    return _buildEmptyState(
-      'No paid off loans',
-      'You have no loans that have been fully paid off',
-      'Your paid off loans will appear here',
-      null,
+    return Center(
+      child: Text('No paid off loans yet', style: TextStyle(color: Colors.grey.shade700)),
     );
   }
-  
-  Widget _buildAddLoanTab() {
+}
+
+/* -------------------------------------------------------------------------- */
+/* ------------------------------ Loans Tracker Tab ------------------------- */
+/* -------------------------------------------------------------------------- */
+
+class LoansTrackerTab extends StatefulWidget {
+  const LoansTrackerTab({super.key});
+
+  @override
+  State<LoansTrackerTab> createState() => _LoansTrackerTabState();
+}
+
+class _LoansTrackerTabState extends State<LoansTrackerTab> {
+  final List<Loan> _loans = [];
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLoans();
+  }
+
+  Future<void> _loadLoans() async {
+    setState(() => _isLoading = true);
+
+    final profileId = AuthService.instance.profileId;
+    if (profileId == null || profileId.isEmpty) {
+      if (mounted) {
+        setState(() {
+          _loans.clear();
+          _isLoading = false;
+        });
+      }
+      return;
+    }
+
+    try {
+      final svc = Provider.of<OfflineDataService>(context, listen: false);
+      final domainLoans = await svc.getAllLoans(profileId);
+
+      final mapped = domainLoans.map((d) {
+        final principal = d.principalMinor / 100.0;
+        final start = d.startDate;
+        final end = d.endDate;
+        final totalMonths = _monthsBetween(start, end).clamp(1, 1000);
+        final remainingMonths = (_monthsBetween(DateTime.now(), end)).clamp(0, totalMonths);
+        final monthlyPayment = _computeMonthlyPayment(principal, d.interestRate, totalMonths);
+
+        return Loan(
+          id: d.id,
+          name: d.name,
+          principal: principal,
+          interestRate: d.interestRate,
+          totalMonths: totalMonths,
+          remainingMonths: remainingMonths,
+          monthlyPayment: monthlyPayment,
+          startDate: start,
+          endDate: end,
+        );
+      }).toList();
+
+      if (mounted) {
+        setState(() {
+          _loans
+            ..clear()
+            ..addAll(mapped);
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to load loans: $e')));
+    }
+  }
+
+  int _monthsBetween(DateTime a, DateTime b) {
+    final years = b.year - a.year;
+    final months = b.month - a.month;
+    var diff = years * 12 + months;
+    if (b.day < a.day) diff -= 1;
+    return diff < 0 ? 0 : diff;
+  }
+
+  double _computeMonthlyPayment(double principal, double annualRatePercent, int months) {
+    if (months <= 0) return 0.0;
+    final monthlyRate = annualRatePercent / 100.0 / 12.0;
+    if (monthlyRate <= 0) return principal / months;
+    final powFactor = math.pow(1 + monthlyRate, months);
+    final payment = principal * (monthlyRate * powFactor) / (powFactor - 1);
+    return payment.toDouble();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final profileId = AuthService.instance.profileId;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Add New Loan',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
+          Card(
+            elevation: 2,
+            margin: EdgeInsets.zero,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Loans Tracker',
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: theme.colorScheme.primary,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Track and manage all your loans in one place.',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-          const SizedBox(height: 24),
-          _buildLoanForm(),
+
+          const SizedBox(height: 20),
+
+          // Add Loan Button
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () {
+                if (profileId == null || profileId.isEmpty) {
+                  Navigator.pushNamed(context, '/login');
+                  return;
+                }
+                _showAddLoanDialog();
+              },
+              icon: const Icon(Icons.add),
+              label: const Text('Add New Loan'),
+            ),
+          ),
+
+          const SizedBox(height: 20),
+
+          if (profileId == null || profileId.isEmpty)
+            Card(
+              elevation: 2,
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.lock_outline, size: 48),
+                    const SizedBox(height: 12),
+                    Text('Sign in to view and manage your loans', style: theme.textTheme.titleMedium),
+                    const SizedBox(height: 8),
+                    ElevatedButton(
+                      onPressed: () => Navigator.pushNamed(context, '/login'),
+                      child: const Text('Sign in'),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else if (_isLoading)
+            Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (_loans.isEmpty)
+            Card(
+              elevation: 2,
+              child: Padding(
+                padding: const EdgeInsets.all(40),
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.account_balance_wallet_outlined,
+                      size: 64,
+                      color: theme.colorScheme.onSurface.withOpacity(0.5),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'No loans tracked yet',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Add your first loan to start tracking payments and balances',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _loans.length,
+              itemBuilder: (context, index) {
+                final loan = _loans[index];
+                return Card(
+                  elevation: 2,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              loan.name,
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            PopupMenuButton<String>(
+                              onSelected: (value) {
+                                if (value == 'edit') {
+                                  _showEditLoanDialog(loan, index);
+                                } else if (value == 'delete') {
+                                  _deleteLoan(index);
+                                }
+                              },
+                              itemBuilder: (context) => [
+                                PopupMenuItem(
+                                  value: 'edit',
+                                  child: Row(
+                                    children: const [
+                                      Icon(Icons.edit),
+                                      SizedBox(width: 8),
+                                      Text('Edit'),
+                                    ],
+                                  ),
+                                ),
+                                PopupMenuItem(
+                                  value: 'delete',
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.delete, color: Theme.of(context).colorScheme.error),
+                                      const SizedBox(width: 8),
+                                      Text('Delete', style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildLoanInfo('Principal', 'KES ${loan.principal.toStringAsFixed(0)}'),
+                            ),
+                            Expanded(
+                              child: _buildLoanInfo('Rate', '${loan.interestRate.toStringAsFixed(1)}%'),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildLoanInfo('Monthly Payment', 'KES ${loan.monthlyPayment.toStringAsFixed(0)}'),
+                            ),
+                            Expanded(
+                              child: _buildLoanInfo('Remaining', '${loan.remainingMonths} months'),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        LinearProgressIndicator(
+                          value: (loan.totalMonths - loan.remainingMonths) / loan.totalMonths,
+                          backgroundColor: theme.colorScheme.onSurface.withOpacity(0.12),
+                          valueColor: AlwaysStoppedAnimation<Color>(theme.colorScheme.primary),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Progress: ${((loan.totalMonths - loan.remainingMonths) / loan.totalMonths * 100).toStringAsFixed(1)}% completed',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
         ],
       ),
     );
   }
-  
-  Widget _buildLoanForm() {
-    return Card(
-      elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            TextFormField(
-              decoration: const InputDecoration(
-                labelText: 'Loan Name',
-                hintText: 'e.g. Car Loan, Mortgage, etc.',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              decoration: const InputDecoration(
-                labelText: 'Principal Amount (Ksh)',
-                border: OutlineInputBorder(),
-              ),
-              keyboardType: TextInputType.number,
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              decoration: const InputDecoration(
-                labelText: 'Interest Rate (%)',
-                border: OutlineInputBorder(),
-              ),
-              keyboardType: TextInputType.number,
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              decoration: const InputDecoration(
-                labelText: 'Term (Months)',
-                border: OutlineInputBorder(),
-              ),
-              keyboardType: TextInputType.number,
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              decoration: const InputDecoration(
-                labelText: 'Monthly Payment (Ksh)',
-                border: OutlineInputBorder(),
-              ),
-              keyboardType: TextInputType.number,
-            ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF007A39),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+
+  Widget _buildLoanInfo(String label, String value) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+        ),
+        Text(
+          value,
+          style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+        ),
+      ],
+    );
+  }
+
+  void _showAddLoanDialog() {
+    _showLoanDialog();
+  }
+
+  void _showEditLoanDialog(Loan loan, int index) {
+    _showLoanDialog(loan: loan, index: index);
+  }
+
+  void _showLoanDialog({Loan? loan, int? index}) {
+    final nameController = TextEditingController(text: loan?.name ?? '');
+    final principalController = TextEditingController(text: loan?.principal.toString() ?? '');
+    final rateController = TextEditingController(text: loan?.interestRate.toString() ?? '');
+    final termController = TextEditingController(text: loan?.totalMonths.toString() ?? '');
+    final remainingController = TextEditingController(text: loan?.remainingMonths.toString() ?? '');
+    DateTime startDate = loan?.startDate ?? DateTime.now();
+    DateTime endDate = loan?.endDate ?? DateTime.now().add(Duration(days: (loan?.totalMonths ?? 12) * 30));
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+        title: Text(loan == null ? 'Add New Loan' : 'Edit Loan'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(
+                  labelText: 'Loan Name',
+                  hintText: 'e.g., Car Loan, Mortgage',
                 ),
-                onPressed: () {
-                  // Save loan logic would go here
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Loan tracking feature coming soon!'),
-                      backgroundColor: Color(0xFF007A39),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: principalController,
+                decoration: const InputDecoration(
+                  labelText: 'Principal Amount (KES)',
+                ),
+                keyboardType: TextInputType.number,
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: rateController,
+                decoration: const InputDecoration(
+                  labelText: 'Interest Rate (%)',
+                ),
+                keyboardType: TextInputType.number,
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: termController,
+                decoration: const InputDecoration(
+                  labelText: 'Total Term (months)',
+                ),
+                keyboardType: TextInputType.number,
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: remainingController,
+                decoration: const InputDecoration(
+                  labelText: 'Remaining Months',
+                ),
+                keyboardType: TextInputType.number,
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Start Date'),
+                        TextButton(
+                          onPressed: () async {
+                            final picked = await showDatePicker(
+                              context: context,
+                              initialDate: startDate,
+                              firstDate: DateTime(2000),
+                              lastDate: DateTime(2100),
+                            );
+                            if (picked != null) {
+                              setState(() {
+                                startDate = DateTime(picked.year, picked.month, picked.day);
+                                if (endDate.isBefore(startDate)) {
+                                  endDate = startDate.add(const Duration(days: 30));
+                                }
+                              });
+                            }
+                          },
+                          child: Text('${startDate.toLocal().toIso8601String().split('T').first}'),
+                        ),
+                      ],
                     ),
-                  );
-                  
-                  // Navigate to loan calculator for now
-                  Navigator.pushReplacementNamed(context, '/loan_calculator');
-                },
-                child: const Text(
-                  'Save Loan',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
+                  ),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('End Date'),
+                        TextButton(
+                          onPressed: () async {
+                            final picked = await showDatePicker(
+                              context: context,
+                              initialDate: endDate,
+                              firstDate: DateTime(2000),
+                              lastDate: DateTime(2100),
+                            );
+                            if (picked != null) {
+                              setState(() {
+                                endDate = DateTime(picked.year, picked.month, picked.day);
+                                if (endDate.isBefore(startDate)) {
+                                  startDate = endDate.subtract(const Duration(days: 30));
+                                }
+                              });
+                            }
+                          },
+                          child: Text('${endDate.toLocal().toIso8601String().split('T').first}'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-            ),
-            const SizedBox(height: 8),
-            TextButton(
-              onPressed: () {
-                Navigator.pushNamed(context, '/loan_calculator');
-              },
-              child: const Text(
-                'Use Loan Calculator Instead',
-                style: TextStyle(color: Color(0xFF007A39)),
-              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final name = nameController.text.trim();
+              final principal = double.tryParse(principalController.text) ?? 0;
+              final rate = double.tryParse(rateController.text) ?? 0;
+              final totalMonths = int.tryParse(termController.text) ?? 0;
+              final remainingMonths = int.tryParse(remainingController.text) ?? 0;
+
+              if (name.isEmpty || principal <= 0 || totalMonths <= 0) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Please enter valid loan details')),
+                );
+                return;
+              }
+
+              final profileId = AuthService.instance.profileId;
+              if (profileId == null || profileId.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Please sign in to save loans')),
+                );
+                return;
+              }
+
+              try {
+                final svc = Provider.of<OfflineDataService>(context, listen: false);
+
+                final chosenStart = startDate;
+                final chosenEnd = endDate;
+
+                final domainLoan = domain_loan.Loan(
+                  id: loan?.id,
+                  name: name,
+                  principalMinor: (principal * 100).roundToDouble(),
+                  currency: 'KES',
+                  interestRate: rate,
+                  startDate: chosenStart,
+                  endDate: chosenEnd,
+                  profileId: profileId,
+                );
+
+                if (loan?.id != null) {
+                  await svc.updateLoan(domainLoan);
+                } else {
+                  await svc.saveLoan(domainLoan);
+                }
+
+                await _loadLoans();
+
+                if (mounted) Navigator.pop(context);
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(loan == null ? 'Loan added successfully!' : 'Loan updated successfully!'),
+                    backgroundColor: Theme.of(context).colorScheme.primary,
+                  ),
+                );
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Failed to save loan: $e')),
+                );
+              }
+            },
+            child: Text(loan == null ? 'Add' : 'Update'),
             ),
           ],
         ),
-      ),
+      )
     );
   }
-  
-  Widget _buildEmptyState(
-    String title, 
-    String subtitle, 
-    String actionText, 
-    VoidCallback? onAction,
-  ) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.account_balance_wallet_outlined, 
-            size: 80, 
-            color: Colors.grey.shade400,
+
+  void _deleteLoan(int index) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Loan'),
+        content: const Text('Are you sure you want to delete this loan?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
           ),
-          const SizedBox(height: 16),
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 20, 
-              fontWeight: FontWeight.bold,
-              color: Colors.grey.shade700,
+          ElevatedButton(
+            onPressed: () async {
+              try {
+                final loan = _loans[index];
+                if (loan.id != null) {
+                  final svc = Provider.of<OfflineDataService>(context, listen: false);
+                  await svc.deleteLoan(loan.id.toString());
+                  await svc.removeRemoteLoanId(loan.id!);
+                  await _loadLoans();
+                } else {
+                  setState(() => _loans.removeAt(index));
+                }
+                if (mounted) Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: const Text('Loan deleted successfully!'),
+                    backgroundColor: Theme.of(context).colorScheme.error,
+                  ),
+                );
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Failed to delete loan: $e')),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
             ),
+            child: const Text('Delete'),
           ),
-          const SizedBox(height: 8),
-          Text(
-            subtitle,
-            style: TextStyle(color: Colors.grey.shade600),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 24),
-          if (onAction != null)
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF007A39),
-                foregroundColor: Colors.white,
-              ),
-              onPressed: onAction,
-              child: Text(actionText),
-            ),
         ],
       ),
     );
   }
+
+}
+
+/* -------------------------------------------------------------------------- */
+/* --------------------------------- Models --------------------------------- */
+/* -------------------------------------------------------------------------- */
+
+class Loan {
+  final int? id;
+  final String name;
+  final double principal;
+  final double interestRate;
+  final int totalMonths;
+  final int remainingMonths;
+  final double monthlyPayment;
+  final DateTime? startDate;
+  final DateTime? endDate;
+
+  Loan({
+    this.id,
+    required this.name,
+    required this.principal,
+    required this.interestRate,
+    required this.totalMonths,
+    required this.remainingMonths,
+    required this.monthlyPayment,
+    this.startDate,
+    this.endDate,
+  });
 }

@@ -77,12 +77,8 @@ class DashboardContent extends StatelessWidget {
 
                     return Scaffold(
                       backgroundColor: colorScheme.background,
-                        appBar: AppBar(
-                          backgroundColor: Theme.of(context).colorScheme.primary,
-                          foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                          title: Text('Dashboard', style: textTheme.titleLarge?.copyWith(color: colorScheme.onPrimary)),
-                          elevation: 0,
-                          ),
+                        appBar: AppBar(backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+                          elevation: 0,),
                       body: SafeArea(
                         child: SingleChildScrollView(
                           padding: const EdgeInsets.all(16),

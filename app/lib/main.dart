@@ -76,6 +76,10 @@ import 'screens/emergency_fund_screen.dart';
 import 'screens/sms_review_screen.dart';
 import 'screens/budget_progress_screen.dart';
 import 'screens/analytics_screen.dart';
+import 'screens/connection_test_screen.dart';
+
+// ADDED: canonical main navigation route
+import 'screens/main_navigation.dart';
 
 // ==================== BACKGROUND TASK DISPATCHER ====================
 
@@ -579,11 +583,33 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       await budgetService.loadBudgetsForProfile(authService.profileId!);
     }
 
+    // Use centralized navigation helper to ensure canonical main route
+    _navigateToCanonicalMain();
+
     if (mounted) {
       setState(() {
         _showBiometricOverlay = false;
       });
     }
+  }
+
+  // NEW: central helper to ensure the app shows the canonical main route (with bottom nav)
+  void _navigateToCanonicalMain() {
+    final navigator = _navigatorKey.currentState;
+    if (navigator != null) {
+      navigator.pushNamedAndRemoveUntil('/main', (route) => false);
+      return;
+    }
+
+    // Fallback: schedule navigation after frame if navigator not yet available
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      try {
+        Navigator.of(context).pushNamedAndRemoveUntil('/main', (route) => false);
+      } catch (e) {
+        _logger.warning('Failed to navigate to canonical main route: $e');
+      }
+    });
   }
 
   @override
@@ -645,6 +671,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   Map<String, WidgetBuilder> _buildRoutes() {
     return {
+      // Canonical main route for the app (bottom navigation)
+      '/main': (context) => const MainNavigation(),
       '/welcome_onboarding': (context) => const WelcomeOnboardingScreen(),
       '/transactions': (context) => const TransactionsScreen(),
       '/investment_calculator': (context) => const InvestmentCalculatorScreen(),
@@ -664,6 +692,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       '/loans_tracker': (context) => const LoansTrackerScreen(),
       '/device_network_info': (context) => const DeviceInfoScreen(),
       '/ip_settings': (context) => const IpSettingsScreen(),
+      '/connection_test': (context) => const ConnectionTestScreen(),
       '/debt_repayment_planner': (context) => const DebtRepaymentPlannerScreen(),
       '/asset_protection': (context) => AssetProtectionIntroScreen(),
       '/asset_protection_intro': (context) => AssetProtectionIntroScreen(),

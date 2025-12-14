@@ -92,7 +92,7 @@ class _BiometricSetupScreenState extends State<BiometricSetupScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Biometric setup successful! You can now unlock with $_biometricType'),
+              content: Text('Biometric setup successful! You can now use biometric login.'),
               duration: Duration(seconds: 2),
             ),
           );

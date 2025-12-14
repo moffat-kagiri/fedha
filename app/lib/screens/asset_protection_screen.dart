@@ -26,8 +26,8 @@ class _AssetProtectionScreenState extends State<AssetProtectionScreen> {
   // Calculations
   final annualIncome = _monthlyIncome * 12;
   // Healthcare spend recommendation: 1-5% of annual income, displayed monthly
-  final healthcareMin = (annualIncome * 0.01) / 12;
-  final healthcareMax = (annualIncome * 0.05) / 12;
+  final healthcareMin = (annualIncome * 0.05) / 12;
+  final healthcareMax = (annualIncome * 0.10) / 12;
     final coverMultiplier = _hasChildren ? 10 : 7;
     final lifeCover = annualIncome * coverMultiplier;
     final lifePremiumMonthly = lifeCover * 0.005 / 12;
@@ -35,7 +35,13 @@ class _AssetProtectionScreenState extends State<AssetProtectionScreen> {
     final homePremiumMonthly = _homeValue * 0.0025 / 12;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Asset Protection')),
+      appBar: AppBar(title: Text(
+        'Coverage Recommendations',
+        style: Theme.of(context)
+            .textTheme
+            .headlineSmall
+            ?.copyWith(color: Colors.white),
+        )),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(

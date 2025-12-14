@@ -21,8 +21,8 @@ class ToolsScreen extends StatelessWidget {
           'Financial Tools',
           style: Theme.of(context)
               .textTheme
-              .headlineMedium
-              ?.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
+              .headlineSmall
+              ?.copyWith(color: Colors.white),
         ),
       ),
       body: Padding(

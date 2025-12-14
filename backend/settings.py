@@ -18,6 +18,7 @@ ALLOWED_HOSTS = [
     'localhost',
     '127.0.0.1',
     '0.0.0.0',
+    '192.168.100.6',
     
     # Development hosts (from ApiConfig.development() and ApiConfig.local())
     '192.168.100.6',

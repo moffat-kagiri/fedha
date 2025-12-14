@@ -28,6 +28,8 @@ analyzer:
   exclude:
     - "test_*.dart"
   errors:
+    # Ignore low-priority 'print' usage in tests and debug code
+    avoid_print: ignore
     # Suppress common unused and dead code errors
     unused_import: ignore
     unused_local_variable: ignore

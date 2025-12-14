@@ -222,7 +222,84 @@ class UnifiedSyncService with ChangeNotifier {
       if (isOnline) {
         try {
           _logger.info('${localLoans.length} loans in local storage');
-          // TODO: Implement server sync when API is ready
+          // Download remote loans and merge into local DB (simple merge by name+start_date)
+          final remoteLoans = await _apiClient!.getLoans(profileId: profileId);
+          result.downloaded = remoteLoans.length;
+
+          // Map remote loans into local storage when not already present
+          for (final r in remoteLoans) {
+            try {
+              final name = r['name']?.toString() ?? '';
+              final principalMinor = (r['principal_minor'] is int)
+                  ? (r['principal_minor'] as int).toDouble()
+                  : (r['principal_minor'] is double)
+                      ? r['principal_minor'] as double
+                      : double.tryParse(r['principal_minor']?.toString() ?? '0') ?? 0.0;
+              final interestRate = double.tryParse(r['interest_rate']?.toString() ?? '0') ?? 0.0;
+              final startDate = DateTime.tryParse(r['start_date']?.toString() ?? '') ?? DateTime.now();
+              final endDate = DateTime.tryParse(r['end_date']?.toString() ?? '') ?? DateTime.now();
+              final profileIdRemote = r['profile_id']?.toString() ?? profileId;
+
+              // Simple duplicate detection: match by name and start_date
+              final exists = localLoans.any((l) => l.name == name && (l.startDate?.toIso8601String() ?? '') == startDate.toIso8601String());
+              if (!exists) {
+                final domainLoan = Loan(
+                  name: name,
+                  principalMinor: principalMinor,
+                  currency: r['currency']?.toString() ?? 'KES',
+                  interestRate: interestRate,
+                  startDate: startDate,
+                  endDate: endDate,
+                  profileId: profileIdRemote,
+                );
+
+                final localId = await _offlineDataService!.saveLoan(domainLoan);
+                // store mapping from local -> remote id when available
+                final remoteId = r['id']?.toString();
+                if (remoteId != null && remoteId.isNotEmpty) {
+                  await _offlineDataService!.setRemoteLoanId(localId, remoteId);
+                }
+                result.uploaded += 1; // count as local inserted
+              }
+            } catch (e) {
+              _logger.warning('Failed to merge remote loan: $e');
+            }
+          }
+          
+          // Upload local-only loans to server
+          for (final local in localLoans) {
+            try {
+              if (local.id == null) continue;
+              final remoteId = await _offlineDataService!.getRemoteLoanId(local.id!);
+              final payload = {
+                'name': local.name,
+                'principal_minor': local.principalMinor, // Changed from (local.principal * 100).round()
+                'currency': local.currency, // Changed from hardcoded 'KES'
+                'interest_rate': local.interestRate,
+                'start_date': local.startDate.toIso8601String(), // Removed null check
+                'end_date': local.endDate.toIso8601String(), // Removed null check
+                'profile_id': local.profileId, // Changed from profileId parameter
+              };
+
+              if (remoteId == null) {
+                final created = await _apiClient!.createLoan(loan: payload);
+                final createdId = created['id']?.toString();
+                if (createdId != null) {
+                  await _offlineDataService!.setRemoteLoanId(local.id!, createdId);
+                  result.uploaded += 1;
+                }
+              } else {
+                // Attempt to update server representation
+                final idInt = int.tryParse(remoteId);
+                if (idInt != null) {
+                  await _apiClient!.updateLoan(loanId: idInt, loan: payload);
+                  result.uploaded += 1;
+                }
+              }
+            } catch (e) {
+              _logger.warning('Failed to push local loan to server: $e');
+            }
+          }
         } catch (e) {
           _logger.warning('Loan server sync failed: $e');
         }

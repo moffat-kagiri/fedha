@@ -1,4 +1,5 @@
 // lib/config/api_config.dart
+import 'package:flutter/foundation.dart';
 
 class ApiConfig {
   final String primaryApiUrl;
@@ -18,22 +19,23 @@ class ApiConfig {
   /// Production configuration (for production builds)
   factory ApiConfig.production() {
     return const ApiConfig(
-      primaryApiUrl: 'api.fedhaapp.com',  // Replace with your actual production domain
-      fallbackApiUrl: 'api-backup.fedhaapp.com',  // Optional backup server
+      primaryApiUrl: 'api.fedhaapp.com',  // Your production domain
+      fallbackApiUrl: null,
       useSecureConnections: true,
       timeoutSeconds: 30,
       maxRetries: 3,
     );
   }
 
-  /// Development configuration (localhost)
+  /// Development configuration (for development)
   factory ApiConfig.development() {
-    return const ApiConfig(
-      primaryApiUrl: '10.0.2.2:8000',  // Android emulator localhost
-      // Alternative for iOS simulator: 'localhost:8000'
-      // Alternative for physical device: Use your computer's LAN IP
+    // CRITICAL: Replace with YOUR computer's IP address
+    const String computerIp = '192.168.1.100';  // ⚠️ CHANGE THIS!
+    
+    return ApiConfig(
+      primaryApiUrl: '$computerIp:8000',
       fallbackApiUrl: null,
-      useSecureConnections: false,
+      useSecureConnections: false,  // HTTP for local dev
       timeoutSeconds: 30,
       maxRetries: 3,
     );
@@ -41,7 +43,6 @@ class ApiConfig {
 
   /// Cloudflare tunnel configuration (for remote testing)
   factory ApiConfig.cloudflare({required String tunnelUrl}) {
-    // Extract host from full URL
     final host = tunnelUrl
         .replaceAll(RegExp(r'https?://'), '')
         .split('/')[0];
@@ -49,13 +50,13 @@ class ApiConfig {
     return ApiConfig(
       primaryApiUrl: host,
       fallbackApiUrl: null,
-      useSecureConnections: true,  // Cloudflare tunnels use HTTPS
-      timeoutSeconds: 45,  // Longer timeout for tunnels
+      useSecureConnections: true,
+      timeoutSeconds: 45,
       maxRetries: 2,
     );
   }
 
-  /// Custom configuration (for any custom setup)
+  /// Custom configuration
   factory ApiConfig.custom({
     required String apiUrl,
     bool useSecureConnections = false,

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../config/environment_config.dart';
-import 'connectivity_test_screen.dart';
+import 'connection_test_screen.dart';
 
 class DebugMenuScreen extends StatelessWidget {
   final EnvironmentConfig envConfig;

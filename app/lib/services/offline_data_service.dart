@@ -400,7 +400,8 @@ class OfflineDataService {
 
   // ==================== LOANS (FIX STRING PARAMETER) ====================
 
-  Future<void> saveLoan(dom_loan.Loan loan) async {
+  /// Saves a loan to the local DB. Returns the local inserted ID.
+  Future<int> saveLoan(dom_loan.Loan loan) async {
     final companion = LoansCompanion.insert(
       name: loan.name,
       principalMinor: loan.principalMinor.toInt(),
@@ -410,7 +411,8 @@ class OfflineDataService {
       endDate: loan.endDate,
       profileId: _profileIdToInt(loan.profileId.toString()),
     );
-    await _db.into(_db.loans).insert(companion);
+    final insertedId = await _db.into(_db.loans).insert(companion);
+    return insertedId;
   }
 
   Future<List<dom_loan.Loan>> getAllLoans(String profileId) async {
@@ -441,6 +443,22 @@ class OfflineDataService {
     }
     
     await (_db.delete(_db.loans)..where((l) => l.id.equals(loanIdInt))).go();
+  }
+
+  // Remote ID mapping helpers stored in SharedPreferences
+  Future<void> setRemoteLoanId(int localId, String remoteId) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('loan_remote_$localId', remoteId);
+  }
+
+  Future<String?> getRemoteLoanId(int localId) async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('loan_remote_$localId');
+  }
+
+  Future<void> removeRemoteLoanId(int localId) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('loan_remote_$localId');
   }
 
   Future<void> updateLoan(dom_loan.Loan loan) async {

@@ -110,6 +110,53 @@ class Transaction {
       
   Map<String, dynamic> toJson() => _$TransactionToJson(this);
 
+  /// Returns a copy of this transaction with the given fields replaced.
+  Transaction copyWith({
+    String? uuid,
+    String? id,
+    double? amount,
+    TransactionType? type,
+    String? categoryId,
+    TransactionCategory? category,
+    DateTime? date,
+    String? notes,
+    String? description,
+    bool? isSynced,
+    String? profileId,
+    DateTime? updatedAt,
+    String? goalId,
+    String? smsSource,
+    String? reference,
+    String? recipient,
+    bool? isPending,
+    bool? isExpense,
+    bool? isRecurring,
+    PaymentMethod? paymentMethod,
+  }) {
+    return Transaction(
+      uuid: uuid ?? this.uuid,
+      id: id ?? this.id,
+      amount: amount ?? this.amount,
+      type: type ?? this.type,
+      categoryId: categoryId ?? this.categoryId,
+      category: category ?? this.category,
+      date: date ?? this.date,
+      notes: notes ?? this.notes,
+      description: description ?? this.description,
+      isSynced: isSynced ?? this.isSynced,
+      profileId: profileId ?? this.profileId,
+      updatedAt: updatedAt ?? this.updatedAt,
+      goalId: goalId ?? this.goalId,
+      smsSource: smsSource ?? this.smsSource,
+      reference: reference ?? this.reference,
+      recipient: recipient ?? this.recipient,
+      isPending: isPending ?? this.isPending,
+      isExpense: isExpense ?? this.isExpense,
+      isRecurring: isRecurring ?? this.isRecurring,
+      paymentMethod: paymentMethod ?? this.paymentMethod,
+    );
+  }
+
   @override
   String toString() {
     return 'Transaction(uuid: $uuid, amount: $amount, type: $type, '

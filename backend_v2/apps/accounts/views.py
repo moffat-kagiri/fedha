@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from .serializers import UserSerializer, RegisterSerializer, ProfileUpdateSerializer, ChangePasswordSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth import authenticate
 
 @api_view(['GET'])
@@ -38,11 +39,19 @@ def register(request):
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def login(request):
+    """Obtain JWT token pair (returns access token as 'token' for compatibility)."""
     try:
-        serializer = TokenObtainPairView().get_serializer(data=request.data)
-        if serializer.is_valid():
-            return Response(serializer.validated_data, status=status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_401_UNAUTHORIZED)
+        serializer = TokenObtainPairSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        validated = serializer.validated_data
+        # Return access token under 'token' so client (ApiClient) keeps expecting data['token']
+        return Response(
+            {
+                'token': validated.get('access'),
+                'refresh': validated.get('refresh'),
+            },
+            status=status.HTTP_200_OK
+        )
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 

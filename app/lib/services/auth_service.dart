@@ -682,8 +682,7 @@ class AuthService with ChangeNotifier {
       );
 
       await _storeProfile(updatedProfile);
-      _currentProfile = updatedProfile;
-      await _initializeProfileServices(updatedProfile.id);
+      await setCurrentProfile(updatedProfile.id);
 
       if (_syncService != null) {
         _logger.info('Syncing data after biometric login...');

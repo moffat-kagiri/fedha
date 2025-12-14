@@ -131,38 +131,69 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
     try {
       final dataService = Provider.of<OfflineDataService>(context, listen: false);
       final authService = Provider.of<AuthService>(context, listen: false);
-      final profileId = int.tryParse(authService.currentProfile?.id ?? '') ?? 0;
+      final profileId = authService.currentProfile?.id ?? '';
+      
+      // Determine category from metadata or use default
+      TransactionCategory? category;
+      if (candidate.categoryId != null && candidate.categoryId!.isNotEmpty) {
+        try {
+          // Try to find matching category enum
+          category = TransactionCategory.values.firstWhere(
+            (c) => c.name.toLowerCase() == candidate.categoryId!.toLowerCase(),
+            orElse: () => TransactionCategory.otherExpense,
+          );
+        } catch (e) {
+          category = TransactionCategory.otherExpense;
+        }
+      } else {
+        // Default based on transaction type
+        category = candidate.type == TransactionType.income 
+            ? TransactionCategory.otherIncome
+            : TransactionCategory.otherExpense;
+      }
+      
+      // Create transaction with all required fields
       final tx = Transaction(
-        id: candidate.id,
+        id: candidate.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
         amount: candidate.amount,
-        description: candidate.description ?? '',
+        description: candidate.description ?? 'SMS Transaction',
         date: candidate.date,
         smsSource: candidate.rawText,
-        categoryId: candidate.categoryId ?? '',
+        categoryId: category.name,  // Use category enum's name
+        category: category,  // Set the enum value
         type: candidate.type,
         isExpense: candidate.type == TransactionType.expense,
-        profileId: profileId.toString(),
+        profileId: profileId,
+        paymentMethod: PaymentMethod.cash,  // Default payment method
+        // goalId: null, // Optional - leave as null
       );
-      await dataService.approvePendingTransaction(tx);
-      await dataService.deletePendingTransaction(candidate.id);
-
+      
+      // Try using the standard saveTransaction method instead of approvePendingTransaction
+      await dataService.saveTransaction(tx);
+      
+      // Also delete from pending if needed
+      if (candidate.id != null) {
+        await dataService.deletePendingTransaction(candidate.id!);
+      }
+      
       final updatedCandidate = candidate.copyWith(
         status: TransactionStatus.completed,
         transactionId: tx.id,
       );
-
+      
       setState(() {
         _pendingCandidates.removeWhere((c) => c.id == candidate.id);
         _reviewedCandidates.add(updatedCandidate);
       });
-
+      
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text('✅ Transaction approved and added to your records'),
           backgroundColor: Theme.of(context).colorScheme.primary,
         ),
       );
-    } catch (e) {
+    } catch (e, stackTrace) {
+      print('Error approving transaction: $e\n$stackTrace');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error approving transaction: ${e.toString()}'),
@@ -171,6 +202,7 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
       );
     }
   }
+
 
   Future<void> _rejectCandidate(TransactionCandidate candidate) async {
     try {
