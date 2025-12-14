@@ -173,6 +173,10 @@ class GoalTransactionService {
   /// Gets the total amount contributed to a goal from transactions
   Future<double> getTotalContributions(String profileId, String goalId) async {
     final goalTransactions = await getTransactionsForGoal(profileId, goalId);
-    return goalTransactions.fold(0.0, (sum, transaction) => sum + transaction.amount);
+    double total = 0.0;
+    for (final transaction in goalTransactions) {
+      total += transaction.amount;
+    }
+    return total;
   }
 }

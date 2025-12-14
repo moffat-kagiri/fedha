@@ -19,6 +19,7 @@ class ApiClient {
     'Content-Type': 'application/json',
     'Accept': 'application/json'
   };
+  bool get isAuthenticated => _headers.containsKey('Authorization');
 
   ApiConfig _config;
   String? _overrideBase;
@@ -416,12 +417,21 @@ class ApiClient {
     final url = Uri.parse(_config.getEndpoint('api/invoicing/loans/?profile_id=$profileId'));
 
     try {
-      final headers = {
-        ..._headers,
-        if (sessionToken != null) 'Authorization': 'Bearer $sessionToken',
-      };
-
-      final resp = await _http.get(url, headers: headers).timeout(Duration(seconds: _config.timeoutSeconds));
+      // Always use the main headers (which should contain the auth token)
+      final headers = Map<String, String>.from(_headers);
+      
+      // If a specific sessionToken is provided, use it (overrides stored token)
+      if (sessionToken != null) {
+        headers['Authorization'] = 'Bearer $sessionToken';
+      } else if (!headers.containsKey('Authorization')) {
+        // If no auth header exists at all, log a warning
+        logger.warning('No Authorization header found for loans request');
+      }
+      
+      logger.info('Requesting loans for profile $profileId');
+      final resp = await _http
+          .get(url, headers: headers)
+          .timeout(Duration(seconds: _config.timeoutSeconds));
 
       if (resp.statusCode == 200) {
         final data = jsonDecode(resp.body);
@@ -430,7 +440,16 @@ class ApiClient {
         }
         return data as List<dynamic>;
       }
-
+      
+      // Handle 401 Unauthorized - token might be expired
+      if (resp.statusCode == 401) {
+        logger.warning('Loans request unauthorized - token may be expired');
+        // Clear the expired token
+        clearAuthToken();
+        // You might want to trigger a re-login here
+        // or return an empty list and let UI handle re-auth
+      }
+      
       logger.warning('Get loans failed: ${resp.statusCode} ${resp.body}');
       return [];
     } catch (e) {

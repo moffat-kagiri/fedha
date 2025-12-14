@@ -7,6 +7,7 @@ import '../models/loan.dart';
 import '../utils/logger.dart';
 import 'offline_data_service.dart';
 import 'api_client.dart';
+import 'auth_service.dart'; // Add this import
 
 /// Unified sync service for all data types
 /// Handles both local persistence and server synchronization
@@ -18,6 +19,7 @@ class UnifiedSyncService with ChangeNotifier {
   
   OfflineDataService? _offlineDataService;
   ApiClient? _apiClient;
+  AuthService? _authService; // Add AuthService reference
   
   bool _isSyncing = false;
   DateTime? _lastSyncTime;
@@ -32,9 +34,11 @@ class UnifiedSyncService with ChangeNotifier {
   Future<void> initialize({
     required OfflineDataService offlineDataService,
     required ApiClient apiClient,
+    required AuthService authService, // Add AuthService parameter
   }) async {
     _offlineDataService = offlineDataService;
     _apiClient = apiClient;
+    _authService = authService; // Store AuthService
     _logger.info('UnifiedSyncService initialized');
   }
 
@@ -60,7 +64,7 @@ class UnifiedSyncService with ChangeNotifier {
 
   /// Sync all data for a specific profile
   Future<SyncResult> syncProfile(String profileId) async {
-    if (_offlineDataService == null || _apiClient == null) {
+    if (_offlineDataService == null || _apiClient == null || _authService == null) {
       _logger.warning('Services not initialized');
       return SyncResult(
         success: false,
@@ -220,11 +224,25 @@ class UnifiedSyncService with ChangeNotifier {
       result.localCount = localLoans.length;
 
       if (isOnline) {
+        // Check if we have auth token
+        if (!_apiClient!.isAuthenticated) {
+          _logger.warning('Not authenticated for loan sync');
+          // Try to restore token or skip server sync
+          result.success = true; // Mark as success but only local
+          return result;
+        }
         try {
           _logger.info('${localLoans.length} loans in local storage');
-          // Download remote loans and merge into local DB (simple merge by name+start_date)
-          final remoteLoans = await _apiClient!.getLoans(profileId: profileId);
-          result.downloaded = remoteLoans.length;
+          
+          // Get the current auth token from AuthService
+          final currentProfile = _authService!.currentProfile;
+          final sessionToken = currentProfile?.sessionToken;
+          
+          // Pass the session token to getLoans
+          final remoteLoans = await _apiClient!.getLoans(
+            profileId: profileId,
+            sessionToken: sessionToken,
+          );
 
           // Map remote loans into local storage when not already present
           for (final r in remoteLoans) {

@@ -1,3 +1,4 @@
+//lib/screens/dashboard_screen.dart
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import 'package:provider/provider.dart';
@@ -14,6 +15,7 @@ import '../widgets/transaction_dialog.dart';
 import '../widgets/transaction_card.dart';
 import '../widgets/quick_actions_grid.dart';
 import '../widgets/financial_summary_card.dart';
+import 'goal_details_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -24,30 +26,38 @@ class DashboardScreen extends StatelessWidget {
   }
 }
 
-class DashboardContent extends StatelessWidget {
+class DashboardContent extends StatefulWidget {
   const DashboardContent({super.key});
 
   @override
+  State<DashboardContent> createState() => _DashboardContentState();
+}
+
+class _DashboardContentState extends State<DashboardContent> {
+  // Track when to refresh dashboard data
+  int _refreshKey = 0;
+
+  void _triggerRefresh() {
+    setState(() => _refreshKey++);
+  }
+
+  @override
   Widget build(BuildContext context) {
-  final colorScheme = Theme.of(context).colorScheme;
-  final textTheme = Theme.of(context).textTheme;
-  return Consumer<AuthService>(
+    final colorScheme = Theme.of(context).colorScheme;
+    
+    return Consumer<AuthService>(
       builder: (context, authService, child) {
         final profile = authService.currentProfile;
+        
         if (profile == null) {
           return Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text(
-                  'Please log in',
-                  style: TextStyle(fontSize: 18),
-                ),
+                const Text('Please log in', style: TextStyle(fontSize: 18)),
                 const SizedBox(height: 12),
                 ElevatedButton(
-                  onPressed: () {
-                    Navigator.pushNamed(context, '/login');
-                  },
+                  onPressed: () => Navigator.pushNamed(context, '/login'),
                   child: const Text('Go to Login'),
                 ),
               ],
@@ -60,41 +70,50 @@ class DashboardContent extends StatelessWidget {
             return Consumer<CurrencyService>(
               builder: (context, currencyService, child) {
                 return FutureBuilder<DashboardData>(
+                  // Use key to force refresh when needed
+                  key: ValueKey(_refreshKey),
                   future: _loadDashboardData(dataService, profile.id),
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
-                        return Scaffold(
-                          backgroundColor: colorScheme.background,
-                          body: Center(
-                            child: CircularProgressIndicator(
-                              color: colorScheme.primary,
-                            ),
-                          ),
-                        );
+                      return Scaffold(
+                        backgroundColor: colorScheme.background,
+                        body: Center(
+                          child: CircularProgressIndicator(color: colorScheme.primary),
+                        ),
+                      );
                     }
 
                     final data = snapshot.data ?? DashboardData.empty();
 
                     return Scaffold(
                       backgroundColor: colorScheme.background,
-                        appBar: AppBar(backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-                          elevation: 0,),
-                      body: SafeArea(
-                        child: SingleChildScrollView(
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _buildWelcomeHeader(context, profile.type),
-                              const SizedBox(height: 24),
-                              _buildFinancialPositionCard(context, currencyService, data),
-                              const SizedBox(height: 20),
-                              _buildQuickActions(context),
-                              const SizedBox(height: 20),
-                              _buildGoalsSection(context, currencyService, data.goals),
-                              const SizedBox(height: 20),
-                              _buildRecentTransactions(context, currencyService, data.recentTransactions),
-                            ],
+                      appBar: AppBar(
+                        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+                        elevation: 0,
+                      ),
+                      body: RefreshIndicator(
+                        onRefresh: () async {
+                          _triggerRefresh();
+                          await Future.delayed(const Duration(milliseconds: 300));
+                        },
+                        child: SafeArea(
+                          child: SingleChildScrollView(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildWelcomeHeader(context, profile.type),
+                                const SizedBox(height: 24),
+                                _buildFinancialPositionCard(context, currencyService, data),
+                                const SizedBox(height: 20),
+                                _buildQuickActions(context),
+                                const SizedBox(height: 20),
+                                _buildGoalsSection(context, currencyService, data.goals),
+                                const SizedBox(height: 20),
+                                _buildRecentTransactions(context, currencyService, data.recentTransactions),
+                              ],
+                            ),
                           ),
                         ),
                       ),
@@ -109,18 +128,29 @@ class DashboardContent extends StatelessWidget {
     );
   }
 
-  Future<DashboardData> _loadDashboardData(OfflineDataService dataService, String profileId) async {
+  // Load all dashboard data
+  Future<DashboardData> _loadDashboardData(
+    OfflineDataService dataService,
+    String profileId,
+  ) async {
     try {
-      // No more int parsing!
       final goals = await dataService.getAllGoals(profileId);
       final allTransactions = await dataService.getAllTransactions(profileId);
+      final budgets = await dataService.getAllBudgets(profileId);
+      
       allTransactions.sort((a, b) => b.date.compareTo(a.date));
       final recentTransactions = allTransactions.take(5).toList();
+      
+      // Get most recent active budget
+      final activeBudgets = budgets.where((b) => b.isActive).toList();
+      activeBudgets.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      final currentBudget = activeBudgets.isNotEmpty ? activeBudgets.first : null;
       
       return DashboardData(
         goals: goals,
         recentTransactions: recentTransactions,
-        currentBudget: null,
+        allTransactions: allTransactions,
+        currentBudget: currentBudget,
       );
     } catch (e) {
       return DashboardData.empty();
@@ -140,6 +170,7 @@ class DashboardContent extends StatelessWidget {
       greeting = 'Good Evening';
     }
     
+    // Select icon based on profile type
     IconData icon = Icons.person;
     switch (profileType) {
       case ProfileType.personal:
@@ -191,24 +222,99 @@ class DashboardContent extends StatelessWidget {
     );
   }
 
-  Widget _buildFinancialPositionCard(BuildContext context, CurrencyService currencyService, DashboardData data) {
+  Widget _buildFinancialPositionCard(
+    BuildContext context,
+    CurrencyService currencyService,
+    DashboardData data,
+  ) {
+    final now = DateTime.now();
+    final monthStart = DateTime(now.year, now.month, 1);
+    
+    // Filter transactions for current month
+    final monthlyTransactions = data.allTransactions.where(
+      (t) => t.date.isAfter(monthStart) && 
+             t.date.isBefore(now.add(const Duration(days: 1))),
+    ).toList();
+
+    // Calculate monthly income and savings
+    final monthlyIncome = monthlyTransactions
+        .where((t) => t.type == TransactionType.income)
+        .fold(0.0, (sum, t) => sum + t.amount);
+    
+    final monthlySavings = monthlyTransactions
+        .where((t) => t.type == TransactionType.savings)
+        .fold(0.0, (sum, t) => sum + t.amount);
+    
+    // Calculate savings rate percentage
+    final savingsRate = monthlyIncome > 0 ? (monthlySavings / monthlyIncome * 100) : 0.0;
+
+    // Calculate budget health
+    double budgetHealthPercent = 0.0;
+    String budgetHealthLabel = 'No Budget';
+    Color budgetHealthColor = Colors.grey;
+    
+    if (data.currentBudget != null && data.currentBudget!.isActive) {
+      final budget = data.currentBudget!;
+      final remaining = budget.budgetAmount - budget.spentAmount;
+      budgetHealthPercent = budget.budgetAmount > 0
+          ? (remaining / budget.budgetAmount * 100)
+          : 0.0;
+      
+      // Color code based on budget health
+      if (budgetHealthPercent < 10) {
+        budgetHealthColor = FedhaColors.errorRed;
+        budgetHealthLabel = 'Budget Alert';
+      } else if (budgetHealthPercent < 25) {
+        budgetHealthColor = FedhaColors.warningOrange;
+        budgetHealthLabel = 'Budget Low';
+      } else {
+        budgetHealthColor = FedhaColors.successGreen;
+        budgetHealthLabel = 'Budget Remaining';
+      }
+    }
+
+    // Calculate overall goals progress
+    final activeGoals = data.goals.where((g) => g.status == GoalStatus.active).toList();
+    double overallGoalsProgress = 0.0;
+    
+    if (activeGoals.isNotEmpty) {
+      final totalTarget = activeGoals.fold(0.0, (sum, g) => sum + g.targetAmount);
+      final totalProgress = activeGoals.fold(0.0, (sum, g) => sum + g.currentAmount);
+      overallGoalsProgress = totalTarget > 0 ? (totalProgress / totalTarget * 100) : 0.0;
+    }
+
+    // Build summary items
     final summaryItems = [
       FinancialSummaryItem(
-        label: 'Total Savings',
-        value: currencyService.formatCurrency(0),
-        color: Colors.green,
+        label: 'Savings Rate',
+        value: '${savingsRate.toStringAsFixed(1)}%',
+        color: savingsRate >= 20
+            ? FedhaColors.successGreen
+            : savingsRate >= 10
+                ? FedhaColors.warningOrange
+                : FedhaColors.errorRed,
         icon: Icons.savings,
       ),
       FinancialSummaryItem(
-        label: 'Monthly Budget',
-        value: currencyService.formatCurrency(0),
-        color: Colors.blue,
+        label: budgetHealthLabel,
+        value: data.currentBudget != null && data.currentBudget!.isActive
+            ? '${budgetHealthPercent.toStringAsFixed(1)}%'
+            : 'Not Set',
+        color: budgetHealthColor,
         icon: Icons.account_balance_wallet,
       ),
       FinancialSummaryItem(
         label: 'Goals Progress',
-        value: '0%',
-        color: Colors.orange,
+        value: activeGoals.isEmpty
+            ? 'No Goals'
+            : '${overallGoalsProgress.toStringAsFixed(1)}%',
+        color: activeGoals.isEmpty
+            ? Colors.grey
+            : overallGoalsProgress >= 75
+                ? FedhaColors.successGreen
+                : overallGoalsProgress >= 50
+                    ? FedhaColors.warningOrange
+                    : FedhaColors.errorRed,
         icon: Icons.flag,
       ),
     ];
@@ -216,124 +322,87 @@ class DashboardContent extends StatelessWidget {
     return FinancialSummaryCard(
       title: 'Financial Overview',
       items: summaryItems,
-      onTap: () {
-        Navigator.pushNamed(context, '/create_budget');
-      },
+      onTap: () => Navigator.pushNamed(context, '/analytics'),
     );
   }
 
-  Widget _buildBalanceItem(String label, String value, Color color, BuildContext context) {
-    return Column(
-      children: [
-        Text(
-          label, 
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(color: color),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ],
-    );
-  }
-
-Widget _buildQuickActions(BuildContext context) {
-  final actions = [
-    QuickActionItem(
-      title: 'Add Transaction',
-      icon: Icons.add,
-      color: Colors.green,
-      onTap: () {
-        TransactionDialog.showAddDialog(
-          context,
-          onTransactionSaved: (transaction) {
+  Widget _buildQuickActions(BuildContext context) {
+    final actions = [
+      QuickActionItem(
+        title: 'Add Transaction',
+        icon: Icons.add,
+        color: Colors.green,
+        onTap: () {
+          TransactionDialog.showAddDialog(
+            context,
+            onTransactionSaved: (transaction) {
+              // Refresh dashboard after adding transaction
+              _triggerRefresh();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Transaction added successfully'),
+                  backgroundColor: Color(0xFF007A39),
+                ),
+              );
+            },
+          );
+        },
+      ),
+      QuickActionItem(
+        title: 'SMS Review',
+        icon: Icons.sms,
+        color: Colors.blue,
+        onTap: () async {
+          final permissionsService = Provider.of<PermissionsService>(context, listen: false);
+          final granted = await permissionsService.requestSmsPermission();
+          
+          if (!granted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('Transaction added successfully'),
-                backgroundColor: Color(0xFF007A39),
+                content: Text('SMS permission required to review messages'),
+                backgroundColor: Colors.red,
               ),
             );
-          },
-        );
-      },
-    ),
-    QuickActionItem(
-      title: 'SMS Review',
-      icon: Icons.sms,
-      color: Colors.blue,
-      onTap: () async {
-        final permissionsService = Provider.of<PermissionsService>(context, listen: false);
-        final granted = await permissionsService.requestSmsPermission();
-        if (!granted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('SMS permission required to review messages'),
-              backgroundColor: Colors.red,
-            ),
-          );
-          return;
-        }
-        final smsService = SmsListenerService.instance;
-        final authService = Provider.of<AuthService>(context, listen: false);
-        final offlineDataService = Provider.of<OfflineDataService>(context, listen: false);
-        final profileId = authService.currentProfile?.id ?? '';
-        
-        if (!smsService.isListening) {
-          await smsService.startListening(
-            offlineDataService: offlineDataService,
-            profileId: profileId
-          );
-        }
-        Navigator.of(context).pushNamed('/sms_review');
-      },
-    ),
-    QuickActionItem(
-      title: 'Budget Progress',
-      icon: Icons.account_balance_wallet,
-      color: Colors.purple,
-      onTap: () => Navigator.of(context).pushNamed('/budget_progress'),
-    ),
-    QuickActionItem(
-      title: 'Analytics',
-      icon: Icons.analytics,
-      color: Colors.orange,
-      onTap: () => Navigator.of(context).pushNamed('/analytics'),
-    ),
-  ];
-
-  return QuickActionsGrid(actions: actions);
-}
-
-  Widget _buildQuickActionCard(QuickAction action, BuildContext context) {
-    return Card(
-      child: InkWell(
-        onTap: action.onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            children: [
-              Icon(action.icon, color: action.color),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  action.title,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
+            return;
+          }
+          
+          final smsService = SmsListenerService.instance;
+          final authService = Provider.of<AuthService>(context, listen: false);
+          final offlineDataService = Provider.of<OfflineDataService>(context, listen: false);
+          final profileId = authService.currentProfile?.id ?? '';
+          
+          if (!smsService.isListening) {
+            await smsService.startListening(
+              offlineDataService: offlineDataService,
+              profileId: profileId,
+            );
+          }
+          
+          Navigator.of(context).pushNamed('/sms_review');
+        },
       ),
-    );
+      QuickActionItem(
+        title: 'Budget Progress',
+        icon: Icons.account_balance_wallet,
+        color: Colors.purple,
+        onTap: () => Navigator.of(context).pushNamed('/budget_progress'),
+      ),
+      QuickActionItem(
+        title: 'Analytics',
+        icon: Icons.analytics,
+        color: Colors.orange,
+        onTap: () => Navigator.of(context).pushNamed('/analytics'),
+      ),
+    ];
+
+    return QuickActionsGrid(actions: actions);
   }
 
-  Widget _buildGoalsSection(BuildContext context, CurrencyService currencyService, List<dom_goal.Goal> goals) {
+  Widget _buildGoalsSection(
+    BuildContext context,
+    CurrencyService currencyService,
+    List<dom_goal.Goal> goals,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -347,7 +416,11 @@ Widget _buildQuickActions(BuildContext context) {
               ),
             ),
             TextButton(
-              onPressed: () => Navigator.of(context).pushNamed('/goals'),
+              onPressed: () async {
+                // Navigate to goals screen and refresh on return
+                await Navigator.of(context).pushNamed('/goals');
+                _triggerRefresh();
+              },
               child: const Text('View All'),
             ),
           ],
@@ -369,7 +442,10 @@ Widget _buildQuickActions(BuildContext context) {
                   ),
                   const SizedBox(height: 8),
                   ElevatedButton(
-                    onPressed: () => Navigator.of(context).pushNamed('/add_goal'),
+                    onPressed: () async {
+                      await Navigator.of(context).pushNamed('/add_goal');
+                      _triggerRefresh();
+                    },
                     child: const Text('Create Your First Goal'),
                   ),
                 ],
@@ -382,57 +458,74 @@ Widget _buildQuickActions(BuildContext context) {
     );
   }
 
-  Widget _buildGoalCard(dom_goal.Goal goal, CurrencyService currencyService, BuildContext context) {
+  Widget _buildGoalCard(
+    dom_goal.Goal goal,
+    CurrencyService currencyService,
+    BuildContext context,
+  ) {
     final progress = goal.targetAmount > 0 ? goal.currentAmount / goal.targetAmount : 0.0;
     
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(_getGoalIcon(goal.goalType), color: Colors.blue),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    goal.name,
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () async {
+          // Navigate to goal details and refresh on return
+          await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => GoalDetailsScreen(goal: goal),
+            ),
+          );
+          _triggerRefresh();
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(_getGoalIcon(goal.goalType), color: Colors.blue),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      goal.name,
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              LinearProgressIndicator(
+                value: progress.clamp(0.0, 1.0),
+                backgroundColor: Colors.grey.shade300,
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  progress >= 1.0 ? Colors.green : Colors.blue,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    currencyService.formatCurrency(goal.currentAmount),
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            LinearProgressIndicator(
-              value: progress.clamp(0.0, 1.0),
-              backgroundColor: Colors.grey.shade300,
-              valueColor: AlwaysStoppedAnimation<Color>(
-                progress >= 1.0 ? Colors.green : Colors.blue,
+                  Text(
+                    currencyService.formatCurrency(goal.targetAmount),
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                ],
               ),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  currencyService.formatCurrency(goal.currentAmount),
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                Text(
-                  currencyService.formatCurrency(goal.targetAmount),
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Colors.grey.shade600,
-                  ),
-                ),
-              ],
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -455,7 +548,11 @@ Widget _buildQuickActions(BuildContext context) {
     }
   }
 
-  Widget _buildRecentTransactions(BuildContext context, CurrencyService currencyService, List<dom_tx.Transaction> transactions) {
+  Widget _buildRecentTransactions(
+    BuildContext context,
+    CurrencyService currencyService,
+    List<dom_tx.Transaction> transactions,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -471,8 +568,8 @@ Widget _buildQuickActions(BuildContext context) {
             TextButton(
               onPressed: () => Navigator.of(context).pushNamed('/transactions'),
               child: const Text('View All'),
-              ),
-            ],
+            ),
+          ],
         ),
         const SizedBox(height: 16),
         if (transactions.isEmpty)
@@ -494,6 +591,7 @@ Widget _buildQuickActions(BuildContext context) {
                     onPressed: () => TransactionDialog.showAddDialog(
                       context,
                       onTransactionSaved: (transaction) {
+                        _triggerRefresh();
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
                             content: Text('Transaction added successfully'),
@@ -511,63 +609,25 @@ Widget _buildQuickActions(BuildContext context) {
         else
           ...transactions.map((transaction) => TransactionCard(
             transaction: transaction,
-            showEditOptions: false, // Don't show edit options on dashboard
-            onTap: () {
-              // Navigate to full transactions screen or show details
-            },
+            showEditOptions: false,
+            onTap: () {},
           )),
       ],
     );
   }
-
-  Widget _buildTransactionItem(dom_tx.Transaction transaction, CurrencyService currencyService, BuildContext context) {
-    IconData icon = Icons.remove_circle; // Default
-    Color color = Colors.grey; // Default
-    
-    switch (transaction.type) {
-      case TransactionType.income:
-        icon = Icons.add_circle;
-        color = Colors.green;
-        break;
-      case TransactionType.expense:
-        icon = Icons.remove_circle;
-        color = Colors.red;
-        break;
-      case TransactionType.savings:
-        icon = Icons.savings;
-        color = Colors.blue;
-        break;
-      default:
-        // Keep defaults
-        break;
-    }
-
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: ListTile(
-        leading: Icon(icon, color: color),
-        title: Text(transaction.description ?? 'No description'),
-        subtitle: Text(transaction.categoryId.isNotEmpty ? transaction.categoryId : 'No category'),
-        trailing: Text(
-          currencyService.formatCurrency(transaction.amount),
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            fontWeight: FontWeight.w600,
-            color: color,
-          ),
-        ),
-      ),
-    );
-  }
 }
 
+// Dashboard data model
 class DashboardData {
   final List<dom_goal.Goal> goals;
   final List<dom_tx.Transaction> recentTransactions;
+  final List<dom_tx.Transaction> allTransactions;
   final dom_budget.Budget? currentBudget;
 
   DashboardData({
     required this.goals,
     required this.recentTransactions,
+    required this.allTransactions,
     this.currentBudget,
   });
 
@@ -575,16 +635,8 @@ class DashboardData {
     return DashboardData(
       goals: [],
       recentTransactions: [],
+      allTransactions: [],
       currentBudget: null,
     );
   }
-}
-
-class QuickAction {
-  final String title;
-  final IconData icon;
-  final Color color;
-  final VoidCallback onTap;
-
-  QuickAction(this.title, this.icon, this.color, this.onTap);
 }

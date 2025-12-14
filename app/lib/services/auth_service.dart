@@ -111,7 +111,7 @@ class AuthService with ChangeNotifier {
     }
   }
 
-  /// Restore active profile from persistent storage
+  /// Restore active profile from storage
   Future<void> _restoreActiveProfile() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -121,19 +121,22 @@ class AuthService with ChangeNotifier {
       _logger.info('Restoring session - logged in: $isLoggedIn, profile ID: $currentProfileId');
       
       if (isLoggedIn && currentProfileId != null && currentProfileId.isNotEmpty) {
+        // Restore profile
         final profileData = await _secureStorage.read(key: 'profile_$currentProfileId');
         
         if (profileData != null) {
           final profileJson = jsonDecode(profileData);
           _currentProfile = Profile.fromJson(profileJson);
+          
+          // RESTORE THE AUTH TOKEN TO API CLIENT
+          final storedToken = await _secureStorage.read(key: 'auth_token');
+          if (storedToken != null && storedToken.isNotEmpty) {
+            _apiClient.setAuthToken(storedToken);
+            _logger.info('Auth token restored from storage');
+          }
+          
           _logger.info('Profile restored: ${_currentProfile!.name} (${_currentProfile!.id})');
-        } else {
-          _logger.warning('Profile data not found for ID: $currentProfileId');
-          await _clearSession();
         }
-      } else {
-        _logger.info('No active session to restore');
-        _currentProfile = null;
       }
     } catch (e, stackTrace) {
       _logger.severe('Failed to restore active profile', e, stackTrace);
@@ -173,6 +176,7 @@ class AuthService with ChangeNotifier {
   }
 
   /// Store profile data
+  // In AuthService._storeProfile(), also store the auth token separately:
   Future<void> _storeProfile(Profile profile) async {
     try {
       final profileJson = jsonEncode(profile.toJson());
@@ -182,10 +186,13 @@ class AuthService with ChangeNotifier {
         value: profileJson,
       );
       
-      await _secureStorage.write(
-        key: 'current_profile_data',
-        value: profileJson,
-      );
+      // ALSO store the auth token separately for quick access
+      if (profile.authToken != null) {
+        await _secureStorage.write(
+          key: 'auth_token',
+          value: profile.authToken!,
+        );
+      }
       
       _logger.info('Profile stored: ${profile.name} (${profile.id})');
     } catch (e, stackTrace) {

@@ -205,6 +205,7 @@ Future<void> _initializeServices() async {
   await unifiedSyncService.initialize(
     offlineDataService: offlineDataService,
     apiClient: apiClient,
+    authService: AuthService.instance,
   );
   logger.info('✅ Sync service initialized');
 

@@ -1,3 +1,4 @@
+//lib/screens/goals_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/offline_data_service.dart';
@@ -6,7 +7,10 @@ import '../models/goal.dart';
 import '../theme/app_theme.dart';
 import 'add_goal_screen.dart';
 import 'progressive_goal_wizard_screen.dart';
+import 'goal_details_screen.dart';
 import '../models/enums.dart';
+import '../services/goal_transaction_service.dart';
+import '../models/transaction.dart';
 
 class GoalsScreen extends StatefulWidget {
   const GoalsScreen({super.key});
@@ -16,6 +20,9 @@ class GoalsScreen extends StatefulWidget {
 }
 
 class _GoalsScreenState extends State<GoalsScreen> {
+  // Track if screen needs refresh
+  bool _needsRefresh = false;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -37,21 +44,25 @@ class _GoalsScreenState extends State<GoalsScreen> {
         actions: [
           PopupMenuButton<String>(
             icon: Icon(Icons.add, color: colorScheme.onPrimary),
-            onSelected: (value) {
+            onSelected: (value) async {
               if (value == 'quick') {
-                Navigator.push(
+                final result = await Navigator.push(
                   context,
                   MaterialPageRoute(
                     builder: (context) => const AddGoalScreen(),
                   ),
                 );
+                // Refresh if goal was added
+                if (result == true) setState(() => _needsRefresh = true);
               } else if (value == 'wizard') {
-                Navigator.push(
+                final result = await Navigator.push(
                   context,
                   MaterialPageRoute(
                     builder: (context) => const ProgressiveGoalWizardScreen(),
                   ),
                 );
+                // Refresh if goal was added
+                if (result == true) setState(() => _needsRefresh = true);
               }
             },
             itemBuilder: (context) => [
@@ -61,7 +72,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
                   children: [
                     Icon(Icons.speed, color: colorScheme.primary),
                     const SizedBox(width: 8),
-                    Text('Quick Goal (1-9 months)'),
+                    const Text('Quick Goal (1-9 months)'),
                   ],
                 ),
               ),
@@ -71,7 +82,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
                   children: [
                     Icon(Icons.auto_awesome, color: colorScheme.primary),
                     const SizedBox(width: 8),
-                    Text('Progressive Goal Wizard'),
+                    const Text('Progressive Goal Wizard'),
                   ],
                 ),
               ),
@@ -80,6 +91,8 @@ class _GoalsScreenState extends State<GoalsScreen> {
         ],
       ),
       body: FutureBuilder<List<Goal>>(
+        // Use key to force rebuild when needed
+        key: ValueKey(_needsRefresh),
         future: Provider.of<OfflineDataService>(context, listen: false)
             .getAllGoals(Provider.of<AuthService>(context, listen: false)
                     .currentProfile?.id ?? ''),
@@ -97,44 +110,52 @@ class _GoalsScreenState extends State<GoalsScreen> {
             return _buildEmptyState(context);
           }
           
-          // Group goals by status using enum
+          // Group goals by status
           final activeGoals = goals.where((g) => g.status == GoalStatus.active).toList();
           final completedGoals = goals.where((g) => g.status == GoalStatus.completed).toList();
           final pausedGoals = goals.where((g) => g.status == GoalStatus.paused).toList();
           
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Summary Cards
-                _buildSummarySection(context, goals),
-                
-                const SizedBox(height: 24),
-                
-                // Active Goals
-                if (activeGoals.isNotEmpty) ...[
-                  _buildSectionHeader(context, 'Active Goals', activeGoals.length),
-                  const SizedBox(height: 12),
-                  ...activeGoals.map((goal) => _buildGoalCard(context, goal)),
+          return RefreshIndicator(
+            onRefresh: () async {
+              setState(() => _needsRefresh = !_needsRefresh);
+              // Wait a bit for the rebuild
+              await Future.delayed(const Duration(milliseconds: 300));
+            },
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Summary Cards
+                  _buildSummarySection(context, goals),
+                  
                   const SizedBox(height: 24),
+                  
+                  // Active Goals
+                  if (activeGoals.isNotEmpty) ...[
+                    _buildSectionHeader(context, 'Active Goals', activeGoals.length),
+                    const SizedBox(height: 12),
+                    ...activeGoals.map((goal) => _buildGoalCard(context, goal)),
+                    const SizedBox(height: 24),
+                  ],
+                  
+                  // Completed Goals
+                  if (completedGoals.isNotEmpty) ...[
+                    _buildSectionHeader(context, 'Completed Goals', completedGoals.length),
+                    const SizedBox(height: 12),
+                    ...completedGoals.map((goal) => _buildGoalCard(context, goal)),
+                    const SizedBox(height: 24),
+                  ],
+                  
+                  // Paused Goals
+                  if (pausedGoals.isNotEmpty) ...[
+                    _buildSectionHeader(context, 'Paused Goals', pausedGoals.length),
+                    const SizedBox(height: 12),
+                    ...pausedGoals.map((goal) => _buildGoalCard(context, goal)),
+                  ],
                 ],
-                
-                // Completed Goals
-                if (completedGoals.isNotEmpty) ...[
-                  _buildSectionHeader(context, 'Completed Goals', completedGoals.length),
-                  const SizedBox(height: 12),
-                  ...completedGoals.map((goal) => _buildGoalCard(context, goal)),
-                  const SizedBox(height: 24),
-                ],
-                
-                // Paused Goals
-                if (pausedGoals.isNotEmpty) ...[
-                  _buildSectionHeader(context, 'Paused Goals', pausedGoals.length),
-                  const SizedBox(height: 12),
-                  ...pausedGoals.map((goal) => _buildGoalCard(context, goal)),
-                ],
-              ],
+              ),
             ),
           );
         },
@@ -188,13 +209,14 @@ class _GoalsScreenState extends State<GoalsScreen> {
               children: [
                 Expanded(
                   child: ElevatedButton.icon(
-                    onPressed: () {
-                      Navigator.push(
+                    onPressed: () async {
+                      final result = await Navigator.push(
                         context,
                         MaterialPageRoute(
                           builder: (context) => const AddGoalScreen(),
                         ),
                       );
+                      if (result == true) setState(() => _needsRefresh = true);
                     },
                     icon: const Icon(Icons.speed),
                     label: const Text('Quick Goal'),
@@ -211,13 +233,14 @@ class _GoalsScreenState extends State<GoalsScreen> {
                 const SizedBox(width: 16),
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: () {
-                      Navigator.push(
+                    onPressed: () async {
+                      final result = await Navigator.push(
                         context,
                         MaterialPageRoute(
                           builder: (context) => const ProgressiveGoalWizardScreen(),
                         ),
                       );
+                      if (result == true) setState(() => _needsRefresh = true);
                     },
                     icon: const Icon(Icons.auto_awesome),
                     label: const Text('SMART Wizard'),
@@ -372,105 +395,124 @@ class _GoalsScreenState extends State<GoalsScreen> {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        goal.name,
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: colorScheme.onSurface,
-                        ),
-                      ),
-                      if (goal.description != null && goal.description!.isNotEmpty) ...[
-                        const SizedBox(height: 4),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () async {
+          // Navigate to goal details screen
+          final result = await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => GoalDetailsScreen(goal: goal),
+            ),
+          );
+          // Refresh if goal was updated
+          if (result == true || result == null) {
+            setState(() => _needsRefresh = !_needsRefresh);
+          }
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                         Text(
-                          goal.description!,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: colorScheme.onSurface.withOpacity(0.7),
+                          goal.name,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: colorScheme.onSurface,
                           ),
                         ),
+                        if (goal.description != null && goal.description!.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            goal.description!,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: colorScheme.onSurface.withOpacity(0.7),
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
                       ],
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: statusBackgroundColor,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    goal.statusDisplay.toUpperCase(),
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: statusColor,
                     ),
                   ),
-                ),
-              ],
-            ),
-            
-            const SizedBox(height: 16),
-            
-            // Progress section
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Ksh ${goal.currentAmount.toStringAsFixed(2)}',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: colorScheme.primary,
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: statusBackgroundColor,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      goal.statusDisplay.toUpperCase(),
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: statusColor,
+                      ),
+                    ),
                   ),
-                ),
-                Text(
-                  'Ksh ${goal.targetAmount.toStringAsFixed(2)}',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.onSurface.withOpacity(0.6),
+                ],
+              ),
+              
+              const SizedBox(height: 16),
+              
+              // Progress section
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Ksh ${goal.currentAmount.toStringAsFixed(2)}',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: colorScheme.primary,
+                    ),
                   ),
-                ),
-              ],
-            ),
-            
-            const SizedBox(height: 8),
-            
-            LinearProgressIndicator(
-              value: progress.clamp(0.0, 1.0),
-              backgroundColor: colorScheme.outline.withOpacity(0.3),
-              valueColor: AlwaysStoppedAnimation<Color>(statusColor),
-              minHeight: 8,
-              borderRadius: BorderRadius.circular(4),
-            ),
-            
-            const SizedBox(height: 8),
-            
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  '${progressPercentage.toStringAsFixed(1)}% complete',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurface.withOpacity(0.6),
+                  Text(
+                    'Ksh ${goal.targetAmount.toStringAsFixed(2)}',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: colorScheme.onSurface.withOpacity(0.6),
+                    ),
                   ),
-                ),
-                Text(
-                  'Due: ${_formatDate(goal.targetDate)}',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurface.withOpacity(0.6),
+                ],
+              ),
+              
+              const SizedBox(height: 8),
+              
+              LinearProgressIndicator(
+                value: progress.clamp(0.0, 1.0),
+                backgroundColor: colorScheme.outline.withOpacity(0.3),
+                valueColor: AlwaysStoppedAnimation<Color>(statusColor),
+                minHeight: 8,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              
+              const SizedBox(height: 8),
+              
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    '${progressPercentage.toStringAsFixed(1)}% complete',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurface.withOpacity(0.6),
+                    ),
                   ),
-                ),
-              ],
-            ),
-          ],
+                  Text(
+                    'Due: ${_formatDate(goal.targetDate)}',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurface.withOpacity(0.6),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -315,6 +315,67 @@ class Goal {
 
   @override
   int get hashCode => id.hashCode;
+
+  /// Gets the progress as a decimal (0.0 to 1.0)
+  double get progress {
+    if (targetAmount == 0) return 0.0;
+    return (currentAmount / targetAmount).clamp(0.0, 1.0);
+  }
+
+  /// Gets progress as percentage string
+  String get progressPercentageString {
+    return '${progressPercentage.toStringAsFixed(1)}%';
+  }
+
+  /// Gets progress description with amount
+  String get progressAmountDescription {
+    return 'KSh ${currentAmount.toStringAsFixed(0)} of KSh ${targetAmount.toStringAsFixed(0)}';
+  }
+
+  /// Calculates how much to save per day to reach target
+  double get requiredDailySavings {
+    final days = daysRemaining;
+    if (days <= 0) return amountNeeded;
+    return amountNeeded / days;
+  }
+
+  /// Calculates how much to save per week
+  double get requiredWeeklySavings {
+    final weeks = (daysRemaining / 7).ceil();
+    if (weeks <= 0) return amountNeeded;
+    return amountNeeded / weeks;
+  }
+
+  /// Gets progress milestone (25%, 50%, 75%, 100%)
+  String get progressMilestone {
+    final percentage = progressPercentage;
+    if (percentage >= 100) return '🎉 Goal Completed!';
+    if (percentage >= 75) return 'Almost there! (75%+)';
+    if (percentage >= 50) return 'Halfway there! (50%+)';
+    if (percentage >= 25) return 'Good start! (25%+)';
+    return 'Getting started';
+  }
+
+  /// Returns the date when goal will be completed at current rate
+  DateTime? get estimatedCompletionDate {
+    if (currentAmount == 0) return null;
+    
+    final daysToComplete = amountNeeded / (currentAmount / daysSinceStart);
+    return DateTime.now().add(Duration(days: daysToComplete.ceil()));
+  }
+
+  /// Days since goal was created
+  int get daysSinceStart {
+    return DateTime.now().difference(createdAt).inDays;
+  }
+
+  /// Is goal on track to be completed by target date?
+  bool get isOnTrack {
+    if (isCompleted) return true;
+    if (estimatedCompletionDate == null) return false;
+    return estimatedCompletionDate!.isBefore(targetDate) || 
+          estimatedCompletionDate!.isAtSameMomentAs(targetDate);
+  }
 }
 
 // =============================================
