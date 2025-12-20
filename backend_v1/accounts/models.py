@@ -1,6 +1,6 @@
 # accounts/models.py
 import uuid
-from django.contrib.auth.models.AbstractBaseUser, BaseUserManager, PermissionsMixin
+from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.db import models
 from django.utils import timezone
 
@@ -46,11 +46,17 @@ class Profile(AbstractBaseUser, PermissionsMixin):
     """
     Custom user model that matches the PostgreSQL schema and Flutter app requirements.
     Supports authentication via email or phone number.
+    
+    IMPORTANT: Django's AbstractBaseUser expects a 'password' field, but our
+    PostgreSQL schema uses 'password_hash'. We use db_column to map Django's
+    'password' field to the database's 'password_hash' column.
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     email = models.EmailField(max_length=255, unique=True, null=True, blank=True)
     phone_number = models.CharField(max_length=20, unique=True, null=True, blank=True)
-    password_hash = models.CharField(max_length=255)  # Managed by Django's set_password
+    
+    # Map Django's password field to database's password_hash column
+    password = models.CharField(max_length=255, db_column='password_hash')
     
     name = models.CharField(max_length=255)
     display_name = models.CharField(max_length=255, null=True, blank=True)
@@ -61,7 +67,7 @@ class Profile(AbstractBaseUser, PermissionsMixin):
     )
     
     base_currency = models.CharField(max_length=3, default='KES')
-    timezone = models.CharField(max_length=50, default='Africa/Nairobi')
+    user_timezone = models.CharField(max_length=50, default='Africa/Nairobi')
     photo_url = models.TextField(null=True, blank=True)
     
     is_active = models.BooleanField(default=True)
@@ -91,12 +97,6 @@ class Profile(AbstractBaseUser, PermissionsMixin):
     
     def __str__(self):
         return self.email or self.phone_number or str(self.id)
-    
-    def save(self, *args, **kwargs):
-        """Override save to ensure password_hash is set."""
-        if self.password:
-            self.password_hash = self.password
-        super().save(*args, **kwargs)
     
     def get_full_name(self):
         """Return the display name or name."""

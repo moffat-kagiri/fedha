@@ -97,7 +97,7 @@ class Transaction(models.Model):
         ]
         constraints = [
             models.CheckConstraint(
-                check=models.Q(amount__gt=0),
+                condition=models.Q(amount__gt=0),
                 name='amount_positive'
             )
         ]
@@ -180,7 +180,7 @@ class PendingTransaction(models.Model):
         ]
         constraints = [
             models.CheckConstraint(
-                check=models.Q(confidence__gte=0) & models.Q(confidence__lte=1),
+                condition=models.Q(confidence__gte=0) & models.Q(confidence__lte=1),
                 name='confidence_range'
             )
         ]

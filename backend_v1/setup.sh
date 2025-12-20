@@ -17,10 +17,12 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 # Check if Python 3 is installed
-if ! command -v python3 &> /dev/null; then
+if ! command -v python &> /dev/null; then
     echo -e "${RED}Python 3 is not installed. Please install Python 3.8+${NC}"
     exit 1
 fi
+
+echo -e "${GREEN}Python 3 is installed.${NC}"
 
 # Check if PostgreSQL is installed
 if ! command -v psql &> /dev/null; then
@@ -33,8 +35,8 @@ echo ""
 
 # Create virtual environment
 echo -e "${YELLOW}Creating virtual environment...${NC}"
-python3 -m venv venv
-source venv/bin/activate
+python -m venv venv
+source venv/scripts/activate
 
 # Upgrade pip
 pip install --upgrade pip
@@ -45,7 +47,7 @@ pip install django djangorestframework psycopg2-binary django-cors-headers \
     python-decouple djangorestframework-simplejwt django-filter PyJWT
 
 # Create requirements.txt
-pip freeze > requirements.txt
+# pip freeze > requirements.txt
 echo -e "${GREEN}✓ Dependencies installed${NC}"
 echo ""
 
@@ -54,7 +56,7 @@ if [ ! -f .env ]; then
     echo -e "${YELLOW}Creating .env file...${NC}"
     cat > .env << EOF
 # Django settings
-SECRET_KEY=$(python3 -c 'from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())')
+SECRET_KEY=$(python -c 'from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())')
 DEBUG=True
 ALLOWED_HOSTS=localhost,127.0.0.1
 
