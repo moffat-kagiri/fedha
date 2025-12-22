@@ -7,15 +7,15 @@ from .models import Profile, Session, Category, DefaultCategory
 @admin.register(Profile)
 class ProfileAdmin(UserAdmin):
     """Admin interface for Profile model."""
-    list_display = ['email', 'name', 'profile_type', 'is_active', 'created_at']
+    list_display = ['email', 'first_name', 'last_name', 'profile_type', 'is_active', 'created_at']
     list_filter = ['profile_type', 'is_active', 'created_at']
-    search_fields = ['email', 'phone_number', 'name']
+    search_fields = ['email', 'phone_number', 'first_name', 'last_name']
     ordering = ['-created_at']
     
     fieldsets = (
         (None, {'fields': ('email', 'phone_number', 'password')}),
-        ('Personal Info', {'fields': ('name', 'display_name', 'photo_url')}),
-        ('Profile Settings', {'fields': ('profile_type', 'base_currency', 'timezone')}),
+        ('Personal Info', {'fields': ('first_name', 'last_name', 'display_name', 'photo_url')}),
+        ('Profile Settings', {'fields': ('profile_type', 'base_currency', 'user_timezone')}),
         ('Permissions', {'fields': ('is_active', 'is_staff', 'is_superuser')}),
         ('Important Dates', {'fields': ('last_login', 'created_at', 'updated_at')}),
     )
@@ -23,7 +23,7 @@ class ProfileAdmin(UserAdmin):
     add_fieldsets = (
         (None, {
             'classes': ('wide',),
-            'fields': ('email', 'phone_number', 'name', 'password1', 'password2'),
+            'fields': ('email', 'phone_number', 'first_name', 'last_name', 'password1', 'password2'),
         }),
     )
     

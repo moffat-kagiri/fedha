@@ -1,4 +1,4 @@
-// auth_service.dart - PostgreSQL Backend Compatible
+// auth_service.dart
 import 'dart:async';
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
@@ -84,7 +84,7 @@ class AuthService with ChangeNotifier {
     }
   }
 
-  /// Initialize with essential dependencies only (for auth_wrapper.dart)
+  /// Initialize with essential dependencies only
   Future<void> initializeWithDependencies({
     required OfflineDataService offlineDataService,
     BiometricAuthService? biometricService,
@@ -121,74 +121,26 @@ class AuthService with ChangeNotifier {
       _logger.info('Restoring session - logged in: $isLoggedIn, profile ID: $currentProfileId');
       
       if (isLoggedIn && currentProfileId != null && currentProfileId.isNotEmpty) {
-        // Restore auth token FIRST
-        final storedToken = await _secureStorage.read(key: 'auth_token');
-        if (storedToken != null && storedToken.isNotEmpty) {
-          _apiClient.setAuthToken(storedToken);
-          _logger.info('✅ Auth token restored from secure storage');
-        } else {
-          _logger.warning('⚠️ No auth token found in secure storage');
-        }
-        
-        // Then restore profile
+        // Restore profile
         final profileData = await _secureStorage.read(key: 'profile_$currentProfileId');
         
         if (profileData != null) {
           final profileJson = jsonDecode(profileData);
           _currentProfile = Profile.fromJson(profileJson);
           
-          _logger.info('✅ Profile restored: ${_currentProfile!.name} (${_currentProfile!.id})');
-          
-          // Validate token with server if online
-          if (storedToken != null) {
-            try {
-              final isHealthy = await _apiClient.checkServerHealth();
-              if (isHealthy) {
-                _logger.info('Server is healthy, token should be valid');
-              } else {
-                _logger.warning('Server health check failed');
-              }
-            } catch (e) {
-              _logger.warning('Could not verify server health: $e');
-            }
+          // RESTORE THE AUTH TOKEN TO API CLIENT
+          final storedToken = await _secureStorage.read(key: 'auth_token');
+          if (storedToken != null && storedToken.isNotEmpty) {
+            _apiClient.setAuthToken(storedToken);
+            _logger.info('Auth token restored from storage');
           }
-        } else {
-          _logger.warning('⚠️ Profile data not found for ID: $currentProfileId');
-          await _clearSession();
+          
+          _logger.info('Profile restored: ${_currentProfile!.name} (${_currentProfile!.id})');
         }
-      } else {
-        _logger.info('No active session to restore');
       }
     } catch (e, stackTrace) {
       _logger.severe('Failed to restore active profile', e, stackTrace);
       await _clearSession();
-    }
-  }
-
-  /// Store profile data securely
-  Future<void> _storeProfile(Profile profile) async {
-    try {
-      final profileJson = jsonEncode(profile.toJson());
-      
-      // Store profile data
-      await _secureStorage.write(
-        key: 'profile_${profile.id}',
-        value: profileJson,
-      );
-      
-      // Store auth token separately for quick access
-      if (profile.authToken != null && profile.authToken!.isNotEmpty) {
-        await _secureStorage.write(
-          key: 'auth_token',
-          value: profile.authToken!,
-        );
-        _logger.info('✅ Auth token stored securely');
-      }
-      
-      _logger.info('✅ Profile stored: ${profile.name} (${profile.id})');
-    } catch (e, stackTrace) {
-      _logger.severe('Failed to store profile', e, stackTrace);
-      rethrow;
     }
   }
 
@@ -208,11 +160,6 @@ class AuthService with ChangeNotifier {
       
       _currentProfile = profile;
       
-      // Set auth token in API client
-      if (profile.authToken != null && profile.authToken!.isNotEmpty) {
-        _apiClient.setAuthToken(profile.authToken!);
-      }
-      
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('current_profile_id', profileId);
       await prefs.setBool('is_logged_in', true);
@@ -220,7 +167,7 @@ class AuthService with ChangeNotifier {
       await _initializeProfileServices(profileId);
       
       notifyListeners();
-      _logger.info('✅ Current profile set: ${profile.name}');
+      _logger.info('Current profile set: ${profile.name}');
       return true;
     } catch (e, stackTrace) {
       _logger.severe('Failed to set current profile', e, stackTrace);
@@ -228,201 +175,33 @@ class AuthService with ChangeNotifier {
     }
   }
 
-  /// Initialize services for specific profile
-  Future<void> _initializeProfileServices(String profileId) async {
-    if (_offlineDataService == null) {
-      _logger.warning('OfflineDataService not available for profile initialization');
-      return;
-    }
-
+  /// Store profile data
+  // In AuthService._storeProfile(), also store the auth token separately:
+  Future<void> _storeProfile(Profile profile) async {
     try {
-      await Workmanager().cancelAll();
+      final profileJson = jsonEncode(profile.toJson());
       
-      final smsService = SmsListenerService.instance;
-      await smsService.initialize(
-        offlineDataService: _offlineDataService!,
-        profileId: profileId,
+      await _secureStorage.write(
+        key: 'profile_${profile.id}',
+        value: profileJson,
       );
       
-      _logger.info('✅ Profile services initialized for: $profileId');
-    } catch (e) {
-      _logger.warning('Failed to initialize profile services: $e');
-    }
-  }
-
-  /// Clear all session data
-  Future<void> _clearSession() async {
-    _currentProfile = null;
-    
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('is_logged_in', false);
-    await prefs.remove('current_profile_id');
-    
-    // Clear stored token
-    await _secureStorage.delete(key: 'auth_token');
-    
-    try {
-      await Workmanager().cancelAll();
-    } catch (e) {
-      _logger.warning('Failed to cancel background tasks: $e');
-    }
-    
-    notifyListeners();
-  }
-
-  // ==================== AUTH METHODS ====================
-
-  /// SECURE LOGIN - Validates credentials with PostgreSQL backend
-  Future<LoginResult> login({
-    required String email,
-    required String password,
-  }) async {
-    try {
-      _logger.info('Attempting login for: $email');
-      
-      // Check if server is available
-      final isOnline = await _apiClient.checkServerHealth();
-      
-      if (!isOnline) {
-        _logger.warning('Server unavailable - attempting offline login');
-        return await _attemptOfflineLogin(email, password);
-      }
-      
-      // Authenticate with server
-      _logger.info('Server available - authenticating with backend...');
-      final serverResponse = await _apiClient.login(
-        email: email,
-        password: password,
-      );
-      
-      // Check if authentication succeeded
-      if (serverResponse['success'] != true || serverResponse['token'] == null) {
-        final errorMsg = serverResponse['error']?.toString() ?? 
-                        serverResponse['body']?.toString() ?? 
-                        'Invalid email or password';
-        _logger.warning('❌ Server authentication failed: $errorMsg');
-        return LoginResult.error(message: errorMsg);
-      }
-      
-      _logger.info('✅ Server authentication successful');
-      final authToken = serverResponse['token'] as String;
-      
-      // Set token in API client immediately
-      _apiClient.setAuthToken(authToken);
-      
-      // Fetch full profile data from server
-      final profileResponse = await _apiClient.getProfile(
-        sessionToken: authToken,
-      );
-      
-      if (profileResponse['success'] != true || profileResponse['profile'] == null) {
-        _logger.warning('Failed to fetch profile data from server');
-        return LoginResult.error(message: 'Failed to retrieve profile data');
-      }
-      
-      final serverProfile = profileResponse['profile'] as Map<String, dynamic>;
-      final userData = serverResponse['user'] as Map<String, dynamic>?;
-      
-      // Extract user data
-      final userId = serverProfile['id']?.toString() ?? _uuid.v4();
-      final firstName = userData?['first_name']?.toString() ?? 
-                       serverProfile['first_name']?.toString() ?? 
-                       email.split('@')[0];
-      final lastName = userData?['last_name']?.toString() ?? 
-                      serverProfile['last_name']?.toString() ?? 
-                      '';
-      final fullName = '$firstName $lastName'.trim();
-      
-      // Check if profile exists locally
-      final existingProfile = await _getProfileByEmail(email);
-      final isFirstLogin = existingProfile == null;
-      
-      // Create/update profile with server data
-      final profile = Profile.defaultProfile(
-        id: userId,
-        name: fullName,
-        email: email.trim(),
-        password: _hashPassword(password),
-      ).copyWith(
-        authToken: authToken,
-        sessionToken: authToken,
-        baseCurrency: serverProfile['base_currency'] as String? ?? 'KES',
-        timezone: serverProfile['timezone'] as String? ?? 'Africa/Nairobi',
-        phoneNumber: serverProfile['phone_number'] as String? ?? '',
-        lastModified: serverProfile['last_modified'] != null
-            ? DateTime.tryParse(serverProfile['last_modified'] as String)
-            : null,
-        lastLogin: DateTime.now(),
-      );
-      
-      // Store profile and set as active
-      await _storeProfile(profile);
-      await setCurrentProfile(profile.id);
-      await _biometricService?.registerSuccessfulPasswordLogin();
-      
-      // Sync data
-      if (_syncService != null) {
-        _logger.info('Syncing data after login...');
-        _syncService!.setCurrentProfile(profile.id);
-        await _syncService!.syncAll();
-        
-        if (_budgetService != null) {
-          await _budgetService!.loadBudgetsForProfile(profile.id);
-        }
-      }
-      
-      _logger.info('✅ Login successful: $email (First login: $isFirstLogin)');
-      return LoginResult.success(
-        profile: profile,
-        sessionToken: authToken,
-        isFirstLogin: isFirstLogin,
-      );
-    } catch (e, stackTrace) {
-      _logger.severe('Login failed', e, stackTrace);
-      return LoginResult.error(message: 'Login failed: ${e.toString()}');
-    }
-  }
-
-  /// Attempt offline login with locally stored credentials
-  Future<LoginResult> _attemptOfflineLogin(String email, String password) async {
-    try {
-      final existingProfile = await _getProfileByEmail(email);
-      
-      if (existingProfile == null) {
-        return LoginResult.error(
-          message: 'No account found. Please connect to the internet to login.',
+      // ALSO store the auth token separately for quick access
+      if (profile.authToken != null) {
+        await _secureStorage.write(
+          key: 'auth_token',
+          value: profile.authToken!,
         );
       }
       
-      if (!_verifyPassword(password, existingProfile.password)) {
-        _logger.warning('Offline password verification failed');
-        return LoginResult.error(message: 'Invalid email or password');
-      }
-      
-      _logger.info('✅ Offline authentication successful');
-      
-      final sessionToken = _createSessionToken();
-      final profile = existingProfile.copyWith(
-        sessionToken: sessionToken,
-        lastLogin: DateTime.now(),
-      );
-      
-      await _storeProfile(profile);
-      await setCurrentProfile(profile.id);
-      
-      _logger.info('✅ Offline login successful: $email');
-      return LoginResult.success(
-        profile: profile,
-        sessionToken: sessionToken,
-        isFirstLogin: false,
-      );
+      _logger.info('Profile stored: ${profile.name} (${profile.id})');
     } catch (e, stackTrace) {
-      _logger.severe('Offline login failed', e, stackTrace);
-      return LoginResult.error(message: 'Offline login failed: ${e.toString()}');
+      _logger.severe('Failed to store profile', e, stackTrace);
+      rethrow;
     }
   }
 
-  /// Get profile by email from secure storage
+  /// Get profile by email
   Future<Profile?> _getProfileByEmail(String email) async {
     try {
       if (_currentProfile?.email?.toLowerCase() == email.toLowerCase()) {
@@ -441,13 +220,243 @@ class AuthService with ChangeNotifier {
           }
         }
       }
+      
+      final legacyData = await _secureStorage.read(key: 'current_profile_data');
+      if (legacyData != null) {
+        final profile = Profile.fromJson(jsonDecode(legacyData));
+        if (profile.email?.toLowerCase() == email.toLowerCase()) {
+          return profile;
+        }
+      }
     } catch (e) {
       _logger.warning('Error checking existing profile: $e');
     }
     return null;
   }
 
-  /// SECURE SIGNUP with PostgreSQL backend
+  /// Initialize services for specific profile
+  Future<void> _initializeProfileServices(String profileId) async {
+    if (_offlineDataService == null) {
+      _logger.warning('OfflineDataService not available for profile initialization');
+      return;
+    }
+
+    try {
+      await Workmanager().cancelAll();
+      
+      final smsService = SmsListenerService.instance;
+      await smsService.initialize(
+        offlineDataService: _offlineDataService!,
+        profileId: profileId,
+      );
+      
+      _logger.info('Profile services initialized for: $profileId');
+    } catch (e) {
+      _logger.warning('Failed to initialize profile services: $e');
+    }
+  }
+
+  /// Clear all session data
+  Future<void> _clearSession() async {
+    _currentProfile = null;
+    
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('is_logged_in', false);
+    await prefs.remove('current_profile_id');
+    
+    try {
+      await Workmanager().cancelAll();
+    } catch (e) {
+      _logger.warning('Failed to cancel background tasks: $e');
+    }
+    
+    notifyListeners();
+  }
+
+  // ==================== AUTH METHODS ====================
+
+  Future<bool> isLoggedIn() async {
+    return hasActiveProfile;
+  }
+
+  Future<String?> getStoredProfile() async {
+    try {
+      if (_currentProfile != null) {
+        return jsonEncode(_currentProfile!.toJson());
+      }
+      return await _secureStorage.read(key: 'current_profile_data');
+    } catch (e) {
+      _logger.severe('Failed to get stored profile: $e');
+      return null;
+    }
+  }
+
+  /// SECURE LOGIN - Validates credentials with server
+  Future<LoginResult> login({
+    required String email,
+    required String password,
+  }) async {
+    try {
+      _logger.info('Attempting login for: $email');
+      
+      // CRITICAL FIX: Check server first
+      bool serverAuthSuccess = false;
+      Map<String, dynamic>? serverResponse;
+      
+      try {
+        final isOnline = await _apiClient.checkServerHealth();
+        
+        if (isOnline) {
+          _logger.info('Server available - authenticating...');
+          serverResponse = await _apiClient.login(
+            email: email,
+            password: password,
+          );
+          
+          // FIXED: Properly check success - token existence is key
+          serverAuthSuccess = serverResponse['token'] != null;
+          
+          if (serverAuthSuccess) {
+            _logger.info('✅ Server authentication successful');
+          } else {
+            _logger.warning('❌ Server authentication failed');
+            final errorMsg = serverResponse['error']?.toString() ?? 
+                            serverResponse['body']?.toString() ?? 
+                            'Invalid email or password';
+            return LoginResult.error(message: errorMsg);
+          }
+        } else {
+          _logger.warning('Server unavailable - checking offline credentials');
+        }
+      } catch (e) {
+        _logger.warning('Server authentication error: $e - falling back to offline');
+      }
+      
+      // Check/create local profile
+      Profile? profile;
+      bool isFirstLogin = false;
+      
+      if (serverAuthSuccess && serverResponse != null) {
+        // Server auth succeeded
+        final existingProfile = await _getProfileByEmail(email);
+        
+        if (existingProfile != null) {
+          // Update existing profile with new token
+          profile = existingProfile.copyWith(
+            authToken: serverResponse['token'] as String?,
+            sessionToken: _createSessionToken(),
+          );
+        } else {
+          // Create new profile
+          isFirstLogin = true;
+          final userId = _uuid.v4();
+          final userData = serverResponse['user'] as Map<String, dynamic>?;
+          
+          final firstName = userData?['first_name']?.toString() ?? email.split('@')[0];
+          final lastName = userData?['last_name']?.toString() ?? '';
+          final fullName = '$firstName $lastName'.trim();
+          
+          profile = Profile.defaultProfile(
+            id: userId,
+            name: fullName,
+            email: email.trim(),
+            password: _hashPassword(password),
+          ).copyWith(
+            authToken: serverResponse['token'] as String?,
+            sessionToken: _createSessionToken(),
+          );
+        }
+        
+        // CRITICAL: Set API token for subsequent requests
+        if (serverResponse['token'] != null) {
+          _apiClient.setAuthToken(serverResponse['token'] as String);
+          
+          // CRITICAL FIX: Fetch full profile data from server
+          try {
+            final profileResponse = await _apiClient.getProfile(
+              sessionToken: serverResponse['token'] as String,
+            );
+            
+            if (profileResponse['success'] == true && profileResponse['profile'] != null) {
+              final serverProfile = profileResponse['profile'] as Map<String, dynamic>;
+              _logger.info('Merged server profile data: $serverProfile');
+              
+              // Merge server profile data with local profile
+              if (profile != null) {
+                profile = profile.copyWith(
+                  baseCurrency: serverProfile['base_currency'] as String? ?? 'KES',
+                  timezone: serverProfile['timezone'] as String? ?? 'Africa/Nairobi',
+                  lastModified: serverProfile['last_modified'] != null
+                      ? DateTime.parse(serverProfile['last_modified'] as String)
+                      : null,
+                  lastLogin: serverProfile['last_login'] != null
+                      ? DateTime.parse(serverProfile['last_login'] as String)
+                      : null,
+                );
+              }
+            }
+          } catch (e) {
+            _logger.warning('Failed to fetch server profile data: $e');
+            // Continue with existing profile data
+          }
+        }
+      } else {
+        // Offline fallback
+        final existingProfile = await _getProfileByEmail(email);
+        
+        if (existingProfile == null) {
+          return LoginResult.error(
+            message: 'No account found. Please connect to the internet to create an account.',
+          );
+        }
+        
+        if (!_verifyPassword(password, existingProfile.password)) {
+          _logger.warning('Offline password verification failed');
+          return LoginResult.error(message: 'Invalid email or password');
+        }
+        
+        _logger.info('✅ Offline authentication successful');
+        profile = existingProfile.copyWith(
+          sessionToken: _createSessionToken(),
+        );
+      }
+      
+      // Ensure profile is not null before proceeding
+      if (profile == null) {
+        return LoginResult.error(
+          message: 'Failed to create or retrieve profile',
+        );
+      }
+      
+      // Store profile and set as active
+      await _storeProfile(profile);
+      await setCurrentProfile(profile.id);
+      await _biometricService?.registerSuccessfulPasswordLogin();
+      
+      // Sync data
+      if (_syncService != null) {
+        _logger.info('Syncing data after login...');
+        _syncService!.setCurrentProfile(profile.id);
+        await _syncService!.syncAll();
+        
+        if (_budgetService != null) {
+          await _budgetService!.loadBudgetsForProfile(profile.id);
+        }
+      }
+      
+      _logger.info('✅ User logged in successfully: $email (First login: $isFirstLogin)');
+      return LoginResult.success(
+        profile: profile,
+        sessionToken: profile.sessionToken!,
+        isFirstLogin: isFirstLogin,
+      );
+    } catch (e, stackTrace) {
+      _logger.severe('Login failed', e, stackTrace);
+      return LoginResult.error(message: 'Login failed: ${e.toString()}');
+    }
+  }
+
+  /// SECURE SIGNUP
   Future<bool> signup({
     required String firstName,
     required String lastName,
@@ -468,82 +477,110 @@ class AuthService with ChangeNotifier {
         throw Exception(passwordError);
       }
       
-      // Check server availability
-      final isOnline = await _apiClient.checkServerHealth();
+      // Try server registration
+      bool serverRegistrationSuccess = false;
+      String? serverToken;
       
-      if (!isOnline) {
-        throw Exception('Server unavailable - cannot create account offline');
+      try {
+        final isOnline = await _apiClient.checkServerHealth();
+        
+        if (isOnline) {
+          _logger.info('Server available - registering account...');
+          final response = await _apiClient.createAccount(
+            email: email,
+            password: password,
+            firstName: firstName,
+            lastName: lastName,
+            phone: phone,
+            avatarPath: avatarPath,
+          );
+          
+          // FIXED: Check for token OR status 201
+          serverRegistrationSuccess = response['token'] != null || 
+                                      response['status'] == 201;
+          serverToken = response['token'] as String?;
+          
+          if (serverRegistrationSuccess) {
+            _logger.info('✅ Server registration successful');
+            
+            // Set token if provided
+            if (serverToken != null) {
+              _apiClient.setAuthToken(serverToken);
+            }
+          } else {
+            final errorMsg = response['error']?.toString() ?? 
+                            response['body']?.toString() ?? 
+                            'Registration failed';
+            throw Exception(errorMsg);
+          }
+        } else {
+          throw Exception('Server unavailable - cannot create account offline');
+        }
+      } catch (e) {
+        _logger.severe('Server registration error: $e');
+        rethrow;
       }
-      
-      // Register with server
-      _logger.info('Registering account with backend...');
-      final response = await _apiClient.createAccount(
-        email: email,
-        password: password,
-        firstName: firstName,
-        lastName: lastName,
-        phone: phone,
-        avatarPath: avatarPath,
-      );
-      
-      // Check registration success
-      if (response['success'] != true && response['status'] != 201) {
-        final errorMsg = response['error']?.toString() ?? 
-                        response['body']?.toString() ?? 
-                        'Registration failed';
-        throw Exception(errorMsg);
-      }
-      
-      _logger.info('✅ Server registration successful');
-      final authToken = response['token'] as String?;
-      
-      // Set token if provided
-      if (authToken != null) {
-        _apiClient.setAuthToken(authToken);
-      }
-      
-      // Fetch full profile data from server
-      final profileResponse = authToken != null
-          ? await _apiClient.getProfile(sessionToken: authToken)
-          : null;
-      
-      final serverProfile = profileResponse?['profile'] as Map<String, dynamic>?;
       
       // Create local profile
-      final userId = serverProfile?['id']?.toString() ?? _uuid.v4();
-      final sessionToken = authToken ?? _createSessionToken();
+      final userId = _uuid.v4();
+      final sessionToken = _createSessionToken();
       final fullName = '$firstName $lastName'.trim();
       
-      final newProfile = Profile.defaultProfile(
+      var newProfile = Profile.defaultProfile(
         id: userId,
         name: fullName,
         email: email.trim(),
         password: _hashPassword(password),
       ).copyWith(
-        authToken: sessionToken,
+        authToken: serverToken ?? sessionToken,
         sessionToken: sessionToken,
         phoneNumber: phone ?? '',
         photoUrl: avatarPath ?? '',
-        baseCurrency: serverProfile?['base_currency'] as String? ?? 'KES',
-        timezone: serverProfile?['timezone'] as String? ?? 'Africa/Nairobi',
-        lastModified: serverProfile?['last_modified'] != null
-            ? DateTime.tryParse(serverProfile?['last_modified'] as String)
-            : null,
-        lastLogin: DateTime.now(),
       );
+      
+      // CRITICAL FIX: Fetch full profile data from server after signup
+      if (serverToken != null) {
+        try {
+          final profileResponse = await _apiClient.getProfile(
+            sessionToken: serverToken,
+          );
+          
+          if (profileResponse['success'] == true && profileResponse['profile'] != null) {
+            final serverProfile = profileResponse['profile'] as Map<String, dynamic>;
+            _logger.info('Merged server profile data from signup: $serverProfile');
+            
+            // Merge server profile data with local profile
+            newProfile = newProfile.copyWith(
+              baseCurrency: serverProfile['base_currency'] as String? ?? 'KES',
+              timezone: serverProfile['timezone'] as String? ?? 'Africa/Nairobi',
+              lastModified: serverProfile['last_modified'] != null
+                  ? DateTime.parse(serverProfile['last_modified'] as String)
+                  : null,
+              lastLogin: serverProfile['last_login'] != null
+                  ? DateTime.parse(serverProfile['last_login'] as String)
+                  : null,
+            );
+          }
+        } catch (e) {
+          _logger.warning('Failed to fetch server profile data after signup: $e');
+          // Continue with default profile data
+        }
+      }
       
       await _storeProfile(newProfile);
       await setCurrentProfile(newProfile.id);
       
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('account_creation_attempted', true);
+      
+      // CRITICAL FIX: Mark first login as completed
       await prefs.setBool('is_first_login', false);
       
       if (_syncService != null) {
         _syncService!.setCurrentProfile(newProfile.id);
       }
       
-      _logger.info('✅ Signup successful: $email');
+      _logger.info('✅ Signup successful for: $email');
       return true;
     } catch (e, stackTrace) {
       _logger.severe('Signup failed', e, stackTrace);
@@ -551,7 +588,76 @@ class AuthService with ChangeNotifier {
     }
   }
 
-  /// Biometric login
+  // ==================== PASSWORD HELPERS ====================
+
+  String _hashPassword(String password) {
+    final bytes = utf8.encode(password);
+    final hash = sha256.convert(bytes);
+    return hash.toString();
+  }
+
+  bool _verifyPassword(String password, String storedHash) {
+    final hash = _hashPassword(password);
+    return hash == storedHash;
+  }
+
+  bool _isValidEmail(String email) {
+    final emailRegex = RegExp(
+      r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
+    );
+    return emailRegex.hasMatch(email);
+  }
+
+  String? _validatePassword(String password) {
+    if (password.length < 8) {
+      return 'Password must be at least 8 characters';
+    }
+    if (!password.contains(RegExp(r'[A-Z]'))) {
+      return 'Password must contain at least one uppercase letter';
+    }
+    if (!password.contains(RegExp(r'[a-z]'))) {
+      return 'Password must contain at least one lowercase letter';
+    }
+    if (!password.contains(RegExp(r'[0-9]'))) {
+      return 'Password must contain at least one number';
+    }
+    return null;
+  }
+
+  /// Logout with data sync
+  Future<void> logout() async {
+    try {
+      await _biometricService?.clearBiometricSession();
+      
+      if (_syncService != null && _currentProfile != null) {
+        _logger.info('Syncing data before logout...');
+        try {
+          await _syncService!.syncAll();
+        } catch (e) {
+          _logger.warning('Failed to sync before logout: $e');
+        }
+      }
+      
+      if (_currentProfile != null) {
+        try {
+          await _apiClient.invalidateSession();
+        } catch (e) {
+          _logger.warning('Failed to invalidate server session: $e');
+        }
+      }
+      
+      _syncService?.clearCache();
+      _budgetService?.clearCache();
+      _apiClient.clearAuthToken();
+      
+      await _clearSession();
+      _logger.info('User logged out');
+    } catch (e, stackTrace) {
+      _logger.severe('Logout failed', e, stackTrace);
+    }
+  }
+
+  // Biometric login
   Future<LoginResult> biometricLogin() async {
     try {
       if (_biometricService == null) {
@@ -609,41 +715,22 @@ class AuthService with ChangeNotifier {
     }
   }
 
-  /// Logout with data sync
-  Future<void> logout() async {
+  Future<bool> canUseBiometricLogin() async {
     try {
-      await _biometricService?.clearBiometricSession();
-      
-      if (_syncService != null && _currentProfile != null) {
-        _logger.info('Syncing data before logout...');
-        try {
-          await _syncService!.syncAll();
-        } catch (e) {
-          _logger.warning('Failed to sync before logout: $e');
-        }
+      if (_currentProfile == null) {
+        await _restoreActiveProfile();
       }
       
-      if (_currentProfile != null) {
-        try {
-          await _apiClient.invalidateSession();
-        } catch (e) {
-          _logger.warning('Failed to invalidate server session: $e');
-        }
-      }
-      
-      _syncService?.clearCache();
-      _budgetService?.clearCache();
-      _apiClient.clearAuthToken();
-      
-      await _clearSession();
-      _logger.info('✅ User logged out');
-    } catch (e, stackTrace) {
-      _logger.severe('Logout failed', e, stackTrace);
+      return _biometricService != null &&
+          await _biometricService!.canAuthenticate() &&
+          _currentProfile != null;
+    } catch (e) {
+      _logger.warning('Error checking biometric availability: $e');
+      return false;
     }
   }
 
-  // ==================== PROFILE MANAGEMENT ====================
-
+  // Profile management methods
   Future<bool> updateProfileName(String newName) async {
     if (_currentProfile == null) return false;
     try {
@@ -681,20 +768,7 @@ class AuthService with ChangeNotifier {
   }) async {
     if (_currentProfile == null) return false;
     try {
-      // Verify current password
-      if (!_verifyPassword(currentPassword, _currentProfile!.password)) {
-        throw Exception('Current password is incorrect');
-      }
-      
-      // Validate new password
-      final passwordError = _validatePassword(newPassword);
-      if (passwordError != null) {
-        throw Exception(passwordError);
-      }
-      
-      final updatedProfile = _currentProfile!.copyWith(
-        password: _hashPassword(newPassword),
-      );
+      final updatedProfile = _currentProfile!.copyWith(password: newPassword);
       await _storeProfile(updatedProfile);
       _currentProfile = updatedProfile;
       return true;
@@ -753,8 +827,7 @@ class AuthService with ChangeNotifier {
     return profiles;
   }
 
-  // ==================== FIRST LOGIN & BIOMETRIC ====================
-
+  // First login flow
   Future<bool> isFirstLogin() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getBool('is_first_login') ?? true;
@@ -793,79 +866,7 @@ class AuthService with ChangeNotifier {
     return false;
   }
 
-  Future<bool> canUseBiometricLogin() async {
-    try {
-      if (_currentProfile == null) {
-        await _restoreActiveProfile();
-      }
-      
-      return _biometricService != null &&
-          await _biometricService!.canAuthenticate() &&
-          _currentProfile != null;
-    } catch (e) {
-      _logger.warning('Error checking biometric availability: $e');
-      return false;
-    }
-  }
-
-  // ==================== PASSWORD HELPERS ====================
-
-  String _hashPassword(String password) {
-    final bytes = utf8.encode(password);
-    final hash = sha256.convert(bytes);
-    return hash.toString();
-  }
-
-  bool _verifyPassword(String password, String storedHash) {
-    final hash = _hashPassword(password);
-    return hash == storedHash;
-  }
-
-  bool _isValidEmail(String email) {
-    final emailRegex = RegExp(
-      r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
-    );
-    return emailRegex.hasMatch(email);
-  }
-
-  String? _validatePassword(String password) {
-    if (password.length < 8) {
-      return 'Password must be at least 8 characters';
-    }
-    if (!password.contains(RegExp(r'[A-Z]'))) {
-      return 'Password must contain at least one uppercase letter';
-    }
-    if (!password.contains(RegExp(r'[a-z]'))) {
-      return 'Password must contain at least one lowercase letter';
-    }
-    if (!password.contains(RegExp(r'[0-9]'))) {
-      return 'Password must contain at least one number';
-    }
-    return null;
-  }
-
-  String _createSessionToken() {
-    final random = Random.secure();
-    final values = List<int>.generate(32, (i) => random.nextInt(256));
-    return base64Url.encode(values);
-  }
-
-  // ==================== ADDITIONAL METHODS ====================
-
-  Future<bool> isLoggedIn() async => hasActiveProfile;
-
-  Future<String?> getStoredProfile() async {
-    try {
-      if (_currentProfile != null) {
-        return jsonEncode(_currentProfile!.toJson());
-      }
-      return null;
-    } catch (e) {
-      _logger.severe('Failed to get stored profile: $e');
-      return null;
-    }
-  }
-
+  // Helpers
   Future<String> _getOrCreateDeviceId() async {
     final prefs = await SharedPreferences.getInstance();
     String? deviceId = prefs.getString('device_id');
@@ -874,6 +875,12 @@ class AuthService with ChangeNotifier {
       await prefs.setString('device_id', deviceId);
     }
     return deviceId;
+  }
+
+  String _createSessionToken() {
+    final random = Random.secure();
+    final values = List<int>.generate(32, (i) => random.nextInt(256));
+    return base64Url.encode(values);
   }
 }
 

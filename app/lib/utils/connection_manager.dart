@@ -25,6 +25,7 @@ class ConnectionManager {
     } else if (Platform.isAndroid) {
       return [
         'http://10.0.2.2:8000',                      // Android emulator loopback
+        'http://127.0.0.1:8000',                     // Alternative localhost
         'http://192.168.100.6:8000',                 // Local network IP - confirmed working
         ...baseOptions,
       ];

@@ -1,100 +1,58 @@
-# accounts/serializers.py
+# backend_v1/accounts/serializers.py
 from rest_framework import serializers
 from django.contrib.auth.password_validation import validate_password
-from .models import Profile, Category
-
-
-class ProfileSerializer(serializers.ModelSerializer):
-    """Serializer for Profile model."""
-    
-    class Meta:
-        model = Profile
-        fields = [
-            'id', 'email', 'phone_number', 'name', 'display_name',
-            'profile_type', 'base_currency', 'timezone', 'photo_url',
-            'is_active', 'created_at', 'updated_at', 'last_login',
-            'last_synced', 'preferences'
-        ]
-        read_only_fields = ['id', 'created_at', 'updated_at', 'last_login']
+from .models import Profile
 
 
 class RegisterSerializer(serializers.ModelSerializer):
-    """Serializer for user registration."""
+    """Serializer for user registration"""
     password = serializers.CharField(
-        write_only=True,
-        required=True,
+        write_only=True, 
+        required=True, 
         validators=[validate_password]
     )
-    password_confirm = serializers.CharField(write_only=True, required=True)
+    first_name = serializers.CharField(required=True)
+    last_name = serializers.CharField(required=True)
+    phone_number = serializers.CharField(required=False, allow_blank=True)
     
     class Meta:
         model = Profile
         fields = [
-            'email', 'phone_number', 'password', 'password_confirm',
-            'name', 'display_name', 'profile_type', 'base_currency', 'timezone'
+            'email', 
+            'password', 
+            'first_name', 
+            'last_name', 
+            'phone_number'
         ]
-    
-    def validate(self, attrs):
-        """Validate passwords match."""
-        if attrs['password'] != attrs['password_confirm']:
-            raise serializers.ValidationError({
-                "password": "Password fields didn't match."
-            })
-        return attrs
     
     def create(self, validated_data):
-        """Create user with validated data."""
-        validated_data.pop('password_confirm')
-        password = validated_data.pop('password')
-        
+        """Create user with encrypted password"""
         user = Profile.objects.create_user(
-            password=password,
-            **validated_data
+            email=validated_data['email'],
+            password=validated_data['password'],
+            first_name=validated_data['first_name'],
+            last_name=validated_data['last_name'],
+            phone_number=validated_data.get('phone_number', ''),
         )
         
-        # Create default categories for new user
-        self._create_default_categories(user)
-        
         return user
-    
-    def _create_default_categories(self, profile):
-        """Create default categories for new user."""
-        from .models import DefaultCategory
-        
-        default_categories = DefaultCategory.objects.all()
-        for default_cat in default_categories:
-            Category.objects.create(
-                profile=profile,
-                name=default_cat.name,
-                description=default_cat.description,
-                color=default_cat.color,
-                icon=default_cat.icon,
-                type=default_cat.type
-            )
 
 
-class LoginSerializer(serializers.Serializer):
-    """Serializer for user login."""
-    email = serializers.EmailField(required=False)
-    phone_number = serializers.CharField(required=False)
-    password = serializers.CharField(write_only=True)
-    
-    def validate(self, attrs):
-        """Validate that either email or phone is provided."""
-        if not attrs.get('email') and not attrs.get('phone_number'):
-            raise serializers.ValidationError(
-                "Either email or phone number must be provided."
-            )
-        return attrs
-
-
-class CategorySerializer(serializers.ModelSerializer):
-    """Serializer for Category model."""
+class ProfileSerializer(serializers.ModelSerializer):
+    """Serializer for user profile data"""
     
     class Meta:
-        model = Category
+        model = Profile
         fields = [
-            'id', 'profile', 'name', 'description', 'color', 'icon',
-            'type', 'is_active', 'is_synced', 'created_at', 'updated_at'
+            'id',
+            'email',
+            'first_name',
+            'last_name',
+            'phone_number',
+            #'base_currency',
+            #'user_timezone',
+            #'last_modified',
+            'last_login',
+            #'date_joined',
         ]
-        read_only_fields = ['id', 'profile', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'last_modified', 'last_login', 'date_joined']

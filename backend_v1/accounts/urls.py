@@ -1,20 +1,14 @@
-# accounts/urls.py
-from django.urls import path, include
-from rest_framework.routers import DefaultRouter
+# backend_v1/accounts/urls.py
+from django.urls import path
 from rest_framework_simplejwt.views import TokenRefreshView
-from . import views
+from .views import RegisterView, LoginView, LogoutView
 
-router = DefaultRouter()
-router.register(r'categories', views.CategoryViewSet, basename='category')
+app_name = 'accounts'
 
 urlpatterns = [
-    # Authentication
-    path('register/', views.register, name='register'),
-    path('login/', views.login, name='login'),
-    path('logout/', views.logout, name='logout'),
-    path('refresh/', TokenRefreshView.as_view(), name='token_refresh'),
-    path('profile/', views.profile, name='profile'),
-    
-    # Categories
-    path('', include(router.urls)),
+    # Authentication endpoints - NO AUTH REQUIRED
+    path('register/', RegisterView.as_view(), name='register'),
+    path('login/', LoginView.as_view(), name='login'),
+    path('logout/', LogoutView.as_view(), name='logout'),
+    path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 ]

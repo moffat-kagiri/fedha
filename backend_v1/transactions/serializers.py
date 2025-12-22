@@ -1,7 +1,7 @@
 # transactions/serializers.py
 from rest_framework import serializers
 from .models import Transaction, PendingTransaction, TransactionType, TransactionStatus
-from accounts.serializers import CategorySerializer
+from accounts import serializers as account_serializers
 
 
 class TransactionSerializer(serializers.ModelSerializer):

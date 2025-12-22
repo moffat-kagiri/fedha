@@ -1,4 +1,4 @@
-// lib/services/api_client.dart - PostgreSQL Backend Compatible
+// lib/services/api_client.dart - Backend V2 Compatible
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -19,6 +19,7 @@ class ApiClient {
     'Content-Type': 'application/json',
     'Accept': 'application/json'
   };
+  bool get isAuthenticated => _headers.containsKey('Authorization');
 
   ApiConfig _config;
   String? _overrideBase;
@@ -37,7 +38,6 @@ class ApiClient {
   // Expose current config
   ApiConfig get config => _config;
   bool get isUsingFallbackServer => _usingFallback;
-  bool get isAuthenticated => _headers.containsKey('Authorization');
 
   String get baseUrl {
     final host = _overrideBase ?? _config.primaryApiUrl;
@@ -47,21 +47,12 @@ class ApiClient {
 
   void setAuthToken(String token) {
     _headers['Authorization'] = 'Bearer $token';
-    logger.info('✅ Auth token set (${token.length} chars)');
+    logger.info('Auth token set');
   }
 
   void clearAuthToken() {
     _headers.remove('Authorization');
     logger.info('Auth token cleared');
-  }
-
-  /// Get headers with optional custom token
-  Map<String, String> _getHeaders({String? customToken}) {
-    final headers = Map<String, String>.from(_headers);
-    if (customToken != null) {
-      headers['Authorization'] = 'Bearer $customToken';
-    }
-    return headers;
   }
 
   // ==================== HEALTH CHECK ====================
@@ -74,7 +65,7 @@ class ApiClient {
           .timeout(Duration(seconds: _config.timeoutSeconds));
       
       final isHealthy = resp.statusCode == 200;
-      logger.info('Server health: ${isHealthy ? "✅ OK" : "❌ FAIL"} (${resp.statusCode})');
+      logger.info('Server health: ${isHealthy ? "OK" : "FAIL"} (${resp.statusCode})');
       return isHealthy;
     } catch (e) {
       logger.warning('Health check failed: $e');
@@ -111,45 +102,25 @@ class ApiClient {
       if (resp.statusCode == 200) {
         final data = jsonDecode(resp.body) as Map<String, dynamic>;
         
-        // Extract token
-        final token = data['token'] as String?;
-        
-        if (token != null && token.isNotEmpty) {
-          setAuthToken(token);
-          logger.info('✅ Login successful, token received');
-          
-          return {
-            'success': true,
-            'token': token,
-            'user': data['user'],
-          };
-        } else {
-          logger.warning('⚠️ Login response missing token');
-          return {
-            'success': false,
-            'error': 'Invalid response from server'
-          };
+        // Backend V2 returns token in 'token' field
+        if (data['token'] != null) {
+          setAuthToken(data['token']);
+          logger.info('Login successful, token received');
         }
+        
+        return {
+          'success': true,
+          'token': data['token'],
+          'user': data['user'],
+        };
       }
       
       logger.warning('Login failed: ${resp.statusCode} - ${resp.body}');
-      
-      // Try to parse error message
-      String errorMessage = 'Invalid email or password';
-      try {
-        final errorData = jsonDecode(resp.body) as Map<String, dynamic>;
-        errorMessage = errorData['error']?.toString() ?? 
-                      errorData['detail']?.toString() ?? 
-                      errorMessage;
-      } catch (e) {
-        // Use default error message
-      }
-      
       return {
         'success': false,
         'status': resp.statusCode,
         'body': resp.body,
-        'error': errorMessage
+        'error': 'Invalid email or password'
       };
     } catch (e) {
       logger.severe('Login error: $e');
@@ -176,7 +147,7 @@ class ApiClient {
     };
     
     if (phone != null && phone.isNotEmpty) {
-      body['phone_number'] = phone;
+      body['phone'] = phone;
     }
     
     try {
@@ -192,44 +163,28 @@ class ApiClient {
       
       logger.info('Register response: ${resp.statusCode}');
       
-      if (resp.statusCode == 201 || resp.statusCode == 200) {
+      if (resp.statusCode == 201) {
         final data = jsonDecode(resp.body) as Map<String, dynamic>;
         
-        // Extract token
-        final token = data['token'] as String?;
-        
-        if (token != null && token.isNotEmpty) {
-          setAuthToken(token);
-          logger.info('✅ Registration successful, token received');
+        // Backend V2 returns token in 'token' field
+        if (data['token'] != null) {
+          setAuthToken(data['token']);
+          logger.info('Registration successful, token received');
         }
         
         return {
           'success': true,
-          'status': resp.statusCode,
-          'token': token,
+          'status': 201,
+          'token': data['token'],
           'user': data['user'],
         };
       }
       
       logger.warning('Registration failed: ${resp.statusCode} - ${resp.body}');
-      
-      // Try to parse error message
-      String errorMessage = 'Registration failed';
-      try {
-        final errorData = jsonDecode(resp.body) as Map<String, dynamic>;
-        errorMessage = errorData['error']?.toString() ?? 
-                      errorData['detail']?.toString() ?? 
-                      errorData['email']?.toString() ?? 
-                      errorMessage;
-      } catch (e) {
-        // Use default error message
-      }
-      
       return {
         'success': false,
         'status': resp.statusCode,
         'body': resp.body,
-        'error': errorMessage,
       };
     } catch (e) {
       logger.severe('Registration error: $e');
@@ -245,7 +200,10 @@ class ApiClient {
     try {
       logger.info('GET ${url.toString()}');
       
-      final headers = _getHeaders(customToken: sessionToken);
+      final headers = {
+        ..._headers,
+        'Authorization': 'Bearer $sessionToken',
+      };
       
       final resp = await _http
           .get(url, headers: headers)
@@ -257,13 +215,8 @@ class ApiClient {
         final data = jsonDecode(resp.body) as Map<String, dynamic>;
         return {
           'success': true,
-          'profile': data,
+          'profile': data['profile'],
         };
-      }
-      
-      if (resp.statusCode == 401) {
-        logger.warning('Profile request unauthorized - token may be expired');
-        clearAuthToken();
       }
       
       return {
@@ -286,12 +239,8 @@ class ApiClient {
     try {
       logger.info('POST ${url.toString()}');
       
-      final headers = sessionToken != null 
-          ? _getHeaders(customToken: sessionToken)
-          : _headers;
-      
       final resp = await _http
-          .post(url, headers: headers)
+          .post(url, headers: _headers)
           .timeout(Duration(seconds: _config.timeoutSeconds));
       
       final ok = resp.statusCode == 200 || resp.statusCode == 204;
@@ -300,13 +249,10 @@ class ApiClient {
         clearAuthToken();
       }
       
-      logger.info('Logout: ${ok ? "✅ OK" : "❌ FAIL"}');
+      logger.info('Logout: ${ok ? "OK" : "FAIL"}');
       return ok;
     } catch (e) {
       logger.warning('Logout failed: $e');
-      if (clearLocalToken) {
-        clearAuthToken();
-      }
       return false;
     }
   }
@@ -322,33 +268,20 @@ class ApiClient {
     try {
       logger.info('POST ${url.toString()} - ${transactions.length} transactions');
       
-      if (!isAuthenticated) {
-        logger.warning('⚠️ No auth token for sync - request may fail');
-      }
-      
       final resp = await _http
           .post(
             url,
             headers: _headers,
-            body: jsonEncode({
-              'profile_id': profileId,
-              'transactions': transactions,
-            }),
+            body: jsonEncode(transactions),
           )
           .timeout(Duration(seconds: _config.timeoutSeconds));
       
-      if (resp.statusCode == 200 || resp.statusCode == 201) {
+      if (resp.statusCode == 200) {
         final data = jsonDecode(resp.body) as Map<String, dynamic>;
-        logger.info('✅ Sync complete: ${data['created']} created, ${data['updated']} updated');
+        logger.info('Sync complete: ${data['created']} created, ${data['updated']} updated');
         return data;
       }
       
-      if (resp.statusCode == 401) {
-        logger.warning('Sync unauthorized - token may be expired');
-        clearAuthToken();
-      }
-      
-      logger.warning('Sync failed: ${resp.statusCode} - ${resp.body}');
       return {'success': false, 'status': resp.statusCode};
     } catch (e) {
       logger.severe('Sync transactions error: $e');
@@ -363,15 +296,14 @@ class ApiClient {
     final url = Uri.parse(_config.getEndpoint('api/transactions/?profile_id=$profileId'));
     
     try {
-      logger.info('GET ${url.toString()}');
-      
-      final headers = _getHeaders(customToken: sessionToken);
+      final headers = {
+        ..._headers,
+        'Authorization': 'Bearer $sessionToken',
+      };
       
       final resp = await _http
           .get(url, headers: headers)
           .timeout(Duration(seconds: _config.timeoutSeconds));
-      
-      logger.info('Get transactions response: ${resp.statusCode}');
       
       if (resp.statusCode == 200) {
         final data = jsonDecode(resp.body);
@@ -380,11 +312,6 @@ class ApiClient {
           return data['results'] as List<dynamic>;
         }
         return data as List<dynamic>;
-      }
-      
-      if (resp.statusCode == 401) {
-        logger.warning('Transactions request unauthorized');
-        clearAuthToken();
       }
       
       return [];
@@ -403,33 +330,20 @@ class ApiClient {
     final url = Uri.parse(_config.getEndpoint('api/budgets/bulk_sync/'));
     
     try {
-      logger.info('POST ${url.toString()} - ${budgets.length} budgets');
-      
       final resp = await _http
           .post(
             url,
             headers: _headers,
-            body: jsonEncode({
-              'profile_id': profileId,
-              'budgets': budgets,
-            }),
+            body: jsonEncode(budgets),
           )
           .timeout(Duration(seconds: _config.timeoutSeconds));
       
-      if (resp.statusCode == 200 || resp.statusCode == 201) {
-        final data = jsonDecode(resp.body) as Map<String, dynamic>;
-        logger.info('✅ Budget sync complete');
-        return data;
-      }
-      
-      if (resp.statusCode == 401) {
-        logger.warning('Budget sync unauthorized');
-        clearAuthToken();
+      if (resp.statusCode == 200) {
+        return jsonDecode(resp.body) as Map<String, dynamic>;
       }
       
       return {'success': false, 'status': resp.statusCode};
     } catch (e) {
-      logger.severe('Sync budgets error: $e');
       return {'success': false, 'error': e.toString()};
     }
   }
@@ -443,33 +357,20 @@ class ApiClient {
     final url = Uri.parse(_config.getEndpoint('api/goals/bulk_sync/'));
     
     try {
-      logger.info('POST ${url.toString()} - ${goals.length} goals');
-      
       final resp = await _http
           .post(
             url,
             headers: _headers,
-            body: jsonEncode({
-              'profile_id': profileId,
-              'goals': goals,
-            }),
+            body: jsonEncode(goals),
           )
           .timeout(Duration(seconds: _config.timeoutSeconds));
       
-      if (resp.statusCode == 200 || resp.statusCode == 201) {
-        final data = jsonDecode(resp.body) as Map<String, dynamic>;
-        logger.info('✅ Goals sync complete');
-        return data;
-      }
-      
-      if (resp.statusCode == 401) {
-        logger.warning('Goals sync unauthorized');
-        clearAuthToken();
+      if (resp.statusCode == 200) {
+        return jsonDecode(resp.body) as Map<String, dynamic>;
       }
       
       return {'success': false, 'status': resp.statusCode};
     } catch (e) {
-      logger.severe('Sync goals error: $e');
       return {'success': false, 'error': e.toString()};
     }
   }
@@ -480,31 +381,29 @@ class ApiClient {
     String profileId,
     List<dynamic> categories,
   ) async {
-    final url = Uri.parse(_config.getEndpoint('api/transactions/categories/bulk_sync/'));
+    final url = Uri.parse(_config.getEndpoint('api/transactions/categories/'));
     
     try {
-      logger.info('POST ${url.toString()} - ${categories.length} categories');
+      // Backend V2 doesn't have bulk sync for categories yet
+      // Sync one by one for now
+      int created = 0;
+      int updated = 0;
       
-      final resp = await _http
-          .post(
-            url,
-            headers: _headers,
-            body: jsonEncode({
-              'profile_id': profileId,
-              'categories': categories,
-            }),
-          )
-          .timeout(Duration(seconds: _config.timeoutSeconds));
-      
-      if (resp.statusCode == 200 || resp.statusCode == 201) {
-        final data = jsonDecode(resp.body) as Map<String, dynamic>;
-        logger.info('✅ Categories sync complete');
-        return data;
+      for (final category in categories) {
+        final catUrl = Uri.parse(_config.getEndpoint('api/transactions/categories/'));
+        final resp = await _http.post(
+          catUrl,
+          headers: _headers,
+          body: jsonEncode(category),
+        );
+        
+        if (resp.statusCode == 200 || resp.statusCode == 201) {
+          created++;
+        }
       }
       
-      return {'success': false, 'status': resp.statusCode};
+      return {'success': true, 'created': created, 'updated': updated};
     } catch (e) {
-      logger.severe('Sync categories error: $e');
       return {'success': false, 'error': e.toString()};
     }
   }
@@ -518,20 +417,21 @@ class ApiClient {
     final url = Uri.parse(_config.getEndpoint('api/invoicing/loans/?profile_id=$profileId'));
 
     try {
-      final headers = sessionToken != null 
-          ? _getHeaders(customToken: sessionToken)
-          : _headers;
+      // Always use the main headers (which should contain the auth token)
+      final headers = Map<String, String>.from(_headers);
       
-      if (!headers.containsKey('Authorization')) {
-        logger.warning('⚠️ No Authorization header for loans request');
+      // If a specific sessionToken is provided, use it (overrides stored token)
+      if (sessionToken != null) {
+        headers['Authorization'] = 'Bearer $sessionToken';
+      } else if (!headers.containsKey('Authorization')) {
+        // If no auth header exists at all, log a warning
+        logger.warning('No Authorization header found for loans request');
       }
       
-      logger.info('GET ${url.toString()}');
+      logger.info('Requesting loans for profile $profileId');
       final resp = await _http
           .get(url, headers: headers)
           .timeout(Duration(seconds: _config.timeoutSeconds));
-
-      logger.info('Get loans response: ${resp.statusCode}');
 
       if (resp.statusCode == 200) {
         final data = jsonDecode(resp.body);
@@ -541,12 +441,16 @@ class ApiClient {
         return data as List<dynamic>;
       }
       
+      // Handle 401 Unauthorized - token might be expired
       if (resp.statusCode == 401) {
         logger.warning('Loans request unauthorized - token may be expired');
+        // Clear the expired token
         clearAuthToken();
+        // You might want to trigger a re-login here
+        // or return an empty list and let UI handle re-auth
       }
       
-      logger.warning('Get loans failed: ${resp.statusCode}');
+      logger.warning('Get loans failed: ${resp.statusCode} ${resp.body}');
       return [];
     } catch (e) {
       logger.severe('Get loans error: $e');
@@ -561,22 +465,15 @@ class ApiClient {
     final url = Uri.parse(_config.getEndpoint('api/invoicing/loans/active/?profile_id=$profileId'));
 
     try {
-      final headers = sessionToken != null 
-          ? _getHeaders(customToken: sessionToken)
-          : _headers;
+      final headers = {
+        ..._headers,
+        if (sessionToken != null) 'Authorization': 'Bearer $sessionToken',
+      };
 
-      final resp = await _http
-          .get(url, headers: headers)
-          .timeout(Duration(seconds: _config.timeoutSeconds));
-      
+      final resp = await _http.get(url, headers: headers).timeout(Duration(seconds: _config.timeoutSeconds));
       if (resp.statusCode == 200) {
         return jsonDecode(resp.body) as List<dynamic>;
       }
-      
-      if (resp.statusCode == 401) {
-        clearAuthToken();
-      }
-      
       return [];
     } catch (e) {
       logger.severe('Get active loans error: $e');
@@ -590,14 +487,10 @@ class ApiClient {
     final url = Uri.parse(_config.getEndpoint('api/invoicing/loans/'));
 
     try {
-      final resp = await _http
-          .post(url, headers: _headers, body: jsonEncode(loan))
-          .timeout(Duration(seconds: _config.timeoutSeconds));
-      
+      final resp = await _http.post(url, headers: _headers, body: jsonEncode(loan)).timeout(Duration(seconds: _config.timeoutSeconds));
       if (resp.statusCode == 201 || resp.statusCode == 200) {
         return jsonDecode(resp.body) as Map<String, dynamic>;
       }
-      
       return {'success': false, 'status': resp.statusCode, 'body': resp.body};
     } catch (e) {
       logger.severe('Create loan error: $e');
@@ -612,14 +505,10 @@ class ApiClient {
     final url = Uri.parse(_config.getEndpoint('api/invoicing/loans/$loanId/'));
 
     try {
-      final resp = await _http
-          .put(url, headers: _headers, body: jsonEncode(loan))
-          .timeout(Duration(seconds: _config.timeoutSeconds));
-      
+      final resp = await _http.put(url, headers: _headers, body: jsonEncode(loan)).timeout(Duration(seconds: _config.timeoutSeconds));
       if (resp.statusCode == 200) {
         return jsonDecode(resp.body) as Map<String, dynamic>;
       }
-      
       return {'success': false, 'status': resp.statusCode, 'body': resp.body};
     } catch (e) {
       logger.severe('Update loan error: $e');
@@ -633,53 +522,11 @@ class ApiClient {
     final url = Uri.parse(_config.getEndpoint('api/invoicing/loans/$loanId/'));
 
     try {
-      final resp = await _http
-          .delete(url, headers: _headers)
-          .timeout(Duration(seconds: _config.timeoutSeconds));
-      
+      final resp = await _http.delete(url, headers: _headers).timeout(Duration(seconds: _config.timeoutSeconds));
       return resp.statusCode == 204 || resp.statusCode == 200;
     } catch (e) {
       logger.warning('Delete loan failed: $e');
       return false;
-    }
-  }
-
-  // ==================== PROFILE UPDATES ====================
-
-  Future<Map<String, dynamic>> updateProfile({
-    required String userId,
-    required String sessionToken,
-    required Map<String, dynamic> profileData,
-  }) async {
-    final url = Uri.parse(_config.getEndpoint('api/profile/'));
-    
-    try {
-      logger.info('PATCH ${url.toString()}');
-      
-      final headers = _getHeaders(customToken: sessionToken);
-      
-      final resp = await _http.patch(
-        url,
-        headers: headers,
-        body: jsonEncode(profileData),
-      ).timeout(Duration(seconds: _config.timeoutSeconds));
-
-      logger.info('Update profile response: ${resp.statusCode}');
-
-      if (resp.statusCode >= 200 && resp.statusCode < 300) {
-        return jsonDecode(resp.body) as Map<String, dynamic>;
-      }
-      
-      if (resp.statusCode == 401) {
-        logger.warning('Profile update unauthorized');
-        clearAuthToken();
-      }
-      
-      logger.warning('Profile update failed (${resp.statusCode}): ${resp.body}');
-      throw Exception('Failed to update profile: ${resp.statusCode}');
-    } catch (e) {
-      logger.severe('Update profile error: $e');
-      rethrow;
     }
   }
 
@@ -716,4 +563,32 @@ class ApiClient {
   }
 
   void dispose() => _http.close();
+
+  Future<Map<String, dynamic>> updateProfile({
+    required String userId,
+    required String sessionToken,
+    required Map<String, dynamic> profileData,
+  }) async {
+    final uri = Uri.parse('$baseUrl/api/accounts/profile/$userId/'); // adjust endpoint if needed
+    final headers = {
+      'Content-Type': 'application/json',
+      ..._headers,
+    };
+    if (sessionToken.isNotEmpty) {
+      headers['Authorization'] = 'Bearer $sessionToken';
+    }
+
+    final resp = await _http.patch(
+      uri,
+      headers: headers,
+      body: jsonEncode(profileData),
+    );
+
+    if (resp.statusCode >= 200 && resp.statusCode < 300) {
+      return jsonDecode(resp.body) as Map<String, dynamic>;
+    } else {
+      logger.warning('Profile update failed (${resp.statusCode}): ${resp.body}');
+      throw Exception('Failed to update profile: ${resp.statusCode}');
+    }
+  }
 }

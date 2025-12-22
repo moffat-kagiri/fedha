@@ -51,14 +51,15 @@ class Profile(AbstractBaseUser, PermissionsMixin):
     PostgreSQL schema uses 'password_hash'. We use db_column to map Django's
     'password' field to the database's 'password_hash' column.
     """
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    email = models.EmailField(max_length=255, unique=True, null=True, blank=True)
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, db_index=True)
+    email = models.EmailField(max_length=255, unique=True, null=True, blank=True, db_index=True)
     phone_number = models.CharField(max_length=20, unique=True, null=True, blank=True)
     
     # Map Django's password field to database's password_hash column
     password = models.CharField(max_length=255, db_column='password_hash')
     
-    name = models.CharField(max_length=255)
+    first_name = models.CharField(max_length=255, db_index=True)
+    last_name = models.CharField(max_length=255, db_index=True)
     display_name = models.CharField(max_length=255, null=True, blank=True)
     profile_type = models.CharField(
         max_length=20,

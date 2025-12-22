@@ -27,15 +27,28 @@ class ApiConfig {
     );
   }
 
-  /// Development configuration (for development)
+  /// Development configuration (for local development)
+  /// CRITICAL: Update the IP address to match YOUR computer's IP
   factory ApiConfig.development() {
-    // CRITICAL: Replace with YOUR computer's IP address
-    const String computerIp = '192.168.1.100';  // ⚠️ CHANGE THIS!
+    // ⚠️ IMPORTANT: Replace this with YOUR computer's actual IP address
+    // 
+    // To find your IP:
+    // - Windows: Open CMD and type: ipconfig
+    //   Look for "IPv4 Address" under your active network adapter
+    // - Mac: Open Terminal and type: ifconfig | grep "inet "
+    // - Linux: Open Terminal and type: ip addr show
+    //
+    // Common IP formats:
+    // - Local machine: 127.0.0.1 or localhost (for emulator on same machine)
+    // - Android emulator: 10.0.2.2 (special alias to host machine)
+    // - Physical device: 192.168.x.x (your computer's local network IP)
+    
+    const String computerIp = '192.168.100.6';
     
     return ApiConfig(
       primaryApiUrl: '$computerIp:8000',
-      fallbackApiUrl: null,
-      useSecureConnections: false,  // HTTP for local dev
+      fallbackApiUrl: '10.0.2.2:8000',  // Fallback for Android emulator
+      useSecureConnections: false,  // HTTP for local development
       timeoutSeconds: 30,
       maxRetries: 3,
     );
@@ -97,6 +110,7 @@ class ApiConfig {
 
   /// Health check URL
   String get healthCheckUrl => getEndpoint('api/health/');
+  
 
   @override
   String toString() {
