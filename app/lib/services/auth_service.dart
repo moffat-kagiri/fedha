@@ -1,4 +1,4 @@
-// auth_service.dart - PostgreSQL Backend Compatible
+// auth_service.dart - PostgreSQL Backend Compatible (Simplified & Fixed)
 import 'dart:async';
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
@@ -65,16 +65,6 @@ class AuthService with ChangeNotifier {
       
       await _restoreActiveProfile();
       
-      if (_currentProfile != null && _syncService != null) {
-        _logger.info('Syncing data for restored profile...');
-        _syncService!.setCurrentProfile(_currentProfile!.id);
-        await _syncService!.syncAll();
-        
-        if (_budgetService != null) {
-          await _budgetService!.loadBudgetsForProfile(_currentProfile!.id);
-        }
-      }
-      
       _isInitialized = true;
       _logger.info('AuthService initialized - Active profile: ${_currentProfile?.name ?? "None"}');
     } catch (e, stackTrace) {
@@ -138,20 +128,6 @@ class AuthService with ChangeNotifier {
           _currentProfile = Profile.fromJson(profileJson);
           
           _logger.info('✅ Profile restored: ${_currentProfile!.name} (${_currentProfile!.id})');
-          
-          // Validate token with server if online
-          if (storedToken != null) {
-            try {
-              final isHealthy = await _apiClient.checkServerHealth();
-              if (isHealthy) {
-                _logger.info('Server is healthy, token should be valid');
-              } else {
-                _logger.warning('Server health check failed');
-              }
-            } catch (e) {
-              _logger.warning('Could not verify server health: $e');
-            }
-          }
         } else {
           _logger.warning('⚠️ Profile data not found for ID: $currentProfileId');
           await _clearSession();
@@ -258,7 +234,7 @@ class AuthService with ChangeNotifier {
     await prefs.setBool('is_logged_in', false);
     await prefs.remove('current_profile_id');
     
-    // Clear stored token
+    // Clear stored token but NOT data!
     await _secureStorage.delete(key: 'auth_token');
     
     try {
@@ -272,7 +248,7 @@ class AuthService with ChangeNotifier {
 
   // ==================== AUTH METHODS ====================
 
-  /// SECURE LOGIN - Validates credentials with PostgreSQL backend
+  /// Login with automatic data persistence
   Future<LoginResult> login({
     required String email,
     required String password,
@@ -280,16 +256,7 @@ class AuthService with ChangeNotifier {
     try {
       _logger.info('Attempting login for: $email');
       
-      // Check if server is available
-      final isOnline = await _apiClient.checkServerHealth();
-      
-      if (!isOnline) {
-        _logger.warning('Server unavailable - attempting offline login');
-        return await _attemptOfflineLogin(email, password);
-      }
-      
       // Authenticate with server
-      _logger.info('Server available - authenticating with backend...');
       final serverResponse = await _apiClient.login(
         email: email,
         password: password,
@@ -333,11 +300,7 @@ class AuthService with ChangeNotifier {
                       '';
       final fullName = '$firstName $lastName'.trim();
       
-      // Check if profile exists locally
-      final existingProfile = await _getProfileByEmail(email);
-      final isFirstLogin = existingProfile == null;
-      
-      // Create/update profile with server data
+      // Create profile with server data
       final profile = Profile.defaultProfile(
         id: userId,
         name: fullName,
@@ -360,30 +323,24 @@ class AuthService with ChangeNotifier {
       await setCurrentProfile(profile.id);
       await _biometricService?.registerSuccessfulPasswordLogin();
       
-      // Sync data
-      if (_syncService != null) {
-        _logger.info('Syncing data after login...');
-        _syncService!.setCurrentProfile(profile.id);
-        await _syncService!.syncAll();
-        
-        if (_budgetService != null) {
-          await _budgetService!.loadBudgetsForProfile(profile.id);
-        }
-      }
+      // CRITICAL: Fetch and save ALL data from server
+      await _fetchAndSaveAllUserData(profile.id, authToken);
       
-      _logger.info('✅ Login successful: $email (First login: $isFirstLogin)');
+      _logger.info('✅ Login successful: $email');
       return LoginResult.success(
         profile: profile,
         sessionToken: authToken,
-        isFirstLogin: isFirstLogin,
+        isFirstLogin: false,
       );
     } catch (e, stackTrace) {
       _logger.severe('Login failed', e, stackTrace);
-      return LoginResult.error(message: 'Login failed: ${e.toString()}');
+      
+      // Try offline login as fallback
+      return await _attemptOfflineLogin(email, password);
     }
   }
 
-  /// Attempt offline login with locally stored credentials
+  /// Offline login fallback
   Future<LoginResult> _attemptOfflineLogin(String email, String password) async {
     try {
       final existingProfile = await _getProfileByEmail(email);
@@ -418,17 +375,13 @@ class AuthService with ChangeNotifier {
       );
     } catch (e, stackTrace) {
       _logger.severe('Offline login failed', e, stackTrace);
-      return LoginResult.error(message: 'Offline login failed: ${e.toString()}');
+      return LoginResult.error(message: 'Login failed: ${e.toString()}');
     }
   }
 
-  /// Get profile by email from secure storage
+  /// Get profile by email
   Future<Profile?> _getProfileByEmail(String email) async {
     try {
-      if (_currentProfile?.email?.toLowerCase() == email.toLowerCase()) {
-        return _currentProfile;
-      }
-      
       final prefs = await SharedPreferences.getInstance();
       final currentProfileId = prefs.getString('current_profile_id');
       
@@ -447,7 +400,51 @@ class AuthService with ChangeNotifier {
     return null;
   }
 
-  /// SECURE SIGNUP with PostgreSQL backend
+  /// Fetch and save all user data from server (Critical for persistence)
+  Future<void> _fetchAndSaveAllUserData(String profileId, String sessionToken) async {
+    try {
+      _logger.info('📥 Fetching all user data from server...');
+      
+      final prefs = await SharedPreferences.getInstance();
+      
+      // 1. Fetch transactions
+      try {
+        final transactions = await _apiClient.getTransactions(
+          profileId: profileId,
+          sessionToken: sessionToken,
+        );
+        
+        if (transactions.isNotEmpty) {
+          await prefs.setString('transactions', jsonEncode(transactions));
+          _logger.info('✅ Saved ${transactions.length} transactions');
+        }
+      } catch (e) {
+        _logger.warning('Failed to fetch transactions: $e');
+      }
+      
+      // 2. Fetch loans (if needed)
+      try {
+        final loans = await _apiClient.getLoans(
+          profileId: profileId,
+          sessionToken: sessionToken,
+        );
+        
+        if (loans.isNotEmpty) {
+          await prefs.setString('loans', jsonEncode(loans));
+          _logger.info('✅ Saved ${loans.length} loans');
+        }
+      } catch (e) {
+        _logger.warning('Failed to fetch loans: $e');
+      }
+      
+      _logger.info('✅ Initial user data fetched and saved locally');
+    } catch (e, stackTrace) {
+      _logger.severe('Failed to fetch user data', e, stackTrace);
+      // Don't throw - login should still succeed
+    }
+  }
+
+  /// Signup method
   Future<bool> signup({
     required String firstName,
     required String lastName,
@@ -459,6 +456,7 @@ class AuthService with ChangeNotifier {
     try {
       _logger.info('Attempting signup for: $email');
       
+      // Basic validation
       if (!_isValidEmail(email)) {
         throw Exception('Invalid email format');
       }
@@ -502,15 +500,23 @@ class AuthService with ChangeNotifier {
         _apiClient.setAuthToken(authToken);
       }
       
-      // Fetch full profile data from server
-      final profileResponse = authToken != null
-          ? await _apiClient.getProfile(sessionToken: authToken)
-          : null;
-      
-      final serverProfile = profileResponse?['profile'] as Map<String, dynamic>?;
+      // Try to fetch profile from server
+      Map<String, dynamic>? serverProfile;
+      if (authToken != null) {
+        try {
+          final profileResponse = await _apiClient.getProfile(sessionToken: authToken);
+          if (profileResponse['success'] == true) {
+            serverProfile = profileResponse['profile'] as Map<String, dynamic>?;
+          }
+        } catch (e) {
+          _logger.warning('Failed to fetch profile: $e');
+        }
+      }
       
       // Create local profile
-      final userId = serverProfile?['id']?.toString() ?? _uuid.v4();
+      final userId = serverProfile?['id']?.toString() ?? 
+                    response['user_id']?.toString() ?? 
+                    _uuid.v4();
       final sessionToken = authToken ?? _createSessionToken();
       final fullName = '$firstName $lastName'.trim();
       
@@ -522,8 +528,8 @@ class AuthService with ChangeNotifier {
       ).copyWith(
         authToken: sessionToken,
         sessionToken: sessionToken,
-        phoneNumber: phone ?? '',
-        photoUrl: avatarPath ?? '',
+        phoneNumber: phone ?? serverProfile?['phone_number'] as String? ?? '',
+        photoUrl: avatarPath ?? serverProfile?['avatar_url'] as String? ?? '',
         baseCurrency: serverProfile?['base_currency'] as String? ?? 'KES',
         timezone: serverProfile?['timezone'] as String? ?? 'Africa/Nairobi',
         lastModified: serverProfile?['last_modified'] != null
@@ -535,13 +541,13 @@ class AuthService with ChangeNotifier {
       await _storeProfile(newProfile);
       await setCurrentProfile(newProfile.id);
       
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool('account_creation_attempted', true);
-      await prefs.setBool('is_first_login', false);
-      
-      if (_syncService != null) {
-        _syncService!.setCurrentProfile(newProfile.id);
+      // Fetch and save initial data
+      if (authToken != null) {
+        await _fetchAndSaveAllUserData(newProfile.id, authToken);
       }
+      
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('is_first_login', false);
       
       _logger.info('✅ Signup successful: $email');
       return true;
@@ -578,22 +584,12 @@ class AuthService with ChangeNotifier {
 
       final sessionToken = _createSessionToken();
       final updatedProfile = _currentProfile!.copyWith(
-        authToken: sessionToken,
         sessionToken: sessionToken,
+        lastLogin: DateTime.now(),
       );
 
       await _storeProfile(updatedProfile);
       await setCurrentProfile(updatedProfile.id);
-
-      if (_syncService != null) {
-        _logger.info('Syncing data after biometric login...');
-        _syncService!.setCurrentProfile(updatedProfile.id);
-        await _syncService!.syncAll();
-        
-        if (_budgetService != null) {
-          await _budgetService!.loadBudgetsForProfile(updatedProfile.id);
-        }
-      }
       
       notifyListeners();
       
@@ -609,34 +605,19 @@ class AuthService with ChangeNotifier {
     }
   }
 
-  /// Logout with data sync
+  /// Simplified logout (preserves data)
   Future<void> logout() async {
     try {
       await _biometricService?.clearBiometricSession();
       
-      if (_syncService != null && _currentProfile != null) {
-        _logger.info('Syncing data before logout...');
-        try {
-          await _syncService!.syncAll();
-        } catch (e) {
-          _logger.warning('Failed to sync before logout: $e');
-        }
-      }
-      
-      if (_currentProfile != null) {
-        try {
-          await _apiClient.invalidateSession();
-        } catch (e) {
-          _logger.warning('Failed to invalidate server session: $e');
-        }
-      }
-      
-      _syncService?.clearCache();
-      _budgetService?.clearCache();
+      // Clear auth tokens but NOT data!
       _apiClient.clearAuthToken();
+      await _secureStorage.delete(key: 'auth_token');
       
+      // Clear session
       await _clearSession();
-      _logger.info('✅ User logged out');
+      
+      _logger.info('✅ User logged out (data preserved)');
     } catch (e, stackTrace) {
       _logger.severe('Logout failed', e, stackTrace);
     }
@@ -704,56 +685,7 @@ class AuthService with ChangeNotifier {
     }
   }
 
-  Future<bool> createProfile(Map<String, dynamic> profileData) async {
-    try {
-      final userId = _uuid.v4();
-      final sessionToken = _createSessionToken();
-      final name = '${profileData['firstName']} ${profileData['lastName']}'.trim();
-      final email = profileData['email'] as String;
-      
-      final newProfile = Profile.defaultProfile(
-        id: userId,
-        name: name,
-        email: email.trim(),
-        password: profileData['password'] as String? ?? 'ChangeMe123!',
-      ).copyWith(
-        authToken: sessionToken,
-        sessionToken: sessionToken,
-        phoneNumber: profileData['phoneNumber'] as String? ?? '',
-        photoUrl: profileData['photoUrl'] as String? ?? '',
-        baseCurrency: profileData['baseCurrency'] as String? ?? 'KES',
-        timezone: profileData['timezone'] as String? ?? 'GMT +3',
-      );
-      
-      await _storeProfile(newProfile);
-      await setCurrentProfile(newProfile.id);
-      
-      return true;
-    } catch (e) {
-      _logger.severe('Failed to create profile: $e');
-      return false;
-    }
-  }
-
-  Future<List<Profile>> getStoredProfiles() async {
-    final List<Profile> profiles = [];
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final currentProfileId = prefs.getString('current_profile_id');
-      
-      if (currentProfileId != null) {
-        final profileData = await _secureStorage.read(key: 'profile_$currentProfileId');
-        if (profileData != null) {
-          profiles.add(Profile.fromJson(jsonDecode(profileData)));
-        }
-      }
-    } catch (e) {
-      _logger.warning('Error loading stored profiles: $e');
-    }
-    return profiles;
-  }
-
-  // ==================== FIRST LOGIN & BIOMETRIC ====================
+  // ==================== FIRST LOGIN & BIOMETRIC METHODS ====================
 
   Future<bool> isFirstLogin() async {
     final prefs = await SharedPreferences.getInstance();
@@ -808,7 +740,7 @@ class AuthService with ChangeNotifier {
     }
   }
 
-  // ==================== PASSWORD HELPERS ====================
+  // ==================== HELPER METHODS ====================
 
   String _hashPassword(String password) {
     final bytes = utf8.encode(password);
@@ -850,8 +782,6 @@ class AuthService with ChangeNotifier {
     return base64Url.encode(values);
   }
 
-  // ==================== ADDITIONAL METHODS ====================
-
   Future<bool> isLoggedIn() async => hasActiveProfile;
 
   Future<String?> getStoredProfile() async {
@@ -864,16 +794,6 @@ class AuthService with ChangeNotifier {
       _logger.severe('Failed to get stored profile: $e');
       return null;
     }
-  }
-
-  Future<String> _getOrCreateDeviceId() async {
-    final prefs = await SharedPreferences.getInstance();
-    String? deviceId = prefs.getString('device_id');
-    if (deviceId == null) {
-      deviceId = _uuid.v4();
-      await prefs.setString('device_id', deviceId);
-    }
-    return deviceId;
   }
 }
 
