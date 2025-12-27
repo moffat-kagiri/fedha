@@ -42,6 +42,7 @@ import 'theme/app_theme.dart';
 import 'services/risk_assessment_service.dart';
 import 'services/profile_management_extension.dart';
 import 'services/budget_service.dart';
+import 'services/transaction_event_service.dart';
 import 'data/app_database.dart' as data_db;
 
 // Background services
@@ -124,14 +125,14 @@ Future<void> main() async {
   try {
     logger.info('🚀 Starting Fedha app...');
     
-    // Initialize WorkManager
+        // Initialize WorkManager
+
     await Workmanager().initialize(callbackDispatcher, isInDebugMode: kDebugMode);
     logger.info('✅ WorkManager initialized');
 
-    // Initialize all services
     await _initializeServices();
 
-    // Determine biometric requirements
+    
     final authService = AuthService.instance;
     final biometricAuthService = BiometricAuthService.instance;
     
@@ -144,18 +145,8 @@ Future<void> main() async {
         : false;
     
     final requireBiometricOnLaunch = isLoggedIn && biometricEnabled && !hasValidSession;
+    // Determine biometric requirements
     
-    logger.info('''
-╔════════════════════════════════════════════════════════════════
-║ Auth State Summary
-╠════════════════════════════════════════════════════════════════
-║ Logged in: $isLoggedIn
-║ Biometric enabled: $biometricEnabled
-║ Valid session: $hasValidSession
-║ Require unlock: $requireBiometricOnLaunch
-╚════════════════════════════════════════════════════════════════
-    ''');
-
     logger.info('✅ All services initialized successfully');
     logger.info('🎉 Launching app...');
     
@@ -213,7 +204,15 @@ Future<void> _initializeServices() async {
   await budgetService.initialize(offlineDataService);
   logger.info('✅ Budget service initialized');
 
-  // ==================== AUTH SERVICE (WITH BACKGROUND TASK REGISTRATION) ====================
+  // ==================== TRANSACTION EVENT SERVICE (NEW) ====================
+  final transactionEventService = TransactionEventService.instance;
+  await transactionEventService.initialize(
+    offlineDataService: offlineDataService,
+    budgetService: budgetService,
+  );
+  logger.info('✅ Transaction event service initialized');
+
+  // ==================== AUTH SERVICE ====================
   final authService = AuthService.instance;
   await authService.initializeWithAllDependencies(
     offlineDataService: offlineDataService,
@@ -225,48 +224,30 @@ Future<void> _initializeServices() async {
 
   // ==================== REGISTER BACKGROUND TASKS IF LOGGED IN ====================
   if (authService.hasActiveProfile && authService.profileId != null) {
-    logger.info('User logged in - registering background tasks');
+    logger.info('User logged in - setting profile for services');
+    
+    // Set profile for transaction event service
+    transactionEventService.setCurrentProfile(authService.profileId!);
+    
     await _registerBackgroundTasks(authService.profileId!);
     
-    // Also start foreground SMS listener
+        // Also start foreground SMS listener
+
     final smsService = SmsListenerService.instance;
     await smsService.startListening(
       offlineDataService: offlineDataService,
       profileId: authService.profileId!,
     );
     logger.info('✅ Foreground SMS listener started');
-  } else {
-    logger.info('No active profile - skipping background task registration');
-  }
-
-  // ==================== STUB SERVICES ====================
-  // Initialize stub services (these are local-only)
-  final goalTransactionService = stubs.GoalTransactionService(offlineDataService);
-  final textRecognitionService = stubs.TextRecognitionService(offlineDataService);
-  final csvUploadService = stubs.CSVUploadService(offlineDataService);
-  final smsTransactionExtractor = stubs.SmsTransactionExtractor(offlineDataService);
-  logger.info('✅ Stub services initialized');
-
-  // ==================== DATABASE & RISK SERVICES ====================
-  final mainDb = data_db.AppDatabase();
-  final riskAssessmentService = RiskAssessmentService(mainDb);
-  logger.info('✅ Database and risk assessment services initialized');
-
-  // ==================== BACKGROUND TASKS ====================
-  if (authService.hasActiveProfile && authService.profileId != null) {
-    logger.info('Registering background tasks for profile: ${authService.profileId}');
-    await _registerBackgroundTasks(authService.profileId!);
   }
 }
 
-/// Initialize network services and find optimal connection
 Future<void> _initializeNetworkServices() async {
   final logger = AppLogger.getLogger('NetworkInit');
-  
   // ==================== STEP 1: Initialize API Client ====================
-  final apiClient = ApiClient.instance;
   
-  // Set initial config based on build mode
+  final apiClient = ApiClient.instance;
+
   final initialConfig = kDebugMode 
       ? ApiConfig.development() 
       : ApiConfig.production();
@@ -274,14 +255,14 @@ Future<void> _initializeNetworkServices() async {
   apiClient.init(config: initialConfig);
   logger.info('API client initialized with ${kDebugMode ? "development" : "production"} config');
   
-  // ==================== STEP 2: Check Connectivity ====================
+  // Set initial config based on build mode
+  
   final connectivityService = conn_svc.ConnectivityService(apiClient);
   await connectivityService.initialize();
   
   final hasConnectivity = await connectivityService.hasInternetConnection();
   logger.info('Internet connectivity: ${hasConnectivity ? "✅ Available" : "❌ Unavailable"}');
-  
-  // ==================== STEP 3: Find Best Connection (Development Only) ====================
+
   if (hasConnectivity && kDebugMode) {
     logger.info('Development mode: Searching for best connection...');
     
@@ -290,26 +271,21 @@ Future<void> _initializeNetworkServices() async {
       
       if (bestConnectionUrl != null) {
         logger.info('✅ Found working connection: $bestConnectionUrl');
-        
-        // Determine appropriate config based on connection type
+  // ==================== STEP 3: Find Best Connection (Development Only) ====================
+
         final ApiConfig optimalConfig;
         
         if (bestConnectionUrl.contains('trycloudflare.com')) {
-          // Cloudflare tunnel detected
           logger.info('Using Cloudflare tunnel configuration');
           optimalConfig = ApiConfig.cloudflare(tunnelUrl: bestConnectionUrl);
-          
         } else if (bestConnectionUrl.contains('192.168.') || 
                    bestConnectionUrl.contains('10.0.2.2') ||
                    bestConnectionUrl.contains('localhost')) {
-          // Local network detected
           logger.info('Using local network configuration');
           optimalConfig = ApiConfig.development().copyWith(
             primaryApiUrl: _extractHost(bestConnectionUrl),
-          );
-          
-        } else {
-          // Custom host
+        );
+      } else {
           logger.info('Using custom host configuration');
           optimalConfig = ApiConfig.custom(
             apiUrl: _extractHost(bestConnectionUrl),
@@ -317,11 +293,11 @@ Future<void> _initializeNetworkServices() async {
           );
         }
         
-        // Apply optimal config
         apiClient.init(config: optimalConfig);
         logger.info('API client reconfigured with optimal connection');
         
-        // Verify the connection works
+                // Verify the connection works
+
         final isHealthy = await apiClient.checkServerHealth();
         if (isHealthy) {
           logger.info('✅ Server health check passed');
@@ -329,40 +305,19 @@ Future<void> _initializeNetworkServices() async {
           logger.warning('⚠️ Server health check failed, falling back to initial config');
           apiClient.init(config: initialConfig);
         }
-        
-      } else {
-        logger.warning('No working connection found, using initial config');
       }
-      
+    
     } catch (e, stackTrace) {
       logger.severe('Error finding optimal connection', e, stackTrace);
-      logger.info('Falling back to initial configuration');
-      // Keep initial config
     }
   }
-  
-  // ==================== STEP 4: Final Status ====================
-  final finalConfig = apiClient.config;
-  logger.info('''
-╔════════════════════════════════════════════════════════════════
-║ Network Configuration Complete
-╠════════════════════════════════════════════════════════════════
-║ Environment: ${kDebugMode ? "Development" : "Production"}
-║ Base URL: ${apiClient.baseUrl}
-║ Secure: ${finalConfig.useSecureConnections}
-║ Timeout: ${finalConfig.timeoutSeconds}s
-║ Connected: ${hasConnectivity ? "Yes" : "No"}
-╚════════════════════════════════════════════════════════════════
-  ''');
 }
 
-/// Extract host from full URL
 String _extractHost(String url) {
   try {
     final uri = Uri.parse(url);
     return uri.host + (uri.hasPort ? ':${uri.port}' : '');
   } catch (e) {
-    // If parsing fails, return as-is
     return url.replaceAll(RegExp(r'https?://'), '').split('/')[0];
   }
 }
@@ -409,6 +364,9 @@ List<SingleChildWidget> _buildProviders() {
     Provider<CurrencyService>.value(value: CurrencyService()),
     Provider<RiskAssessmentService>.value(
       value: RiskAssessmentService(data_db.AppDatabase()),
+    ),
+    ChangeNotifierProvider<TransactionEventService>.value(
+      value: TransactionEventService.instance,
     ),
     ChangeNotifierProvider<SmsListenerService>.value(
       value: SmsListenerService.instance,
@@ -463,7 +421,7 @@ Future<void> _registerBackgroundTasks(String profileId) async {
       backoffPolicyDelay: const Duration(minutes: 1),
     );
     
-    logger.info('✅ SMS listener task registered (every 15 mins)');
+    logger.info('✅ SMS listener task registered');
     
     // ==================== DAILY REVIEW TASK ====================
     // This sends notifications once per day
@@ -501,9 +459,7 @@ Future<void> _registerBackgroundTasks(String profileId) async {
         'task_type': 'immediate_check',
       },
     );
-    
-    logger.info('✅ Immediate SMS check scheduled');
-    
+
     logger.info('✅ All background tasks registered for profile: $profileId');
   } catch (e, stackTrace) {
     logger.severe('⚠️ Failed to register background tasks', e, stackTrace);

@@ -1,3 +1,4 @@
+// lib/screens/sms_review_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -9,6 +10,8 @@ import '../services/offline_data_service.dart';
 import '../services/sms_listener_service.dart';
 import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
+import '../utils/transaction_operations_helper.dart';
+import '../services/transaction_event_service.dart'; 
 
 class SmsReviewScreen extends StatefulWidget {
   const SmsReviewScreen({Key? key}) : super(key: key);
@@ -131,6 +134,7 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
     try {
       final dataService = Provider.of<OfflineDataService>(context, listen: false);
       final authService = Provider.of<AuthService>(context, listen: false);
+      final eventService = Provider.of<TransactionEventService>(context, listen: false);
       final profileId = authService.currentProfile?.id ?? '';
       
       // Determine category from metadata or use default
@@ -168,30 +172,48 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
         // goalId: null, // Optional - leave as null
       );
       
-      // Try using the standard saveTransaction method instead of approvePendingTransaction
-      await dataService.saveTransaction(tx);
+      // USE TRANSACTION OPERATIONS HELPER FOR APPROVAL
+      final success = await TransactionOperations.approvePendingTransaction(
+        pendingTransaction: tx,
+        offlineService: dataService,
+      );
       
-      // Also delete from pending if needed
-      if (candidate.id != null) {
-        await dataService.deletePendingTransaction(candidate.id!);
+      if (success) {
+        await dataService.saveTransaction(tx);
+        await eventService.onTransactionApproved(tx);
+        await eventService.onTransactionCreated(tx);
+        // Also delete from pending if needed
+        if (candidate.id != null) {
+          await dataService.deletePendingTransaction(candidate.id!);
+        }
+        
+        final updatedCandidate = candidate.copyWith(
+          status: TransactionStatus.completed,
+          transactionId: tx.id,
+        );
+        
+        setState(() {
+          _pendingCandidates.removeWhere((c) => c.id == candidate.id);
+          _reviewedCandidates.add(updatedCandidate);
+        });
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle, color: Colors.white),
+                const SizedBox(width: 8),
+                Text(
+                  'Transaction approved • ${tx.type == TransactionType.expense ? "Budget" : "Goal"} updated',
+                ),
+              ],
+            ),
+            backgroundColor: FedhaColors.successGreen,
+          ),
+        );
+      } else {
+        throw Exception('Failed to approve transaction');
       }
-      
-      final updatedCandidate = candidate.copyWith(
-        status: TransactionStatus.completed,
-        transactionId: tx.id,
-      );
-      
-      setState(() {
-        _pendingCandidates.removeWhere((c) => c.id == candidate.id);
-        _reviewedCandidates.add(updatedCandidate);
-      });
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('✅ Transaction approved and added to your records'),
-          backgroundColor: Theme.of(context).colorScheme.primary,
-        ),
-      );
     } catch (e, stackTrace) {
       print('Error approving transaction: $e\n$stackTrace');
       ScaffoldMessenger.of(context).showSnackBar(
@@ -203,6 +225,133 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
     }
   }
 
+  // ADDED: Bulk approval method
+  Future<void> _approveAllPendingTransactions() async {
+    if (_pendingCandidates.isEmpty) return;
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Approve All Transactions'),
+        content: Text(
+          'Are you sure you want to approve all ${_pendingCandidates.length} pending transactions?'
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              
+              // Show loading
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (context) => const Center(
+                  child: CircularProgressIndicator(),
+                ),
+              );
+              
+              try {
+                final dataService = Provider.of<OfflineDataService>(context, listen: false);
+                final authService = Provider.of<AuthService>(context, listen: false);
+                final profileId = authService.currentProfile?.id ?? '';
+                
+                // Convert candidates to transactions
+                final List<Transaction> pendingTransactions = _pendingCandidates.map((candidate) {
+                  TransactionCategory? category;
+                  if (candidate.categoryId != null && candidate.categoryId!.isNotEmpty) {
+                    try {
+                      category = TransactionCategory.values.firstWhere(
+                        (c) => c.name.toLowerCase() == candidate.categoryId!.toLowerCase(),
+                        orElse: () => TransactionCategory.otherExpense,
+                      );
+                    } catch (e) {
+                      category = TransactionCategory.otherExpense;
+                    }
+                  } else {
+                    category = candidate.type == TransactionType.income 
+                        ? TransactionCategory.otherIncome
+                        : TransactionCategory.otherExpense;
+                  }
+                  
+                  return Transaction(
+                    id: candidate.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
+                    amount: candidate.amount,
+                    description: candidate.description ?? 'SMS Transaction',
+                    date: candidate.date,
+                    smsSource: candidate.rawText,
+                    categoryId: category.name,
+                    category: category,
+                    type: candidate.type,
+                    isExpense: candidate.type == TransactionType.expense,
+                    profileId: profileId,
+                    paymentMethod: PaymentMethod.cash,
+                  );
+                }).toList();
+                
+                // Batch approve all transactions
+                final approvedCount = await TransactionOperations.batchApprovePendingTransactions(
+                  pendingTransactions: pendingTransactions,
+                  offlineService: dataService,
+                );
+                
+                // Delete all pending transactions
+                for (final candidate in _pendingCandidates) {
+                  if (candidate.id != null) {
+                    await dataService.deletePendingTransaction(candidate.id!);
+                  }
+                }
+                
+                // Update reviewed candidates
+                final updatedCandidates = _pendingCandidates.map((candidate) => candidate.copyWith(
+                  status: TransactionStatus.completed,
+                )).toList();
+                
+                // Reload lists
+                setState(() {
+                  _reviewedCandidates.addAll(updatedCandidates);
+                  _pendingCandidates.clear();
+                });
+                
+                if (mounted) {
+                  Navigator.pop(context); // Close loading
+                  
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Row(
+                        children: [
+                          const Icon(Icons.check_circle, color: Colors.white),
+                          const SizedBox(width: 8),
+                          Text('Approved $approvedCount transactions • All budgets and goals updated'),
+                        ],
+                      ),
+                      backgroundColor: FedhaColors.successGreen,
+                      duration: const Duration(seconds: 3),
+                    ),
+                  );
+                }
+              } catch (e) {
+                print('Error approving all transactions: $e');
+                if (mounted) {
+                  Navigator.pop(context); // Close loading
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Error: $e'),
+                      backgroundColor: Theme.of(context).colorScheme.error,
+                    ),
+                  );
+                }
+              }
+            },
+            child: const Text('Approve All'),
+          ),
+        ],
+      ),
+    );
+  }
 
   Future<void> _rejectCandidate(TransactionCandidate candidate) async {
     try {
@@ -298,6 +447,13 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
           ],
         ),
         actions: [
+          // ADDED: Approve All button
+          if (_pendingCandidates.isNotEmpty)
+            TextButton.icon(
+              onPressed: _approveAllPendingTransactions,
+              icon: const Icon(Icons.done_all, color: Colors.white),
+              label: const Text('Approve All', style: TextStyle(color: Colors.white)),
+            ),
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
             onPressed: _loadTransactionCandidates,

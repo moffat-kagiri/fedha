@@ -12,6 +12,8 @@ import '../services/offline_data_service.dart';
 import '../services/currency_service.dart';
 import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
+import '../utils/transaction_operations_helper.dart'; 
+import '../services/transaction_event_service.dart';
 
 class TransactionEntryUnifiedScreen extends StatefulWidget {
   final Transaction? editingTransaction;
@@ -145,28 +147,55 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
 
   // In your goal selection widget, update _selectedGoalId when user selects a goal
   Widget _buildGoalSelector() {
-    return DropdownButtonFormField<String>(
-      value: _selectedGoalId,
-      decoration: const InputDecoration(
-        labelText: 'Assign to Goal (Optional)',
-      ),
-      items: [
-        const DropdownMenuItem(
-          value: null,
-          child: Text('No Goal'),
+    return Column(
+      children: [
+        DropdownButtonFormField<String>(
+          value: _selectedGoalId,
+          decoration: const InputDecoration(
+            labelText: 'Assign to Goal (Required for Savings)',
+          ),
+          items: [
+            const DropdownMenuItem(
+              value: null,
+              child: Text('No Goal'),
+            ),
+            ..._goalList.map((goal) {
+              return DropdownMenuItem(
+                value: goal.id,
+                child: Text('${goal.name} (${goal.progressPercentage.toStringAsFixed(1)}%)'),
+              );
+            }).toList(),
+          ],
+          onChanged: (String? newValue) {
+            setState(() {
+              _selectedGoalId = newValue;
+            });
+          },
         ),
-        ..._goalList.map((goal) {
-          return DropdownMenuItem(
-            value: goal.id,
-            child: Text(goal.name),
-          );
-        }).toList(),
+        // ADDED: Helpful hint for savings
+        if (_selectedType == TransactionType.savings && _selectedGoalId != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Card(
+              color: FedhaColors.infoBlue.withOpacity(0.1),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline, color: FedhaColors.infoBlue),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'This amount will be added to your goal progress',
+                        style: TextStyle(color: FedhaColors.infoBlue, fontSize: 12),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
       ],
-      onChanged: (String? newValue) {
-        setState(() {
-          _selectedGoalId = newValue;
-        });
-      },
     );
   }
 
@@ -294,8 +323,35 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
     }
   }
 
+  // UPDATED: Save transaction with TransactionOperationsHelper
   Future<void> _saveTransaction() async {
     if (!_formKey.currentState!.validate()) return;
+    
+    // Validate that expense transactions aren't linked to goals
+    if (_selectedType == TransactionType.expense && _selectedGoalId != null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Expense transactions cannot be linked to goals'),
+            backgroundColor: FedhaColors.warningOrange,
+          ),
+        );
+      }
+      return;
+    }
+    
+    // Validate that savings transactions have a goal
+    if (_selectedType == TransactionType.savings && _selectedGoalId == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Savings transactions must be linked to a goal'),
+            backgroundColor: FedhaColors.warningOrange,
+          ),
+        );
+      }
+      return;
+    }
     
     setState(() {
       _isSaving = true;
@@ -304,6 +360,7 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
     try {
       final dataService = Provider.of<OfflineDataService>(context, listen: false);
       final authService = Provider.of<AuthService>(context, listen: false);
+      final eventService = Provider.of<TransactionEventService>(context, listen: false);
       final profileId = authService.currentProfile?.id ?? '0';
       
       // Format amount with two decimal points before parsing
@@ -318,10 +375,13 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
       
       if (_selectedType == TransactionType.savings) {
         // For savings, use goal ID and name
-        if (_selectedGoal != null) {
-          goalId = _selectedGoal!.id;
-          categoryId = _selectedGoal!.id;
-          categoryName = _selectedGoal!.name;
+        if (_selectedGoalId != null) {
+          goalId = _selectedGoalId;
+          categoryId = _selectedGoalId;
+          
+          // FIX: Use proper Goal constructor or handle the case
+          final goal = _goalList.firstWhere((g) => g.id == _selectedGoalId, orElse: () => Goal.empty());
+          categoryName = goal.name;
         }
       } else {
         // For income/expense, use the selected category
@@ -340,23 +400,64 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
         goalId: goalId,
         paymentMethod: _selectedPaymentMethod,
         profileId: profileId,
+        isExpense: _selectedType == TransactionType.expense,
       );
 
-      await dataService.saveTransaction(transaction);
+      bool success = false;
       
-      if (mounted) {
-        Navigator.pop(context, transaction);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(widget.editingTransaction != null 
-                ? 'Transaction updated successfully' 
-                : 'Transaction saved successfully'),
-            backgroundColor: Theme.of(context).colorScheme.primary,
-            duration: const Duration(seconds: 2),
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          ),
+      if (widget.editingTransaction != null) {
+        // Update existing transaction with event emission
+        success = await TransactionOperations.updateTransaction(
+          transaction: transaction,
+          offlineService: dataService,
         );
+        if (success) {
+          await eventService.onTransactionUpdated(transaction); 
+          }
+      } else {
+        // Create new transaction with event emission
+        success = await TransactionOperations.createTransaction(
+          transaction: transaction,
+          offlineService: dataService,
+        );
+        if (success) {
+          await eventService.onTransactionCreated(transaction); 
+          }
+      }
+      
+      if (success) {
+        if (mounted) {
+          Navigator.pop(context, transaction);
+          
+          // Show success message with what was updated
+          String updateMessage = widget.editingTransaction != null 
+              ? 'Transaction updated successfully' 
+              : 'Transaction saved successfully';
+          
+          if (_selectedType == TransactionType.expense) {
+            updateMessage += ' • Budget updated';
+          } else if (_selectedType == TransactionType.savings && _selectedGoalId != null) {
+            updateMessage += ' • Goal progress updated';
+          }
+          
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.check_circle, color: Colors.white),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(updateMessage)),
+                ],
+              ),
+              backgroundColor: FedhaColors.successGreen,
+              duration: const Duration(seconds: 3),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          );
+        }
+      } else {
+        throw Exception('Failed to save transaction');
       }
     } catch (e) {
       if (mounted) {
@@ -379,21 +480,26 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
     }
   }
 
+  // UPDATED: Delete transaction with TransactionOperationsHelper
   Future<void> _deleteTransaction() async {
+    if (widget.editingTransaction == null) return;
+    
     // Show confirmation dialog
     bool confirm = await showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Transaction?'),
-        content: const Text('This action cannot be undone.'),
+        title: const Text('Delete Transaction'),
+        content: const Text('Are you sure you want to delete this transaction? This will also update your budgets and goals.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
             child: const Text('CANCEL'),
           ),
-          TextButton(
+          ElevatedButton(
             onPressed: () => Navigator.of(context).pop(true),
-            style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: FedhaColors.errorRed,
+            ),
             child: const Text('DELETE'),
           ),
         ],
@@ -409,20 +515,32 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
     try {
       final dataService = Provider.of<OfflineDataService>(context, listen: false);
       
-      if (widget.editingTransaction != null) {
-        await dataService.deleteTransaction(widget.editingTransaction!.id);
-        
+      // Delete with event emission
+      final success = await TransactionOperations.deleteTransaction(
+        transaction: widget.editingTransaction!,
+        offlineService: dataService,
+      );
+      
+      if (success) {
         if (mounted) {
           Navigator.pop(context, 'deleted');
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: const Text('Transaction deleted'),
-              backgroundColor: Theme.of(context).colorScheme.primary,
+              content: const Row(
+                children: [
+                  Icon(Icons.check_circle, color: Colors.white),
+                  SizedBox(width: 8),
+                  Text('Transaction deleted • Budgets and goals updated'),
+                ],
+              ),
+              backgroundColor: FedhaColors.successGreen,
               behavior: SnackBarBehavior.floating,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
           );
         }
+      } else {
+        throw Exception('Failed to delete transaction');
       }
     } catch (e) {
       if (mounted) {
@@ -652,7 +770,7 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
           }
           // Reset goal when switching away from savings
           if (_selectedType != TransactionType.savings) {
-            _selectedGoal = null;
+            _selectedGoalId = null;
           }
         });
       },

@@ -1,4 +1,5 @@
 // lib/screens/budget_progress_screen.dart
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/budget.dart';
@@ -7,6 +8,7 @@ import '../models/enums.dart';
 import '../services/offline_data_service.dart';
 import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
+import '../services/transaction_event_service.dart'; 
 
 class BudgetProgressScreen extends StatefulWidget {
   const BudgetProgressScreen({super.key});
@@ -19,11 +21,31 @@ class _BudgetProgressScreenState extends State<BudgetProgressScreen> {
   bool _isLoading = true;
   List<Budget> _budgets = [];
   List<Transaction> _monthlyTransactions = [];
+  StreamSubscription<TransactionEvent>? _eventSubscription; // ADD THIS
 
   @override
   void initState() {
     super.initState();
     _loadBudgets();
+    _setupEventListeners(); // ADD THIS
+  }
+
+  // ADD: Setup event listeners
+  void _setupEventListeners() {
+    final eventService = Provider.of<TransactionEventService>(context, listen: false);
+    
+    _eventSubscription = eventService.eventStream.listen((event) {
+      // Only refresh if it's an expense transaction (affects budgets)
+      if (event.transaction.type == TransactionType.expense) {
+        _loadBudgets();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _eventSubscription?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadBudgets() async {

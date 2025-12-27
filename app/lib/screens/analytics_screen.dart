@@ -1,4 +1,5 @@
 // lib/screens/analytics_screen.dart
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/transaction.dart';
@@ -10,6 +11,8 @@ import '../services/offline_data_service.dart';
 import '../services/auth_service.dart';
 import '../services/currency_service.dart';
 import '../theme/app_theme.dart';
+import '../services/transaction_event_service.dart'; 
+import '../utils/logger.dart';
 
 class AnalyticsScreen extends StatefulWidget {
   const AnalyticsScreen({super.key});
@@ -21,11 +24,32 @@ class AnalyticsScreen extends StatefulWidget {
 class _AnalyticsScreenState extends State<AnalyticsScreen> {
   bool _isLoading = true;
   AnalyticsData? _data;
+  final _logger = AppLogger.getLogger('AnalyticsScreen');
+  StreamSubscription<TransactionEvent>? _eventSubscription; // CHANGE TYPE
 
   @override
   void initState() {
     super.initState();
     _loadAnalytics();
+    _setupEventListeners();
+  }
+
+  // ADD: Setup event listeners
+  void _setupEventListeners() {
+    final eventService = Provider.of<TransactionEventService>(context, listen: false);
+    
+    // Listen for transaction events
+    _eventSubscription = eventService.eventStream.listen((event) {
+      // Reload analytics when any transaction event occurs
+      _logger.info('Transaction event received: ${event.type}');
+      _loadAnalytics();
+    });
+  }
+
+  @override
+  void dispose() {
+    _eventSubscription?.cancel(); // Clean up
+    super.dispose();
   }
 
   Future<void> _loadAnalytics() async {

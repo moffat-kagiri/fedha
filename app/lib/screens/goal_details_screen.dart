@@ -1,4 +1,5 @@
 // lib/screens/goal_details_screen.dart
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../models/goal.dart';
 import '../services/goal_transaction_service.dart';
@@ -8,6 +9,7 @@ import 'package:provider/provider.dart';
 import '../models/enums.dart';
 import '../services/auth_service.dart';
 import '../models/transaction.dart';
+import '../services/transaction_event_service.dart'; 
 
 class GoalDetailsScreen extends StatefulWidget {
   final Goal goal;
@@ -21,12 +23,34 @@ class GoalDetailsScreen extends StatefulWidget {
 class _GoalDetailsScreenState extends State<GoalDetailsScreen> {
   late Goal _currentGoal;
   bool _isLoading = false;
+  StreamSubscription<TransactionEvent>? _eventSubscription;
 
   @override
   void initState() {
     super.initState();
     _currentGoal = widget.goal;
     _refreshGoal();
+    _setupEventListeners(); // ADD THIS
+  }
+
+  // ADD: Setup event listeners
+  void _setupEventListeners() {
+    final eventService = Provider.of<TransactionEventService>(context, listen: false);
+    
+    _eventSubscription = eventService.eventStream.listen((event) {
+      // Check if this transaction affects our goal
+      final transaction = event.transaction;
+      if (transaction.goalId == _currentGoal.id) {
+        // This transaction is linked to our goal, refresh
+        _refreshGoal();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _eventSubscription?.cancel(); // ADD: Clean up subscription
+    super.dispose();
   }
 
   // Refresh goal data from database
@@ -66,6 +90,7 @@ class _GoalDetailsScreenState extends State<GoalDetailsScreen> {
       }
     }
   }
+
 
   @override
   Widget build(BuildContext context) {

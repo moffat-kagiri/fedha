@@ -122,6 +122,22 @@ class Goal {
       isSynced: isSynced ?? this.isSynced,
     );
   }
+  // In lib/models/goal.dart, add this factory constructor:
+factory Goal.empty() {
+  return Goal(
+    id: '',
+    name: 'Unnamed Goal',
+    targetAmount: 0,
+    currentAmount: 0,
+    goalType: GoalType.savings,
+    status: GoalStatus.active,
+    targetDate: DateTime.now(),
+    profileId: '',
+    createdAt: DateTime.now(),
+    updatedAt: DateTime.now(),
+    isSynced: false,
+  );
+}
 
   /// Creates a Goal from JSON data
   factory Goal.fromJson(Map<String, dynamic> json) => _$GoalFromJson(json);
