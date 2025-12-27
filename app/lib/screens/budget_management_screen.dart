@@ -16,6 +16,7 @@ class _BudgetManagementScreenState extends State<BudgetManagementScreen> {
   final TextEditingController _expenseController = TextEditingController();
   final TextEditingController _amountController = TextEditingController();
   final TextEditingController _categoryController = TextEditingController();
+  final double totalSpent; = 0.0;
   double _newExpenseAmount = 0.0;
   String _selectedCategory = 'Food';
   final List<String> _categories = [

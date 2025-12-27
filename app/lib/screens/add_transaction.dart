@@ -56,8 +56,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
         context,
         listen: false,
       );
-      // getActiveGoals returns List<Goal>, not Future<List<Goal>>
-      final goals = dataService.getActiveGoals(profileId);
+      // getAllGoals returns List<Goal>, not Future<List<Goal>>
+      final goals = dataService.getAllGoals(profileId);
       setState(() {
         _availableGoals = goals;
       });
@@ -80,7 +80,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       );
       
       // getSuggestedGoals returns a List<Goal>, not a Future<List<Goal>>
-      final suggested = _goalService.getSuggestedGoals(tempTransaction);
+      final suggested = _goalService.getSuggestedGoalsForTransaction(tempTransaction);
       setState(() {
         _suggestedGoals = suggested;
       });

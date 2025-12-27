@@ -35,7 +35,10 @@ class _SmsTransactionReviewScreenState extends State<SmsTransactionReviewScreen>
     });
     
     if (hasPermissions && !smsService.isListening) {
-      await smsService.startListening();
+      await smsService.startListening(
+        offlineDataService: offlineDataService,  // ADD named parameter
+        profileId: profileId,                     // ADD profileId
+      );
     }
   }
 
@@ -163,7 +166,10 @@ class _SmsTransactionReviewScreenState extends State<SmsTransactionReviewScreen>
             if (smsService.isListening) {
               await smsService.stopListening();
             } else {
-              await smsService.startListening();
+              await smsService.startListening(
+                offlineDataService: offlineDataService,
+                profileId: profileId,
+              );
             }
             setState(() {});
           } else {

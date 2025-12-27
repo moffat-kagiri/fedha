@@ -59,7 +59,7 @@ class _QuickTransactionEntryState extends State<QuickTransactionEntry> {
     if (transaction.type == TransactionType.savings && transaction.goalId != null) {
       // Load the goal if it's a savings transaction
       final dataService = Provider.of<OfflineDataService>(context, listen: false);
-      _selectedGoal = dataService.getGoal(transaction.goalId!);
+      Goal? selectedGoal = await dataService.getGoal(transaction.goalId!);
     }
   }
 
@@ -304,7 +304,7 @@ class _QuickTransactionEntryState extends State<QuickTransactionEntry> {
                     if (_selectedType == TransactionType.savings) ...[
                       Consumer<OfflineDataService>(
                         builder: (context, dataService, child) {
-                          final goals = dataService.getAllGoals()
+                          final goals = dataService.getAllGoals(OfflineDataService.userId)
                               .where((goal) => goal.status != 'completed')
                               .toList();
                           

@@ -21,7 +21,7 @@ class BiometricAuthService {
   static const _lastAuthTimeKey = 'last_biometric_auth';
   
   // Session timeout configuration
-  Duration sessionTimeout = const Duration(minutes: 15); // tweakable
+  Duration sessionTimeout = const Duration(minutes: 15);
   int _lastSuccessfulAuthMs = 0;
 
   /// Check if device supports biometric authentication
@@ -49,22 +49,39 @@ class BiometricAuthService {
   }
 
   /// Authenticate user with biometric
+  /// Uses compatibility approach for different versions of local_auth
   Future<bool> authenticateWithBiometric(String reason) async {
     try {
-      final authenticated = await _localAuth.authenticate(
-        localizedReason: reason,
-        options: const AuthenticationOptions(
-          stickyAuth: true,
-          biometricOnly: false,
-          useErrorDialogs: true,
-        ),
-      );
+      // Try the newer API first (local_auth ^2.0.0+)
+      try {
+        final authenticated = await _localAuth.authenticate(
+          localizedReason: reason,
+          options: const AuthenticationOptions(
+            stickyAuth: true,
+            biometricOnly: false,
+            useErrorDialogs: true,
+          ),
+        );
 
-      if (authenticated) {
-        await registerSuccessfulBiometricSession();
+        if (authenticated) {
+          await registerSuccessfulBiometricSession();
+        }
+
+        return authenticated;
+      } catch (e) {
+        // If newer API fails, try older API (local_auth ^1.0.0)
+        _logger.info('Trying legacy authentication API');
+        
+        final authenticated = await _localAuth.authenticate(
+          localizedReason: reason,
+        );
+
+        if (authenticated) {
+          await registerSuccessfulBiometricSession();
+        }
+
+        return authenticated;
       }
-
-      return authenticated;
     } catch (e) {
       _logger.warning('Biometric authentication error: $e');
       return false;

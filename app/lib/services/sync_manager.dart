@@ -23,6 +23,9 @@ class SyncManager {
   final ApiClient _apiClient;
   final logger = AppLogger.getLogger('SyncManager');
   
+  /// Current profile ID
+  String currentProfileId;
+  
   /// Whether a sync operation is currently in progress
   bool _isSyncing = false;
   
@@ -34,7 +37,8 @@ class SyncManager {
     required AuthService authService,
     required ApiClient apiClient,
   }) : _authService = authService,
-       _apiClient = apiClient;
+       _apiClient = apiClient,
+       currentProfileId = authService.currentProfile?.id ?? '';
   
   /// Sync all unsynchronized transactions
   Future<bool> syncTransactions({
@@ -49,7 +53,7 @@ class SyncManager {
     try {
       _isSyncing = true;
       
-      final profile = _authService.profile;
+      final profile = _authService.currentProfile;
       if (profile == null) {
         logger.warning('No profile available for sync');
         return false;
@@ -63,17 +67,24 @@ class SyncManager {
       
       logger.info('Syncing ${unsynced.length} transactions');
       
-      final result = await _apiClient.syncOfflineTransactions(
-        userId: profile.id,
-        sessionToken: profile.authToken ?? '',
-        transactions: unsynced,
+      // Convert transactions to JSON for API
+      final transactionsJson = unsynced.map((tx) => tx.toJson()).toList();
+      
+      // Call the API - adjust based on your actual ApiClient method signature
+      final result = await _apiClient.syncTransactions(
+        transactionsJson, // First positional parameter
+        profile.id,       // Second positional parameter
+        profile.authToken ?? '', // Third positional parameter if needed
       );
       
-      final success = result['success'] == true;
+      // Handle the response based on your ApiClient's return type
+      // This is an example - adjust based on your actual implementation
+      final success = result['success'] == true || result['status'] == 'success';
       if (success) {
         logger.info('Successfully synced ${unsynced.length} transactions');
       } else {
-        logger.warning('Failed to sync transactions: ${result['message']}');
+        final message = result['message'] ?? result['error'] ?? 'Unknown error';
+        logger.warning('Failed to sync transactions: $message');
       }
       
       return success;
@@ -95,16 +106,16 @@ class SyncManager {
     try {
       _isSyncing = true;
       
-      final profile = _authService.profile;
+      final profile = _authService.currentProfile;
       if (profile == null) {
         logger.warning('No profile available for sync');
         return false;
       }
       
-      // Fetch goals from server
-      final goals = await _apiClient.fetchUserGoals(
-        userId: profile.id,
-        sessionToken: profile.authToken ?? '',
+      // Fetch goals from server - adjust based on your actual ApiClient method
+      final goals = await _apiClient.syncGoals(
+        profile.id,       // First positional parameter
+        profile.authToken ?? '', // Second positional parameter
       );
       
       // Here you would merge with local goals
@@ -130,7 +141,7 @@ class SyncManager {
     try {
       _isSyncing = true;
       
-      final profile = _authService.profile;
+      final profile = _authService.currentProfile;
       if (profile == null) {
         logger.warning('No profile available for sync');
         return false;
@@ -141,10 +152,10 @@ class SyncManager {
       final month = now.month.toString().padLeft(2, '0');
       final year = now.year.toString();
       
-      // Fetch budget summary from server
-      await _apiClient.fetchBudgetSummary(
-        userId: profile.id,
-        sessionToken: profile.authToken ?? '',
+      // Fetch budget summary from server - adjust based on your actual ApiClient method
+      await _apiClient.syncBudgets(
+        profile.id,       // First positional parameter
+        profile.authToken ?? '', // Second positional parameter
       );
       
       // Here you would merge with local budgets

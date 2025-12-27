@@ -553,6 +553,7 @@ class OfflineDataService {
     return [];
   }
 
+
   Future<dom_goal.Goal?> getGoal(String goalId) async {
     try {
       final rows = await _db.getAllGoals();
@@ -564,7 +565,7 @@ class OfflineDataService {
         name: goal.title,
         targetAmount: goal.targetMinor,
         targetDate: goal.dueDate,
-        profileId: goal.profileId.toString(),
+        profileId: goal.profileId.toString(), 
         goalType: GoalType.other,
         status: goal.completed ? GoalStatus.completed : GoalStatus.active,
       );
