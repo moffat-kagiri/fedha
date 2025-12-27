@@ -213,7 +213,7 @@ Future<void> _initializeServices() async {
   await budgetService.initialize(offlineDataService);
   logger.info('✅ Budget service initialized');
 
-  // ==================== AUTH SERVICE (WITH ALL DEPENDENCIES) ====================
+  // ==================== AUTH SERVICE (WITH BACKGROUND TASK REGISTRATION) ====================
   final authService = AuthService.instance;
   await authService.initializeWithAllDependencies(
     offlineDataService: offlineDataService,
@@ -222,6 +222,22 @@ Future<void> _initializeServices() async {
     budgetService: budgetService,
   );
   logger.info('✅ Auth service initialized with all dependencies');
+
+  // ==================== REGISTER BACKGROUND TASKS IF LOGGED IN ====================
+  if (authService.hasActiveProfile && authService.profileId != null) {
+    logger.info('User logged in - registering background tasks');
+    await _registerBackgroundTasks(authService.profileId!);
+    
+    // Also start foreground SMS listener
+    final smsService = SmsListenerService.instance;
+    await smsService.startListening(
+      offlineDataService: offlineDataService,
+      profileId: authService.profileId!,
+    );
+    logger.info('✅ Foreground SMS listener started');
+  } else {
+    logger.info('No active profile - skipping background task registration');
+  }
 
   // ==================== STUB SERVICES ====================
   // Initialize stub services (these are local-only)
@@ -415,42 +431,85 @@ List<SingleChildWidget> _buildProviders() {
   ];
 }
 
-// ==================== BACKGROUND TASKS ====================
+// ==================== BACKGROUND TASK REGISTRATION (Updated) ====================
 
 Future<void> _registerBackgroundTasks(String profileId) async {
   final logger = AppLogger.getLogger('BackgroundTasks');
   
   try {
+    // Cancel all existing tasks first
     await Workmanager().cancelAll();
+    logger.info('Cancelled existing background tasks');
     
+    // ==================== SMS LISTENER TASK (HIGH FREQUENCY) ====================
+    // This runs frequently to catch SMS messages quickly
     await Workmanager().registerPeriodicTask(
       'sms_listener',
       'sms_listener_task',
-      frequency: const Duration(hours: 3),
-      initialDelay: const Duration(minutes: 1),
+      frequency: const Duration(minutes: 15), // Minimum allowed by WorkManager
+      initialDelay: const Duration(seconds: 30), // Start quickly
       constraints: Constraints(
-        networkType: NetworkType.connected,
+        networkType: NetworkType.notRequired, // Works offline
         requiresBatteryNotLow: false,
         requiresCharging: false,
         requiresDeviceIdle: false,
-        requiresStorageNotLow: true,
+        requiresStorageNotLow: false, // Less restrictive
       ),
-      inputData: {'profileId': profileId},
+      inputData: {
+        'profileId': profileId,
+        'task_type': 'sms_processing',
+      },
+      backoffPolicy: BackoffPolicy.linear,
+      backoffPolicyDelay: const Duration(minutes: 1),
     );
     
+    logger.info('✅ SMS listener task registered (every 15 mins)');
+    
+    // ==================== DAILY REVIEW TASK ====================
+    // This sends notifications once per day
     await Workmanager().registerPeriodicTask(
       'daily_review',
       'daily_review_task',
       frequency: const Duration(hours: 24),
       initialDelay: const Duration(hours: 1),
-      inputData: {'profileId': profileId},
+      constraints: Constraints(
+        networkType: NetworkType.notRequired,
+        requiresBatteryNotLow: false,
+        requiresCharging: false,
+        requiresDeviceIdle: false,
+        requiresStorageNotLow: true,
+      ),
+      inputData: {
+        'profileId': profileId,
+        'task_type': 'daily_notification',
+      },
     );
     
-    logger.info('✅ Background tasks registered for profile: $profileId');
-  } catch (e) {
-    logger.warning('⚠️ Failed to register background tasks: $e');
+    logger.info('✅ Daily review task registered');
+    
+    // ==================== ONE-TIME IMMEDIATE TASK ====================
+    // Process SMS immediately on registration
+    await Workmanager().registerOneOffTask(
+      'sms_immediate',
+      'sms_listener_task',
+      initialDelay: const Duration(seconds: 5),
+      constraints: Constraints(
+        networkType: NetworkType.notRequired,
+      ),
+      inputData: {
+        'profileId': profileId,
+        'task_type': 'immediate_check',
+      },
+    );
+    
+    logger.info('✅ Immediate SMS check scheduled');
+    
+    logger.info('✅ All background tasks registered for profile: $profileId');
+  } catch (e, stackTrace) {
+    logger.severe('⚠️ Failed to register background tasks', e, stackTrace);
   }
 }
+
 
 // ==================== ERROR APP ====================
 
@@ -539,6 +598,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       case AppLifecycleState.inactive:
         await biometricService.invalidateBiometricSession();
         _logger.info('Biometric session invalidated');
+        
+        // SMS listener continues in background via WorkManager
+        _logger.info('Background SMS processing will continue');
         break;
 
       case AppLifecycleState.resumed:
@@ -553,6 +615,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             });
             _logger.info('Biometric overlay shown on resume');
           }
+        } else if (isLoggedIn) {
+          // Restart foreground SMS listener
+          _restartForegroundSmsListener();
         }
         break;
 
@@ -560,6 +625,26 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         break;
     }
   }
+  
+  /// Restart foreground SMS listener when app resumes
+  Future<void> _restartForegroundSmsListener() async {
+    try {
+      final authService = context.read<AuthService>();
+      final offlineService = context.read<OfflineDataService>();
+      
+      if (authService.profileId != null) {
+        final smsService = SmsListenerService.instance;
+        await smsService.startListening(
+          offlineDataService: offlineService,
+          profileId: authService.profileId!,
+        );
+        _logger.info('✅ Foreground SMS listener restarted');
+      }
+    } catch (e, stackTrace) {
+      _logger.warning('Failed to restart SMS listener', e, stackTrace);
+    }
+  }
+
 
   @override
   void dispose() {

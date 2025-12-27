@@ -1,13 +1,15 @@
+// lib/services/sms_listener_service.dart
 import 'dart:async';
 import 'package:flutter_sms_inbox/flutter_sms_inbox.dart' as inbox;
 import 'package:flutter/foundation.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import '../models/transaction.dart';
 import '../models/enums.dart';
-import '../models/category.dart' as models;
 import 'sms_transaction_extractor.dart';
 import '../services/offline_data_service.dart';
+import '../utils/logger.dart';
 
 /// Internal SMS message model
 class SmsMessage {
@@ -40,19 +42,23 @@ class SmsListenerService extends ChangeNotifier {
   static SmsListenerService? _instance;
   static SmsListenerService get instance => _instance ??= SmsListenerService._();
   
-  // Allow public constructor for background service
-  factory SmsListenerService() => instance;
-  
-  SmsListenerService._();
-  
+  final _logger = AppLogger.getLogger('SmsListenerService');
   final inbox.SmsQuery _query = inbox.SmsQuery();
   Timer? _pollTimer;
   StreamController<SmsMessage>? _messageController;
-  late final OfflineDataService _offlineDataService;
+  OfflineDataService? _offlineDataService;
   
   bool _isListening = false;
   List<SmsMessage> _recentMessages = [];
   String? _currentProfileId;
+  
+  // Track last processed SMS timestamp to avoid duplicates
+  static const String _lastProcessedKey = 'last_processed_sms_timestamp';
+  
+  // Allow public constructor for background service
+  factory SmsListenerService() => instance;
+  
+  SmsListenerService._();
   
   Stream<SmsMessage> get messageStream {
     _messageController ??= StreamController<SmsMessage>.broadcast();
@@ -65,24 +71,16 @@ class SmsListenerService extends ChangeNotifier {
   /// Check for SMS permission and request it if needed
   Future<bool> checkAndRequestPermissions() async {
     try {
-      // Check if SMS permission is granted
       var status = await Permission.sms.status;
       
-      // If not granted, request permission
       if (!status.isGranted) {
         status = await Permission.sms.request();
       }
       
-      if (kDebugMode) {
-        print('SMS permission status: ${status.name}');
-      }
-      
-      // Return whether permission is granted
+      _logger.info('SMS permission status: ${status.name}');
       return status.isGranted;
     } catch (e) {
-      if (kDebugMode) {
-        print('Error checking SMS permissions: $e');
-      }
+      _logger.severe('Error checking SMS permissions: $e');
       return false;
     }
   }
@@ -90,266 +88,197 @@ class SmsListenerService extends ChangeNotifier {
   /// Initialize the SMS listener service
   Future<bool> initialize({
     required OfflineDataService offlineDataService,
-    required String profileId
+    required String profileId,
   }) async {
     try {
-      if (!await checkAndRequestPermissions()) return false;
+      _logger.info('Initializing SMS listener for profile: $profileId');
+      
+      if (!await checkAndRequestPermissions()) {
+        _logger.warning('SMS permissions not granted');
+        return false;
+      }
       
       // Store dependencies
       _offlineDataService = offlineDataService;
       _currentProfileId = profileId;
       
-      // Poll SMS inbox every 10 seconds
-      DateTime? lastTimestamp;
-      _pollTimer = Timer.periodic(const Duration(seconds: 10), (_) async {
-        // Poll SMS messages from inbox
-        if (kDebugMode) print('Polling SMS inbox...');
-        final List<inbox.SmsMessage> raw = await _query.querySms(
-          count: 20,
-          sort: true,
-        );
-        if (kDebugMode) print('Retrieved ${raw.length} SMS messages');
-        for (var nativeMsg in raw) {
-          // plugin returns DateTime or int? ensure a DateTime
-          final DateTime msgTime = nativeMsg.date is DateTime
-              ? nativeMsg.date as DateTime
-              : DateTime.fromMillisecondsSinceEpoch((nativeMsg.date as int?) ?? 0);
-          if (lastTimestamp == null || msgTime.isAfter(lastTimestamp!)) {
-            lastTimestamp = msgTime;
-            final msg = SmsMessage(
-              sender: nativeMsg.address ?? '',
-              body: nativeMsg.body ?? '',
-              timestamp: msgTime,
-            );
-            if (kDebugMode) print('Evaluating SMS: sender=${msg.sender}, body=${msg.body}');
-            final isFin = _isFinancialTransaction(msg);
-            if (kDebugMode) print('Is financial transaction: $isFin');
-            if (isFin) {
-              await _handleSmsReceived(msg.toMap());
-            }
-          }
-        }
-      });
-      _isListening = true;
-      notifyListeners();
-      if (kDebugMode) {
-        print('SMS listener started via flutter_sms_inbox');
-      }
+      // Start foreground polling
+      await _startForegroundPolling();
+      
+      _logger.info('✅ SMS listener initialized successfully');
       return true;
-    } catch (e) {
-      if (kDebugMode) print('Error initializing SMS listener: $e');
+    } catch (e, stackTrace) {
+      _logger.severe('Failed to initialize SMS listener', e, stackTrace);
       return false;
     }
   }
-  /// Start listening for SMS transactions
-  Future<bool> startListening({
-    required OfflineDataService offlineDataService,
-    required String profileId
-  }) async {
-    return initialize(
-      offlineDataService: offlineDataService,
-      profileId: profileId
-    );
-  }
-  /// Stop polling SMS inbox
-  Future<void> stopListening() async {
-    _pollTimer?.cancel();
-    _isListening = false;
+  
+  /// Start foreground polling (for when app is active)
+  Future<void> _startForegroundPolling() async {
+    if (_pollTimer != null) {
+      _logger.info('Polling already active');
+      return;
+    }
+    
+    _logger.info('Starting foreground SMS polling...');
+    
+    // Process immediately on start
+    await _processSmsMessages();
+    
+    // Then poll every 15 seconds
+    _pollTimer = Timer.periodic(const Duration(seconds: 15), (_) async {
+      await _processSmsMessages();
+    });
+    
+    _isListening = true;
     notifyListeners();
   }
   
+  /// Process SMS messages from inbox
+  Future<void> _processSmsMessages() async {
+    try {
+      if (_offlineDataService == null || _currentProfileId == null) {
+        _logger.warning('Service not properly initialized');
+        return;
+      }
+      
+      // Get last processed timestamp
+      final prefs = await SharedPreferences.getInstance();
+      final lastProcessed = prefs.getInt(_lastProcessedKey) ?? 0;
+      final lastProcessedDate = DateTime.fromMillisecondsSinceEpoch(lastProcessed);
+      
+      _logger.info('Processing SMS messages since: $lastProcessedDate');
+      
+      // Query recent SMS messages
+      final List<inbox.SmsMessage> rawMessages = await _query.querySms(
+        count: 50, // Increased to catch more messages
+        sort: true,
+      );
+      
+      int newMessagesProcessed = 0;
+      DateTime? latestTimestamp;
+      
+      for (var nativeMsg in rawMessages) {
+        final DateTime msgTime = nativeMsg.date is DateTime
+            ? nativeMsg.date as DateTime
+            : DateTime.fromMillisecondsSinceEpoch((nativeMsg.date as int?) ?? 0);
+        
+        // Skip if already processed
+        if (msgTime.millisecondsSinceEpoch <= lastProcessed) {
+          continue;
+        }
+        
+        // Track latest timestamp
+        if (latestTimestamp == null || msgTime.isAfter(latestTimestamp)) {
+          latestTimestamp = msgTime;
+        }
+        
+        final msg = SmsMessage(
+          sender: nativeMsg.address ?? '',
+          body: nativeMsg.body ?? '',
+          timestamp: msgTime,
+        );
+        
+        // Process if it's a financial transaction
+        if (_isFinancialTransaction(msg)) {
+          await _handleSmsReceived(msg.toMap());
+          newMessagesProcessed++;
+        }
+      }
+      
+      // Update last processed timestamp
+      if (latestTimestamp != null) {
+        await prefs.setInt(_lastProcessedKey, latestTimestamp.millisecondsSinceEpoch);
+        _logger.info('✅ Processed $newMessagesProcessed new SMS messages');
+      } else if (newMessagesProcessed == 0) {
+        _logger.info('No new SMS messages to process');
+      }
+      
+    } catch (e, stackTrace) {
+      _logger.severe('Error processing SMS messages', e, stackTrace);
+    }
+  }
+  
+  /// Start listening for SMS transactions
+  Future<bool> startListening({
+    required OfflineDataService offlineDataService,
+    required String profileId,
+  }) async {
+    return initialize(
+      offlineDataService: offlineDataService,
+      profileId: profileId,
+    );
+  }
+  
+  /// Stop polling SMS inbox
+  Future<void> stopListening() async {
+    _pollTimer?.cancel();
+    _pollTimer = null;
+    _isListening = false;
+    notifyListeners();
+    _logger.info('SMS listener stopped');
+  }
   
   void setCurrentProfile(String profileId) {
     _currentProfileId = profileId;
-    print('SMS listener profile set to: $profileId');
+    _logger.info('SMS listener profile set to: $profileId');
   }
-  
   
   /// Process received SMS message
   Future<void> _handleSmsReceived(Map<String, dynamic> data) async {
-    final message = SmsMessage.fromMap(data);
+    try {
+      final message = SmsMessage.fromMap(data);
 
-    if (_isFinancialTransaction(message) && _currentProfileId != null) {
-      // Add to recent queue
-      _recentMessages.insert(0, message);
+      if (_isFinancialTransaction(message) && _currentProfileId != null) {
+        // Add to recent queue
+        _recentMessages.insert(0, message);
+        if (_recentMessages.length > 20) {
+          _recentMessages = _recentMessages.sublist(0, 20);
+        }
 
-      // Parse structured transaction data
-      final data = parseTransaction(message);
-      if (data != null) {
-        // Fallback: use extractor to find recipient if parser didn't
-        final extractor = SmsTransactionExtractor();
-        final recipient = data.recipient ?? extractor.extractRecipient(message.body);
-        final tx = Transaction(
-          amount: data.amount,
-          type: data.type.toLowerCase().contains('credit') ||
-                 data.type.toLowerCase().contains('received')
-              ? TransactionType.income
-              : TransactionType.expense,
-          categoryId: '',
-          date: data.timestamp,
-          profileId: _currentProfileId!,
-          smsSource: data.rawMessage,
-          reference: data.reference,
-          recipient: recipient,
-        );
+        // Parse structured transaction data
+        final parsedData = parseTransaction(message);
+        if (parsedData != null) {
+          // Fallback: use extractor to find recipient if parser didn't
+          final extractor = SmsTransactionExtractor();
+          final recipient = parsedData.recipient ?? extractor.extractRecipient(message.body);
+          
+          final tx = Transaction(
+            amount: parsedData.amount,
+            type: parsedData.type.toLowerCase().contains('credit') ||
+                   parsedData.type.toLowerCase().contains('received')
+                ? TransactionType.income
+                : TransactionType.expense,
+            categoryId: '',
+            date: parsedData.timestamp,
+            profileId: _currentProfileId!,
+            smsSource: parsedData.rawMessage,
+            reference: parsedData.reference,
+            recipient: recipient,
+          );
 
-        try {
           // Persist pending transaction for review
-          await _offlineDataService.savePendingTransaction(tx);
+          await _offlineDataService!.savePendingTransaction(tx);
+          _logger.info('💰 Saved pending transaction: ${tx.amount} from ${message.sender}');
           
           // Notify any listeners/UI
           _messageController?.add(message);
-        } catch (e) {
-          print('Failed to save pending transaction: $e');
         }
         notifyListeners();
       }
+    } catch (e, stackTrace) {
+      _logger.severe('Error handling SMS', e, stackTrace);
     }
   }
   
   /// Process a manually entered SMS string (iOS fallback)
   Future<void> processManualSms(String rawMessage) async {
     final msg = SmsMessage(
-      sender: '',
+      sender: 'MANUAL',
       body: rawMessage,
       timestamp: DateTime.now(),
     );
-    _handleSmsReceived(msg.toMap());
-  }
-  
-  /// Save a pending transaction to be reviewed
-  Future<void> _savePendingTransaction(TransactionData transactionData) async {
-    try {
-      if (_currentProfileId == null) {
-        if (kDebugMode) {
-          print('No current profile set, cannot save transaction');
-        }
-        return;
-      }
-      
-      // Create a transaction entry
-      final transaction = Transaction(
-        type: TransactionType.expense, // Default to expense for SMS transactions
-        profileId: _currentProfileId ?? '',
-        id: const Uuid().v4(),
-        amount: transactionData.amount,
-        date: transactionData.timestamp,
-        description: 'SMS: ${transactionData.type ?? ""} via ${transactionData.source}',
-        categoryId: (await _guessCategory(transactionData)) ?? 'uncategorized',
-        isRecurring: false,
-        notes: 'Auto-detected from SMS',
-        smsSource: transactionData.rawMessage,
-        reference: transactionData.reference,
-        recipient: transactionData.recipient,
-      );
-      
-  // Save to pending transactions table via service
-  await _offlineDataService.savePendingTransaction(transaction);
-      
-      if (kDebugMode) {
-        print('Saved pending transaction: ${transaction.id}');
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error saving pending transaction: $e');
-      }
-    }
-  }
-  
-  /// Guess transaction category based on content
-  Future<String?> _guessCategory(TransactionData data) async {
-    // Default categories
-    const defaultIncomeCategory = 'income';
-    const defaultExpenseCategory = 'expense';
-    
-    try {
-      // Load categories
-      
-      // Keywords for common categories
-      final Map<String, List<String>> categoryKeywords = {
-        'food': ['restaurant', 'food', 'cafe', 'coffee', 'grocery', 'supermarket'],
-        'transport': ['uber', 'taxi', 'fare', 'transport', 'travel', 'car', 'petrol', 'fuel'],
-        'shopping': ['shop', 'store', 'mall', 'market', 'buy', 'purchase'],
-        'entertainment': ['movie', 'cinema', 'theatre', 'event', 'ticket', 'concert'],
-        'utility': ['bill', 'water', 'electricity', 'internet', 'wifi', 'utility'],
-        'rent': ['rent', 'house', 'apartment', 'accommodation'],
-        'salary': ['salary', 'payment', 'wage', 'income', 'payday'],
-      };
-      
-      // Check transaction description and recipient for keywords
-      final String searchText = [
-        data.rawMessage.toLowerCase(),
-        data.recipient?.toLowerCase() ?? '',
-      ].join(' ');
-      
-      for (final entry in categoryKeywords.entries) {
-        for (final keyword in entry.value) {
-          if (searchText.contains(keyword)) {
-            // Find matching category ID
-      // TODO: fetch categories via OfflineDataService
-      final cats = await _offlineDataService.getCategories(_currentProfileId!) ?? [];
-      final match = cats.firstWhere(
-        (c) => c.name.toLowerCase() == entry.key,
-        orElse: () => models.Category(id: '', name: ''));
-      if (match.id.isNotEmpty) return match.id;
-          }
-        }
-      }
-      
-      // Fall back to default categories
-      if (data.type == 'received' || data.type == 'credit') {
-  final cats = await _offlineDataService.getCategories(_currentProfileId!) ?? [];
-  return cats.firstWhere(
-    (c) => c.name.toLowerCase() == defaultIncomeCategory,
-    orElse: () => models.Category(id: '', name: ''))
-      .id;
-      } else {
-  final cats = await _offlineDataService.getCategories(_currentProfileId!) ?? [];
-  return cats.firstWhere(
-    (c) => c.name.toLowerCase() == defaultExpenseCategory,
-    orElse: () => models.Category(id: '', name: ''))
-      .id;
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error guessing category: $e');
-      }
-    }
-    
-    return null;
-  }
-  
-  /// Simulate incoming messages for development
-  void _simulateIncomingMessages() {
-    if (!kDebugMode) return;
-    
-    Timer.periodic(const Duration(seconds: 30), (timer) {
-      if (!_isListening) {
-        timer.cancel();
-        return;
-      }
-      
-      final simulatedMessages = [
-        {
-          'sender': 'MPESA',
-          'body': 'LNM1234567 Confirmed. Ksh5,000.00 sent to JANE DOE 0722123456 on 15/1/24 at 2:30 PM. M-PESA balance is Ksh15,420.50.',
-          'timestamp': DateTime.now().millisecondsSinceEpoch,
-        },
-        {
-          'sender': 'KCB-BANK',
-          'body': 'Transaction Alert: KES 2,500.00 has been debited from your account ending in 1234. Balance: KES 45,670.25. Ref: TXN789456123',
-          'timestamp': DateTime.now().millisecondsSinceEpoch,
-        },
-        {
-          'sender': 'MPESA',
-          'body': 'LNM2345678 Confirmed. You have received Ksh3,200.00 from JOHN SMITH 0733456789 on 15/1/24 at 3:15 PM. M-PESA balance is Ksh18,620.50.',
-          'timestamp': DateTime.now().millisecondsSinceEpoch,
-        },
-      ];
-      
-      final randomMessage = simulatedMessages[DateTime.now().second % simulatedMessages.length];
-      _handleSmsReceived(randomMessage);
-    });
+    await _handleSmsReceived(msg.toMap());
   }
   
   /// Check if SMS is a financial transaction
@@ -369,7 +298,8 @@ class SmsListenerService extends ChangeNotifier {
     // Bank transactions
     final bankKeywords = [
       'kcb', 'equity', 'cooperative', 'coop', 'absa', 'dtb', 'family',
-      'ncba', 'diamond', 'chase', 'gulf', 'prime', 'citibank'
+      'ncba', 'diamond', 'chase', 'gulf', 'prime', 'citibank', 'barclays',
+      'standard', 'stanchart', 'bank'
     ];
     
     for (final bank in bankKeywords) {
@@ -392,20 +322,29 @@ class SmsListenerService extends ChangeNotifier {
     try {
       return TransactionParser.parse(message);
     } catch (e) {
-      print('Error parsing transaction: $e');
+      _logger.warning('Error parsing transaction: $e');
       return null;
     }
   }
+  
+  /// Dispose resources
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    _messageController?.close();
+    super.dispose();
+  }
 }
 
+// Transaction data models (unchanged)
 class TransactionData {
-  final String type; // 'sent', 'received', 'withdrawal', 'deposit', etc.
+  final String type;
   final double amount;
   final String currency;
   final String? recipient;
   final String? reference;
   final DateTime timestamp;
-  final String source; // 'mpesa', 'bank', etc.
+  final String source;
   final String rawMessage;
   
   TransactionData({
@@ -434,7 +373,6 @@ class TransactionParser {
   static TransactionData? _parseMpesaTransaction(SmsMessage message) {
     final body = message.body;
     
-    // M-PESA transaction patterns
     final amountRegex = RegExp(r'Ksh([\d,]+\.?\d*)');
     final amountMatch = amountRegex.firstMatch(body);
     
@@ -467,7 +405,6 @@ class TransactionParser {
       recipient = merchantMatch?.group(1)?.trim();
     }
     
-    // Extract reference/transaction code
     final refRegex = RegExp(r'([A-Z0-9]{10})');
     final refMatch = refRegex.firstMatch(body);
     final reference = refMatch?.group(1);
@@ -487,7 +424,6 @@ class TransactionParser {
   static TransactionData? _parseBankTransaction(SmsMessage message) {
     final body = message.body;
     
-    // Bank transaction patterns
     final amountRegex = RegExp(r'(KES|Ksh)\s*([\d,]+\.?\d*)');
     final amountMatch = amountRegex.firstMatch(body);
     
@@ -519,4 +455,3 @@ class TransactionParser {
     );
   }
 }
-

@@ -3,7 +3,7 @@ description: Fedha Budget Tracker - Your Personal Finance Companion
 publish_to: 'none'  # Prevents accidental publication
 
 version: 1.0.0+1
-repository: https://github.com/your-username/fedha
+repository: https://github.com/moffat-kagiri/fedha
 homepage: https://fedha-project.example.com
 environment:
   sdk: '>=3.8.0 <4.0.0'
@@ -38,7 +38,7 @@ dependencies:
   logging: ^1.1.0
   connectivity_plus: ^5.0.2
   flutter_sms_inbox: 1.0.4
-  workmanager: ^0.9.0+3
+  workmanager: ^0.9.0
   awesome_notifications: ^0.10.1
 
   # add relational DB

@@ -614,4 +614,66 @@ class OfflineDataService {
         profileId: Value(_profileIdToInt(goal.profileId)),
       ));
   }
+
+  /// Save pending transaction and update count in SharedPreferences
+  /// This allows the background worker to track pending counts
+  Future<void> savePendingTransactionWithCount(dom_tx.Transaction tx) async {
+    _validateProfileId(tx.profileId);
+    
+    // Save the pending transaction
+    await savePendingTransaction(tx);
+    
+    // Update pending count in SharedPreferences for background tasks
+    try {
+      final pending = await getPendingTransactions(tx.profileId);
+      await _prefs.setInt('pending_transaction_count_${tx.profileId}', pending.length);
+      
+      if (kDebugMode) {
+        print('Updated pending transaction count for ${tx.profileId}: ${pending.length}');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error updating pending transaction count: $e');
+      }
+    }
+  }
+
+  /// Get pending transaction count from SharedPreferences
+  /// Faster than querying database, useful for notifications
+  Future<int> getPendingTransactionCountFast(String profileId) async {
+    try {
+      return _prefs.getInt('pending_transaction_count_$profileId') ?? 0;
+    } catch (e) {
+      // Fallback to database query
+      return await getPendingTransactionCount(profileId);
+    }
+  }
+
+  /// Update pending transaction count after approval or deletion
+  Future<void> updatePendingTransactionCount(String profileId) async {
+    try {
+      final pending = await getPendingTransactions(profileId);
+      await _prefs.setInt('pending_transaction_count_$profileId', pending.length);
+      
+      if (kDebugMode) {
+        print('Updated pending transaction count for $profileId: ${pending.length}');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error updating pending transaction count: $e');
+      }
+    }
+  }
+
+  /// Modified approvePendingTransaction to update count
+  Future<void> approvePendingTransactionWithCount(dom_tx.Transaction tx) async {
+    await approvePendingTransaction(tx);
+    await updatePendingTransactionCount(tx.profileId);
+  }
+
+  /// Modified deletePendingTransaction to update count
+  Future<void> deletePendingTransactionWithCount(String id, String profileId) async {
+    await deletePendingTransaction(id);
+    await updatePendingTransactionCount(profileId);
+  }
 }
