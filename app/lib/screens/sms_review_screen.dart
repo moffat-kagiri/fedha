@@ -61,7 +61,7 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
                 ? TransactionType.income
                 : (transaction.isExpense ? TransactionType.expense : TransactionType.income);
         return TransactionCandidate(
-          id: transaction.id,
+          id: transaction.id!,
           rawText: raw.isNotEmpty ? raw : 'No SMS source available',
           amount: transaction.amount,
           description: transaction.description,

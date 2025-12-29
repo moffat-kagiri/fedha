@@ -124,8 +124,6 @@ Future<void> main() async {
 
   try {
     logger.info('🚀 Starting Fedha app...');
-    
-        // Initialize WorkManager
 
     await Workmanager().initialize(callbackDispatcher, isInDebugMode: kDebugMode);
     logger.info('✅ WorkManager initialized');
@@ -211,6 +209,8 @@ Future<void> _initializeServices() async {
     budgetService: budgetService,
   );
   logger.info('✅ Transaction event service initialized');
+
+  offlineDataService.setEventService(transactionEventService);
 
   // ==================== AUTH SERVICE ====================
   final authService = AuthService.instance;
@@ -365,8 +365,8 @@ List<SingleChildWidget> _buildProviders() {
     Provider<RiskAssessmentService>.value(
       value: RiskAssessmentService(data_db.AppDatabase()),
     ),
-    ChangeNotifierProvider<TransactionEventService>.value(
-      value: TransactionEventService.instance,
+    ChangeNotifierProvider<TransactionEventService>(
+      create: (_) => TransactionEventService.instance,
     ),
     ChangeNotifierProvider<SmsListenerService>.value(
       value: SmsListenerService.instance,
@@ -601,49 +601,73 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     }
   }
 
-
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 
+  /// ⭐ FIXED: Instant navigation after biometric unlock
+  /// Data syncing happens in background after navigation
   Future<void> _handleBiometricUnlock() async {
     _logger.info('✅ Biometric unlock successful');
     
-    final biometricService = context.read<BiometricAuthService>();
-    final authService = context.read<AuthService>();
-    final syncService = context.read<UnifiedSyncService>();
-    final budgetService = context.read<BudgetService>();
-    
-    await biometricService.registerSuccessfulBiometricSession();
-
-    // Reload all data after unlock
-    if (authService.profileId != null) {
-      _logger.info('Reloading data after biometric unlock...');
-      await syncService.syncAll();
-      await budgetService.loadBudgetsForProfile(authService.profileId!);
-    }
-
-    // Use centralized navigation helper to ensure canonical main route
+    // Navigate FIRST - instant response
     _navigateToCanonicalMain();
-
+    
+    // Hide overlay
     if (mounted) {
       setState(() {
         _showBiometricOverlay = false;
       });
     }
+
+    // Do everything else in background
+    Future.microtask(() async {
+      try {
+        final biometricService = context.read<BiometricAuthService>();
+        await biometricService.registerSuccessfulBiometricSession();
+        
+        await _syncDataInBackground();
+      } catch (e) {
+        _logger.warning('Post-auth processing failed: $e');
+      }
+    });
   }
 
-  // NEW: central helper to ensure the app shows the canonical main route (with bottom nav)
+  /// ⭐ NEW: Background data sync after biometric unlock
+  /// This runs asynchronously without blocking navigation
+  Future<void> _syncDataInBackground() async {
+    try {
+      _logger.info('🔄 Syncing data in background...');
+      
+      final authService = context.read<AuthService>();
+      final syncService = context.read<UnifiedSyncService>();
+      final budgetService = context.read<BudgetService>();
+      
+      if (authService.profileId != null) {
+        // Sync data without blocking UI
+        await syncService.syncAll();
+        await budgetService.loadBudgetsForProfile(authService.profileId!);
+        
+        _logger.info('✅ Background sync complete');
+      }
+    } catch (e, stackTrace) {
+      _logger.warning('Background sync failed (non-critical)', e, stackTrace);
+      // Don't show error to user - app still works with local data
+    }
+  }
+
+  /// Navigate to main screen
   void _navigateToCanonicalMain() {
     final navigator = _navigatorKey.currentState;
     if (navigator != null) {
+      // Use pushReplacement for instant transition
       navigator.pushNamedAndRemoveUntil('/main', (route) => false);
       return;
     }
 
-    // Fallback: schedule navigation after frame if navigator not yet available
+    // Fallback: schedule navigation after frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       try {

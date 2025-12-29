@@ -7,7 +7,8 @@ part 'goal.g.dart';
 
 @JsonSerializable(explicitToJson: true)
 class Goal {
-  final String id;
+  final String? id; // Local Flutter UUID
+  final String? remoteId; // PostgreSQL backend ID (nullable until synced)
   final String name;
   final String? description;
   final double targetAmount;
@@ -24,6 +25,7 @@ class Goal {
 
   Goal({
     String? id,
+    this.remoteId,
     required this.name,
     this.description,
     required this.targetAmount,
@@ -37,8 +39,11 @@ class Goal {
     this.updatedAt,
     this.isSynced = false,
     this.completedDate,
-  })  : id = id ?? const Uuid().v4(),
+  }) : id = id ?? const Uuid().v4(),
         createdAt = createdAt ?? DateTime.now();
+  
+  /// Check if goal has been synced to backend
+  bool get hasRemoteId => remoteId != null && remoteId!.isNotEmpty;
 
   /// Calculates the progress percentage towards the goal
   double get progressPercentage {
@@ -91,6 +96,7 @@ class Goal {
   /// Creates a copy of this goal with updated fields
   Goal copyWith({
     String? id,
+    String? remoteId,
     String? name,
     String? description,
     double? targetAmount,
@@ -107,6 +113,7 @@ class Goal {
   }) {
     return Goal(
       id: id ?? this.id,
+      remoteId: remoteId ?? this.remoteId,
       name: name ?? this.name,
       description: description ?? this.description,
       targetAmount: targetAmount ?? this.targetAmount,
@@ -122,22 +129,20 @@ class Goal {
       isSynced: isSynced ?? this.isSynced,
     );
   }
-  // In lib/models/goal.dart, add this factory constructor:
-factory Goal.empty() {
-  return Goal(
-    id: '',
-    name: 'Unnamed Goal',
-    targetAmount: 0,
-    currentAmount: 0,
-    goalType: GoalType.savings,
-    status: GoalStatus.active,
-    targetDate: DateTime.now(),
-    profileId: '',
-    createdAt: DateTime.now(),
-    updatedAt: DateTime.now(),
-    isSynced: false,
-  );
-}
+
+  /// Empty goal factory constructor
+  factory Goal.empty() {
+    return Goal(
+      name: 'Unnamed Goal',
+      targetAmount: 0,
+      currentAmount: 0,
+      goalType: GoalType.savings,
+      status: GoalStatus.active,
+      targetDate: DateTime.now(),
+      profileId: '',
+      isSynced: false,
+    );
+  }
 
   /// Creates a Goal from JSON data
   factory Goal.fromJson(Map<String, dynamic> json) => _$GoalFromJson(json);
@@ -320,7 +325,7 @@ factory Goal.empty() {
 
   @override
   String toString() {
-    return 'Goal(id: $id, name: $name, progress: ${progressPercentage.toStringAsFixed(1)}%, status: $status)';
+    return 'Goal(id: $id, remoteId: $remoteId, name: $name, progress: ${progressPercentage.toStringAsFixed(1)}%, status: $status)';
   }
 
   @override
@@ -376,7 +381,13 @@ factory Goal.empty() {
   DateTime? get estimatedCompletionDate {
     if (currentAmount == 0) return null;
     
-    final daysToComplete = amountNeeded / (currentAmount / daysSinceStart);
+    final daysSinceStart = DateTime.now().difference(createdAt).inDays;
+    if (daysSinceStart == 0) return null;
+    
+    final dailyRate = currentAmount / daysSinceStart;
+    if (dailyRate == 0) return null;
+    
+    final daysToComplete = amountNeeded / dailyRate;
     return DateTime.now().add(Duration(days: daysToComplete.ceil()));
   }
 

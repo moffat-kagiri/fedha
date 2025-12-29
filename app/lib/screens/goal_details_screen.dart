@@ -65,7 +65,7 @@ class _GoalDetailsScreenState extends State<GoalDetailsScreen> {
       print('🔄 Refreshing goal ${_currentGoal.id} for profile $profileId');
       
       // Fetch updated goal
-      final updatedGoal = await offlineDataService.getGoal(_currentGoal.id);
+      final updatedGoal = await offlineDataService.getGoal(_currentGoal.id!);
       
       if (updatedGoal != null) {
         print('✅ Goal refreshed - Current: ${updatedGoal.currentAmount}, Target: ${updatedGoal.targetAmount}');
@@ -413,7 +413,7 @@ class _GoalDetailsScreenState extends State<GoalDetailsScreen> {
                 // Create savings transaction linked to goal
                 await transactionService.createSavingsTransaction(
                   amount: amount,
-                  goalId: _currentGoal.id,
+                  goalId: _currentGoal.id!,
                   description: descriptionController.text.isNotEmpty 
                       ? descriptionController.text 
                       : 'Contribution to ${_currentGoal.name}',

@@ -7,8 +7,8 @@ part of 'transaction.dart';
 // **************************************************************************
 
 Transaction _$TransactionFromJson(Map<String, dynamic> json) => Transaction(
-  uuid: json['uuid'] as String?,
   id: json['id'] as String?,
+  remoteId: json['remoteId'] as String?,
   amount: (json['amount'] as num).toDouble(),
   type: $enumDecode(_$TransactionTypeEnumMap, json['type']),
   categoryId: json['categoryId'] as String,
@@ -36,8 +36,8 @@ Transaction _$TransactionFromJson(Map<String, dynamic> json) => Transaction(
 
 Map<String, dynamic> _$TransactionToJson(Transaction instance) =>
     <String, dynamic>{
-      'uuid': instance.uuid,
       'id': instance.id,
+      'remoteId': instance.remoteId,
       'amount': instance.amount,
       'type': _$TransactionTypeEnumMap[instance.type]!,
       'categoryId': instance.categoryId,
@@ -70,6 +70,8 @@ const _$TransactionCategoryEnumMap = {
   TransactionCategory.utilities: 'utilities',
   TransactionCategory.entertainment: 'entertainment',
   TransactionCategory.healthcare: 'healthcare',
+  TransactionCategory.groceries: 'groceries',
+  TransactionCategory.diningOut: 'diningOut',
   TransactionCategory.shopping: 'shopping',
   TransactionCategory.education: 'education',
   TransactionCategory.salary: 'salary',
@@ -79,7 +81,10 @@ const _$TransactionCategoryEnumMap = {
   TransactionCategory.otherIncome: 'otherIncome',
   TransactionCategory.otherExpense: 'otherExpense',
   TransactionCategory.emergencyFund: 'emergencyFund',
+  TransactionCategory.rent: 'rent',
   TransactionCategory.retirement: 'retirement',
+  TransactionCategory.other: 'other',
+  TransactionCategory.savings: 'savings',
   TransactionCategory.otherSavings: 'otherSavings',
 };
 

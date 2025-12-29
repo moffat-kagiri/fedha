@@ -6,8 +6,8 @@ part 'transaction.g.dart';
 
 @JsonSerializable(explicitToJson: true)
 class Transaction {
-  String uuid;
-  String id;
+  String? id; // Local unique identifier
+  String? remoteId; // PostgreSQL backend ID (nullable until synced)
   double amount;
   TransactionType type;
   String categoryId;
@@ -28,8 +28,8 @@ class Transaction {
   PaymentMethod? paymentMethod;
 
   Transaction({
-    String? uuid,
-    String? id,
+    String? id,  
+    this.remoteId,      
     required this.amount,
     required this.type,
     required this.categoryId,
@@ -48,21 +48,19 @@ class Transaction {
     bool? isExpense,
     this.isRecurring = false,
     this.paymentMethod,
-  }) : uuid = uuid ?? const Uuid().v4(),
-       id = id ?? const Uuid().v4(),
-       // FIX: Ensure isExpense is properly derived from type
-       isExpense = isExpense ?? (type == TransactionType.expense),
-       updatedAt = updatedAt ?? DateTime.now();
+  }) : id = id ?? const Uuid().v4(),
+      isExpense = isExpense ?? (type == TransactionType.expense),
+      updatedAt = updatedAt ?? DateTime.now();
 
   // Helper method to ensure category is properly set
   Transaction withCategory(TransactionCategory category) {
     return Transaction(
-      uuid: uuid,
       id: id,
+      remoteId: remoteId,
       amount: amount,
       type: type,
       categoryId: categoryId,
-      category: category, // Set the category object
+      category: category,
       date: date,
       notes: notes,
       description: description,
@@ -96,12 +94,12 @@ class Transaction {
       amount: amount,
       type: type,
       categoryId: categoryId,
-      category: category, // Ensure category is set
+      category: category,
       date: date,
       description: description,
       smsSource: smsSource,
       profileId: profileId ?? '0',
-      isExpense: type == TransactionType.expense, // Ensure proper type mapping
+      isExpense: type == TransactionType.expense,
     );
   }
 
@@ -112,8 +110,8 @@ class Transaction {
 
   /// Returns a copy of this transaction with the given fields replaced.
   Transaction copyWith({
-    String? uuid,
     String? id,
+    String? remoteId, // Add remoteId
     double? amount,
     TransactionType? type,
     String? categoryId,
@@ -134,8 +132,8 @@ class Transaction {
     PaymentMethod? paymentMethod,
   }) {
     return Transaction(
-      uuid: uuid ?? this.uuid,
       id: id ?? this.id,
+      remoteId: remoteId ?? this.remoteId,
       amount: amount ?? this.amount,
       type: type ?? this.type,
       categoryId: categoryId ?? this.categoryId,
@@ -157,9 +155,12 @@ class Transaction {
     );
   }
 
+  /// Check if transaction has been synced to backend
+  bool get hasRemoteId => remoteId != null && remoteId!.isNotEmpty;
+
   @override
   String toString() {
-    return 'Transaction(uuid: $uuid, amount: $amount, type: $type, '
+    return 'Transaction(id: $id, remoteId: $remoteId, amount: $amount, type: $type, '
         'category: $category, categoryId: $categoryId, date: $date, '
         'description: $description, isExpense: $isExpense)';
   }

@@ -313,6 +313,113 @@ class ApiClient {
 
   // ==================== TRANSACTIONS ====================
 
+  Future<Map<String, dynamic>> createTransaction(Map<String, dynamic> transaction) async {
+    final url = Uri.parse(_config.getEndpoint('api/transactions/'));
+    
+    try {
+      logger.info('POST ${url.toString()}');
+      
+      final resp = await _http
+          .post(
+            url,
+            headers: _headers,
+            body: jsonEncode(transaction),
+          )
+          .timeout(Duration(seconds: _config.timeoutSeconds));
+      
+      logger.info('Create transaction response: ${resp.statusCode}');
+      
+      if (resp.statusCode == 201 || resp.statusCode == 200) {
+        final data = jsonDecode(resp.body) as Map<String, dynamic>;
+        logger.info('✅ Transaction created successfully');
+        return data;
+      }
+      
+      return {
+        'success': false,
+        'status': resp.statusCode,
+        'body': resp.body,
+      };
+    } catch (e) {
+      logger.severe('Create transaction error: $e');
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  // ==================== GOAL METHODS ====================
+
+  Future<Map<String, dynamic>> createGoal(Map<String, dynamic> goal) async {
+    final url = Uri.parse(_config.getEndpoint('api/goals/'));
+    
+    try {
+      logger.info('POST ${url.toString()}');
+      
+      final resp = await _http
+          .post(
+            url,
+            headers: _headers,
+            body: jsonEncode(goal),
+          )
+          .timeout(Duration(seconds: _config.timeoutSeconds));
+      
+      logger.info('Create goal response: ${resp.statusCode}');
+      
+      if (resp.statusCode == 201 || resp.statusCode == 200) {
+        final data = jsonDecode(resp.body) as Map<String, dynamic>;
+        logger.info('✅ Goal created successfully');
+        return data;
+      }
+      
+      return {
+        'success': false,
+        'status': resp.statusCode,
+        'body': resp.body,
+      };
+    } catch (e) {
+      logger.severe('Create goal error: $e');
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  // Update getTransactions method to be optional sessionToken
+  Future<List<dynamic>> getTransactions({
+    required String profileId,
+    String? sessionToken, // Make this optional
+  }) async {
+    final url = Uri.parse(_config.getEndpoint('api/transactions/?profile_id=$profileId'));
+    
+    try {
+      logger.info('GET ${url.toString()}');
+      
+      final headers = sessionToken != null 
+          ? _getHeaders(customToken: sessionToken)
+          : _headers;
+      
+      final resp = await _http
+          .get(url, headers: headers)
+          .timeout(Duration(seconds: _config.timeoutSeconds));
+      
+      logger.info('Get transactions response: ${resp.statusCode}');
+      
+      if (resp.statusCode == 200) {
+        final data = jsonDecode(resp.body);
+        if (data is Map && data.containsKey('results')) {
+          return data['results'] as List<dynamic>;
+        }
+        return data as List<dynamic>;
+      }
+      
+      if (resp.statusCode == 401) {
+        logger.warning('Transactions request unauthorized');
+        clearAuthToken();
+      }
+      
+      return [];
+    } catch (e) {
+      logger.severe('Get transactions error: $e');
+      return [];
+    }
+  }
   Future<Map<String, dynamic>> syncTransactions(
     String profileId,
     List<dynamic> transactions,
@@ -353,44 +460,6 @@ class ApiClient {
     } catch (e) {
       logger.severe('Sync transactions error: $e');
       return {'success': false, 'error': e.toString()};
-    }
-  }
-
-  Future<List<dynamic>> getTransactions({
-    required String profileId,
-    required String sessionToken,
-  }) async {
-    final url = Uri.parse(_config.getEndpoint('api/transactions/?profile_id=$profileId'));
-    
-    try {
-      logger.info('GET ${url.toString()}');
-      
-      final headers = _getHeaders(customToken: sessionToken);
-      
-      final resp = await _http
-          .get(url, headers: headers)
-          .timeout(Duration(seconds: _config.timeoutSeconds));
-      
-      logger.info('Get transactions response: ${resp.statusCode}');
-      
-      if (resp.statusCode == 200) {
-        final data = jsonDecode(resp.body);
-        // DRF paginated response has 'results' field
-        if (data is Map && data.containsKey('results')) {
-          return data['results'] as List<dynamic>;
-        }
-        return data as List<dynamic>;
-      }
-      
-      if (resp.statusCode == 401) {
-        logger.warning('Transactions request unauthorized');
-        clearAuthToken();
-      }
-      
-      return [];
-    } catch (e) {
-      logger.severe('Get transactions error: $e');
-      return [];
     }
   }
 
@@ -436,6 +505,118 @@ class ApiClient {
 
   // ==================== GOALS ====================
 
+  Future<List<dynamic>> getGoals({
+    required String profileId,
+    String? sessionToken,
+  }) async {
+    final url = Uri.parse(_config.getEndpoint('api/goals/?profile_id=$profileId'));
+    
+    try {
+      logger.info('GET ${url.toString()}');
+      
+      final headers = sessionToken != null 
+          ? _getHeaders(customToken: sessionToken)
+          : _headers;
+      
+      final resp = await _http
+          .get(url, headers: headers)
+          .timeout(Duration(seconds: _config.timeoutSeconds));
+      
+      logger.info('Get goals response: ${resp.statusCode}');
+      
+      if (resp.statusCode == 200) {
+        final data = jsonDecode(resp.body);
+        // DRF paginated response has 'results' field
+        if (data is Map && data.containsKey('results')) {
+          return data['results'] as List<dynamic>;
+        }
+        return data as List<dynamic>;
+      }
+      
+      if (resp.statusCode == 401) {
+        logger.warning('Goals request unauthorized');
+        clearAuthToken();
+      }
+      
+      logger.warning('Get goals failed: ${resp.statusCode}');
+      return [];
+    } catch (e) {
+      logger.severe('Get goals error: $e');
+      return [];
+    }
+  }
+
+  Future<Map<String, dynamic>> updateGoal({
+    required int goalId,
+    required Map<String, dynamic> goal,
+    String? sessionToken,
+  }) async {
+    final url = Uri.parse(_config.getEndpoint('api/goals/$goalId/'));
+    
+    try {
+      logger.info('PUT ${url.toString()}');
+      
+      final headers = sessionToken != null 
+          ? _getHeaders(customToken: sessionToken)
+          : _headers;
+      
+      final resp = await _http
+          .put(
+            url,
+            headers: headers,
+            body: jsonEncode(goal),
+          )
+          .timeout(Duration(seconds: _config.timeoutSeconds));
+      
+      logger.info('Update goal response: ${resp.statusCode}');
+      
+      if (resp.statusCode == 200) {
+        final data = jsonDecode(resp.body) as Map<String, dynamic>;
+        logger.info('✅ Goal updated successfully');
+        return data;
+      }
+      
+      if (resp.statusCode == 401) {
+        logger.warning('Goal update unauthorized');
+        clearAuthToken();
+      }
+      
+      return {
+        'success': false,
+        'status': resp.statusCode,
+        'body': resp.body,
+      };
+    } catch (e) {
+      logger.severe('Update goal error: $e');
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  Future<bool> deleteGoal({
+    required int goalId,
+    String? sessionToken,
+  }) async {
+    final url = Uri.parse(_config.getEndpoint('api/goals/$goalId/'));
+    
+    try {
+      logger.info('DELETE ${url.toString()}');
+      
+      final headers = sessionToken != null 
+          ? _getHeaders(customToken: sessionToken)
+          : _headers;
+      
+      final resp = await _http
+          .delete(url, headers: headers)
+          .timeout(Duration(seconds: _config.timeoutSeconds));
+      
+      final success = resp.statusCode == 204 || resp.statusCode == 200;
+      logger.info('Delete goal: ${success ? "✅ OK" : "❌ FAIL"}');
+      return success;
+    } catch (e) {
+      logger.warning('Delete goal failed: $e');
+      return false;
+    }
+  }
   Future<Map<String, dynamic>> syncGoals(
     String profileId,
     List<dynamic> goals,

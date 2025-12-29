@@ -56,6 +56,7 @@ class Goals extends Table {
   DateTimeColumn get dueDate => dateTime()();
   BoolColumn get completed => boolean().withDefault(const Constant(false))();
   IntColumn get profileId => integer()();
+  RealColumn get currentMinor => real().withDefault(const Constant(0.0))();
 }
 
 /// Table for storing loans.
@@ -105,20 +106,59 @@ class AppDatabase extends _$AppDatabase {
     return _instance!;
   }
 
-  // UPDATE schema version:
+  // ⭐ UPDATE schema version
   @override
-  int get schemaVersion => 2; // Changed from 1 to 2
+  int get schemaVersion => 3; // Changed from 2 to 3
 
+  // ⭐ ADD migration
   @override
-  MigrationStrategy get migration => MigrationStrategy(
-    onUpgrade: (migrator, from, to) async {
-      if (from < 2) {
-        // Add new columns for version 2
-        await migrator.addColumn(transactions, transactions.goalId);
-        await migrator.addColumn(transactions, transactions.transactionType);
+  MigrationStrategy get migration {
+    return MigrationStrategy(
+      onUpgrade: (Migrator m, int from, int to) async {
+        if (from < 3) {
+          await m.addColumn(goals, goals.currentMinor);
+          await _migrateGoalProgress(); // Calculate existing progress
+        }
+      },
+    );
+  }
+
+  // Helper method to migrate existing goal progress
+  Future<void> _migrateGoalProgress() async {
+    try {
+      print('🔄 Migrating goal progress...');
+      
+      // Get all goals
+      final allGoals = await select(goals).get();
+      
+      // Get all transactions
+      final allTransactions = await select(transactions).get();
+      
+      // For each goal, calculate current amount from transactions
+      for (final goal in allGoals) {
+        final goalTransactions = allTransactions.where((tx) =>
+          tx.transactionType?.contains('savings') == true &&
+          tx.goalId == goal.id.toString()
+        );
+        
+        final totalSavings = goalTransactions.fold<double>(
+          0.0,
+          (sum, tx) => sum + tx.amountMinor,
+        );
+        
+        // Update goal with calculated currentMinor
+        await (update(goals)..where((g) => g.id.equals(goal.id)))
+          .write(GoalsCompanion(
+            currentMinor: Value(totalSavings),
+          ));
       }
-    },
-  );
+      
+      print('✅ Goal progress migration complete');
+    } catch (e) {
+      print('⚠️ Error migrating goal progress: $e');
+      // Don't throw - migration should continue even if this fails
+    }
+  }
 
   // CRUD helpers for Transactions
   Future<List<Transaction>> getAllTransactions() => select(transactions).get();

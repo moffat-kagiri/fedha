@@ -39,8 +39,10 @@ Map<String, dynamic> _$ProfileToJson(Profile instance) => <String, dynamic>{
   'id': instance.id,
   'name': instance.name,
   'email': instance.email,
-  'type': _$ProfileTypeEnumMap[instance.type]!,
   'password': instance.password,
+  'authToken': instance.authToken,
+  'sessionToken': instance.sessionToken,
+  'type': _$ProfileTypeEnumMap[instance.type]!,
   'baseCurrency': instance.baseCurrency,
   'timezone': instance.timezone,
   'createdAt': instance.createdAt.toIso8601String(),
@@ -50,12 +52,10 @@ Map<String, dynamic> _$ProfileToJson(Profile instance) => <String, dynamic>{
   'lastLogin': instance.lastLogin.toIso8601String(),
   'lastSynced': instance.lastSynced?.toIso8601String(),
   'lastModified': instance.lastModified?.toIso8601String(),
-  'sessionToken': instance.sessionToken,
   'preferences': instance.preferences,
   'displayName': instance.displayName,
   'phoneNumber': instance.phoneNumber,
   'photoUrl': instance.photoUrl,
-  'authToken': instance.authToken,
 };
 
 const _$ProfileTypeEnumMap = {

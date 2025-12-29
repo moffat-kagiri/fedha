@@ -4,10 +4,11 @@ import '../models/transaction.dart';
 import '../models/goal.dart';
 import '../models/budget.dart';
 import '../models/loan.dart';
+import '../models/enums.dart';
 import '../utils/logger.dart';
 import 'offline_data_service.dart';
 import 'api_client.dart';
-import 'auth_service.dart'; // Add this import
+import 'auth_service.dart';
 
 /// Unified sync service for all data types
 /// Handles both local persistence and server synchronization
@@ -19,7 +20,7 @@ class UnifiedSyncService with ChangeNotifier {
   
   OfflineDataService? _offlineDataService;
   ApiClient? _apiClient;
-  AuthService? _authService; // Add AuthService reference
+  AuthService? _authService;
   
   bool _isSyncing = false;
   DateTime? _lastSyncTime;
@@ -34,11 +35,11 @@ class UnifiedSyncService with ChangeNotifier {
   Future<void> initialize({
     required OfflineDataService offlineDataService,
     required ApiClient apiClient,
-    required AuthService authService, // Add AuthService parameter
+    required AuthService authService,
   }) async {
     _offlineDataService = offlineDataService;
     _apiClient = apiClient;
-    _authService = authService; // Store AuthService
+    _authService = authService;
     _logger.info('UnifiedSyncService initialized');
   }
 
@@ -126,22 +127,48 @@ class UnifiedSyncService with ChangeNotifier {
       final localTransactions = await _offlineDataService!.getAllTransactions(profileId);
       result.localCount = localTransactions.length;
 
-      if (isOnline) {
-        // Try to sync with server
+      if (isOnline && _apiClient!.isAuthenticated) {
         try {
           // Upload unsynced transactions
-          final unsynced = localTransactions.where((t) => !t.isSynced).toList();
+          final unsynced = localTransactions.where((t) => t.remoteId == null).toList();
           if (unsynced.isNotEmpty) {
-            // TODO: Implement server sync when API is ready
-            _logger.info('${unsynced.length} transactions pending server sync');
-            result.uploaded = unsynced.length;
+            _logger.info('Uploading ${unsynced.length} transactions to server');
+            
+            for (final transaction in unsynced) {
+              try {
+                final payload = {
+                  'amount_minor': (transaction.amount * 100).round(),
+                  'currency': 'KES',
+                  'description': transaction.description ?? '',
+                  'category_id': transaction.categoryId,
+                  'date': transaction.date.toIso8601String(),
+                  'is_expense': transaction.isExpense,
+                  'transaction_type': transaction.type.name,
+                  'profile_id': profileId,
+                  'goal_id': transaction.goalId,
+                };
+                
+                final response = await _apiClient!.createTransaction(payload);
+                final remoteId = response['id']?.toString();
+                
+                // TODO: Store remoteId mapping locally
+                _logger.info('Transaction uploaded with remote ID: $remoteId');
+                result.uploaded++;
+              } catch (e) {
+                _logger.warning('Failed to upload transaction: $e');
+              }
+            }
           }
 
           // Download new transactions from server
-          // TODO: Implement when API is ready
-          result.downloaded = 0;
+          final remoteTransactions = await _apiClient!.getTransactions(profileId: profileId);
+          _logger.info('Downloaded ${remoteTransactions.length} transactions from server');
+          result.downloaded = remoteTransactions.length;
+          
+          // TODO: Merge remote transactions into local storage
+          
         } catch (e) {
-          _logger.warning('Server sync failed, local data preserved: $e');
+          _logger.warning('Transaction server sync failed: $e');
         }
       }
 
@@ -155,21 +182,87 @@ class UnifiedSyncService with ChangeNotifier {
     return result;
   }
 
-  /// Sync goals
+  /// Sync goals with currentAmount field ⭐ UPDATED
   Future<EntitySyncResult> _syncGoals(String profileId, bool isOnline) async {
     final result = EntitySyncResult();
     
     try {
       final localGoals = await _offlineDataService!.getAllGoals(profileId);
       result.localCount = localGoals.length;
+      _logger.info('Found ${localGoals.length} local goals');
 
-      if (isOnline) {
+      if (isOnline && _apiClient!.isAuthenticated) {
         try {
-          final unsynced = localGoals.where((g) => !g.isSynced).toList();
-          if (unsynced.isNotEmpty) {
-            _logger.info('${unsynced.length} goals pending server sync');
-            result.uploaded = unsynced.length;
+          // Download goals from server
+          final remoteGoals = await _apiClient!.getGoals(profileId: profileId);
+          _logger.info('Downloaded ${remoteGoals.length} goals from server');
+          
+          // Merge server goals into local
+          for (final remote in remoteGoals) {
+            try {
+              final remoteId = remote['id']?.toString();
+              final name = remote['name']?.toString() ?? '';
+              final targetAmount = double.tryParse(remote['target_amount']?.toString() ?? '0') ?? 0.0;
+              final currentAmount = double.tryParse(remote['current_amount']?.toString() ?? '0') ?? 0.0; // ⭐ NEW FIELD
+              final dueDate = DateTime.tryParse(remote['due_date']?.toString() ?? '') ?? DateTime.now();
+              final isCompleted = remote['is_completed'] == true;
+              
+              // Check if goal exists locally
+              final existingGoal = localGoals.firstWhere(
+                (g) => g.remoteId == remoteId,
+                orElse: () => Goal.empty(),
+              );
+              
+              if (existingGoal.id!.isEmpty) {
+                // Create new goal locally
+                final goal = Goal(
+                  name: name,
+                  targetAmount: targetAmount,
+                  currentAmount: currentAmount, // ⭐ INCLUDED
+                  targetDate: dueDate,
+                  profileId: profileId,
+                  goalType: GoalType.other,
+                  status: isCompleted ? GoalStatus.completed : GoalStatus.active,
+                  remoteId: remoteId,
+                );
+                
+                await _offlineDataService!.saveGoal(goal);
+                result.downloaded++;
+              } else {
+                // Update existing goal if server has newer data
+                // TODO: Implement conflict resolution based on timestamps
+              }
+            } catch (e) {
+              _logger.warning('Failed to process remote goal: $e');
+            }
           }
+
+          // Upload local goals to server
+          for (final localGoal in localGoals) {
+            if (localGoal.remoteId == null || localGoal.remoteId!.isEmpty) {
+              try {
+                final payload = {
+                  'name': localGoal.name,
+                  'target_amount': localGoal.targetAmount,
+                  'current_amount': localGoal.currentAmount, // ⭐ INCLUDED
+                  'due_date': localGoal.targetDate.toIso8601String(),
+                  'is_completed': localGoal.status == GoalStatus.completed,
+                  'profile_id': profileId,
+                };
+                
+                final response = await _apiClient!.createGoal(payload);
+                final remoteId = response['id']?.toString();
+                
+                // Store remoteId in local goal
+                // TODO: Update local goal with remoteId
+                _logger.info('Goal uploaded with remote ID: $remoteId');
+                result.uploaded++;
+              } catch (e) {
+                _logger.warning('Failed to upload goal: $e');
+              }
+            }
+          }
+          
         } catch (e) {
           _logger.warning('Goal server sync failed: $e');
         }
@@ -195,11 +288,8 @@ class UnifiedSyncService with ChangeNotifier {
 
       if (isOnline) {
         try {
-          final unsynced = localBudgets.where((b) => !b.isSynced).toList();
-          if (unsynced.isNotEmpty) {
-            _logger.info('${unsynced.length} budgets pending server sync');
-            result.uploaded = unsynced.length;
-          }
+          // TODO: Implement budget server sync
+          _logger.info('${localBudgets.length} budgets in local storage');
         } catch (e) {
           _logger.warning('Budget server sync failed: $e');
         }
@@ -223,14 +313,7 @@ class UnifiedSyncService with ChangeNotifier {
       final localLoans = await _offlineDataService!.getAllLoans(profileId);
       result.localCount = localLoans.length;
 
-      if (isOnline) {
-        // Check if we have auth token
-        if (!_apiClient!.isAuthenticated) {
-          _logger.warning('Not authenticated for loan sync');
-          // Try to restore token or skip server sync
-          result.success = true; // Mark as success but only local
-          return result;
-        }
+      if (isOnline && _apiClient!.isAuthenticated) {
         try {
           _logger.info('${localLoans.length} loans in local storage');
           
@@ -257,9 +340,14 @@ class UnifiedSyncService with ChangeNotifier {
               final startDate = DateTime.tryParse(r['start_date']?.toString() ?? '') ?? DateTime.now();
               final endDate = DateTime.tryParse(r['end_date']?.toString() ?? '') ?? DateTime.now();
               final profileIdRemote = r['profile_id']?.toString() ?? profileId;
+              final remoteId = r['id']?.toString();
 
-              // Simple duplicate detection: match by name and start_date
-              final exists = localLoans.any((l) => l.name == name && (l.startDate?.toIso8601String() ?? '') == startDate.toIso8601String());
+              // Simple duplicate detection: match by remote ID or name+start_date
+              final exists = localLoans.any((l) => 
+                (l.remoteId == remoteId && remoteId != null) ||
+                (l.name == name && l.startDate == startDate)
+              );
+              
               if (!exists) {
                 final domainLoan = Loan(
                   name: name,
@@ -269,15 +357,11 @@ class UnifiedSyncService with ChangeNotifier {
                   startDate: startDate,
                   endDate: endDate,
                   profileId: profileIdRemote,
+                  remoteId: remoteId,
                 );
 
                 final localId = await _offlineDataService!.saveLoan(domainLoan);
-                // store mapping from local -> remote id when available
-                final remoteId = r['id']?.toString();
-                if (remoteId != null && remoteId.isNotEmpty) {
-                  await _offlineDataService!.setRemoteLoanId(localId, remoteId);
-                }
-                result.uploaded += 1; // count as local inserted
+                result.downloaded++;
               }
             } catch (e) {
               _logger.warning('Failed to merge remote loan: $e');
@@ -288,30 +372,25 @@ class UnifiedSyncService with ChangeNotifier {
           for (final local in localLoans) {
             try {
               if (local.id == null) continue;
-              final remoteId = await _offlineDataService!.getRemoteLoanId(local.id!);
-              final payload = {
-                'name': local.name,
-                'principal_minor': local.principalMinor, // Changed from (local.principal * 100).round()
-                'currency': local.currency, // Changed from hardcoded 'KES'
-                'interest_rate': local.interestRate,
-                'start_date': local.startDate.toIso8601String(), // Removed null check
-                'end_date': local.endDate.toIso8601String(), // Removed null check
-                'profile_id': local.profileId, // Changed from profileId parameter
-              };
+              
+              if (local.remoteId == null || local.remoteId!.isEmpty) {
+                final payload = {
+                  'name': local.name,
+                  'principal_minor': local.principalMinor,
+                  'currency': local.currency,
+                  'interest_rate': local.interestRate,
+                  'start_date': local.startDate.toIso8601String(),
+                  'end_date': local.endDate.toIso8601String(),
+                  'profile_id': local.profileId,
+                };
 
-              if (remoteId == null) {
                 final created = await _apiClient!.createLoan(loan: payload);
                 final createdId = created['id']?.toString();
                 if (createdId != null) {
-                  await _offlineDataService!.setRemoteLoanId(local.id!, createdId);
-                  result.uploaded += 1;
-                }
-              } else {
-                // Attempt to update server representation
-                final idInt = int.tryParse(remoteId);
-                if (idInt != null) {
-                  await _apiClient!.updateLoan(loanId: idInt, loan: payload);
-                  result.uploaded += 1;
+                  // Update local loan with remote ID
+                  final updatedLoan = local.copyWith(remoteId: createdId);
+                  await _offlineDataService!.updateLoan(updatedLoan);
+                  result.uploaded++;
                 }
               }
             } catch (e) {
@@ -361,7 +440,7 @@ class UnifiedSyncService with ChangeNotifier {
     return await syncProfile(profileId);
   }
 
-  /// Force sync all data (ignores sync status)
+  /// Force sync all data (ignoring sync status)
   Future<SyncResult> forceSync(String profileId) async {
     _logger.info('Starting force sync for profile: $profileId');
     return await syncProfile(profileId);

@@ -8,6 +8,7 @@ part of 'goal.dart';
 
 Goal _$GoalFromJson(Map<String, dynamic> json) => Goal(
   id: json['id'] as String?,
+  remoteId: json['remoteId'] as String?,
   name: json['name'] as String,
   description: json['description'] as String?,
   targetAmount: (json['targetAmount'] as num).toDouble(),
@@ -35,6 +36,7 @@ Goal _$GoalFromJson(Map<String, dynamic> json) => Goal(
 
 Map<String, dynamic> _$GoalToJson(Goal instance) => <String, dynamic>{
   'id': instance.id,
+  'remoteId': instance.remoteId,
   'name': instance.name,
   'description': instance.description,
   'targetAmount': instance.targetAmount,

@@ -377,7 +377,7 @@ class TransactionEventService extends ChangeNotifier {
     final goals = await _offlineDataService!.getAllGoals(profileId);
     for (final goal in goals) {
       if (goal.status == GoalStatus.active) {
-        await _recalculateGoalProgress(goal.id);
+        await _recalculateGoalProgress(goal.id!);
       }
     }
     

@@ -109,6 +109,15 @@ class $TransactionsTable extends Transactions
     type: DriftSqlType.int,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _goalIdMeta = const VerificationMeta('goalId');
+  @override
+  late final GeneratedColumn<String> goalId = GeneratedColumn<String>(
+    'goal_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _transactionTypeMeta = const VerificationMeta(
     'transactionType',
   );
@@ -121,15 +130,6 @@ class $TransactionsTable extends Transactions
     requiredDuringInsert: false,
     defaultValue: const Constant('expense'),
   );
-  static const VerificationMeta _goalIdMeta = const VerificationMeta('goalId');
-  @override
-  late final GeneratedColumn<String> goalId = GeneratedColumn<String>(
-    'goal_id',
-    aliasedName,
-    true,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -141,8 +141,8 @@ class $TransactionsTable extends Transactions
     isExpense,
     rawSms,
     profileId,
-    transactionType,
     goalId,
+    transactionType,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -212,6 +212,12 @@ class $TransactionsTable extends Transactions
     } else if (isInserting) {
       context.missing(_profileIdMeta);
     }
+    if (data.containsKey('goal_id')) {
+      context.handle(
+        _goalIdMeta,
+        goalId.isAcceptableOrUnknown(data['goal_id']!, _goalIdMeta),
+      );
+    }
     if (data.containsKey('transaction_type')) {
       context.handle(
         _transactionTypeMeta,
@@ -219,12 +225,6 @@ class $TransactionsTable extends Transactions
           data['transaction_type']!,
           _transactionTypeMeta,
         ),
-      );
-    }
-    if (data.containsKey('goal_id')) {
-      context.handle(
-        _goalIdMeta,
-        goalId.isAcceptableOrUnknown(data['goal_id']!, _goalIdMeta),
       );
     }
     return context;
@@ -274,14 +274,14 @@ class $TransactionsTable extends Transactions
         DriftSqlType.int,
         data['${effectivePrefix}profile_id'],
       )!,
-      transactionType: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}transaction_type'],
-      )!,
       goalId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}goal_id'],
       ),
+      transactionType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}transaction_type'],
+      )!,
     );
   }
 
@@ -304,8 +304,8 @@ class Transaction extends DataClass implements Insertable<Transaction> {
   final bool isExpense;
   final String? rawSms;
   final int profileId;
-  final String transactionType;
   final String? goalId;
+  final String transactionType;
   const Transaction({
     required this.id,
     required this.amountMinor,
@@ -316,8 +316,8 @@ class Transaction extends DataClass implements Insertable<Transaction> {
     required this.isExpense,
     this.rawSms,
     required this.profileId,
-    required this.transactionType,
     this.goalId,
+    required this.transactionType,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -337,10 +337,10 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       map['raw_sms'] = Variable<String>(rawSms);
     }
     map['profile_id'] = Variable<int>(profileId);
-    map['transaction_type'] = Variable<String>(transactionType);
     if (!nullToAbsent || goalId != null) {
       map['goal_id'] = Variable<String>(goalId);
     }
+    map['transaction_type'] = Variable<String>(transactionType);
     return map;
   }
 
@@ -357,10 +357,10 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           ? const Value.absent()
           : Value(rawSms),
       profileId: Value(profileId),
-      transactionType: Value(transactionType),
       goalId: goalId == null && nullToAbsent
           ? const Value.absent()
           : Value(goalId),
+      transactionType: Value(transactionType),
     );
   }
 
@@ -379,8 +379,8 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       isExpense: serializer.fromJson<bool>(json['isExpense']),
       rawSms: serializer.fromJson<String?>(json['rawSms']),
       profileId: serializer.fromJson<int>(json['profileId']),
-      transactionType: serializer.fromJson<String>(json['transactionType']),
       goalId: serializer.fromJson<String?>(json['goalId']),
+      transactionType: serializer.fromJson<String>(json['transactionType']),
     );
   }
   @override
@@ -396,8 +396,8 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       'isExpense': serializer.toJson<bool>(isExpense),
       'rawSms': serializer.toJson<String?>(rawSms),
       'profileId': serializer.toJson<int>(profileId),
-      'transactionType': serializer.toJson<String>(transactionType),
       'goalId': serializer.toJson<String?>(goalId),
+      'transactionType': serializer.toJson<String>(transactionType),
     };
   }
 
@@ -411,8 +411,8 @@ class Transaction extends DataClass implements Insertable<Transaction> {
     bool? isExpense,
     Value<String?> rawSms = const Value.absent(),
     int? profileId,
-    String? transactionType,
     Value<String?> goalId = const Value.absent(),
+    String? transactionType,
   }) => Transaction(
     id: id ?? this.id,
     amountMinor: amountMinor ?? this.amountMinor,
@@ -423,8 +423,8 @@ class Transaction extends DataClass implements Insertable<Transaction> {
     isExpense: isExpense ?? this.isExpense,
     rawSms: rawSms.present ? rawSms.value : this.rawSms,
     profileId: profileId ?? this.profileId,
-    transactionType: transactionType ?? this.transactionType,
     goalId: goalId.present ? goalId.value : this.goalId,
+    transactionType: transactionType ?? this.transactionType,
   );
   Transaction copyWithCompanion(TransactionsCompanion data) {
     return Transaction(
@@ -443,10 +443,10 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       isExpense: data.isExpense.present ? data.isExpense.value : this.isExpense,
       rawSms: data.rawSms.present ? data.rawSms.value : this.rawSms,
       profileId: data.profileId.present ? data.profileId.value : this.profileId,
+      goalId: data.goalId.present ? data.goalId.value : this.goalId,
       transactionType: data.transactionType.present
           ? data.transactionType.value
           : this.transactionType,
-      goalId: data.goalId.present ? data.goalId.value : this.goalId,
     );
   }
 
@@ -462,8 +462,8 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           ..write('isExpense: $isExpense, ')
           ..write('rawSms: $rawSms, ')
           ..write('profileId: $profileId, ')
-          ..write('transactionType: $transactionType, ')
-          ..write('goalId: $goalId')
+          ..write('goalId: $goalId, ')
+          ..write('transactionType: $transactionType')
           ..write(')'))
         .toString();
   }
@@ -479,8 +479,8 @@ class Transaction extends DataClass implements Insertable<Transaction> {
     isExpense,
     rawSms,
     profileId,
-    transactionType,
     goalId,
+    transactionType,
   );
   @override
   bool operator ==(Object other) =>
@@ -495,8 +495,8 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           other.isExpense == this.isExpense &&
           other.rawSms == this.rawSms &&
           other.profileId == this.profileId &&
-          other.transactionType == this.transactionType &&
-          other.goalId == this.goalId);
+          other.goalId == this.goalId &&
+          other.transactionType == this.transactionType);
 }
 
 class TransactionsCompanion extends UpdateCompanion<Transaction> {
@@ -509,8 +509,8 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
   final Value<bool> isExpense;
   final Value<String?> rawSms;
   final Value<int> profileId;
-  final Value<String> transactionType;
   final Value<String?> goalId;
+  final Value<String> transactionType;
   const TransactionsCompanion({
     this.id = const Value.absent(),
     this.amountMinor = const Value.absent(),
@@ -521,8 +521,8 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     this.isExpense = const Value.absent(),
     this.rawSms = const Value.absent(),
     this.profileId = const Value.absent(),
-    this.transactionType = const Value.absent(),
     this.goalId = const Value.absent(),
+    this.transactionType = const Value.absent(),
   });
   TransactionsCompanion.insert({
     this.id = const Value.absent(),
@@ -534,8 +534,8 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     this.isExpense = const Value.absent(),
     this.rawSms = const Value.absent(),
     required int profileId,
-    this.transactionType = const Value.absent(),
     this.goalId = const Value.absent(),
+    this.transactionType = const Value.absent(),
   }) : amountMinor = Value(amountMinor),
        currency = Value(currency),
        description = Value(description),
@@ -551,8 +551,8 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     Expression<bool>? isExpense,
     Expression<String>? rawSms,
     Expression<int>? profileId,
-    Expression<String>? transactionType,
     Expression<String>? goalId,
+    Expression<String>? transactionType,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -564,8 +564,8 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
       if (isExpense != null) 'is_expense': isExpense,
       if (rawSms != null) 'raw_sms': rawSms,
       if (profileId != null) 'profile_id': profileId,
-      if (transactionType != null) 'transaction_type': transactionType,
       if (goalId != null) 'goal_id': goalId,
+      if (transactionType != null) 'transaction_type': transactionType,
     });
   }
 
@@ -579,8 +579,8 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     Value<bool>? isExpense,
     Value<String?>? rawSms,
     Value<int>? profileId,
-    Value<String>? transactionType,
     Value<String?>? goalId,
+    Value<String>? transactionType,
   }) {
     return TransactionsCompanion(
       id: id ?? this.id,
@@ -592,8 +592,8 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
       isExpense: isExpense ?? this.isExpense,
       rawSms: rawSms ?? this.rawSms,
       profileId: profileId ?? this.profileId,
-      transactionType: transactionType ?? this.transactionType,
       goalId: goalId ?? this.goalId,
+      transactionType: transactionType ?? this.transactionType,
     );
   }
 
@@ -629,11 +629,11 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     if (profileId.present) {
       map['profile_id'] = Variable<int>(profileId.value);
     }
-    if (transactionType.present) {
-      map['transaction_type'] = Variable<String>(transactionType.value);
-    }
     if (goalId.present) {
       map['goal_id'] = Variable<String>(goalId.value);
+    }
+    if (transactionType.present) {
+      map['transaction_type'] = Variable<String>(transactionType.value);
     }
     return map;
   }
@@ -650,8 +650,8 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
           ..write('isExpense: $isExpense, ')
           ..write('rawSms: $rawSms, ')
           ..write('profileId: $profileId, ')
-          ..write('transactionType: $transactionType, ')
-          ..write('goalId: $goalId')
+          ..write('goalId: $goalId, ')
+          ..write('transactionType: $transactionType')
           ..write(')'))
         .toString();
   }
@@ -741,6 +741,18 @@ class $GoalsTable extends Goals with TableInfo<$GoalsTable, Goal> {
     type: DriftSqlType.int,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _currentMinorMeta = const VerificationMeta(
+    'currentMinor',
+  );
+  @override
+  late final GeneratedColumn<double> currentMinor = GeneratedColumn<double>(
+    'current_minor',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0.0),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -750,6 +762,7 @@ class $GoalsTable extends Goals with TableInfo<$GoalsTable, Goal> {
     dueDate,
     completed,
     profileId,
+    currentMinor,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -804,6 +817,15 @@ class $GoalsTable extends Goals with TableInfo<$GoalsTable, Goal> {
     } else if (isInserting) {
       context.missing(_profileIdMeta);
     }
+    if (data.containsKey('current_minor')) {
+      context.handle(
+        _currentMinorMeta,
+        currentMinor.isAcceptableOrUnknown(
+          data['current_minor']!,
+          _currentMinorMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -843,6 +865,10 @@ class $GoalsTable extends Goals with TableInfo<$GoalsTable, Goal> {
         DriftSqlType.int,
         data['${effectivePrefix}profile_id'],
       )!,
+      currentMinor: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}current_minor'],
+      )!,
     );
   }
 
@@ -863,6 +889,7 @@ class Goal extends DataClass implements Insertable<Goal> {
   final DateTime dueDate;
   final bool completed;
   final int profileId;
+  final double currentMinor;
   const Goal({
     required this.id,
     required this.title,
@@ -871,6 +898,7 @@ class Goal extends DataClass implements Insertable<Goal> {
     required this.dueDate,
     required this.completed,
     required this.profileId,
+    required this.currentMinor,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -886,6 +914,7 @@ class Goal extends DataClass implements Insertable<Goal> {
     map['due_date'] = Variable<DateTime>(dueDate);
     map['completed'] = Variable<bool>(completed);
     map['profile_id'] = Variable<int>(profileId);
+    map['current_minor'] = Variable<double>(currentMinor);
     return map;
   }
 
@@ -898,6 +927,7 @@ class Goal extends DataClass implements Insertable<Goal> {
       dueDate: Value(dueDate),
       completed: Value(completed),
       profileId: Value(profileId),
+      currentMinor: Value(currentMinor),
     );
   }
 
@@ -914,6 +944,7 @@ class Goal extends DataClass implements Insertable<Goal> {
       dueDate: serializer.fromJson<DateTime>(json['dueDate']),
       completed: serializer.fromJson<bool>(json['completed']),
       profileId: serializer.fromJson<int>(json['profileId']),
+      currentMinor: serializer.fromJson<double>(json['currentMinor']),
     );
   }
   @override
@@ -927,6 +958,7 @@ class Goal extends DataClass implements Insertable<Goal> {
       'dueDate': serializer.toJson<DateTime>(dueDate),
       'completed': serializer.toJson<bool>(completed),
       'profileId': serializer.toJson<int>(profileId),
+      'currentMinor': serializer.toJson<double>(currentMinor),
     };
   }
 
@@ -938,6 +970,7 @@ class Goal extends DataClass implements Insertable<Goal> {
     DateTime? dueDate,
     bool? completed,
     int? profileId,
+    double? currentMinor,
   }) => Goal(
     id: id ?? this.id,
     title: title ?? this.title,
@@ -946,6 +979,7 @@ class Goal extends DataClass implements Insertable<Goal> {
     dueDate: dueDate ?? this.dueDate,
     completed: completed ?? this.completed,
     profileId: profileId ?? this.profileId,
+    currentMinor: currentMinor ?? this.currentMinor,
   );
   Goal copyWithCompanion(GoalsCompanion data) {
     return Goal(
@@ -958,6 +992,9 @@ class Goal extends DataClass implements Insertable<Goal> {
       dueDate: data.dueDate.present ? data.dueDate.value : this.dueDate,
       completed: data.completed.present ? data.completed.value : this.completed,
       profileId: data.profileId.present ? data.profileId.value : this.profileId,
+      currentMinor: data.currentMinor.present
+          ? data.currentMinor.value
+          : this.currentMinor,
     );
   }
 
@@ -970,7 +1007,8 @@ class Goal extends DataClass implements Insertable<Goal> {
           ..write('currency: $currency, ')
           ..write('dueDate: $dueDate, ')
           ..write('completed: $completed, ')
-          ..write('profileId: $profileId')
+          ..write('profileId: $profileId, ')
+          ..write('currentMinor: $currentMinor')
           ..write(')'))
         .toString();
   }
@@ -984,6 +1022,7 @@ class Goal extends DataClass implements Insertable<Goal> {
     dueDate,
     completed,
     profileId,
+    currentMinor,
   );
   @override
   bool operator ==(Object other) =>
@@ -995,7 +1034,8 @@ class Goal extends DataClass implements Insertable<Goal> {
           other.currency == this.currency &&
           other.dueDate == this.dueDate &&
           other.completed == this.completed &&
-          other.profileId == this.profileId);
+          other.profileId == this.profileId &&
+          other.currentMinor == this.currentMinor);
 }
 
 class GoalsCompanion extends UpdateCompanion<Goal> {
@@ -1006,6 +1046,7 @@ class GoalsCompanion extends UpdateCompanion<Goal> {
   final Value<DateTime> dueDate;
   final Value<bool> completed;
   final Value<int> profileId;
+  final Value<double> currentMinor;
   const GoalsCompanion({
     this.id = const Value.absent(),
     this.title = const Value.absent(),
@@ -1014,6 +1055,7 @@ class GoalsCompanion extends UpdateCompanion<Goal> {
     this.dueDate = const Value.absent(),
     this.completed = const Value.absent(),
     this.profileId = const Value.absent(),
+    this.currentMinor = const Value.absent(),
   });
   GoalsCompanion.insert({
     this.id = const Value.absent(),
@@ -1023,6 +1065,7 @@ class GoalsCompanion extends UpdateCompanion<Goal> {
     required DateTime dueDate,
     this.completed = const Value.absent(),
     required int profileId,
+    this.currentMinor = const Value.absent(),
   }) : title = Value(title),
        targetMinor = Value(targetMinor),
        currency = Value(currency),
@@ -1036,6 +1079,7 @@ class GoalsCompanion extends UpdateCompanion<Goal> {
     Expression<DateTime>? dueDate,
     Expression<bool>? completed,
     Expression<int>? profileId,
+    Expression<double>? currentMinor,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -1045,6 +1089,7 @@ class GoalsCompanion extends UpdateCompanion<Goal> {
       if (dueDate != null) 'due_date': dueDate,
       if (completed != null) 'completed': completed,
       if (profileId != null) 'profile_id': profileId,
+      if (currentMinor != null) 'current_minor': currentMinor,
     });
   }
 
@@ -1056,6 +1101,7 @@ class GoalsCompanion extends UpdateCompanion<Goal> {
     Value<DateTime>? dueDate,
     Value<bool>? completed,
     Value<int>? profileId,
+    Value<double>? currentMinor,
   }) {
     return GoalsCompanion(
       id: id ?? this.id,
@@ -1065,6 +1111,7 @@ class GoalsCompanion extends UpdateCompanion<Goal> {
       dueDate: dueDate ?? this.dueDate,
       completed: completed ?? this.completed,
       profileId: profileId ?? this.profileId,
+      currentMinor: currentMinor ?? this.currentMinor,
     );
   }
 
@@ -1094,6 +1141,9 @@ class GoalsCompanion extends UpdateCompanion<Goal> {
     if (profileId.present) {
       map['profile_id'] = Variable<int>(profileId.value);
     }
+    if (currentMinor.present) {
+      map['current_minor'] = Variable<double>(currentMinor.value);
+    }
     return map;
   }
 
@@ -1106,7 +1156,8 @@ class GoalsCompanion extends UpdateCompanion<Goal> {
           ..write('currency: $currency, ')
           ..write('dueDate: $dueDate, ')
           ..write('completed: $completed, ')
-          ..write('profileId: $profileId')
+          ..write('profileId: $profileId, ')
+          ..write('currentMinor: $currentMinor')
           ..write(')'))
         .toString();
   }
@@ -3123,8 +3174,8 @@ typedef $$TransactionsTableCreateCompanionBuilder =
       Value<bool> isExpense,
       Value<String?> rawSms,
       required int profileId,
-      Value<String> transactionType,
       Value<String?> goalId,
+      Value<String> transactionType,
     });
 typedef $$TransactionsTableUpdateCompanionBuilder =
     TransactionsCompanion Function({
@@ -3137,8 +3188,8 @@ typedef $$TransactionsTableUpdateCompanionBuilder =
       Value<bool> isExpense,
       Value<String?> rawSms,
       Value<int> profileId,
-      Value<String> transactionType,
       Value<String?> goalId,
+      Value<String> transactionType,
     });
 
 class $$TransactionsTableFilterComposer
@@ -3196,13 +3247,13 @@ class $$TransactionsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<String> get transactionType => $composableBuilder(
-    column: $table.transactionType,
+  ColumnFilters<String> get goalId => $composableBuilder(
+    column: $table.goalId,
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<String> get goalId => $composableBuilder(
-    column: $table.goalId,
+  ColumnFilters<String> get transactionType => $composableBuilder(
+    column: $table.transactionType,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -3261,13 +3312,13 @@ class $$TransactionsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<String> get transactionType => $composableBuilder(
-    column: $table.transactionType,
+  ColumnOrderings<String> get goalId => $composableBuilder(
+    column: $table.goalId,
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<String> get goalId => $composableBuilder(
-    column: $table.goalId,
+  ColumnOrderings<String> get transactionType => $composableBuilder(
+    column: $table.transactionType,
     builder: (column) => ColumnOrderings(column),
   );
 }
@@ -3315,13 +3366,13 @@ class $$TransactionsTableAnnotationComposer
   GeneratedColumn<int> get profileId =>
       $composableBuilder(column: $table.profileId, builder: (column) => column);
 
+  GeneratedColumn<String> get goalId =>
+      $composableBuilder(column: $table.goalId, builder: (column) => column);
+
   GeneratedColumn<String> get transactionType => $composableBuilder(
     column: $table.transactionType,
     builder: (column) => column,
   );
-
-  GeneratedColumn<String> get goalId =>
-      $composableBuilder(column: $table.goalId, builder: (column) => column);
 }
 
 class $$TransactionsTableTableManager
@@ -3364,8 +3415,8 @@ class $$TransactionsTableTableManager
                 Value<bool> isExpense = const Value.absent(),
                 Value<String?> rawSms = const Value.absent(),
                 Value<int> profileId = const Value.absent(),
-                Value<String> transactionType = const Value.absent(),
                 Value<String?> goalId = const Value.absent(),
+                Value<String> transactionType = const Value.absent(),
               }) => TransactionsCompanion(
                 id: id,
                 amountMinor: amountMinor,
@@ -3376,8 +3427,8 @@ class $$TransactionsTableTableManager
                 isExpense: isExpense,
                 rawSms: rawSms,
                 profileId: profileId,
-                transactionType: transactionType,
                 goalId: goalId,
+                transactionType: transactionType,
               ),
           createCompanionCallback:
               ({
@@ -3390,8 +3441,8 @@ class $$TransactionsTableTableManager
                 Value<bool> isExpense = const Value.absent(),
                 Value<String?> rawSms = const Value.absent(),
                 required int profileId,
-                Value<String> transactionType = const Value.absent(),
                 Value<String?> goalId = const Value.absent(),
+                Value<String> transactionType = const Value.absent(),
               }) => TransactionsCompanion.insert(
                 id: id,
                 amountMinor: amountMinor,
@@ -3402,8 +3453,8 @@ class $$TransactionsTableTableManager
                 isExpense: isExpense,
                 rawSms: rawSms,
                 profileId: profileId,
-                transactionType: transactionType,
                 goalId: goalId,
+                transactionType: transactionType,
               ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
@@ -3439,6 +3490,7 @@ typedef $$GoalsTableCreateCompanionBuilder =
       required DateTime dueDate,
       Value<bool> completed,
       required int profileId,
+      Value<double> currentMinor,
     });
 typedef $$GoalsTableUpdateCompanionBuilder =
     GoalsCompanion Function({
@@ -3449,6 +3501,7 @@ typedef $$GoalsTableUpdateCompanionBuilder =
       Value<DateTime> dueDate,
       Value<bool> completed,
       Value<int> profileId,
+      Value<double> currentMinor,
     });
 
 class $$GoalsTableFilterComposer extends Composer<_$AppDatabase, $GoalsTable> {
@@ -3492,6 +3545,11 @@ class $$GoalsTableFilterComposer extends Composer<_$AppDatabase, $GoalsTable> {
 
   ColumnFilters<int> get profileId => $composableBuilder(
     column: $table.profileId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get currentMinor => $composableBuilder(
+    column: $table.currentMinor,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -3539,6 +3597,11 @@ class $$GoalsTableOrderingComposer
     column: $table.profileId,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<double> get currentMinor => $composableBuilder(
+    column: $table.currentMinor,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$GoalsTableAnnotationComposer
@@ -3573,6 +3636,11 @@ class $$GoalsTableAnnotationComposer
 
   GeneratedColumn<int> get profileId =>
       $composableBuilder(column: $table.profileId, builder: (column) => column);
+
+  GeneratedColumn<double> get currentMinor => $composableBuilder(
+    column: $table.currentMinor,
+    builder: (column) => column,
+  );
 }
 
 class $$GoalsTableTableManager
@@ -3610,6 +3678,7 @@ class $$GoalsTableTableManager
                 Value<DateTime> dueDate = const Value.absent(),
                 Value<bool> completed = const Value.absent(),
                 Value<int> profileId = const Value.absent(),
+                Value<double> currentMinor = const Value.absent(),
               }) => GoalsCompanion(
                 id: id,
                 title: title,
@@ -3618,6 +3687,7 @@ class $$GoalsTableTableManager
                 dueDate: dueDate,
                 completed: completed,
                 profileId: profileId,
+                currentMinor: currentMinor,
               ),
           createCompanionCallback:
               ({
@@ -3628,6 +3698,7 @@ class $$GoalsTableTableManager
                 required DateTime dueDate,
                 Value<bool> completed = const Value.absent(),
                 required int profileId,
+                Value<double> currentMinor = const Value.absent(),
               }) => GoalsCompanion.insert(
                 id: id,
                 title: title,
@@ -3636,6 +3707,7 @@ class $$GoalsTableTableManager
                 dueDate: dueDate,
                 completed: completed,
                 profileId: profileId,
+                currentMinor: currentMinor,
               ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))

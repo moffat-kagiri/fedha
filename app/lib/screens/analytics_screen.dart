@@ -349,7 +349,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   }
 
   Widget _buildLoansSummary(ColorScheme colorScheme, TextTheme textTheme) {
-    final totalDebt = _data!.loans.fold(0.0, (sum, l) => sum + l.principalMinor);
+    final totalDebt = _data!.loans.fold(0.00, (sum, l) => sum + l.principalMinor);
     
     return Card(
       child: Padding(

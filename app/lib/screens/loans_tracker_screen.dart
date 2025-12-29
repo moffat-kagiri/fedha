@@ -112,7 +112,7 @@ class _LoansTrackerTabState extends State<LoansTrackerTab> {
         final monthlyPayment = _computeMonthlyPayment(principal, d.interestRate, totalMonths);
 
         return Loan(
-          id: d.id,
+          id: int.tryParse(d.id!) ?? 0,
           name: d.name,
           principal: principal,
           interestRate: d.interestRate,
@@ -550,7 +550,7 @@ class _LoansTrackerTabState extends State<LoansTrackerTab> {
                 final chosenEnd = endDate;
 
                 final domainLoan = domain_loan.Loan(
-                  id: loan?.id,
+                  id: loan?.id.toString(),
                   name: name,
                   principalMinor: (principal * 100).roundToDouble(),
                   currency: 'KES',

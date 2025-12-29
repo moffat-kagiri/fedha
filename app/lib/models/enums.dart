@@ -136,6 +136,19 @@ enum InterestModel {
   reducingBalance,
 }
 
+// In enums.dart
+enum LoanStatus {
+  active,
+  paid,
+  defaulted,
+  negotiated,
+}
+
+// Add this extension if you want to get the string name
+extension LoanStatusExtension on LoanStatus {
+  String get name => toString().split('.').last;
+}
+
 class InvoiceLineItem {
   final String description;
   final double quantity;
