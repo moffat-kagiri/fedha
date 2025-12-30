@@ -25,7 +25,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   bool _isLoading = true;
   AnalyticsData? _data;
   final _logger = AppLogger.getLogger('AnalyticsScreen');
-  StreamSubscription<TransactionEvent>? _eventSubscription; // CHANGE TYPE
+  StreamSubscription<TransactionEvent>? _eventSubscription;
 
   @override
   void initState() {
@@ -34,21 +34,19 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     _setupEventListeners();
   }
 
-  // ADD: Setup event listeners
   void _setupEventListeners() {
     final eventService = Provider.of<TransactionEventService>(context, listen: false);
     
-    // Listen for transaction events
+    
     _eventSubscription = eventService.eventStream.listen((event) {
-      // Reload analytics when any transaction event occurs
+
       _logger.info('Transaction event received: ${event.type}');
       _loadAnalytics();
     });
   }
 
   @override
-  void dispose() {
-    _eventSubscription?.cancel(); // Clean up
+  void dispose() {    _eventSubscription?.cancel();
     super.dispose();
   }
 
@@ -69,7 +67,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       final loans = await offlineDataService.getAllLoans(profileId);
       final transactions = await offlineDataService.getAllTransactions(profileId);
 
-      // Calculate monthly spending
+      
       final now = DateTime.now();
       final monthStart = DateTime(now.year, now.month, 1);
       final monthlyTransactions = transactions.where(
@@ -349,7 +347,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   }
 
   Widget _buildLoansSummary(ColorScheme colorScheme, TextTheme textTheme) {
-    final totalDebt = _data!.loans.fold(0.00, (sum, l) => sum + l.principalMinor);
+    // ✅ FIX: Divide principalMinor by 100 to get actual amount
+      // Calculate monthly spending
+    final totalDebt = _data!.loans.fold(0.0, (sum, l) => sum + (l.principalMinor / 100));
     
     return Card(
       child: Padding(
