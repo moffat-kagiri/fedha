@@ -8,7 +8,6 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:workmanager/workmanager.dart';
 import 'package:awesome_notifications/awesome_notifications.dart';
 import 'services/notification_service.dart';
-import 'package:flutter/widgets.dart'; 
 import 'package:provider/single_child_widget.dart';
 
 // Models
@@ -125,8 +124,8 @@ Future<void> main() async {
   try {
     logger.info('🚀 Starting Fedha app...');
 
-    await Workmanager().initialize(callbackDispatcher, isInDebugMode: kDebugMode);
-    logger.info('✅ WorkManager initialized');
+    await Workmanager().initialize(callbackDispatcher);
+    if (kDebugMode) logger.info('✅ WorkManager initialized');
 
     await _initializeServices();
 
@@ -222,17 +221,27 @@ Future<void> _initializeServices() async {
   );
   logger.info('✅ Auth service initialized with all dependencies');
 
-  // ==================== REGISTER BACKGROUND TASKS IF LOGGED IN ====================
+  // ==================== 🔴 NEW: RECALCULATE ON APP START ====================
   if (authService.hasActiveProfile && authService.profileId != null) {
     logger.info('User logged in - setting profile for services');
     
     // Set profile for transaction event service
     transactionEventService.setCurrentProfile(authService.profileId!);
     
+    // 🔴 CRITICAL: Recalculate all budgets and goals on app start
+    // This ensures data consistency even if app was closed mid-transaction
+    try {
+      logger.info('🔄 Recalculating budgets and goals on app start...');
+      await transactionEventService.recalculateAll(authService.profileId!);
+      logger.info('✅ Budget and goal recalculation complete');
+    } catch (e, stackTrace) {
+      logger.severe('⚠️ Failed to recalculate budgets/goals', e, stackTrace);
+      // Don't throw - app should still work
+    }
+    
     await _registerBackgroundTasks(authService.profileId!);
     
-        // Also start foreground SMS listener
-
+    // Also start foreground SMS listener
     final smsService = SmsListenerService.instance;
     await smsService.startListening(
       offlineDataService: offlineDataService,

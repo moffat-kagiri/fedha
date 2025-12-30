@@ -190,9 +190,9 @@ class TransactionEventService extends ChangeNotifier {
     }
   }
 
-  // ==================== BUDGET UPDATES ====================
+  // ==================== BUDGET UPDATES (🔴 FIXED) ====================
 
-  /// Update budget spending based on transaction
+  /// 🔴 FIXED: Update budget spending with DATE RANGE CHECK
   Future<void> _updateBudgetSpending({
     required Transaction transaction,
     required bool isAddition,
@@ -203,18 +203,25 @@ class TransactionEventService extends ChangeNotifier {
       // Get all budgets for this profile
       final budgets = await _offlineDataService!.getAllBudgets(transaction.profileId);
       
-      // Find budget matching transaction category
-      final matchingBudget = budgets.where((b) => 
-        b.categoryId == transaction.categoryId && b.isActive
-      ).toList();
+      // 🔴 CRITICAL FIX: Find budget matching BOTH category AND date range
+      final matchingBudgets = budgets.where((b) {
+        final categoryMatch = b.categoryId == transaction.categoryId;
+        final isActive = b.isActive;
+        
+        // 🔴 NEW: Check if transaction date is within budget period
+        final isInDateRange = !transaction.date.isBefore(b.startDate) && 
+                             !transaction.date.isAfter(b.endDate);
+        
+        return categoryMatch && isActive && isInDateRange;
+      }).toList();
 
-      if (matchingBudget.isEmpty) {
-        _logger.info('No active budget found for category: ${transaction.categoryId}');
+      if (matchingBudgets.isEmpty) {
+        _logger.info('No matching budget found for category: ${transaction.categoryId} on ${transaction.date}');
         return;
       }
 
-      // Update the first matching budget
-      final budget = matchingBudget.first;
+      // Update the first matching budget (should only be one per category per period)
+      final budget = matchingBudgets.first;
       final newSpentAmount = isAddition
           ? budget.spentAmount + transaction.amount
           : budget.spentAmount - transaction.amount;
@@ -227,32 +234,32 @@ class TransactionEventService extends ChangeNotifier {
 
       await _budgetService!.updateBudget(updatedBudget);
       
-      _logger.info('✅ Budget updated: ${budget.name} - spent: ${updatedBudget.spentAmount}');
+      _logger.info('✅ Budget updated: ${budget.name} - spent: ${updatedBudget.spentAmount}/${budget.budgetAmount}');
       
     } catch (e, stackTrace) {
       _logger.severe('Error updating budget spending', e, stackTrace);
     }
   }
 
-  /// Recalculate all budgets for a profile
+  /// 🔴 FIXED: Recalculate all budgets with proper date filtering
   Future<void> _recalculateBudgets(String profileId) async {
     try {
       if (_offlineDataService == null || _budgetService == null) return;
 
-      _logger.info('Recalculating budgets for profile: $profileId');
+      _logger.info('🔄 Recalculating budgets for profile: $profileId');
 
       // Get all transactions and budgets
       final transactions = await _offlineDataService!.getAllTransactions(profileId);
       final budgets = await _offlineDataService!.getAllBudgets(profileId);
 
-      // Recalculate spending for each budget
+      // Recalculate spending for each active budget
       for (final budget in budgets.where((b) => b.isActive)) {
-        // Filter transactions within budget period
+        // 🔴 CRITICAL: Filter transactions within budget period
         final budgetTransactions = transactions.where((tx) =>
           tx.type == TransactionType.expense &&
           tx.categoryId == budget.categoryId &&
-          tx.date.isAfter(budget.startDate.subtract(const Duration(days: 1))) &&
-          tx.date.isBefore(budget.endDate.add(const Duration(days: 1)))
+          !tx.date.isBefore(budget.startDate) &&
+          !tx.date.isAfter(budget.endDate)
         ).toList();
 
         // Calculate total spending
@@ -262,7 +269,7 @@ class TransactionEventService extends ChangeNotifier {
         );
 
         // Update budget if spending changed
-        if (totalSpent != budget.spentAmount) {
+        if ((totalSpent - budget.spentAmount).abs() > 0.01) { // Use small epsilon for float comparison
           final updatedBudget = budget.copyWith(
             spentAmount: totalSpent,
             updatedAt: DateTime.now(),
@@ -270,15 +277,17 @@ class TransactionEventService extends ChangeNotifier {
           );
 
           await _budgetService!.updateBudget(updatedBudget);
-          _logger.info('✅ Recalculated budget: ${budget.name} - ${totalSpent}');
+          _logger.info('✅ Recalculated budget: ${budget.name} - ${totalSpent.toStringAsFixed(2)}/${budget.budgetAmount.toStringAsFixed(2)}');
         }
       }
+      
+      _logger.info('✅ Budget recalculation complete');
     } catch (e, stackTrace) {
       _logger.severe('Error recalculating budgets', e, stackTrace);
     }
   }
 
-  // ==================== GOAL UPDATES ====================
+  // ==================== GOAL UPDATES (Unchanged) ====================
 
   /// Update goal progress based on transaction
   Future<void> _updateGoalProgress({
@@ -349,7 +358,7 @@ class TransactionEventService extends ChangeNotifier {
       );
 
       // Update goal if progress changed
-      if (totalSavings != goal.currentAmount) {
+      if ((totalSavings - goal.currentAmount).abs() > 0.01) { // Use epsilon for float comparison
         final isCompleted = totalSavings >= goal.targetAmount;
         
         final updatedGoal = goal.copyWith(
@@ -361,23 +370,30 @@ class TransactionEventService extends ChangeNotifier {
         );
 
         await _offlineDataService!.updateGoal(updatedGoal);
-        _logger.info('✅ Recalculated goal: ${goal.name} - ${totalSavings}');
+        _logger.info('✅ Recalculated goal: ${goal.name} - $totalSavings');
       }
     } catch (e, stackTrace) {
       _logger.severe('Error recalculating goal progress', e, stackTrace);
     }
   }
 
+  // ==================== PUBLIC UTILITY METHODS ====================
+
   /// Manually trigger recalculation for all budgets and goals
+  /// 🔴 NEW: Call this when app starts to ensure data consistency
   Future<void> recalculateAll(String profileId) async {
-    _logger.info('Recalculating all budgets and goals for profile: $profileId');
+    _logger.info('🔄 Recalculating all budgets and goals for profile: $profileId');
+    
+    // Recalculate budgets
     await _recalculateBudgets(profileId);
     
-    // Recalculate all goals
-    final goals = await _offlineDataService!.getAllGoals(profileId);
-    for (final goal in goals) {
-      if (goal.status == GoalStatus.active) {
-        await _recalculateGoalProgress(goal.id!);
+    // Recalculate all active goals
+    if (_offlineDataService != null) {
+      final goals = await _offlineDataService!.getAllGoals(profileId);
+      for (final goal in goals) {
+        if (goal.status == GoalStatus.active) {
+          await _recalculateGoalProgress(goal.id!);
+        }
       }
     }
     

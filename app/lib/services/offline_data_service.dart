@@ -60,9 +60,10 @@ class OfflineDataService {
     }
   }
 
-  // ==================== TRANSACTIONS (FIXED) ====================
-  
-  /// Now emits events after saving
+  // ==================== TRANSACTIONS ====================
+
+  /// Save a new transaction to the database
+  /// 🔴 DOES NOT emit events - caller is responsible for event emission
   Future<void> saveTransaction(dom_tx.Transaction tx) async {
     _validateProfileId(tx.profileId);
     
@@ -73,8 +74,9 @@ class OfflineDataService {
         try {
           final existing = await _db.getTransactionById(existingId);
           if (existing != null) {
+            // This is an update, not a new transaction
             await updateTransaction(tx);
-            return; // updateTransaction handles event emission
+            return; // ✅ No event emission here
           }
         } catch (e) {
           // Transaction doesn't exist, proceed with insert
@@ -99,17 +101,12 @@ class OfflineDataService {
     final insertedId = await _db.insertTransaction(companion);
     _logger.info('✅ Transaction saved with ID: $insertedId');
     
-    // ⭐ EMIT EVENT - This is the critical fix!
-    if (_eventService != null) {
-      final savedTransaction = tx.copyWith(id: insertedId.toString());
-      await _eventService!.onTransactionCreated(savedTransaction);
-      _logger.info('📢 Transaction created event emitted');
-    } else {
-      _logger.warning('⚠️ TransactionEventService not initialized - events not emitted');
-    }
+    // ✅ NO EVENT EMISSION HERE
+    // Caller (e.g., goal_transaction_service.dart) handles events
   }
 
-  /// Now emits events after updating
+  /// Update an existing transaction in the database
+  /// 🔴 DOES NOT emit events - caller is responsible for event emission
   Future<void> updateTransaction(dom_tx.Transaction tx) async {
     _validateProfileId(tx.profileId);
     
@@ -136,47 +133,27 @@ class OfflineDataService {
     
     _logger.info('✅ Transaction updated: ${tx.id}');
     
-    // ⭐ EMIT EVENT
-    if (_eventService != null) {
-      await _eventService!.onTransactionUpdated(tx);
-      _logger.info('📢 Transaction updated event emitted');
-    } else {
-      _logger.warning('⚠️ TransactionEventService not initialized');
-    }
+    // ✅ NO EVENT EMISSION HERE
+    // Caller (e.g., goal_transaction_service.dart) handles events
   }
 
-  /// Now emits events after deleting
+  /// Delete a transaction from the database
+  /// 🔴 DOES NOT emit events - caller is responsible for event emission
   Future<void> deleteTransaction(String id) async {
     int? numericId = int.tryParse(id);
     if (numericId == null) {
       throw Exception('Invalid transaction ID format: $id');
     }
     
-    // Get transaction before deleting (for event emission)
-    final transaction = await _db.getTransactionById(numericId);
-    
     await _db.deleteTransactionById(numericId);
     _logger.info('✅ Transaction deleted: $id');
     
-    // ⭐ EMIT EVENT
-    if (_eventService != null && transaction != null) {
-      // Convert to domain model
-      final domainTx = dom_tx.Transaction(
-        id: transaction.id.toString(),
-        amount: transaction.amountMinor,
-        type: transaction.isExpense ? TransactionType.expense : TransactionType.income,
-        categoryId: transaction.categoryId ?? '',
-        date: transaction.date,
-        profileId: transaction.profileId.toString(),
-        isExpense: transaction.isExpense,
-      );
-      
-      await _eventService!.onTransactionDeleted(domainTx);
-      _logger.info('📢 Transaction deleted event emitted');
-    }
+    // ✅ NO EVENT EMISSION HERE
+    // Caller handles events
   }
 
-  /// Approve pending transaction with event
+  /// Approve pending transaction (convert to regular transaction)
+  /// 🔴 EMITS EVENT because this is a high-level operation
   Future<void> approvePendingTransaction(dom_tx.Transaction tx) async {
     final mainTransaction = dom_tx.Transaction(
       id: tx.id,
@@ -192,14 +169,21 @@ class OfflineDataService {
       goalId: tx.goalId,
     );
     
-    await saveTransaction(mainTransaction); // This now emits events
+    // Save the transaction (no event)
+    await saveTransaction(mainTransaction);
+    
+    // Delete from pending
     await _db.deletePending(tx.id ?? '');
+    
+    // ✅ EMIT EVENT - This is a high-level operation
+    if (_eventService != null) {
+      await _eventService!.onTransactionApproved(mainTransaction);
+      _logger.info('📢 Transaction approved event emitted');
+    }
     
     _logger.info('✅ Pending transaction approved and saved');
   }
 
-  // ==================== REST OF THE CODE UNCHANGED ====================
-  
   Future<List<dom_tx.Transaction>> getAllTransactions(String profileId) async {
     _validateProfileId(profileId);
     
@@ -364,7 +348,7 @@ class OfflineDataService {
     }
   }
 
-// ================================ GOALS  ====================================
+  // ================================ GOALS  ====================================
 
   /// Save a new goal with current amount
   Future<void> saveGoal(dom_goal.Goal goal) async {
@@ -463,10 +447,6 @@ class OfflineDataService {
       ));
       
     _logger.info('✅ Goal updated: ${goal.name} - Current: ${goal.currentAmount}/${goal.targetAmount}');
-    
-    // ⭐ EMIT EVENT so screens refresh
-    // Note: This requires adding a GoalEventService similar to TransactionEventService
-    // For now, screens listening to transaction events will refresh when transactions change
   }
 
   /// Delete a goal
@@ -577,7 +557,7 @@ class OfflineDataService {
     return pending.length;
   }
 
-// ==================== LOANS ====================
+  // ==================== LOANS ====================
 
   Future<int> saveLoan(dom_loan.Loan loan) async {
     final companion = LoansCompanion.insert(
