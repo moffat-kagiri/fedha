@@ -77,6 +77,8 @@ import 'screens/sms_review_screen.dart';
 import 'screens/budget_progress_screen.dart';
 import 'screens/analytics_screen.dart';
 import 'screens/connection_test_screen.dart';
+import 'screens/budget_management_screen.dart';
+import 'screens/budget_review_screen.dart';
 
 // ADDED: canonical main navigation route
 import 'screens/main_navigation.dart';
@@ -778,6 +780,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       '/sms_review': (context) => const SmsReviewScreen(),
       '/budget_progress': (context) => const BudgetProgressScreen(),
       '/analytics': (context) => const AnalyticsScreen(),
+      '/budget_management': (context) => const BudgetManagementScreen(),
+      '/budget_review': (context) {
+        final budget = ModalRoute.of(context)!.settings.arguments as Budget;
+        return BudgetReviewScreen(budget: budget);
+      },
     };
   }
 }

@@ -9,7 +9,10 @@ import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
 
 class CreateBudgetScreen extends StatefulWidget {
-  const CreateBudgetScreen({Key? key}) : super(key: key);
+  final Budget? editingBudget;
+  const CreateBudgetScreen(
+    {Key? key, this.editingBudget}
+    ) : super(key: key);
 
   @override
   State<CreateBudgetScreen> createState() => _CreateBudgetScreenState();

@@ -10,6 +10,8 @@ import '../services/offline_data_service.dart';
 import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
 import '../services/transaction_event_service.dart';
+import '../screens/budget_review_screen.dart';
+import '../services/currency_service.dart';
 
 class BudgetProgressScreen extends StatefulWidget {
   const BudgetProgressScreen({super.key});
@@ -416,6 +418,14 @@ class _BudgetProgressScreenState extends State<BudgetProgressScreen>
   }
 
   Widget _buildBudgetCard(Budget budget) {
+    final currencyService = context.read<CurrencyService>();
+    final isOverBudget = budget.isOverBudget;
+    final statusColor = isOverBudget 
+        ? Colors.red 
+        : budget.spentPercentage >= 80 
+            ? Colors.orange 
+            : FedhaColors.primaryGreen;
+
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     final progress = budget.budgetAmount > 0 ? (budget.spentAmount / budget.budgetAmount) : 0.0;
@@ -543,6 +553,26 @@ class _BudgetProgressScreenState extends State<BudgetProgressScreen>
                 ),
               ),
             ],
+            const SizedBox(height: 16),
+            
+            // Add Review Button at the bottom
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.pushNamed(
+                    context,
+                    '/budget_review',
+                    arguments: budget,
+                  );
+                },
+                icon: const Icon(Icons.analytics),
+                label: const Text('Review Budget Performance'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: FedhaColors.primaryGreen,
+                ),
+              ),
+            ),
           ],
         ),
       ),

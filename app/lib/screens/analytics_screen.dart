@@ -13,6 +13,7 @@ import '../services/currency_service.dart';
 import '../theme/app_theme.dart';
 import '../services/transaction_event_service.dart'; 
 import '../utils/logger.dart';
+import '../screens/budget_management_screen.dart';
 
 class AnalyticsScreen extends StatefulWidget {
   const AnalyticsScreen({super.key});
@@ -317,13 +318,16 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
               children: [
                 Text(
                   'Budgets',
-                  style: textTheme.titleLarge?.copyWith(
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                TextButton(
-                  onPressed: () => Navigator.pushNamed(context, '/create_budget'),
-                  child: const Text('Manage'),
+                TextButton.icon(
+                  onPressed: () {
+                    Navigator.pushNamed(context, '/budget_management');
+                  },
+                  icon: const Icon(Icons.settings),
+                  label: const Text('Manage'),
                 ),
               ],
             ),
