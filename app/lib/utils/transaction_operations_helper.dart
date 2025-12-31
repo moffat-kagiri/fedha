@@ -1,25 +1,26 @@
 // lib/utils/transaction_operations_helper.dart
 import '../models/transaction.dart';
 import '../services/offline_data_service.dart';
-import '../services/transaction_event_service.dart';
 import '../utils/logger.dart';
 
-/// Helper class to perform transaction operations with automatic event emission
+/// Helper class to perform transaction operations
+/// ✅ FIXED: Removed duplicate event emissions - OfflineDataService handles all events
 class TransactionOperations {
   static final _logger = AppLogger.getLogger('TransactionOperations');
 
-  /// Create a new transaction and emit created event
+  /// Create a new transaction
+  /// ✅ Events are emitted by OfflineDataService.saveTransaction()
   static Future<bool> createTransaction({
     required Transaction transaction,
     required OfflineDataService offlineService,
   }) async {
     try {
-      // Save transaction to database
+      // Save transaction - this will emit the created event automatically
       await offlineService.saveTransaction(transaction);
-      _logger.info('Transaction saved: ${transaction.id}');
+      _logger.info('✅ Transaction created: ${transaction.id}');
       
-      // Emit created event to trigger budget/goal updates
-      await TransactionEventService.instance.onTransactionCreated(transaction);
+      // ❌ REMOVED: Duplicate event emission
+      // await TransactionEventService.instance.onTransactionCreated(transaction);
       
       return true;
     } catch (e, stackTrace) {
@@ -28,18 +29,19 @@ class TransactionOperations {
     }
   }
 
-  /// Update an existing transaction and emit updated event
+  /// Update an existing transaction
+  /// ✅ Events are emitted by OfflineDataService.updateTransaction()
   static Future<bool> updateTransaction({
     required Transaction transaction,
     required OfflineDataService offlineService,
   }) async {
     try {
-      // Update transaction in database
+      // Update transaction - this will emit the updated event automatically
       await offlineService.updateTransaction(transaction);
-      _logger.info('Transaction updated: ${transaction.id}');
+      _logger.info('✅ Transaction updated: ${transaction.id}');
       
-      // Emit updated event to trigger recalculation
-      await TransactionEventService.instance.onTransactionUpdated(transaction);
+      // ❌ REMOVED: Duplicate event emission
+      // await TransactionEventService.instance.onTransactionUpdated(transaction);
       
       return true;
     } catch (e, stackTrace) {
@@ -48,18 +50,19 @@ class TransactionOperations {
     }
   }
 
-  /// Delete a transaction and emit deleted event
+  /// Delete a transaction
+  /// ✅ Events are emitted by OfflineDataService.deleteTransaction()
   static Future<bool> deleteTransaction({
     required Transaction transaction,
     required OfflineDataService offlineService,
   }) async {
     try {
-      // Delete transaction from database
+      // Delete transaction - this will emit the deleted event automatically
       await offlineService.deleteTransaction(transaction.id!);
-      _logger.info('Transaction deleted: ${transaction.id}');
+      _logger.info('✅ Transaction deleted: ${transaction.id}');
       
-      // Emit deleted event to trigger updates
-      await TransactionEventService.instance.onTransactionDeleted(transaction);
+      // ❌ REMOVED: Duplicate event emission
+      // await TransactionEventService.instance.onTransactionDeleted(transaction);
       
       return true;
     } catch (e, stackTrace) {
@@ -68,7 +71,8 @@ class TransactionOperations {
     }
   }
 
-  /// Approve a pending transaction (convert to confirmed) and emit approved event
+  /// Approve a pending transaction (convert to confirmed)
+  /// ✅ Events are emitted by OfflineDataService.approvePendingTransaction()
   static Future<bool> approvePendingTransaction({
     required Transaction pendingTransaction,
     required OfflineDataService offlineService,
@@ -79,12 +83,12 @@ class TransactionOperations {
         isPending: false,
       );
       
-      // Approve in database (saves as regular transaction, deletes from pending)
+      // Approve in database - this will emit the approved event automatically
       await offlineService.approvePendingTransaction(confirmedTransaction);
-      _logger.info('Pending transaction approved: ${confirmedTransaction.id}');
+      _logger.info('✅ Pending transaction approved: ${confirmedTransaction.id}');
       
-      // Emit approved event to trigger budget/goal updates
-      await TransactionEventService.instance.onTransactionApproved(confirmedTransaction);
+      // ❌ REMOVED: Duplicate event emission
+      // await TransactionEventService.instance.onTransactionApproved(confirmedTransaction);
       
       return true;
     } catch (e, stackTrace) {

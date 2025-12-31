@@ -1,6 +1,7 @@
 // lib/services/transaction_event_service.dart
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/transaction.dart';
 import '../models/goal.dart';
 import '../models/budget.dart';
@@ -190,54 +191,88 @@ class TransactionEventService extends ChangeNotifier {
     }
   }
 
-  // ==================== BUDGET UPDATES (🔴 FIXED) ====================
+  // ==================== BUDGET UPDATES (ENHANCED) ====================
 
-  /// 🔴 FIXED: Update budget spending with DATE RANGE CHECK
+  /// Update budget spending based on transaction (ENHANCED)
   Future<void> _updateBudgetSpending({
     required Transaction transaction,
     required bool isAddition,
   }) async {
     try {
-      if (_budgetService == null || _offlineDataService == null) return;
+      if (_offlineDataService == null || _budgetService == null) return;
 
       // Get all budgets for this profile
       final budgets = await _offlineDataService!.getAllBudgets(transaction.profileId);
-      
-      // 🔴 CRITICAL FIX: Find budget matching BOTH category AND date range
-      final matchingBudgets = budgets.where((b) {
-        final categoryMatch = b.categoryId == transaction.categoryId;
-        final isActive = b.isActive;
-        
-        // 🔴 NEW: Check if transaction date is within budget period
-        final isInDateRange = !transaction.date.isBefore(b.startDate) && 
-                             !transaction.date.isAfter(b.endDate);
-        
-        return categoryMatch && isActive && isInDateRange;
-      }).toList();
+
+      // Find matching budgets (active and date-appropriate)
+      final matchingBudgets = budgets.where((b) => 
+        b.categoryId == transaction.categoryId &&
+        b.isActive &&
+        !transaction.date.isBefore(b.startDate) &&
+        !transaction.date.isAfter(b.endDate)
+      ).toList();
 
       if (matchingBudgets.isEmpty) {
-        _logger.info('No matching budget found for category: ${transaction.categoryId} on ${transaction.date}');
+        // ✅ IMPROVED: Log but don't treat as error - track unbudgeted spending
+        _logger.info(
+          '📊 Unbudgeted expense: ${transaction.categoryId} '
+          '(KSh ${transaction.amount}) on ${transaction.date.toString().split(' ')[0]}'
+        );
+        
+        // Could create a separate "unbudgeted spending" tracker here
+        await _trackUnbudgetedSpending(transaction, isAddition);
         return;
       }
 
-      // Update the first matching budget (should only be one per category per period)
-      final budget = matchingBudgets.first;
-      final newSpentAmount = isAddition
-          ? budget.spentAmount + transaction.amount
-          : budget.spentAmount - transaction.amount;
+      // Update all matching budgets (usually just one, but could be multiple)
+      for (final budget in matchingBudgets) {
+        final newSpentAmount = isAddition
+            ? budget.spentAmount + transaction.amount
+            : budget.spentAmount - transaction.amount;
 
-      final updatedBudget = budget.copyWith(
-        spentAmount: newSpentAmount.clamp(0.0, double.infinity),
-        updatedAt: DateTime.now(),
-        isSynced: false, // Mark for sync
-      );
+        final updatedBudget = budget.copyWith(
+          spentAmount: newSpentAmount.clamp(0.0, double.infinity),
+          updatedAt: DateTime.now(),
+          isSynced: false,
+        );
 
-      await _budgetService!.updateBudget(updatedBudget);
-      
-      _logger.info('✅ Budget updated: ${budget.name} - spent: ${updatedBudget.spentAmount}/${budget.budgetAmount}');
-      
+        await _budgetService!.updateBudget(updatedBudget);
+        
+        _logger.info(
+          '✅ Budget updated: ${budget.name} - '
+          'spent: KSh ${updatedBudget.spentAmount.toStringAsFixed(0)} / '
+          'KSh ${budget.budgetAmount.toStringAsFixed(0)}'
+        );
+        
+        // Check if budget exceeded
+        if (updatedBudget.spentAmount > budget.budgetAmount) {
+          _logger.warning(
+            '⚠️ Budget exceeded: ${budget.name} by '
+            'KSh ${(updatedBudget.spentAmount - budget.budgetAmount).toStringAsFixed(0)}'
+          );
+        }
+      }
     } catch (e, stackTrace) {
       _logger.severe('Error updating budget spending', e, stackTrace);
+    }
+  }
+
+  /// Track unbudgeted spending for analysis (NEW)
+  Future<void> _trackUnbudgetedSpending(Transaction transaction, bool isAddition) async {
+    try {
+      // Store unbudgeted spending summary in SharedPreferences for quick access
+      final prefs = await SharedPreferences.getInstance();
+      final key = 'unbudgeted_${transaction.profileId}_${transaction.categoryId}';
+      final currentTotal = prefs.getDouble(key) ?? 0.0;
+
+      final newTotal = isAddition
+          ? currentTotal + transaction.amount
+          : currentTotal - transaction.amount;
+
+      await prefs.setDouble(key, newTotal);
+      _logger.info('📈 Unbudgeted spending tracked: ${transaction.categoryId} - KSh ${newTotal.toStringAsFixed(0)}');
+    } catch (e) {
+      _logger.warning('Failed to track unbudgeted spending: $e');
     }
   }
 

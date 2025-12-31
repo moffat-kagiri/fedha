@@ -1,4 +1,5 @@
 import 'package:json_annotation/json_annotation.dart';
+import 'package:flutter/material.dart';
 part 'budget.g.dart';
 
 @JsonSerializable()
@@ -16,7 +17,7 @@ class Budget {
   bool isActive;
   DateTime createdAt;
   DateTime updatedAt;
-  bool isSynced; // ✅ ADD THIS
+  bool isSynced; // ✅ ADD THIS 
   Budget({
     required this.id,
     required this.name,
@@ -32,7 +33,6 @@ class Budget {
     this.isActive = true,
     DateTime? createdAt,
     DateTime? updatedAt,
-
   }) : 
     createdAt = createdAt ?? DateTime.now(),
     updatedAt = updatedAt ?? DateTime.now();
@@ -92,4 +92,24 @@ class Budget {
 
   factory Budget.fromJson(Map<String, dynamic> json) => _$BudgetFromJson(json);
   Map<String, dynamic> toJson() => _$BudgetToJson(this);
+
+  bool isDateInRange(DateTime date) {
+    return !date.isBefore(startDate) && !date.isAfter(endDate);
+  }
+
+  bool get isExpired => DateTime.now().isAfter(endDate);
+  bool get isUpcoming => DateTime.now().isBefore(startDate);
+  bool get isCurrent => isDateInRange(DateTime.now());
+
+  String get statusDisplay {
+    if (isUpcoming) return 'Upcoming';
+    if (isExpired) return 'Completed';
+    return 'Active';
+  }
+
+  Color get statusColor {
+    if (isUpcoming) return Colors.blue;
+    if (isExpired) return Colors.grey;
+    return Colors.green;
+  }
 }
