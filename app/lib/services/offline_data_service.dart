@@ -694,4 +694,44 @@ class OfflineDataService {
     await deletePendingTransaction(id);
     await updatePendingTransactionCount(profileId);
   }
+
+  // ==================== SYNC MARKERS ====================
+
+  /// Clear sync markers for a profile (reset sync status)
+  /// ✅ NEW: Allows forcing a complete re-sync
+  Future<void> clearSyncMarkers(String profileId) async {
+    try {
+      _validateProfileId(profileId);
+      
+      // Clear synced flag on all transactions for this profile
+      final transactions = await getAllTransactions(profileId);
+      for (final tx in transactions) {
+        await updateTransaction(tx.copyWith(isSynced: false));
+      }
+      
+      // Clear synced flag on all budgets
+      final budgets = await getAllBudgets(profileId);
+      for (final budget in budgets) {
+        await updateBudget(budget.copyWith(isSynced: false));
+      }
+      
+      // Clear synced flag on all goals
+      final goals = await getAllGoals(profileId);
+      for (final goal in goals) {
+        await updateGoal(goal.copyWith(isSynced: false));
+      }
+      
+      // Clear synced flag on all loans
+      final loans = await getAllLoans(profileId);
+      for (final loan in loans) {
+        await updateLoan(loan.copyWith(isSynced: false));
+      }
+      
+      _logger.info('✅ Sync markers cleared for profile: $profileId');
+    } catch (e, stackTrace) {
+      _logger.severe('Error clearing sync markers', e, stackTrace);
+      rethrow;
+    }
+  }
 }
+

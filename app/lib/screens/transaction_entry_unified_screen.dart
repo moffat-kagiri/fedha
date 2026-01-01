@@ -152,12 +152,13 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
         DropdownButtonFormField<String>(
           value: _selectedGoalId,
           decoration: const InputDecoration(
-            labelText: 'Assign to Goal (Required for Savings)',
+            labelText: 'Assign to Goal (Optional)',
+            helperText: 'Leave empty for general savings without a specific goal',
           ),
           items: [
             const DropdownMenuItem(
               value: null,
-              child: Text('No Goal'),
+              child: Text('No Goal - General Savings'),
             ),
             ..._goalList.map((goal) {
               return DropdownMenuItem(
@@ -172,8 +173,8 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
             });
           },
         ),
-        // ADDED: Helpful hint for savings
-        if (_selectedType == TransactionType.savings && _selectedGoalId != null)
+        // ✅ UPDATED: Show info hint for both goal-linked and general savings
+        if (_selectedType == TransactionType.savings)
           Padding(
             padding: const EdgeInsets.only(top: 8),
             child: Card(
@@ -186,7 +187,9 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'This amount will be added to your goal progress',
+                        _selectedGoalId != null
+                            ? 'This amount will be added to your goal progress'
+                            : 'General savings can be tracked separately or linked to a goal later',
                         style: TextStyle(color: FedhaColors.infoBlue, fontSize: 12),
                       ),
                     ),
@@ -340,18 +343,8 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
       return;
     }
     
-    // Validate that savings transactions have a goal
-    if (_selectedType == TransactionType.savings && _selectedGoalId == null) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Savings transactions must be linked to a goal'),
-            backgroundColor: FedhaColors.warningOrange,
-          ),
-        );
-      }
-      return;
-    }
+    // ✅ FIX: Savings transactions are now optional for goals
+    // Users can save money without linking to a specific goal
     
     setState(() {
       _isSaving = true;
@@ -438,6 +431,8 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
             updateMessage += ' • Budget updated';
           } else if (_selectedType == TransactionType.savings && _selectedGoalId != null) {
             updateMessage += ' • Goal progress updated';
+          } else if (_selectedType == TransactionType.savings) {
+            updateMessage += ' • General savings recorded'; // ✅ NEW: Message for unlinked savings
           }
           
           ScaffoldMessenger.of(context).showSnackBar(

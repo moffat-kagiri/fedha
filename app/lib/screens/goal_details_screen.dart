@@ -417,6 +417,7 @@ class _GoalDetailsScreenState extends State<GoalDetailsScreen> {
                   description: descriptionController.text.isNotEmpty 
                       ? descriptionController.text 
                       : 'Contribution to ${_currentGoal.name}',
+                  profileId: _currentGoal.profileId,
                 );
                 
                 print('✅ Transaction created successfully');

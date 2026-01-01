@@ -7,15 +7,20 @@ import 'package:fedha/services/offline_data_service.dart';
 import 'package:fedha/models/goal.dart' as dom_goal;
 import 'package:fedha/models/transaction.dart' as dom_tx;
 import 'package:fedha/models/budget.dart' as dom_budget;
-import '../services/currency_service.dart';
 import '../services/sms_listener_service.dart';
 import '../services/permissions_service.dart';
+import '../services/transaction_event_service.dart';
 import '../models/enums.dart';
 import '../widgets/transaction_dialog.dart';
+import 'dart:async';
 import '../widgets/transaction_card.dart';
 import '../widgets/quick_actions_grid.dart';
 import '../widgets/financial_summary_card.dart';
 import 'goal_details_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../models/enums.dart';
+import '../screens/budget_review_screen.dart';
+import '../services/currency_service.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -36,6 +41,29 @@ class DashboardContent extends StatefulWidget {
 class _DashboardContentState extends State<DashboardContent> {
   // Track when to refresh dashboard data
   int _refreshKey = 0;
+  StreamSubscription<TransactionEvent>? _eventSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    _setupEventListeners();
+  }
+
+  void _setupEventListeners() {
+    final eventService = Provider.of<TransactionEventService>(context, listen: false);
+    
+    _eventSubscription = eventService.eventStream.listen((event) {
+      // Trigger immediate refresh whenever transactions are added/updated
+      // This ensures budget data is immediately accurate retroactively
+      _triggerRefresh();
+    });
+  }
+
+  @override
+  void dispose() {
+    _eventSubscription?.cancel();
+    super.dispose();
+  }
 
   void _triggerRefresh() {
     setState(() => _refreshKey++);
@@ -141,10 +169,23 @@ class _DashboardContentState extends State<DashboardContent> {
       allTransactions.sort((a, b) => b.date.compareTo(a.date));
       final recentTransactions = allTransactions.take(5).toList();
       
-      // Get most recent active budget
+      // Get most recent active budget and recalculate spent amount from current transactions
       final activeBudgets = budgets.where((b) => b.isActive).toList();
       activeBudgets.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-      final currentBudget = activeBudgets.isNotEmpty ? activeBudgets.first : null;
+      
+      dom_budget.Budget? currentBudget;
+      if (activeBudgets.isNotEmpty) {
+        final budget = activeBudgets.first;
+        // Recalculate spent amount from current transactions for this budget's category
+        final budgetExpenses = allTransactions
+            .where((t) => t.type == TransactionType.expense && 
+                         t.categoryId == budget.categoryId &&
+                         t.date.isBetween(budget.startDate, budget.endDate))
+            .fold(0.0, (sum, t) => sum + t.amount);
+        
+        // Update the budget's spent amount to be retroactively accurate
+        currentBudget = budget.copyWith(spentAmount: budgetExpenses);
+      }
       
       return DashboardData(
         goals: goals,
@@ -248,9 +289,10 @@ class _DashboardContentState extends State<DashboardContent> {
     // Calculate savings rate percentage
     final savingsRate = monthlyIncome > 0 ? (monthlySavings / monthlyIncome * 100) : 0.0;
 
-    // Calculate budget health - updated to show percentage remaining like in budget progress screen
+    // Calculate budget health - updated to show percentage used AND remaining like in budget progress screen
     double budgetHealthPercent = 0.0;
     double budgetRemainingPercent = 0.0;
+    String budgetHealthValue = 'No Budget';
     String budgetHealthLabel = 'No Budget';
     Color budgetHealthColor = Colors.grey;
     
@@ -264,6 +306,9 @@ class _DashboardContentState extends State<DashboardContent> {
       budgetRemainingPercent = budget.budgetAmount > 0
           ? (remaining / budget.budgetAmount * 100)
           : 0.0;
+      
+      // ✅ UPDATED: Show both used and remaining percentages like budget_progress_screen
+      budgetHealthValue = '${budgetHealthPercent.toStringAsFixed(1)}% used';
       
       // Color code based on budget health - similar to budget progress screen
       if (budgetHealthPercent >= 90) {
@@ -303,7 +348,7 @@ class _DashboardContentState extends State<DashboardContent> {
       FinancialSummaryItem(
         label: budgetHealthLabel,
         value: data.currentBudget != null && data.currentBudget!.isActive
-            ? '${budgetRemainingPercent.toStringAsFixed(1)}% left'
+            ? budgetHealthValue
             : 'Not Set',
         color: budgetHealthColor,
         icon: Icons.account_balance_wallet,
@@ -643,5 +688,12 @@ class DashboardData {
       allTransactions: [],
       currentBudget: null,
     );
+  }
+}
+
+// Extension to check if a date is between two dates
+extension DateTimeRange on DateTime {
+  bool isBetween(DateTime start, DateTime end) {
+    return isAfter(start) && isBefore(end.add(const Duration(days: 1)));
   }
 }

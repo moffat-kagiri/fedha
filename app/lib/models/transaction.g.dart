@@ -14,6 +14,9 @@ Transaction _$TransactionFromJson(Map<String, dynamic> json) => Transaction(
   categoryId: json['categoryId'] as String,
   category: $enumDecodeNullable(_$TransactionCategoryEnumMap, json['category']),
   date: DateTime.parse(json['date'] as String),
+  createdAt: json['createdAt'] == null
+      ? null
+      : DateTime.parse(json['createdAt'] as String),
   notes: json['notes'] as String?,
   description: json['description'] as String?,
   isSynced: json['isSynced'] as bool? ?? false,
@@ -43,6 +46,7 @@ Map<String, dynamic> _$TransactionToJson(Transaction instance) =>
       'categoryId': instance.categoryId,
       'category': _$TransactionCategoryEnumMap[instance.category],
       'date': instance.date.toIso8601String(),
+      'createdAt': instance.createdAt.toIso8601String(),
       'notes': instance.notes,
       'description': instance.description,
       'isSynced': instance.isSynced,

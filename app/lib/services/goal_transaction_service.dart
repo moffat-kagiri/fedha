@@ -121,7 +121,11 @@ class GoalTransactionService {
   /// ✅ NEW: Calculate total general savings
   Future<double> getTotalGeneralSavings(String profileId) async {
     final generalSavings = await getGeneralSavings(profileId);
-    return generalSavings.fold(0.0, (sum, tx) => sum + tx.amount);
+    double total = 0.0;
+    for (final tx in generalSavings) {
+      total += tx.amount;
+    }
+    return total;
   }
 
   /// Gets suggested goals for a transaction

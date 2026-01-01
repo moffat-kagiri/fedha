@@ -13,6 +13,7 @@ class Transaction {
   String categoryId;
   TransactionCategory? category;
   DateTime date;
+  DateTime createdAt; // ✅ ADDED: When transaction was created
   String? notes;
   String? description;
   bool isSynced;
@@ -35,6 +36,7 @@ class Transaction {
     required this.categoryId,
     this.category,
     required this.date,
+    DateTime? createdAt, // ✅ ADDED: Optional, defaults to now
     this.notes,
     this.description,
     this.isSynced = false,
@@ -49,6 +51,7 @@ class Transaction {
     this.isRecurring = false,
     this.paymentMethod,
   }) : id = id ?? const Uuid().v4(),
+      createdAt = createdAt ?? DateTime.now(), // ✅ ADDED: Initialize createdAt
       isExpense = isExpense ?? (type == TransactionType.expense),
       updatedAt = updatedAt ?? DateTime.now();
 
@@ -62,6 +65,7 @@ class Transaction {
       categoryId: categoryId,
       category: category,
       date: date,
+      createdAt: createdAt,
       notes: notes,
       description: description,
       isSynced: isSynced,
@@ -117,6 +121,7 @@ class Transaction {
     String? categoryId,
     TransactionCategory? category,
     DateTime? date,
+    DateTime? createdAt, // ✅ ADDED: Copy createdAt field
     String? notes,
     String? description,
     bool? isSynced,
@@ -139,6 +144,7 @@ class Transaction {
       categoryId: categoryId ?? this.categoryId,
       category: category ?? this.category,
       date: date ?? this.date,
+      createdAt: createdAt ?? this.createdAt, // ✅ ADDED: Copy createdAt
       notes: notes ?? this.notes,
       description: description ?? this.description,
       isSynced: isSynced ?? this.isSynced,

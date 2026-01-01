@@ -5,6 +5,7 @@ part 'budget.g.dart';
 @JsonSerializable()
 class Budget {
   String id;
+  String? remoteId; // ✅ ADDED: Backend ID for sync
   String name;
   String? description;
   double budgetAmount;
@@ -20,6 +21,7 @@ class Budget {
   bool isSynced; // ✅ ADD THIS 
   Budget({
     required this.id,
+    this.remoteId, // ✅ ADDED: Optional remote ID
     required this.name,
     this.description,
     required this.budgetAmount,
@@ -58,6 +60,7 @@ class Budget {
 
   Budget copyWith({
     String? id,
+    String? remoteId, // ✅ ADDED: Support remoteId in copyWith
     String? name,
     String? description,
     double? budgetAmount,
@@ -74,6 +77,7 @@ class Budget {
     }) {
     return Budget(
       id: id ?? this.id,
+      remoteId: remoteId ?? this.remoteId, // ✅ ADDED: Copy remoteId
       name: name ?? this.name,
       description: description ?? this.description,
       budgetAmount: budgetAmount ?? this.budgetAmount,

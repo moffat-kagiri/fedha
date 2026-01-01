@@ -465,6 +465,80 @@ class ApiClient {
 
   // ==================== BUDGETS ====================
 
+  /// ✅ NEW: Get all budgets for a profile
+  Future<List<dynamic>> getBudgets({
+    required String profileId,
+    String? sessionToken,
+  }) async {
+    final url = Uri.parse(_config.getEndpoint('api/budgets/?profile_id=$profileId'));
+    
+    try {
+      logger.info('GET ${url.toString()}');
+      
+      final headers = sessionToken != null 
+          ? _getHeaders(customToken: sessionToken)
+          : _headers;
+      
+      final resp = await _http
+          .get(url, headers: headers)
+          .timeout(Duration(seconds: _config.timeoutSeconds));
+      
+      logger.info('Get budgets response: ${resp.statusCode}');
+      
+      if (resp.statusCode == 200) {
+        final data = jsonDecode(resp.body);
+        if (data is Map && data.containsKey('results')) {
+          return data['results'] as List<dynamic>;
+        }
+        return data as List<dynamic>;
+      }
+      
+      if (resp.statusCode == 401) {
+        logger.warning('Budgets request unauthorized');
+        clearAuthToken();
+      }
+      
+      return [];
+    } catch (e) {
+      logger.severe('Get budgets error: $e');
+      return [];
+    }
+  }
+
+  /// ✅ NEW: Create a new budget
+  Future<Map<String, dynamic>> createBudget(Map<String, dynamic> budget) async {
+    final url = Uri.parse(_config.getEndpoint('api/budgets/'));
+    
+    try {
+      logger.info('POST ${url.toString()}');
+      
+      final resp = await _http
+          .post(
+            url,
+            headers: _headers,
+            body: jsonEncode(budget),
+          )
+          .timeout(Duration(seconds: _config.timeoutSeconds));
+      
+      logger.info('Create budget response: ${resp.statusCode}');
+      
+      if (resp.statusCode == 201 || resp.statusCode == 200) {
+        final data = jsonDecode(resp.body) as Map<String, dynamic>;
+        logger.info('✅ Budget created successfully');
+        return data;
+      }
+      
+      return {
+        'success': false,
+        'status': resp.statusCode,
+        'body': resp.body,
+      };
+    } catch (e) {
+      logger.severe('Create budget error: $e');
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
   Future<Map<String, dynamic>> syncBudgets(
     String profileId,
     List<dynamic> budgets,

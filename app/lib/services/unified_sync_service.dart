@@ -1,5 +1,6 @@
 // lib/services/unified_sync_service.dart
 import 'package:flutter/foundation.dart';
+import 'package:uuid/uuid.dart';
 import '../models/transaction.dart';
 import '../models/goal.dart';
 import '../models/budget.dart';
@@ -217,16 +218,16 @@ class UnifiedSyncService with ChangeNotifier {
                   amount: amountMinor / 100.0, // Convert from minor units
                   description: remote['description']?.toString() ?? '',
                   date: DateTime.tryParse(remote['date']?.toString() ?? '') ?? DateTime.now(),
+                  createdAt: DateTime.tryParse(remote['created_at']?.toString() ?? '') ?? DateTime.now(), // ✅ NOW SUPPORTED
                   isExpense: remote['is_expense'] == true,
                   type: TransactionType.values.firstWhere(
                     (t) => t.name == remote['transaction_type']?.toString(),
-                    orElse: () => TransactionType.other,
+                    orElse: () => TransactionType.income,
                   ),
                   categoryId: remote['category_id']?.toString() ?? '',
                   profileId: profileId,
                   goalId: remote['goal_id']?.toString(),
                   remoteId: remoteId,
-                  createdAt: DateTime.tryParse(remote['created_at']?.toString() ?? '') ?? DateTime.now(),
                 );
                 
                 await _offlineDataService.saveTransaction(transaction);
@@ -414,12 +415,11 @@ class UnifiedSyncService with ChangeNotifier {
 
       if (_apiClient.isAuthenticated) {
         try {
-          // Download budgets from server if API is available
-          // Note: Adjust based on your API implementation
+          // Download budgets from server
           final remoteBudgets = await _apiClient.getBudgets(profileId: profileId);
           _logger.info('Downloaded ${remoteBudgets.length} budgets from server');
           
-          // Merge server budgets into local storage
+          // Merge remote budgets into local storage
           for (final remote in remoteBudgets) {
             try {
               final remoteId = remote['id']?.toString();
@@ -431,14 +431,15 @@ class UnifiedSyncService with ChangeNotifier {
               if (!exists) {
                 // Create local budget from server data
                 final budget = Budget(
+                  id: const Uuid().v4(),
+                  remoteId: remoteId,
                   name: remote['name']?.toString() ?? '',
-                  amount: double.tryParse(remote['amount']?.toString() ?? '0') ?? 0.0,
-                  spent: double.tryParse(remote['spent']?.toString() ?? '0') ?? 0.0,
-                  category: remote['category']?.toString() ?? '',
+                  budgetAmount: double.tryParse(remote['budget_amount']?.toString() ?? '0') ?? 0.0,
+                  spentAmount: double.tryParse(remote['spent_amount']?.toString() ?? '0') ?? 0.0,
+                  categoryId: remote['category_id']?.toString() ?? '',
+                  profileId: profileId,
                   startDate: DateTime.tryParse(remote['start_date']?.toString() ?? '') ?? DateTime.now(),
                   endDate: DateTime.tryParse(remote['end_date']?.toString() ?? '') ?? DateTime.now(),
-                  profileId: profileId,
-                  remoteId: remoteId,
                 );
                 
                 await _offlineDataService.saveBudget(budget);
@@ -455,9 +456,9 @@ class UnifiedSyncService with ChangeNotifier {
               try {
                 final payload = {
                   'name': localBudget.name,
-                  'amount': localBudget.amount,
-                  'spent': localBudget.spent,
-                  'category': localBudget.category,
+                  'budget_amount': localBudget.budgetAmount,
+                  'spent_amount': localBudget.spentAmount,
+                  'category_id': localBudget.categoryId,
                   'start_date': localBudget.startDate.toIso8601String(),
                   'end_date': localBudget.endDate.toIso8601String(),
                   'profile_id': profileId,
@@ -647,9 +648,7 @@ class UnifiedSyncService with ChangeNotifier {
   Future<SyncResult> forceSync(String profileId) async {
     _logger.info('Starting force sync for profile: $profileId');
     
-    // Clear any cached data that might prevent proper sync
-    await _offlineDataService.clearSyncMarkers(profileId);
-    
+    // Force a complete sync cycle
     return await syncProfile(profileId);
   }
 

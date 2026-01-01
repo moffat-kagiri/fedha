@@ -8,6 +8,7 @@ part of 'budget.dart';
 
 Budget _$BudgetFromJson(Map<String, dynamic> json) => Budget(
   id: json['id'] as String,
+  remoteId: json['remoteId'] as String?,
   name: json['name'] as String,
   description: json['description'] as String?,
   budgetAmount: (json['budgetAmount'] as num).toDouble(),
@@ -29,6 +30,7 @@ Budget _$BudgetFromJson(Map<String, dynamic> json) => Budget(
 
 Map<String, dynamic> _$BudgetToJson(Budget instance) => <String, dynamic>{
   'id': instance.id,
+  'remoteId': instance.remoteId,
   'name': instance.name,
   'description': instance.description,
   'budgetAmount': instance.budgetAmount,
