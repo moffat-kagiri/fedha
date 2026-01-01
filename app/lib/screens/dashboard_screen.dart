@@ -169,29 +169,17 @@ class _DashboardContentState extends State<DashboardContent> {
       allTransactions.sort((a, b) => b.date.compareTo(a.date));
       final recentTransactions = allTransactions.take(5).toList();
       
-      // Get most recent active budget and recalculate spent amount from current transactions
+      // Get most recent active budget
       final activeBudgets = budgets.where((b) => b.isActive).toList();
       activeBudgets.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-      
-      dom_budget.Budget? currentBudget;
-      if (activeBudgets.isNotEmpty) {
-        final budget = activeBudgets.first;
-        // Recalculate spent amount from current transactions for this budget's category
-        final budgetExpenses = allTransactions
-            .where((t) => t.type == TransactionType.expense && 
-                         t.categoryId == budget.categoryId &&
-                         t.date.isBetween(budget.startDate, budget.endDate))
-            .fold(0.0, (sum, t) => sum + t.amount);
-        
-        // Update the budget's spent amount to be retroactively accurate
-        currentBudget = budget.copyWith(spentAmount: budgetExpenses);
-      }
+      final currentBudget = activeBudgets.isNotEmpty ? activeBudgets.first : null;
       
       return DashboardData(
         goals: goals,
         recentTransactions: recentTransactions,
         allTransactions: allTransactions,
         currentBudget: currentBudget,
+        allBudgets: budgets,
       );
     } catch (e) {
       return DashboardData.empty();
@@ -289,39 +277,8 @@ class _DashboardContentState extends State<DashboardContent> {
     // Calculate savings rate percentage
     final savingsRate = monthlyIncome > 0 ? (monthlySavings / monthlyIncome * 100) : 0.0;
 
-    // Calculate budget health - updated to show percentage used AND remaining like in budget progress screen
-    double budgetHealthPercent = 0.0;
-    double budgetRemainingPercent = 0.0;
-    String budgetHealthValue = 'No Budget';
-    String budgetHealthLabel = 'No Budget';
-    Color budgetHealthColor = Colors.grey;
-    
-    if (data.currentBudget != null && data.currentBudget!.isActive) {
-      final budget = data.currentBudget!;
-      final remaining = budget.budgetAmount - budget.spentAmount;
-      budgetHealthPercent = budget.budgetAmount > 0
-          ? (budget.spentAmount / budget.budgetAmount * 100)
-          : 0.0;
-      
-      budgetRemainingPercent = budget.budgetAmount > 0
-          ? (remaining / budget.budgetAmount * 100)
-          : 0.0;
-      
-      // ✅ UPDATED: Show both used and remaining percentages like budget_progress_screen
-      budgetHealthValue = '${budgetHealthPercent.toStringAsFixed(1)}% used';
-      
-      // Color code based on budget health - similar to budget progress screen
-      if (budgetHealthPercent >= 90) {
-        budgetHealthColor = FedhaColors.errorRed;
-        budgetHealthLabel = 'Budget Alert';
-      } else if (budgetHealthPercent >= 75) {
-        budgetHealthColor = FedhaColors.warningOrange;
-        budgetHealthLabel = 'Budget Low';
-      } else {
-        budgetHealthColor = FedhaColors.successGreen;
-        budgetHealthLabel = 'Budget Remaining';
-      }
-    }
+    // Get active budgets for display
+    final activeBudgets = data.allBudgets.where((b) => b.isActive).toList();
 
     // Calculate overall goals progress
     final activeGoals = data.goals.where((g) => g.status == GoalStatus.active).toList();
@@ -333,7 +290,30 @@ class _DashboardContentState extends State<DashboardContent> {
       overallGoalsProgress = totalTarget > 0 ? (totalProgress / totalTarget * 100) : 0.0;
     }
 
-    // Build summary items - updated budget item to show percentage remaining
+    // Calculate budget metrics from active budgets
+    double budgetHealthPercent = 0.0;
+    String budgetHealthValue = 'No Budget';
+    Color budgetHealthColor = Colors.grey;
+    
+    if (activeBudgets.isNotEmpty) {
+      final totalBudget = activeBudgets.fold(0.0, (sum, b) => sum + b.budgetAmount);
+      final totalSpent = activeBudgets.fold(0.0, (sum, b) => sum + b.spentAmount);
+      budgetHealthPercent = totalBudget > 0
+          ? (totalSpent / totalBudget * 100)
+          : 0.0;
+      
+      budgetHealthValue = '${budgetHealthPercent.toStringAsFixed(1)}% used';
+      
+      if (budgetHealthPercent >= 90) {
+        budgetHealthColor = FedhaColors.errorRed;
+      } else if (budgetHealthPercent >= 75) {
+        budgetHealthColor = FedhaColors.warningOrange;
+      } else {
+        budgetHealthColor = FedhaColors.successGreen;
+      }
+    }
+
+    // Build summary items
     final summaryItems = [
       FinancialSummaryItem(
         label: 'Savings Rate',
@@ -346,10 +326,8 @@ class _DashboardContentState extends State<DashboardContent> {
         icon: Icons.savings,
       ),
       FinancialSummaryItem(
-        label: budgetHealthLabel,
-        value: data.currentBudget != null && data.currentBudget!.isActive
-            ? budgetHealthValue
-            : 'Not Set',
+        label: 'Budget Health',
+        value: activeBudgets.isNotEmpty ? budgetHealthValue : 'No Budget',
         color: budgetHealthColor,
         icon: Icons.account_balance_wallet,
       ),
@@ -673,12 +651,14 @@ class DashboardData {
   final List<dom_tx.Transaction> recentTransactions;
   final List<dom_tx.Transaction> allTransactions;
   final dom_budget.Budget? currentBudget;
+  final List<dom_budget.Budget> allBudgets;
 
   DashboardData({
     required this.goals,
     required this.recentTransactions,
     required this.allTransactions,
     this.currentBudget,
+    this.allBudgets = const [],
   });
 
   factory DashboardData.empty() {
@@ -687,6 +667,7 @@ class DashboardData {
       recentTransactions: [],
       allTransactions: [],
       currentBudget: null,
+      allBudgets: [],
     );
   }
 }

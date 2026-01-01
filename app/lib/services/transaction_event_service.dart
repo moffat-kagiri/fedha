@@ -139,16 +139,20 @@ class TransactionEventService extends ChangeNotifier {
       );
     }
 
-    // ✅ FIX: Update goals ONLY if goalId is provided
-    // Allow savings transactions without goals
-    if (transaction.type == TransactionType.savings && transaction.goalId != null) {
-      await _updateGoalProgress(
-        goalId: transaction.goalId!,
-        amount: transaction.amount,
-        isAddition: true,
-      );
-    } else if (transaction.type == TransactionType.savings) {
-      _logger.info('💰 Savings transaction without goal - general savings recorded');
+    // ✅ NEW: Update savings budget for all savings transactions (goal-linked or general)
+    if (transaction.type == TransactionType.savings) {
+      await _updateSavingsBudget(transaction, isAddition: true);
+      
+      // Also update goal progress if linked to a goal
+      if (transaction.goalId != null) {
+        await _updateGoalProgress(
+          goalId: transaction.goalId!,
+          amount: transaction.amount,
+          isAddition: true,
+        );
+      } else {
+        _logger.info('💰 Savings transaction without goal - general savings recorded');
+      }
     }
   }
 
@@ -168,12 +172,17 @@ class TransactionEventService extends ChangeNotifier {
       );
     }
 
-    if (transaction.type == TransactionType.savings && transaction.goalId != null) {
-      await _updateGoalProgress(
-        goalId: transaction.goalId!,
-        amount: transaction.amount,
-        isAddition: false,
-      );
+    // ✅ NEW: Update savings budget when savings transactions are deleted
+    if (transaction.type == TransactionType.savings) {
+      await _updateSavingsBudget(transaction, isAddition: false);
+      
+      if (transaction.goalId != null) {
+        await _updateGoalProgress(
+          goalId: transaction.goalId!,
+          amount: transaction.amount,
+          isAddition: false,
+        );
+      }
     }
   }
 
@@ -211,24 +220,16 @@ class TransactionEventService extends ChangeNotifier {
 
       final budgets = await _offlineDataService!.getAllBudgets(transaction.profileId);
 
-      // ✅ FIX: Use normalized category matching
+      // ✅ IMPROVED: Match transaction to specific category budget
       final matchingBudgets = budgets.where((b) => 
         _categoriesMatch(b.categoryId, transaction.categoryId) &&
         b.isActive &&
         !transaction.date.isBefore(b.startDate) &&
-        !transaction.date.isAfter(b.endDate)
+        !transaction.date.isAfter(b.endDate) &&
+        b.categoryId != 'other' // Don't update 'other' yet
       ).toList();
 
-      if (matchingBudgets.isEmpty) {
-        _logger.info(
-          '📊 Unbudgeted expense: ${transaction.categoryId} '
-          '(KSh ${transaction.amount}) on ${transaction.date.toString().split(' ')[0]}'
-        );
-        
-        await _trackUnbudgetedSpending(transaction, isAddition);
-        return;
-      }
-
+      // Update matching category budgets
       for (final budget in matchingBudgets) {
         final newSpentAmount = isAddition
             ? budget.spentAmount + transaction.amount
@@ -255,8 +256,108 @@ class TransactionEventService extends ChangeNotifier {
           );
         }
       }
+
+      // ✅ NEW: Update 'other' budget with spending that doesn't match any category budget
+      if (matchingBudgets.isEmpty) {
+        await _updateOtherBudget(transaction, budgets, isAddition);
+      }
     } catch (e, stackTrace) {
       _logger.severe('Error updating budget spending', e, stackTrace);
+    }
+  }
+
+  Future<void> _updateOtherBudget(
+    Transaction transaction,
+    List<Budget> allBudgets,
+    bool isAddition,
+  ) async {
+    try {
+      // Find or create 'other' budget for this date range
+      final otherBudgets = allBudgets.where((b) => 
+        b.categoryId == 'other' &&
+        b.isActive &&
+        !transaction.date.isBefore(b.startDate) &&
+        !transaction.date.isAfter(b.endDate)
+      ).toList();
+
+      if (otherBudgets.isEmpty) {
+        _logger.info(
+          '📊 No "other" budget found for date range. '
+          'Spending not tracked: ${transaction.categoryId} (KSh ${transaction.amount})'
+        );
+        return;
+      }
+
+      for (final budget in otherBudgets) {
+        final newSpentAmount = isAddition
+            ? budget.spentAmount + transaction.amount
+            : budget.spentAmount - transaction.amount;
+
+        final updatedBudget = budget.copyWith(
+          spentAmount: newSpentAmount.clamp(0.0, double.infinity),
+          updatedAt: DateTime.now(),
+          isSynced: false,
+        );
+
+        await _budgetService!.updateBudget(updatedBudget);
+        
+        _logger.info(
+          '✅ "Other" budget updated: ${transaction.categoryId} - '
+          'spent: KSh ${updatedBudget.spentAmount.toStringAsFixed(0)} / '
+          'KSh ${budget.budgetAmount.toStringAsFixed(0)}'
+        );
+      }
+    } catch (e, stackTrace) {
+      _logger.severe('Error updating "other" budget', e, stackTrace);
+    }
+  }
+
+  Future<void> _updateSavingsBudget(
+    Transaction transaction, {
+    required bool isAddition,
+  }) async {
+    try {
+      if (_offlineDataService == null || _budgetService == null) return;
+
+      final budgets = await _offlineDataService!.getAllBudgets(transaction.profileId);
+
+      // Find savings budget that covers this transaction's date range
+      final savingsBudgets = budgets.where((b) => 
+        b.categoryId == 'savings' &&
+        b.isActive &&
+        !transaction.date.isBefore(b.startDate) &&
+        !transaction.date.isAfter(b.endDate)
+      ).toList();
+
+      if (savingsBudgets.isEmpty) {
+        _logger.info(
+          '📊 No savings budget found for date range. '
+          'Savings amount not tracked: KSh ${transaction.amount}'
+        );
+        return;
+      }
+
+      for (final budget in savingsBudgets) {
+        final newSpentAmount = isAddition
+            ? budget.spentAmount + transaction.amount
+            : budget.spentAmount - transaction.amount;
+
+        final updatedBudget = budget.copyWith(
+          spentAmount: newSpentAmount.clamp(0.0, double.infinity),
+          updatedAt: DateTime.now(),
+          isSynced: false,
+        );
+
+        await _budgetService!.updateBudget(updatedBudget);
+        
+        _logger.info(
+          '✅ Savings budget updated: ${budget.name} - '
+          'saved: KSh ${updatedBudget.spentAmount.toStringAsFixed(0)} / '
+          'KSh ${budget.budgetAmount.toStringAsFixed(0)}'
+        );
+      }
+    } catch (e, stackTrace) {
+      _logger.severe('Error updating savings budget', e, stackTrace);
     }
   }
 
