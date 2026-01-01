@@ -4,36 +4,33 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
-import 'package:fedha/data/app_database.dart';
-import 'package:fedha/models/transaction.dart' as dom_tx;
-import 'package:fedha/models/goal.dart' as dom_goal;
-import 'package:fedha/models/loan.dart' as dom_loan;
+import 'package:fedha/data/app_database.dart' as app_db;
+import 'package:fedha/models/transaction.dart' as dom;
+import 'package:fedha/models/goal.dart' as dom;
+import 'package:fedha/models/loan.dart' as dom;
 import 'package:fedha/models/enums.dart';
-import 'package:fedha/models/category.dart' as dom_cat;
-import 'package:fedha/models/budget.dart' as dom_budget;
+import 'package:fedha/models/category.dart' as dom;
+import 'package:fedha/models/budget.dart' as dom;
 import '../utils/logger.dart';
 import 'transaction_event_service.dart';
 
 class OfflineDataService {
   late final SharedPreferences _prefs;
-  final AppDatabase _db;
-  //  Logger instance
+  final app_db.AppDatabase _db;
   final _logger = AppLogger.getLogger('OfflineDataService');
   
-  //  Reference to TransactionEventService
   TransactionEventService? _eventService;
 
-  OfflineDataService({AppDatabase? db}) : _db = db ?? AppDatabase();
-
-  ///  METHOD - Initialize with event service
-  void setEventService(TransactionEventService eventService) {
-    _eventService = eventService;
-    _logger.info('TransactionEventService linked to OfflineDataService');
-  }
+  OfflineDataService({app_db.AppDatabase? db}) : _db = db ?? app_db.AppDatabase();
 
   /// Initialize SharedPreferences instance
   Future<void> initialize() async {
     _prefs = await SharedPreferences.getInstance();
+  }
+
+  void setEventService(TransactionEventService eventService) {
+    _eventService = eventService;
+    _logger.info('TransactionEventService linked to OfflineDataService');
   }
 
   bool get onboardingComplete =>
@@ -62,9 +59,28 @@ class OfflineDataService {
 
   // ==================== TRANSACTIONS ====================
 
+  Future<dom.Transaction?> getTransaction(String transactionId) async {
+    try {
+      // Get all transactions and filter
+      final allTransactions = await getAllTransactions('all');
+      for (final tx in allTransactions) {
+        if (tx.id == transactionId) {
+          return tx;
+        }
+      }
+      return null;
+    } catch (e) {
+      _logger.severe('Error getting transaction: $e');
+      return null;
+    }
+  }
+
+  Future<List<dom.Transaction>> getTransactionsByProfile(String profileId) async {
+    return await getAllTransactions(profileId);
+  }
+
   /// Save a new transaction to the database
-  /// 🔴 DOES NOT emit events - caller is responsible for event emission
-  Future<void> saveTransaction(dom_tx.Transaction tx) async {
+  Future<void> saveTransaction(dom.Transaction tx) async {
     _validateProfileId(tx.profileId);
     
     // Check if this is an update
@@ -74,9 +90,8 @@ class OfflineDataService {
         try {
           final existing = await _db.getTransactionById(existingId);
           if (existing != null) {
-            // This is an update, not a new transaction
             await updateTransaction(tx);
-            return; // ✅ No event emission here
+            return;
           }
         } catch (e) {
           // Transaction doesn't exist, proceed with insert
@@ -84,8 +99,7 @@ class OfflineDataService {
       }
     }
     
-    // Insert new transaction
-    final companion = TransactionsCompanion.insert(
+    final companion = app_db.TransactionsCompanion.insert(
       amountMinor: tx.amount,
       currency: 'KES',
       description: tx.description ?? '',
@@ -94,20 +108,16 @@ class OfflineDataService {
       isExpense: Value(tx.isExpense),
       rawSms: Value(tx.smsSource),
       profileId: _profileIdToInt(tx.profileId),
-      transactionType: Value(tx.type.toString()),
+      transactionType: Value(tx.type.name),
       goalId: Value(tx.goalId),
     );
     
     final insertedId = await _db.insertTransaction(companion);
     _logger.info('✅ Transaction saved with ID: $insertedId');
-    
-    // ✅ NO EVENT EMISSION HERE
-    // Caller (e.g., goal_transaction_service.dart) handles events
   }
 
   /// Update an existing transaction in the database
-  /// 🔴 DOES NOT emit events - caller is responsible for event emission
-  Future<void> updateTransaction(dom_tx.Transaction tx) async {
+  Future<void> updateTransaction(dom.Transaction tx) async {
     _validateProfileId(tx.profileId);
     
     final txId = int.tryParse(tx.id ?? '');
@@ -116,7 +126,7 @@ class OfflineDataService {
     }
     
     await _db.update(_db.transactions).replace(
-      TransactionsCompanion(
+      app_db.TransactionsCompanion(
         id: Value(txId),
         amountMinor: Value(tx.amount),
         currency: const Value('KES'),
@@ -126,19 +136,15 @@ class OfflineDataService {
         isExpense: Value(tx.isExpense),
         rawSms: Value(tx.smsSource),
         profileId: Value(_profileIdToInt(tx.profileId)),
-        transactionType: Value(tx.type.toString()),
+        transactionType: Value(tx.type.name),
         goalId: Value(tx.goalId),
       ),
     );
     
     _logger.info('✅ Transaction updated: ${tx.id}');
-    
-    // ✅ NO EVENT EMISSION HERE
-    // Caller (e.g., goal_transaction_service.dart) handles events
   }
 
   /// Delete a transaction from the database
-  /// 🔴 DOES NOT emit events - caller is responsible for event emission
   Future<void> deleteTransaction(String id) async {
     int? numericId = int.tryParse(id);
     if (numericId == null) {
@@ -147,15 +153,11 @@ class OfflineDataService {
     
     await _db.deleteTransactionById(numericId);
     _logger.info('✅ Transaction deleted: $id');
-    
-    // ✅ NO EVENT EMISSION HERE
-    // Caller handles events
   }
 
   /// Approve pending transaction (convert to regular transaction)
-  /// 🔴 EMITS EVENT because this is a high-level operation
-  Future<void> approvePendingTransaction(dom_tx.Transaction tx) async {
-    final mainTransaction = dom_tx.Transaction(
+  Future<void> approvePendingTransaction(dom.Transaction tx) async {
+    final mainTransaction = dom.Transaction(
       id: tx.id,
       amount: tx.amount,
       type: tx.type,
@@ -169,13 +171,9 @@ class OfflineDataService {
       goalId: tx.goalId,
     );
     
-    // Save the transaction (no event)
     await saveTransaction(mainTransaction);
-    
-    // Delete from pending
     await _db.deletePending(tx.id ?? '');
     
-    // ✅ EMIT EVENT - This is a high-level operation
     if (_eventService != null) {
       await _eventService!.onTransactionApproved(mainTransaction);
       _logger.info('📢 Transaction approved event emitted');
@@ -184,7 +182,7 @@ class OfflineDataService {
     _logger.info('✅ Pending transaction approved and saved');
   }
 
-  Future<List<dom_tx.Transaction>> getAllTransactions(String profileId) async {
+  Future<List<dom.Transaction>> getAllTransactions(String profileId) async {
     _validateProfileId(profileId);
     
     final profileIdInt = _profileIdToInt(profileId);
@@ -206,7 +204,7 @@ class OfflineDataService {
           type = r.isExpense ? TransactionType.expense : TransactionType.income;
         }
         
-        return dom_tx.Transaction(
+        return dom.Transaction(
           id: r.id.toString(),
           amount: r.amountMinor,
           type: type,
@@ -236,7 +234,7 @@ class OfflineDataService {
 
   // ==================== BUDGETS ====================
 
-  Future<void> saveBudget(dom_budget.Budget budget) async {
+  Future<void> saveBudget(dom.Budget budget) async {
     _validateProfileId(budget.profileId);
     
     try {
@@ -273,11 +271,11 @@ class OfflineDataService {
     }
   }
   
-  Future<void> addBudget(dom_budget.Budget budget) async {
+  Future<void> addBudget(dom.Budget budget) async {
     await saveBudget(budget);
   }
   
-  Future<List<dom_budget.Budget>> getAllBudgets(String profileId) async {
+  Future<List<dom.Budget>> getAllBudgets(String profileId) async {
     _validateProfileId(profileId);
     
     try {
@@ -292,7 +290,7 @@ class OfflineDataService {
       
       return budgets.map((json) {
         json['profileId'] = profileId;
-        return dom_budget.Budget.fromJson(json);
+        return dom.Budget.fromJson(json);
       }).toList();
     } catch (e) {
       if (kDebugMode) {
@@ -302,7 +300,7 @@ class OfflineDataService {
     }
   }
   
-  Future<dom_budget.Budget?> getCurrentBudget(String profileId) async {
+  Future<dom.Budget?> getCurrentBudget(String profileId) async {
     final budgets = await getAllBudgets(profileId);
     if (budgets.isEmpty) return null;
     
@@ -313,7 +311,7 @@ class OfflineDataService {
     return activeBudgets.first;
   }
 
-  Future<void> updateBudget(dom_budget.Budget budget) async {
+  Future<void> updateBudget(dom.Budget budget) async {
     await saveBudget(budget);
   }
 
@@ -348,16 +346,16 @@ class OfflineDataService {
     }
   }
 
-  // ================================ GOALS  ====================================
+  // ==================== GOALS ====================
 
   /// Save a new goal with current amount
-  Future<void> saveGoal(dom_goal.Goal goal) async {
+  Future<void> saveGoal(dom.Goal goal) async {
     _validateProfileId(goal.profileId);
     
-    final companion = GoalsCompanion.insert(
+    final companion = app_db.GoalsCompanion.insert(
       title: goal.name,
       targetMinor: goal.targetAmount,
-      currentMinor: Value(goal.currentAmount), // ⭐ ADDED
+      currentMinor: Value(goal.currentAmount),
       currency: 'KES',
       dueDate: goal.targetDate,
       completed: Value(goal.status == GoalStatus.completed),
@@ -368,12 +366,12 @@ class OfflineDataService {
     _logger.info('✅ Goal saved: ${goal.name} (ID: $insertedId)');
   }
 
-  Future<void> addGoal(dom_goal.Goal goal) async {
+  Future<void> addGoal(dom.Goal goal) async {
     await saveGoal(goal);
   }
 
   /// Get all goals for a profile with current amounts
-  Future<List<dom_goal.Goal>> getAllGoals(String profileId) async {
+  Future<List<dom.Goal>> getAllGoals(String profileId) async {
     _validateProfileId(profileId);
     
     final profileIdInt = _profileIdToInt(profileId);
@@ -382,16 +380,11 @@ class OfflineDataService {
     return rows
       .where((r) => r.profileId == profileIdInt)
       .map((r) {
-        // Calculate progress percentage
-        final progress = r.targetMinor > 0 
-            ? (r.currentMinor / r.targetMinor * 100).clamp(0.0, 100.0)
-            : 0.0;
-        
-        return dom_goal.Goal(
+        return dom.Goal(
           id: r.id.toString(),
           name: r.title,
           targetAmount: r.targetMinor,
-          currentAmount: r.currentMinor, // ⭐ READ FROM DATABASE
+          currentAmount: r.currentMinor,
           targetDate: r.dueDate,
           profileId: profileId,
           goalType: GoalType.other,
@@ -402,20 +395,20 @@ class OfflineDataService {
   }
 
   /// Get a single goal by ID with current amount
-  Future<dom_goal.Goal?> getGoal(String goalId) async {
+  Future<dom.Goal?> getGoal(String goalId) async {
     try {
       final rows = await _db.getAllGoals();
       final goal = rows.firstWhere(
         (r) => r.id.toString() == goalId,
       );
       
-      return dom_goal.Goal(
+      return dom.Goal(
         id: goal.id.toString(),
         name: goal.title,
         targetAmount: goal.targetMinor,
-        currentAmount: goal.currentMinor, // ⭐ READ FROM DATABASE
+        currentAmount: goal.currentMinor,
         targetDate: goal.dueDate,
-        profileId: goal.profileId.toString(), 
+        profileId: goal.profileId.toString(),
         goalType: GoalType.other,
         status: goal.completed ? GoalStatus.completed : GoalStatus.active,
       );
@@ -426,7 +419,7 @@ class OfflineDataService {
   }
 
   /// Update goal including current amount
-  Future<void> updateGoal(dom_goal.Goal goal) async {
+  Future<void> updateGoal(dom.Goal goal) async {
     _validateProfileId(goal.profileId);
     
     final goalId = int.tryParse(goal.id!);
@@ -435,11 +428,11 @@ class OfflineDataService {
     }
 
     await _db.update(_db.goals)
-      .replace(GoalsCompanion(
+      .replace(app_db.GoalsCompanion(
         id: Value(goalId),
         title: Value(goal.name),
         targetMinor: Value(goal.targetAmount),
-        currentMinor: Value(goal.currentAmount), // ⭐ SAVE CURRENT AMOUNT
+        currentMinor: Value(goal.currentAmount),
         currency: const Value('KES'),
         dueDate: Value(goal.targetDate),
         completed: Value(goal.status == GoalStatus.completed),
@@ -460,7 +453,7 @@ class OfflineDataService {
     _logger.info('✅ Goal deleted: $goalId');
   }
 
-  /// Helper: Calculate current amount from transactions (for verification/migration)
+  /// Helper: Calculate current amount from transactions
   Future<double> calculateGoalCurrentAmount(String goalId, String profileId) async {
     try {
       final allTransactions = await getAllTransactions(profileId);
@@ -511,10 +504,10 @@ class OfflineDataService {
 
   // ==================== PENDING TRANSACTIONS ====================
 
-  Future<void> savePendingTransaction(dom_tx.Transaction tx) async {
+  Future<void> savePendingTransaction(dom.Transaction tx) async {
     _validateProfileId(tx.profileId);
     
-    final companion = PendingTransactionsCompanion.insert(
+    final companion = app_db.PendingTransactionsCompanion.insert(
       id: tx.id ?? const Uuid().v4(),
       amountMinor: tx.amount,
       currency: const Value('KES'),
@@ -527,13 +520,13 @@ class OfflineDataService {
     await _db.insertPending(companion);
   }
 
-  Future<List<dom_tx.Transaction>> getPendingTransactions(String profileId) async {
+  Future<List<dom.Transaction>> getPendingTransactions(String profileId) async {
     _validateProfileId(profileId);
     
     final profileIdInt = _profileIdToInt(profileId);
     final rows = await _db.getAllPending(profileIdInt);
     
-    return rows.map((r) => dom_tx.Transaction(
+    return rows.map((r) => dom.Transaction(
       id: r.id,
       amount: r.amountMinor,
       type: r.isExpense ? TransactionType.expense : TransactionType.income,
@@ -559,8 +552,8 @@ class OfflineDataService {
 
   // ==================== LOANS ====================
 
-  Future<int> saveLoan(dom_loan.Loan loan) async {
-    final companion = LoansCompanion.insert(
+  Future<int> saveLoan(dom.Loan loan) async {
+    final companion = app_db.LoansCompanion.insert(
       name: loan.name,
       principalMinor: loan.principalMinor.toInt(),
       currency: Value(loan.currency),
@@ -573,7 +566,7 @@ class OfflineDataService {
     return insertedId;
   }
 
-  Future<List<dom_loan.Loan>> getAllLoans(String profileId) async {
+  Future<List<dom.Loan>> getAllLoans(String profileId) async {
     _validateProfileId(profileId);
     
     final profileIdInt = _profileIdToInt(profileId);
@@ -581,8 +574,8 @@ class OfflineDataService {
     
     return rows
       .where((r) => r.profileId == profileIdInt)
-      .map((r) => dom_loan.Loan(
-        id: r.id.toString(),  // Convert int to String
+      .map((r) => dom.Loan(
+        id: r.id.toString(),
         name: r.name,
         principalMinor: r.principalMinor.toDouble(),
         currency: r.currency,
@@ -618,14 +611,14 @@ class OfflineDataService {
     await prefs.remove('loan_remote_$localId');
   }
 
-  Future<void> updateLoan(dom_loan.Loan loan) async {
+  Future<void> updateLoan(dom.Loan loan) async {
     final loanIdInt = int.tryParse(loan.id.toString());
     if (loanIdInt == null) {
       throw Exception('Invalid loan ID format: ${loan.id}');
     }
 
     await _db.update(_db.loans).replace(
-      LoansCompanion(
+      app_db.LoansCompanion(
         id: Value(loanIdInt),
         name: Value(loan.name),
         principalMinor: Value(loan.principalMinor.toInt()),
@@ -657,7 +650,7 @@ class OfflineDataService {
     return total / 3;
   }
 
-  Future<List<dom_cat.Category>> getCategories(String profileId) async {
+  Future<List<dom.Category>> getCategories(String profileId) async {
     return [];
   }
 
@@ -680,12 +673,12 @@ class OfflineDataService {
     }
   }
 
-  Future<void> savePendingTransactionWithCount(dom_tx.Transaction tx) async {
+  Future<void> savePendingTransactionWithCount(dom.Transaction tx) async {
     await savePendingTransaction(tx);
     await updatePendingTransactionCount(tx.profileId);
   }
 
-  Future<void> approvePendingTransactionWithCount(dom_tx.Transaction tx) async {
+  Future<void> approvePendingTransactionWithCount(dom.Transaction tx) async {
     await approvePendingTransaction(tx);
     await updatePendingTransactionCount(tx.profileId);
   }
@@ -698,7 +691,6 @@ class OfflineDataService {
   // ==================== SYNC MARKERS ====================
 
   /// Clear sync markers for a profile (reset sync status)
-  /// ✅ NEW: Allows forcing a complete re-sync
   Future<void> clearSyncMarkers(String profileId) async {
     try {
       _validateProfileId(profileId);
@@ -734,4 +726,3 @@ class OfflineDataService {
     }
   }
 }
-

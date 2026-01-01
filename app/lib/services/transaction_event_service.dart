@@ -77,6 +77,12 @@ class TransactionEventService extends ChangeNotifier {
 
   Future<void> onTransactionUpdated(Transaction transaction) async {
     _logger.info('Transaction updated: ${transaction.id}');
+    
+    // Preserve existing budget category assignment
+    if (transaction.budgetCategoryId != null && transaction.budgetCategoryId!.isNotEmpty) {
+      _logger.info('Preserving budget category: ${transaction.budgetCategoryId}');
+    }
+    
     _eventController.add(TransactionEvent(
       type: TransactionEventType.updated,
       transaction: transaction,
@@ -139,7 +145,7 @@ class TransactionEventService extends ChangeNotifier {
       );
     }
 
-    // ✅ NEW: Update savings budget for all savings transactions (goal-linked or general)
+    // Update savings budget for all savings transactions
     if (transaction.type == TransactionType.savings) {
       await _updateSavingsBudget(transaction, isAddition: true);
       
@@ -172,7 +178,7 @@ class TransactionEventService extends ChangeNotifier {
       );
     }
 
-    // ✅ NEW: Update savings budget when savings transactions are deleted
+    // Update savings budget when savings transactions are deleted
     if (transaction.type == TransactionType.savings) {
       await _updateSavingsBudget(transaction, isAddition: false);
       
@@ -186,9 +192,9 @@ class TransactionEventService extends ChangeNotifier {
     }
   }
 
-  // ==================== BUDGET UPDATES (ENHANCED) ====================
+  // ==================== CATEGORY NORMALIZATION ====================
 
-  /// ✅ FIX: Normalize category IDs for proper matching
+  /// Normalize category IDs for proper matching
   String _normalizeCategoryId(String categoryId) {
     // Convert to lowercase and trim
     final normalized = categoryId.toLowerCase().trim();
@@ -201,15 +207,20 @@ class TransactionEventService extends ChangeNotifier {
       'other income': 'other',
       'miscellaneous': 'other',
       'misc': 'other',
+      'savings': 'savings',
+      'saving': 'savings',
+      'save': 'savings',
     };
     
     return categoryMap[normalized] ?? normalized;
   }
 
-  /// ✅ FIX: Check if categories match (handles "other" variations)
+  /// Check if categories match (handles variations)
   bool _categoriesMatch(String categoryId1, String categoryId2) {
     return _normalizeCategoryId(categoryId1) == _normalizeCategoryId(categoryId2);
   }
+
+  // ==================== BUDGET UPDATES WITH PERSISTENT CATEGORIES ====================
 
   Future<void> _updateBudgetSpending({
     required Transaction transaction,
@@ -220,17 +231,62 @@ class TransactionEventService extends ChangeNotifier {
 
       final budgets = await _offlineDataService!.getAllBudgets(transaction.profileId);
 
-      // ✅ IMPROVED: Match transaction to specific category budget
-      final matchingBudgets = budgets.where((b) => 
-        _categoriesMatch(b.categoryId, transaction.categoryId) &&
+      // ✅ NEW: Check if transaction already has a budget category assigned
+      String assignedCategoryId;
+      bool needsCategoryUpdate = false;
+      
+      if (transaction.budgetCategoryId != null && transaction.budgetCategoryId!.isNotEmpty) {
+        // Use previously assigned category
+        assignedCategoryId = transaction.budgetCategoryId!;
+        _logger.info('📝 Using previously assigned budget category: $assignedCategoryId');
+      } else {
+        // Find matching budget for this transaction
+        final matchingBudgets = budgets.where((b) => 
+          _categoriesMatch(b.categoryId, transaction.categoryId) &&
+          b.isActive &&
+          !transaction.date.isBefore(b.startDate) &&
+          !transaction.date.isAfter(b.endDate) &&
+          b.categoryId != 'other'
+        ).toList();
+
+        if (matchingBudgets.isNotEmpty) {
+          assignedCategoryId = matchingBudgets.first.categoryId;
+        } else {
+          // Check for 'other' budget
+          final otherBudgets = budgets.where((b) => 
+            b.categoryId == 'other' &&
+            b.isActive &&
+            !transaction.date.isBefore(b.startDate) &&
+            !transaction.date.isAfter(b.endDate)
+          ).toList();
+          
+          if (otherBudgets.isNotEmpty) {
+            assignedCategoryId = 'other';
+          } else {
+            _logger.info('📊 No matching budget found for transaction. Category: ${transaction.categoryId}');
+            return; // No budget to update
+          }
+        }
+        
+        // ✅ Save the assigned category back to the transaction
+        needsCategoryUpdate = true;
+      }
+
+      // Find the budget(s) with the assigned category
+      final targetBudgets = budgets.where((b) => 
+        b.categoryId == assignedCategoryId &&
         b.isActive &&
         !transaction.date.isBefore(b.startDate) &&
-        !transaction.date.isAfter(b.endDate) &&
-        b.categoryId != 'other' // Don't update 'other' yet
+        !transaction.date.isAfter(b.endDate)
       ).toList();
 
-      // Update matching category budgets
-      for (final budget in matchingBudgets) {
+      if (targetBudgets.isEmpty) {
+        _logger.warning('⚠️ No active budget found for category: $assignedCategoryId in date range');
+        return;
+      }
+
+      // Update the budget(s)
+      for (final budget in targetBudgets) {
         final newSpentAmount = isAddition
             ? budget.spentAmount + transaction.amount
             : budget.spentAmount - transaction.amount;
@@ -244,7 +300,7 @@ class TransactionEventService extends ChangeNotifier {
         await _budgetService!.updateBudget(updatedBudget);
         
         _logger.info(
-          '✅ Budget updated: ${budget.name} - '
+          '✅ Budget updated: ${budget.name} ($assignedCategoryId) - '
           'spent: KSh ${updatedBudget.spentAmount.toStringAsFixed(0)} / '
           'KSh ${budget.budgetAmount.toStringAsFixed(0)}'
         );
@@ -257,58 +313,30 @@ class TransactionEventService extends ChangeNotifier {
         }
       }
 
-      // ✅ NEW: Update 'other' budget with spending that doesn't match any category budget
-      if (matchingBudgets.isEmpty) {
-        await _updateOtherBudget(transaction, budgets, isAddition);
+      // ✅ Persist the budget category assignment
+      if (needsCategoryUpdate) {
+        // Create a new transaction object with the budget category
+        final updatedTransaction = Transaction(
+          id: transaction.id,
+          profileId: transaction.profileId,
+          amount: transaction.amount,
+          type: transaction.type,
+          categoryId: transaction.categoryId,
+          description: transaction.description,
+          date: transaction.date,
+          goalId: transaction.goalId,
+          budgetCategoryId: assignedCategoryId,
+          isSynced: false,
+          createdAt: transaction.createdAt,
+          updatedAt: DateTime.now(),
+        );
+        
+        await _offlineDataService!.updateTransaction(updatedTransaction);
+        _logger.info('💾 Saved budget category "$assignedCategoryId" to transaction');
       }
+      
     } catch (e, stackTrace) {
       _logger.severe('Error updating budget spending', e, stackTrace);
-    }
-  }
-
-  Future<void> _updateOtherBudget(
-    Transaction transaction,
-    List<Budget> allBudgets,
-    bool isAddition,
-  ) async {
-    try {
-      // Find or create 'other' budget for this date range
-      final otherBudgets = allBudgets.where((b) => 
-        b.categoryId == 'other' &&
-        b.isActive &&
-        !transaction.date.isBefore(b.startDate) &&
-        !transaction.date.isAfter(b.endDate)
-      ).toList();
-
-      if (otherBudgets.isEmpty) {
-        _logger.info(
-          '📊 No "other" budget found for date range. '
-          'Spending not tracked: ${transaction.categoryId} (KSh ${transaction.amount})'
-        );
-        return;
-      }
-
-      for (final budget in otherBudgets) {
-        final newSpentAmount = isAddition
-            ? budget.spentAmount + transaction.amount
-            : budget.spentAmount - transaction.amount;
-
-        final updatedBudget = budget.copyWith(
-          spentAmount: newSpentAmount.clamp(0.0, double.infinity),
-          updatedAt: DateTime.now(),
-          isSynced: false,
-        );
-
-        await _budgetService!.updateBudget(updatedBudget);
-        
-        _logger.info(
-          '✅ "Other" budget updated: ${transaction.categoryId} - '
-          'spent: KSh ${updatedBudget.spentAmount.toStringAsFixed(0)} / '
-          'KSh ${budget.budgetAmount.toStringAsFixed(0)}'
-        );
-      }
-    } catch (e, stackTrace) {
-      _logger.severe('Error updating "other" budget', e, stackTrace);
     }
   }
 
@@ -379,7 +407,7 @@ class TransactionEventService extends ChangeNotifier {
     }
   }
 
-  /// ✅ FIX: Recalculate with normalized category matching
+  /// ✅ FIXED: Recalculate budgets respecting persisted category assignments
   Future<void> _recalculateBudgets(String profileId) async {
     try {
       if (_offlineDataService == null || _budgetService == null) return;
@@ -389,33 +417,25 @@ class TransactionEventService extends ChangeNotifier {
       final transactions = await _offlineDataService!.getAllTransactions(profileId);
       final budgets = await _offlineDataService!.getAllBudgets(profileId);
 
+      // Reset all budget spent amounts to zero first
       for (final budget in budgets.where((b) => b.isActive)) {
-        // ✅ FIX: Use normalized category matching
-        final budgetTransactions = transactions.where((tx) =>
-          tx.type == TransactionType.expense &&
-          _categoriesMatch(tx.categoryId, budget.categoryId) &&
-          !tx.date.isBefore(budget.startDate) &&
-          !tx.date.isAfter(budget.endDate)
-        ).toList();
-
-        final totalSpent = budgetTransactions.fold<double>(
-          0.0,
-          (sum, tx) => sum + tx.amount,
+        final resetBudget = budget.copyWith(
+          spentAmount: 0.0,
+          updatedAt: DateTime.now(),
+          isSynced: false,
         );
+        await _budgetService!.updateBudget(resetBudget);
+      }
 
-        if ((totalSpent - budget.spentAmount).abs() > 0.01) {
-          final updatedBudget = budget.copyWith(
-            spentAmount: totalSpent,
-            updatedAt: DateTime.now(),
-            isSynced: false,
-          );
-
-          await _budgetService!.updateBudget(updatedBudget);
-          _logger.info('✅ Recalculated budget: ${budget.name} - ${totalSpent.toStringAsFixed(2)}/${budget.budgetAmount.toStringAsFixed(2)}');
-        }
+      // Re-apply all transactions to their assigned categories
+      for (final transaction in transactions.where((t) => t.type == TransactionType.expense)) {
+        await _updateBudgetSpending(
+          transaction: transaction,
+          isAddition: true,
+        );
       }
       
-      _logger.info('✅ Budget recalculation complete');
+      _logger.info('✅ Budget recalculation complete (respecting persistent categories)');
     } catch (e, stackTrace) {
       _logger.severe('Error recalculating budgets', e, stackTrace);
     }
@@ -520,6 +540,87 @@ class TransactionEventService extends ChangeNotifier {
     }
     
     _logger.info('✅ Recalculation complete');
+  }
+
+  /// ✅ NEW: Reassign transactions to new budgets when categories change
+  Future<void> reassignTransactionsToBudgets(String profileId) async {
+    try {
+      if (_offlineDataService == null) return;
+      
+      final transactions = await _offlineDataService!.getAllTransactions(profileId);
+      
+      // Clear all budget category assignments by creating new transaction objects
+      for (final transaction in transactions.where((t) => t.type == TransactionType.expense)) {
+        final updatedTransaction = Transaction(
+          id: transaction.id,
+          profileId: transaction.profileId,
+          amount: transaction.amount,
+          type: transaction.type,
+          categoryId: transaction.categoryId,
+          description: transaction.description,
+          date: transaction.date,
+          goalId: transaction.goalId,
+          budgetCategoryId: null,
+          isSynced: false,
+          createdAt: transaction.createdAt,
+          updatedAt: DateTime.now(),
+        );
+        await _offlineDataService!.updateTransaction(updatedTransaction);
+      }
+      
+      // Now recalculate to assign new categories
+      await _recalculateBudgets(profileId);
+      
+      _logger.info('🔄 All transactions reassigned to budgets');
+    } catch (e, stackTrace) {
+      _logger.severe('Error reassigning transactions', e, stackTrace);
+    }
+  }
+
+  /// ✅ NEW: Manually assign a transaction to a specific budget category
+  Future<bool> assignTransactionToBudgetCategory({
+    required String transactionId,
+    required String budgetCategoryId,
+  }) async {
+    try {
+      if (_offlineDataService == null) return false;
+      
+      final transaction = await _offlineDataService!.getTransaction(transactionId);
+      if (transaction == null) {
+        _logger.warning('Transaction not found: $transactionId');
+        return false;
+      }
+      
+      // Create a new transaction object with the budget category
+      final updatedTransaction = Transaction(
+        id: transaction.id,
+        profileId: transaction.profileId,
+        amount: transaction.amount,
+        type: transaction.type,
+        categoryId: transaction.categoryId,
+        description: transaction.description,
+        date: transaction.date,
+        goalId: transaction.goalId,
+        budgetCategoryId: budgetCategoryId,
+        isSynced: false,
+        createdAt: transaction.createdAt,
+        updatedAt: DateTime.now(),
+      );
+      
+      await _offlineDataService!.updateTransaction(updatedTransaction);
+      
+      // Trigger a budget update with the new assignment
+      await _updateBudgetSpending(
+        transaction: updatedTransaction,
+        isAddition: true,
+      );
+      
+      _logger.info('✅ Manually assigned transaction to budget category: $budgetCategoryId');
+      return true;
+    } catch (e, stackTrace) {
+      _logger.severe('Error assigning transaction to budget category', e, stackTrace);
+      return false;
+    }
   }
 
   @override

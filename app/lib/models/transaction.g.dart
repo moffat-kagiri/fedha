@@ -17,6 +17,7 @@ Transaction _$TransactionFromJson(Map<String, dynamic> json) => Transaction(
   createdAt: json['createdAt'] == null
       ? null
       : DateTime.parse(json['createdAt'] as String),
+  budgetCategoryId: json['budgetCategoryId'] as String?,
   notes: json['notes'] as String?,
   description: json['description'] as String?,
   isSynced: json['isSynced'] as bool? ?? false,
@@ -47,6 +48,7 @@ Map<String, dynamic> _$TransactionToJson(Transaction instance) =>
       'category': _$TransactionCategoryEnumMap[instance.category],
       'date': instance.date.toIso8601String(),
       'createdAt': instance.createdAt.toIso8601String(),
+      'budgetCategoryId': instance.budgetCategoryId,
       'notes': instance.notes,
       'description': instance.description,
       'isSynced': instance.isSynced,

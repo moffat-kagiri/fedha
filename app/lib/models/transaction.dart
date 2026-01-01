@@ -13,7 +13,8 @@ class Transaction {
   String categoryId;
   TransactionCategory? category;
   DateTime date;
-  DateTime createdAt; // ✅ ADDED: When transaction was created
+  DateTime createdAt; // ✅ When transaction was created
+  String? budgetCategoryId;  
   String? notes;
   String? description;
   bool isSynced;
@@ -36,7 +37,11 @@ class Transaction {
     required this.categoryId,
     this.category,
     required this.date,
-    DateTime? createdAt, // ✅ ADDED: Optional, defaults to now
+    DateTime? createdAt,
+    
+    // ✅ NEW: Add budgetCategoryId parameter
+    this.budgetCategoryId,
+    
     this.notes,
     this.description,
     this.isSynced = false,
@@ -51,9 +56,19 @@ class Transaction {
     this.isRecurring = false,
     this.paymentMethod,
   }) : id = id ?? const Uuid().v4(),
-      createdAt = createdAt ?? DateTime.now(), // ✅ ADDED: Initialize createdAt
+      createdAt = createdAt ?? DateTime.now(),
       isExpense = isExpense ?? (type == TransactionType.expense),
-      updatedAt = updatedAt ?? DateTime.now();
+      updatedAt = updatedAt ?? DateTime.now() {
+    // ✅ Initialize budgetCategoryId in constructor body
+    if (budgetCategoryId == null) {
+      budgetCategoryId = switch (type) {
+        TransactionType.expense => 
+          categoryId.isNotEmpty ? categoryId : 'other',
+        TransactionType.savings => 'savings',
+        _ => null,
+      };
+    }
+  }
 
   // Helper method to ensure category is properly set
   Transaction withCategory(TransactionCategory category) {
@@ -66,6 +81,7 @@ class Transaction {
       category: category,
       date: date,
       createdAt: createdAt,
+      budgetCategoryId: budgetCategoryId,
       notes: notes,
       description: description,
       isSynced: isSynced,
@@ -104,6 +120,7 @@ class Transaction {
       smsSource: smsSource,
       profileId: profileId ?? '0',
       isExpense: type == TransactionType.expense,
+      // Let the main constructor handle budgetCategoryId default
     );
   }
 
@@ -119,6 +136,7 @@ class Transaction {
       date: DateTime.now(),
       profileId: '',
       id: '',
+      budgetCategoryId: null,
     );
   }
       
@@ -127,13 +145,14 @@ class Transaction {
   /// Returns a copy of this transaction with the given fields replaced.
   Transaction copyWith({
     String? id,
-    String? remoteId, // Add remoteId
+    String? remoteId,
     double? amount,
     TransactionType? type,
     String? categoryId,
     TransactionCategory? category,
     DateTime? date,
-    DateTime? createdAt, // ✅ ADDED: Copy createdAt field
+    DateTime? createdAt,
+    String? budgetCategoryId,
     String? notes,
     String? description,
     bool? isSynced,
@@ -148,15 +167,21 @@ class Transaction {
     bool? isRecurring,
     PaymentMethod? paymentMethod,
   }) {
+    // Handle type changes that affect isExpense
+    final newType = type ?? this.type;
+    final newIsExpense = isExpense ?? 
+      (type != null ? (type == TransactionType.expense) : this.isExpense);
+    
     return Transaction(
       id: id ?? this.id,
       remoteId: remoteId ?? this.remoteId,
       amount: amount ?? this.amount,
-      type: type ?? this.type,
+      type: newType,
       categoryId: categoryId ?? this.categoryId,
       category: category ?? this.category,
       date: date ?? this.date,
-      createdAt: createdAt ?? this.createdAt, // ✅ ADDED: Copy createdAt
+      createdAt: createdAt ?? this.createdAt,
+      budgetCategoryId: budgetCategoryId ?? this.budgetCategoryId,
       notes: notes ?? this.notes,
       description: description ?? this.description,
       isSynced: isSynced ?? this.isSynced,
@@ -167,7 +192,7 @@ class Transaction {
       reference: reference ?? this.reference,
       recipient: recipient ?? this.recipient,
       isPending: isPending ?? this.isPending,
-      isExpense: isExpense ?? this.isExpense,
+      isExpense: newIsExpense,
       isRecurring: isRecurring ?? this.isRecurring,
       paymentMethod: paymentMethod ?? this.paymentMethod,
     );
@@ -176,10 +201,21 @@ class Transaction {
   /// Check if transaction has been synced to backend
   bool get hasRemoteId => remoteId != null && remoteId!.isNotEmpty;
 
+  /// Get display name for budget category
+  String get budgetCategoryDisplayName {
+    if (budgetCategoryId == null) return 'Unassigned';
+    if (budgetCategoryId == 'other') return 'Other';
+    if (budgetCategoryId == 'savings') return 'Savings';
+    return budgetCategoryId!;
+  }
+
+  /// Check if transaction is assigned to a budget category
+  bool get hasBudgetCategory => budgetCategoryId != null && budgetCategoryId!.isNotEmpty;
+
   @override
   String toString() {
     return 'Transaction(id: $id, remoteId: $remoteId, amount: $amount, type: $type, '
-        'category: $category, categoryId: $categoryId, date: $date, '
-        'description: $description, isExpense: $isExpense)';
+        'category: $category, categoryId: $categoryId, budgetCategoryId: $budgetCategoryId, '
+        'date: $date, description: $description, isExpense: $isExpense)';
   }
 }
