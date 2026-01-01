@@ -15,7 +15,7 @@ enum TransactionEventType {
   created,
   updated,
   deleted,
-  approved, // From pending to confirmed
+  approved,
 }
 
 /// Transaction event data
@@ -32,7 +32,6 @@ class TransactionEvent {
 }
 
 /// Service that handles transaction events and triggers updates
-/// to budgets and goals automatically
 class TransactionEventService extends ChangeNotifier {
   static TransactionEventService? _instance;
   static TransactionEventService get instance => _instance ??= TransactionEventService._();
@@ -46,10 +45,8 @@ class TransactionEventService extends ChangeNotifier {
 
   TransactionEventService._();
 
-  /// Stream of transaction events
   Stream<TransactionEvent> get eventStream => _eventController.stream;
 
-  /// Initialize with dependencies
   Future<void> initialize({
     required OfflineDataService offlineDataService,
     required BudgetService budgetService,
@@ -57,13 +54,11 @@ class TransactionEventService extends ChangeNotifier {
     _offlineDataService = offlineDataService;
     _budgetService = budgetService;
     
-    // Listen to transaction events and process them
     _eventController.stream.listen(_handleTransactionEvent);
     
     _logger.info('TransactionEventService initialized');
   }
 
-  /// Set current profile
   void setCurrentProfile(String profileId) {
     _currentProfileId = profileId;
     _logger.info('Current profile set: $profileId');
@@ -71,7 +66,6 @@ class TransactionEventService extends ChangeNotifier {
 
   // ==================== EVENT EMITTERS ====================
 
-  /// Emit transaction created event
   Future<void> onTransactionCreated(Transaction transaction) async {
     _logger.info('Transaction created: ${transaction.id} - ${transaction.amount}');
     _eventController.add(TransactionEvent(
@@ -81,7 +75,6 @@ class TransactionEventService extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Emit transaction updated event
   Future<void> onTransactionUpdated(Transaction transaction) async {
     _logger.info('Transaction updated: ${transaction.id}');
     _eventController.add(TransactionEvent(
@@ -91,7 +84,6 @@ class TransactionEventService extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Emit transaction deleted event
   Future<void> onTransactionDeleted(Transaction transaction) async {
     _logger.info('Transaction deleted: ${transaction.id}');
     _eventController.add(TransactionEvent(
@@ -101,7 +93,6 @@ class TransactionEventService extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Emit transaction approved event (from pending)
   Future<void> onTransactionApproved(Transaction transaction) async {
     _logger.info('Transaction approved: ${transaction.id}');
     _eventController.add(TransactionEvent(
@@ -113,7 +104,6 @@ class TransactionEventService extends ChangeNotifier {
 
   // ==================== EVENT HANDLERS ====================
 
-  /// Handle transaction events and trigger updates
   Future<void> _handleTransactionEvent(TransactionEvent event) async {
     try {
       switch (event.type) {
@@ -133,7 +123,6 @@ class TransactionEventService extends ChangeNotifier {
     }
   }
 
-  /// Handle new transaction - update budgets and goals
   Future<void> _handleTransactionAdded(Transaction transaction) async {
     if (_offlineDataService == null || _budgetService == null) {
       _logger.warning('Services not initialized');
@@ -150,20 +139,20 @@ class TransactionEventService extends ChangeNotifier {
       );
     }
 
-    // Update goals for savings transactions
+    // ✅ FIX: Update goals ONLY if goalId is provided
+    // Allow savings transactions without goals
     if (transaction.type == TransactionType.savings && transaction.goalId != null) {
       await _updateGoalProgress(
         goalId: transaction.goalId!,
         amount: transaction.amount,
         isAddition: true,
       );
+    } else if (transaction.type == TransactionType.savings) {
+      _logger.info('💰 Savings transaction without goal - general savings recorded');
     }
   }
 
-  /// Handle transaction update
   Future<void> _handleTransactionUpdated(Transaction transaction) async {
-    // For updates, we need to recalculate everything
-    // This is safer than trying to calculate the delta
     await _recalculateBudgets(transaction.profileId);
     
     if (transaction.goalId != null) {
@@ -171,9 +160,7 @@ class TransactionEventService extends ChangeNotifier {
     }
   }
 
-  /// Handle transaction deletion
   Future<void> _handleTransactionDeleted(Transaction transaction) async {
-    // Update budgets for expense transactions
     if (transaction.type == TransactionType.expense) {
       await _updateBudgetSpending(
         transaction: transaction,
@@ -181,7 +168,6 @@ class TransactionEventService extends ChangeNotifier {
       );
     }
 
-    // Update goals for savings transactions
     if (transaction.type == TransactionType.savings && transaction.goalId != null) {
       await _updateGoalProgress(
         goalId: transaction.goalId!,
@@ -193,7 +179,29 @@ class TransactionEventService extends ChangeNotifier {
 
   // ==================== BUDGET UPDATES (ENHANCED) ====================
 
-  /// Update budget spending based on transaction (ENHANCED)
+  /// ✅ FIX: Normalize category IDs for proper matching
+  String _normalizeCategoryId(String categoryId) {
+    // Convert to lowercase and trim
+    final normalized = categoryId.toLowerCase().trim();
+    
+    // Map common variations to standard names
+    final categoryMap = {
+      'other': 'other',
+      'others': 'other',
+      'other expense': 'other',
+      'other income': 'other',
+      'miscellaneous': 'other',
+      'misc': 'other',
+    };
+    
+    return categoryMap[normalized] ?? normalized;
+  }
+
+  /// ✅ FIX: Check if categories match (handles "other" variations)
+  bool _categoriesMatch(String categoryId1, String categoryId2) {
+    return _normalizeCategoryId(categoryId1) == _normalizeCategoryId(categoryId2);
+  }
+
   Future<void> _updateBudgetSpending({
     required Transaction transaction,
     required bool isAddition,
@@ -201,30 +209,26 @@ class TransactionEventService extends ChangeNotifier {
     try {
       if (_offlineDataService == null || _budgetService == null) return;
 
-      // Get all budgets for this profile
       final budgets = await _offlineDataService!.getAllBudgets(transaction.profileId);
 
-      // Find matching budgets (active and date-appropriate)
+      // ✅ FIX: Use normalized category matching
       final matchingBudgets = budgets.where((b) => 
-        b.categoryId == transaction.categoryId &&
+        _categoriesMatch(b.categoryId, transaction.categoryId) &&
         b.isActive &&
         !transaction.date.isBefore(b.startDate) &&
         !transaction.date.isAfter(b.endDate)
       ).toList();
 
       if (matchingBudgets.isEmpty) {
-        // ✅ IMPROVED: Log but don't treat as error - track unbudgeted spending
         _logger.info(
           '📊 Unbudgeted expense: ${transaction.categoryId} '
           '(KSh ${transaction.amount}) on ${transaction.date.toString().split(' ')[0]}'
         );
         
-        // Could create a separate "unbudgeted spending" tracker here
         await _trackUnbudgetedSpending(transaction, isAddition);
         return;
       }
 
-      // Update all matching budgets (usually just one, but could be multiple)
       for (final budget in matchingBudgets) {
         final newSpentAmount = isAddition
             ? budget.spentAmount + transaction.amount
@@ -244,7 +248,6 @@ class TransactionEventService extends ChangeNotifier {
           'KSh ${budget.budgetAmount.toStringAsFixed(0)}'
         );
         
-        // Check if budget exceeded
         if (updatedBudget.spentAmount > budget.budgetAmount) {
           _logger.warning(
             '⚠️ Budget exceeded: ${budget.name} by '
@@ -257,12 +260,11 @@ class TransactionEventService extends ChangeNotifier {
     }
   }
 
-  /// Track unbudgeted spending for analysis (NEW)
   Future<void> _trackUnbudgetedSpending(Transaction transaction, bool isAddition) async {
     try {
-      // Store unbudgeted spending summary in SharedPreferences for quick access
       final prefs = await SharedPreferences.getInstance();
-      final key = 'unbudgeted_${transaction.profileId}_${transaction.categoryId}';
+      final normalizedCategory = _normalizeCategoryId(transaction.categoryId);
+      final key = 'unbudgeted_${transaction.profileId}_$normalizedCategory';
       final currentTotal = prefs.getDouble(key) ?? 0.0;
 
       final newTotal = isAddition
@@ -270,41 +272,37 @@ class TransactionEventService extends ChangeNotifier {
           : currentTotal - transaction.amount;
 
       await prefs.setDouble(key, newTotal);
-      _logger.info('📈 Unbudgeted spending tracked: ${transaction.categoryId} - KSh ${newTotal.toStringAsFixed(0)}');
+      _logger.info('📈 Unbudgeted spending tracked: $normalizedCategory - KSh ${newTotal.toStringAsFixed(0)}');
     } catch (e) {
       _logger.warning('Failed to track unbudgeted spending: $e');
     }
   }
 
-  /// 🔴 FIXED: Recalculate all budgets with proper date filtering
+  /// ✅ FIX: Recalculate with normalized category matching
   Future<void> _recalculateBudgets(String profileId) async {
     try {
       if (_offlineDataService == null || _budgetService == null) return;
 
       _logger.info('🔄 Recalculating budgets for profile: $profileId');
 
-      // Get all transactions and budgets
       final transactions = await _offlineDataService!.getAllTransactions(profileId);
       final budgets = await _offlineDataService!.getAllBudgets(profileId);
 
-      // Recalculate spending for each active budget
       for (final budget in budgets.where((b) => b.isActive)) {
-        // 🔴 CRITICAL: Filter transactions within budget period
+        // ✅ FIX: Use normalized category matching
         final budgetTransactions = transactions.where((tx) =>
           tx.type == TransactionType.expense &&
-          tx.categoryId == budget.categoryId &&
+          _categoriesMatch(tx.categoryId, budget.categoryId) &&
           !tx.date.isBefore(budget.startDate) &&
           !tx.date.isAfter(budget.endDate)
         ).toList();
 
-        // Calculate total spending
         final totalSpent = budgetTransactions.fold<double>(
           0.0,
           (sum, tx) => sum + tx.amount,
         );
 
-        // Update budget if spending changed
-        if ((totalSpent - budget.spentAmount).abs() > 0.01) { // Use small epsilon for float comparison
+        if ((totalSpent - budget.spentAmount).abs() > 0.01) {
           final updatedBudget = budget.copyWith(
             spentAmount: totalSpent,
             updatedAt: DateTime.now(),
@@ -322,9 +320,8 @@ class TransactionEventService extends ChangeNotifier {
     }
   }
 
-  // ==================== GOAL UPDATES (Unchanged) ====================
+  // ==================== GOAL UPDATES ====================
 
-  /// Update goal progress based on transaction
   Future<void> _updateGoalProgress({
     required String goalId,
     required double amount,
@@ -339,12 +336,10 @@ class TransactionEventService extends ChangeNotifier {
         return;
       }
 
-      // Calculate new current amount
       final newCurrentAmount = isAddition
           ? goal.currentAmount + amount
           : goal.currentAmount - amount;
 
-      // Determine if goal is now completed
       final isCompleted = newCurrentAmount >= goal.targetAmount;
       final newStatus = isCompleted ? GoalStatus.completed : goal.status;
 
@@ -360,7 +355,6 @@ class TransactionEventService extends ChangeNotifier {
       
       _logger.info('✅ Goal updated: ${goal.name} - progress: ${updatedGoal.progressPercentage.toStringAsFixed(1)}%');
       
-      // Notify if goal completed
       if (isCompleted && !goal.isCompleted) {
         _logger.info('🎉 Goal completed: ${goal.name}');
       }
@@ -370,7 +364,6 @@ class TransactionEventService extends ChangeNotifier {
     }
   }
 
-  /// Recalculate goal progress from all linked transactions
   Future<void> _recalculateGoalProgress(String goalId) async {
     try {
       if (_offlineDataService == null) return;
@@ -380,20 +373,17 @@ class TransactionEventService extends ChangeNotifier {
 
       _logger.info('Recalculating goal progress: ${goal.name}');
 
-      // Get all transactions linked to this goal
       final allTransactions = await _offlineDataService!.getAllTransactions(goal.profileId);
       final goalTransactions = allTransactions.where((tx) =>
         tx.type == TransactionType.savings && tx.goalId == goalId
       ).toList();
 
-      // Calculate total savings
       final totalSavings = goalTransactions.fold<double>(
         0.0,
         (sum, tx) => sum + tx.amount,
       );
 
-      // Update goal if progress changed
-      if ((totalSavings - goal.currentAmount).abs() > 0.01) { // Use epsilon for float comparison
+      if ((totalSavings - goal.currentAmount).abs() > 0.01) {
         final isCompleted = totalSavings >= goal.targetAmount;
         
         final updatedGoal = goal.copyWith(
@@ -414,15 +404,11 @@ class TransactionEventService extends ChangeNotifier {
 
   // ==================== PUBLIC UTILITY METHODS ====================
 
-  /// Manually trigger recalculation for all budgets and goals
-  /// 🔴 NEW: Call this when app starts to ensure data consistency
   Future<void> recalculateAll(String profileId) async {
     _logger.info('🔄 Recalculating all budgets and goals for profile: $profileId');
     
-    // Recalculate budgets
     await _recalculateBudgets(profileId);
     
-    // Recalculate all active goals
     if (_offlineDataService != null) {
       final goals = await _offlineDataService!.getAllGoals(profileId);
       for (final goal in goals) {
@@ -435,7 +421,6 @@ class TransactionEventService extends ChangeNotifier {
     _logger.info('✅ Recalculation complete');
   }
 
-  /// Dispose resources
   @override
   void dispose() {
     _eventController.close();

@@ -8,54 +8,32 @@ import 'transaction_event_service.dart';
 import '../utils/logger.dart';
 
 /// Service for linking transactions to goals and managing goal contributions
-/// ✅ This is a HIGH-LEVEL service that EMITS EVENTS after storage operations
 class GoalTransactionService {
   final OfflineDataService _offlineService;
   final _logger = AppLogger.getLogger('GoalTransactionService');
 
   GoalTransactionService(this._offlineService);
 
-  /// Links a transaction to a goal and updates goal progress
-  /// Accepts income or savings transactions as contributions
-  /// ✅ EMITS EVENT after storage
-  Future<void> linkTransactionToGoal(Transaction transaction, String goalId) async {
-    if (transaction.type != TransactionType.income && transaction.type != TransactionType.savings) {
-      return; // Only income/savings transactions can contribute to goals
-    }
-
-    final goal = await _offlineService.getGoal(goalId);
-    if (goal == null) {
-      throw Exception('Goal not found: $goalId');
-    }
-
-    // Update transaction with goal reference
-    final updatedTransaction = transaction.copyWith(goalId: goalId);
-    
-    // Save to database (no event emitted by saveTransaction)
-    await _offlineService.saveTransaction(updatedTransaction);
-    
-    // ✅ EMIT EVENT - This is the high-level operation
-    final eventService = TransactionEventService.instance;
-    await eventService.onTransactionCreated(updatedTransaction);
-    
-    _logger.info('✅ Transaction linked to goal: ${goal.name}');
-  }
-
-  /// Creates a savings transaction specifically for a goal
-  /// ✅ EMITS EVENT after storage (NO manual goal update)
+  /// ✅ FIX: Allow general savings without linking to a goal
+  /// Creates a savings transaction that can optionally be linked to a goal
   Future<Transaction> createSavingsTransaction({
     required double amount,
-    required String goalId,
+    String? goalId, // ✅ NOW OPTIONAL
     String? description,
     String? categoryId,
     DateTime? date,
+    required String profileId, // ✅ ADDED: Need profileId for general savings
   }) async {
-    final goal = await _offlineService.getGoal(goalId);
-    if (goal == null) {
-      throw Exception('Goal not found: $goalId');
+    // ✅ FIX: Validate goal exists if goalId provided
+    if (goalId != null) {
+      final goal = await _offlineService.getGoal(goalId);
+      if (goal == null) {
+        throw Exception('Goal not found: $goalId');
+      }
+      _logger.info('💰 Creating savings transaction for goal: ${goal.name} - Amount: $amount');
+    } else {
+      _logger.info('💰 Creating general savings transaction - Amount: $amount');
     }
-
-    _logger.info('💰 Creating savings transaction for goal: ${goal.name} - Amount: $amount');
 
     // Create the savings transaction
     final transaction = Transaction(
@@ -64,25 +42,47 @@ class GoalTransactionService {
       type: TransactionType.savings,
       categoryId: categoryId ?? 'savings',
       date: date ?? DateTime.now(),
-      description: description ?? 'Savings contribution for ${goal.name}',
-      goalId: goalId,
-      profileId: goal.profileId,
+      description: description ?? (goalId != null 
+          ? 'Savings contribution' 
+          : 'General savings'),
+      goalId: goalId, // ✅ Can be null for general savings
+      profileId: profileId,
     );
 
-    // Save transaction (no event emitted by saveTransaction)
+    // Save transaction
     await _offlineService.saveTransaction(transaction);
     
-    // ✅ EMIT EVENT - This triggers the event service to update the goal
+    // Emit event - this will update goal if goalId is provided
     final eventService = TransactionEventService.instance;
     await eventService.onTransactionCreated(transaction);
     
-    _logger.info('✅ Savings transaction saved - Event system will update goal progress');
+    _logger.info('✅ Savings transaction saved - Event system will update goal if linked');
     
     return transaction;
   }
 
-  /// Unlinks a transaction from a goal and reverses the contribution
-  /// ✅ EMITS EVENT after storage
+  /// Links a transaction to a goal and updates goal progress
+  Future<void> linkTransactionToGoal(Transaction transaction, String goalId) async {
+    if (transaction.type != TransactionType.income && transaction.type != TransactionType.savings) {
+      return;
+    }
+
+    final goal = await _offlineService.getGoal(goalId);
+    if (goal == null) {
+      throw Exception('Goal not found: $goalId');
+    }
+
+    final updatedTransaction = transaction.copyWith(goalId: goalId);
+    
+    await _offlineService.saveTransaction(updatedTransaction);
+    
+    final eventService = TransactionEventService.instance;
+    await eventService.onTransactionCreated(updatedTransaction);
+    
+    _logger.info('✅ Transaction linked to goal: ${goal.name}');
+  }
+
+  /// Unlinks a transaction from a goal
   Future<void> unlinkTransactionFromGoal(String transactionId, String profileId) async {
     final transactions = await _offlineService.getAllTransactions(profileId);
     final matches = transactions.where((t) => t.id == transactionId).toList();
@@ -93,26 +93,38 @@ class GoalTransactionService {
 
     _logger.info('Unlinking transaction from goal: ${transaction.goalId}');
 
-    // Remove goal reference from transaction
     final updatedTransaction = transaction.copyWith(goalId: null);
     
-    // Save to database (no event)
     await _offlineService.updateTransaction(updatedTransaction);
     
-    // ✅ EMIT EVENT - This triggers recalculation
     final eventService = TransactionEventService.instance;
     await eventService.onTransactionUpdated(updatedTransaction);
     
     _logger.info('✅ Transaction unlinked - Event system will recalculate goal');
   }
 
-  /// Gets all transactions linked to a specific goal for a profile
+  /// Gets all transactions linked to a specific goal
   Future<List<Transaction>> getTransactionsForGoal(String profileId, String goalId) async {
     final all = await _offlineService.getAllTransactions(profileId);
     return all.where((transaction) => transaction.goalId == goalId).toList();
   }
 
-  /// Gets suggested goals for a transaction based on transaction type and amount
+  /// ✅ NEW: Gets all general savings (not linked to any goal)
+  Future<List<Transaction>> getGeneralSavings(String profileId) async {
+    final all = await _offlineService.getAllTransactions(profileId);
+    return all.where((transaction) => 
+      transaction.type == TransactionType.savings && 
+      transaction.goalId == null
+    ).toList();
+  }
+
+  /// ✅ NEW: Calculate total general savings
+  Future<double> getTotalGeneralSavings(String profileId) async {
+    final generalSavings = await getGeneralSavings(profileId);
+    return generalSavings.fold(0.0, (sum, tx) => sum + tx.amount);
+  }
+
+  /// Gets suggested goals for a transaction
   Future<List<Goal>> getSuggestedGoalsForTransaction(Transaction transaction) async {
     if (transaction.type != TransactionType.income && transaction.type != TransactionType.savings) {
       return [];
@@ -121,7 +133,6 @@ class GoalTransactionService {
     final allGoals = await _offlineService.getAllGoals(transaction.profileId);
     final activeGoals = allGoals.where((goal) => goal.status == GoalStatus.active && !goal.isCompleted).toList();
 
-    // Filter goals based on relevance to transaction
     return activeGoals.where((goal) {
       final bool isRelevant =
           (goal.goalType == GoalType.savings && transaction.amount >= 100) ||
@@ -134,7 +145,6 @@ class GoalTransactionService {
   }
 
   /// Transfers funds from one goal to another
-  /// ✅ EMITS EVENTS for both transactions
   Future<void> transferBetweenGoals({
     required String fromGoalId,
     required String toGoalId,
@@ -158,7 +168,6 @@ class GoalTransactionService {
 
     _logger.info('Transferring $amount from ${fromGoal.name} to ${toGoal.name}');
 
-    // Create withdrawal transaction from source goal
     final withdrawalTransaction = Transaction(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       amount: amount,
@@ -170,7 +179,6 @@ class GoalTransactionService {
       profileId: fromGoal.profileId,
     );
 
-    // Create deposit transaction to target goal
     final depositTransaction = Transaction(
       id: '${DateTime.now().millisecondsSinceEpoch}_deposit',
       amount: amount,
@@ -184,7 +192,6 @@ class GoalTransactionService {
 
     final eventService = TransactionEventService.instance;
     
-    // Save both transactions and emit events
     await _offlineService.saveTransaction(withdrawalTransaction);
     await eventService.onTransactionCreated(withdrawalTransaction);
     
@@ -194,7 +201,7 @@ class GoalTransactionService {
     _logger.info('✅ Transfer complete - Event system will update both goals');
   }
 
-  /// Gets the total amount contributed to a goal from transactions
+  /// Gets the total amount contributed to a goal
   Future<double> getTotalContributions(String profileId, String goalId) async {
     final goalTransactions = await getTransactionsForGoal(profileId, goalId);
     double total = 0.0;
@@ -209,7 +216,6 @@ class GoalTransactionService {
   }
 
   /// Verify goal amount matches transaction total
-  /// Useful for debugging and data integrity checks
   Future<bool> verifyGoalAmount(String goalId, String profileId) async {
     final goal = await _offlineService.getGoal(goalId);
     if (goal == null) return false;
@@ -228,8 +234,7 @@ class GoalTransactionService {
     return true;
   }
 
-  /// Recalculate goal amount from transactions (for fixing data issues)
-  /// ⚠️ Use TransactionEventService.recalculateAll() instead for production
+  /// Recalculate goal amount from transactions
   Future<void> recalculateGoalAmount(String goalId, String profileId) async {
     final eventService = TransactionEventService.instance;
     await eventService.recalculateAll(profileId);

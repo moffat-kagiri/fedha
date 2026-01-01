@@ -248,8 +248,9 @@ class _DashboardContentState extends State<DashboardContent> {
     // Calculate savings rate percentage
     final savingsRate = monthlyIncome > 0 ? (monthlySavings / monthlyIncome * 100) : 0.0;
 
-    // Calculate budget health
+    // Calculate budget health - updated to show percentage remaining like in budget progress screen
     double budgetHealthPercent = 0.0;
+    double budgetRemainingPercent = 0.0;
     String budgetHealthLabel = 'No Budget';
     Color budgetHealthColor = Colors.grey;
     
@@ -257,14 +258,18 @@ class _DashboardContentState extends State<DashboardContent> {
       final budget = data.currentBudget!;
       final remaining = budget.budgetAmount - budget.spentAmount;
       budgetHealthPercent = budget.budgetAmount > 0
+          ? (budget.spentAmount / budget.budgetAmount * 100)
+          : 0.0;
+      
+      budgetRemainingPercent = budget.budgetAmount > 0
           ? (remaining / budget.budgetAmount * 100)
           : 0.0;
       
-      // Color code based on budget health
-      if (budgetHealthPercent < 10) {
+      // Color code based on budget health - similar to budget progress screen
+      if (budgetHealthPercent >= 90) {
         budgetHealthColor = FedhaColors.errorRed;
         budgetHealthLabel = 'Budget Alert';
-      } else if (budgetHealthPercent < 25) {
+      } else if (budgetHealthPercent >= 75) {
         budgetHealthColor = FedhaColors.warningOrange;
         budgetHealthLabel = 'Budget Low';
       } else {
@@ -283,7 +288,7 @@ class _DashboardContentState extends State<DashboardContent> {
       overallGoalsProgress = totalTarget > 0 ? (totalProgress / totalTarget * 100) : 0.0;
     }
 
-    // Build summary items
+    // Build summary items - updated budget item to show percentage remaining
     final summaryItems = [
       FinancialSummaryItem(
         label: 'Savings Rate',
@@ -298,7 +303,7 @@ class _DashboardContentState extends State<DashboardContent> {
       FinancialSummaryItem(
         label: budgetHealthLabel,
         value: data.currentBudget != null && data.currentBudget!.isActive
-            ? '${budgetHealthPercent.toStringAsFixed(1)}%'
+            ? '${budgetRemainingPercent.toStringAsFixed(1)}% left'
             : 'Not Set',
         color: budgetHealthColor,
         icon: Icons.account_balance_wallet,
@@ -327,73 +332,73 @@ class _DashboardContentState extends State<DashboardContent> {
   }
 
   Widget _buildQuickActions(BuildContext context) {
-    final actions = [
-      QuickActionItem(
-        title: 'Add Transaction',
-        icon: Icons.add,
-        color: Colors.green,
-        onTap: () {
-          TransactionDialog.showAddDialog(
-            context,
-            onTransactionSaved: (transaction) {
-              // Refresh dashboard after adding transaction
-              _triggerRefresh();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Transaction added successfully'),
-                  backgroundColor: Color(0xFF007A39),
-                ),
+        final actions = [
+          QuickActionItem(
+            title: 'Add Transaction',
+            icon: Icons.add,
+            color: Colors.green,
+            onTap: () {
+              TransactionDialog.showAddDialog(
+                context,
+                onTransactionSaved: (transaction) {
+                  // Refresh dashboard after adding transaction
+                  _triggerRefresh();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Transaction added successfully'),
+                      backgroundColor: Color(0xFF007A39),
+                    ),
+                  );
+                },
               );
             },
-          );
-        },
-      ),
-      QuickActionItem(
-        title: 'SMS Review',
-        icon: Icons.sms,
-        color: Colors.blue,
-        onTap: () async {
-          final permissionsService = Provider.of<PermissionsService>(context, listen: false);
-          final granted = await permissionsService.requestSmsPermission();
-          
-          if (!granted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('SMS permission required to review messages'),
-                backgroundColor: Colors.red,
-              ),
-            );
-            return;
-          }
-          
-          final smsService = SmsListenerService.instance;
-          final authService = Provider.of<AuthService>(context, listen: false);
-          final offlineDataService = Provider.of<OfflineDataService>(context, listen: false);
-          final profileId = authService.currentProfile?.id ?? '';
-          
-          if (!smsService.isListening) {
-            await smsService.startListening(
-              offlineDataService: offlineDataService,
-              profileId: profileId,
-            );
-          }
-          
-          Navigator.of(context).pushNamed('/sms_review');
-        },
-      ),
-      QuickActionItem(
-        title: 'Budget Progress',
-        icon: Icons.account_balance_wallet,
-        color: Colors.purple,
-        onTap: () => Navigator.of(context).pushNamed('/budget_progress'),
-      ),
-      QuickActionItem(
-        title: 'Analytics',
-        icon: Icons.analytics,
-        color: Colors.orange,
-        onTap: () => Navigator.of(context).pushNamed('/analytics'),
-      ),
-    ];
+          ),
+          QuickActionItem(
+            title: 'SMS Review',
+            icon: Icons.sms,
+            color: Colors.blue,
+            onTap: () async {
+              final permissionsService = Provider.of<PermissionsService>(context, listen: false);
+              final granted = await permissionsService.requestSmsPermission();
+              
+              if (!granted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('SMS permission required to review messages'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+                return;
+              }
+              
+              final smsService = SmsListenerService.instance;
+              final authService = Provider.of<AuthService>(context, listen: false);
+              final offlineDataService = Provider.of<OfflineDataService>(context, listen: false);
+              final profileId = authService.currentProfile?.id ?? '';
+              
+              if (!smsService.isListening) {
+                await smsService.startListening(
+                  offlineDataService: offlineDataService,
+                  profileId: profileId,
+                );
+              }
+              
+              Navigator.of(context).pushNamed('/sms_review');
+            },
+          ),
+          QuickActionItem(
+            title: 'Budget Progress',
+            icon: Icons.account_balance_wallet,
+            color: Colors.purple,
+            onTap: () => Navigator.of(context).pushNamed('/budget_progress'),
+          ),
+          QuickActionItem(
+            title: 'Analytics',
+            icon: Icons.analytics,
+            color: Colors.orange,
+            onTap: () => Navigator.of(context).pushNamed('/analytics'),
+          ),
+        ];
 
     return QuickActionsGrid(actions: actions);
   }
