@@ -6,6 +6,7 @@ from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
 from django.utils import timezone
+from accounts.models import Profile
 from .models import Client, Invoice, Loan
 from .serializers import ClientSerializer, InvoiceSerializer, LoanSerializer
 
@@ -22,11 +23,21 @@ class ClientViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         """Return clients for current user."""
-        return Client.objects.filter(profile=self.request.user.profile)
+        # Handle both User and Profile objects
+        if isinstance(self.request.user, Profile):
+            user_profile = self.request.user
+        else:
+            user_profile = self.request.user.profile
+        return Client.objects.filter(profile=user_profile)
     
     def perform_create(self, serializer):
         """Set profile on create."""
-        serializer.save(profile=self.request.user.profile)
+        # Handle both User and Profile objects
+        if isinstance(self.request.user, Profile):
+            profile = self.request.user
+        else:
+            profile = self.request.user.profile
+        serializer.save(profile=profile)
 
 
 class InvoiceViewSet(viewsets.ModelViewSet):
@@ -41,7 +52,12 @@ class InvoiceViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         """Return invoices for current user."""
-        queryset = Invoice.objects.filter(profile=self.request.user.profile)
+        # Handle both User and Profile objects
+        if isinstance(self.request.user, Profile):
+            user_profile = self.request.user
+        else:
+            user_profile = self.request.user.profile
+        queryset = Invoice.objects.filter(profile=user_profile)
         
         # Filter overdue invoices
         overdue_only = self.request.query_params.get('overdue_only')
@@ -55,7 +71,12 @@ class InvoiceViewSet(viewsets.ModelViewSet):
     
     def perform_create(self, serializer):
         """Set profile on create."""
-        serializer.save(profile=self.request.user.profile)
+        # Handle both User and Profile objects
+        if isinstance(self.request.user, Profile):
+            profile = self.request.user
+        else:
+            profile = self.request.user.profile
+        serializer.save(profile=profile)
 
 
 class LoanViewSet(viewsets.ModelViewSet):
@@ -70,7 +91,11 @@ class LoanViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         """Return loans for current user."""
-        user_profile = self.request.user.profile
+        # Handle both User and Profile objects (authentication may set user to profile directly)
+        if isinstance(self.request.user, Profile):
+            user_profile = self.request.user
+        else:
+            user_profile = self.request.user.profile
         queryset = Loan.objects.filter(profile=user_profile)
         
         # Validate profile_id if provided (must own this profile)
@@ -85,7 +110,12 @@ class LoanViewSet(viewsets.ModelViewSet):
     
     def perform_create(self, serializer):
         """Set profile on create."""
-        serializer.save(profile=self.request.user.profile)
+        # Handle both User and Profile objects
+        if isinstance(self.request.user, Profile):
+            profile = self.request.user
+        else:
+            profile = self.request.user.profile
+        serializer.save(profile=profile)
     
     @action(detail=False, methods=['get'])
     def active(self, request):

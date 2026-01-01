@@ -7,6 +7,7 @@ from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
 from django.utils import timezone
+from accounts.models import Profile
 from .models import Budget
 from .serializers import BudgetSerializer, BudgetSummarySerializer
 
@@ -23,7 +24,11 @@ class BudgetViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         """Return budgets for current user."""
-        user_profile = self.request.user.profile
+        # Handle both User and Profile objects (authentication may set user to profile directly)
+        if isinstance(self.request.user, Profile):
+            user_profile = self.request.user
+        else:
+            user_profile = self.request.user.profile
         queryset = Budget.objects.filter(profile=user_profile)
         
         # Validate profile_id if provided (must own this profile)
@@ -48,7 +53,12 @@ class BudgetViewSet(viewsets.ModelViewSet):
     
     def perform_create(self, serializer):
         """Set profile on create."""
-        serializer.save(profile=self.request.user.profile)
+        # Handle both User and Profile objects
+        if isinstance(self.request.user, Profile):
+            profile = self.request.user
+        else:
+            profile = self.request.user.profile
+        serializer.save(profile=profile)
     
     @action(detail=False, methods=['get'])
     def current(self, request):
@@ -85,7 +95,11 @@ class BudgetViewSet(viewsets.ModelViewSet):
     def bulk_sync(self, request):
         """Bulk sync budgets from mobile app."""
         budgets_data = request.data if isinstance(request.data, list) else []
-        user_profile = request.user.profile
+        # Handle both User and Profile objects
+        if isinstance(request.user, Profile):
+            user_profile = request.user
+        else:
+            user_profile = request.user.profile
         
         created_count = 0
         updated_count = 0

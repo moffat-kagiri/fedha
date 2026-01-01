@@ -5,6 +5,7 @@ from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.response import Response
 from django.utils import timezone
 from django.db import transaction as db_transaction
+from accounts.models import Profile
 from .models import SyncQueue, SyncStatus
 from .serializers import (
     SyncQueueSerializer, SyncStatusSerializer, BulkSyncRequestSerializer
@@ -28,11 +29,21 @@ class SyncQueueViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         """Return sync queue items for current user."""
-        return SyncQueue.objects.filter(profile=self.request.user.profile)
+        # Handle both User and Profile objects
+        if isinstance(self.request.user, Profile):
+            user_profile = self.request.user
+        else:
+            user_profile = self.request.user.profile
+        return SyncQueue.objects.filter(profile=user_profile)
     
     def perform_create(self, serializer):
         """Set profile on create."""
-        serializer.save(profile=self.request.user.profile)
+        # Handle both User and Profile objects
+        if isinstance(self.request.user, Profile):
+            profile = self.request.user
+        else:
+            profile = self.request.user.profile
+        serializer.save(profile=profile)
     
     @action(detail=False, methods=['get'])
     def status(self, request):

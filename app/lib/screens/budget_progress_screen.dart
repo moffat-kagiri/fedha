@@ -46,6 +46,11 @@ class _BudgetProgressScreenState extends State<BudgetProgressScreen>
     });
   }
 
+  /// ✅ FIX: Normalize category IDs to consistent format
+  String _normalizeCategoryId(String categoryId) {
+    return categoryId.toLowerCase().replaceAll(' ', '_').replaceAll('-', '_');
+  }
+
   @override
   void dispose() {
     _eventSubscription?.cancel();
@@ -59,9 +64,22 @@ class _BudgetProgressScreenState extends State<BudgetProgressScreen>
     try {
       final offlineDataService = Provider.of<OfflineDataService>(context, listen: false);
       final authService = Provider.of<AuthService>(context, listen: false);
-      final profileId = authService.currentProfile?.id ?? '';
+      
+      // ✅ FIX: Validate profile exists and is properly initialized
+      if (!authService.hasActiveProfile) {
+        setState(() => _isLoading = false);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Please select a profile to view budgets'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+        return;
+      }
 
-      if (profileId.isEmpty) throw Exception('No active profile');
+      final profileId = authService.currentProfile!.id; // ✅ Now safe to force unwrap
 
       final budgets = await offlineDataService.getAllBudgets(profileId);
       final unbudgeted = await _loadUnbudgetedSpending(profileId);
@@ -76,7 +94,7 @@ class _BudgetProgressScreenState extends State<BudgetProgressScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to load: $e'),
+            content: Text('Failed to load budgets: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -87,14 +105,18 @@ class _BudgetProgressScreenState extends State<BudgetProgressScreen>
   Future<Map<String, double>> _loadUnbudgetedSpending(String profileId) async {
     final prefs = await SharedPreferences.getInstance();
     final Map<String, double> unbudgeted = {};
+    
+    // ✅ FIX: Use consistent category ID normalization
     final categories = ['food', 'transport', 'utilities', 'shopping', 
-                       'entertainment', 'healthcare', 'education', 'other'];
+                       'entertainment', 'healthcare', 'education', 'savings', 'other'];
 
     for (final category in categories) {
-      final key = 'unbudgeted_${profileId}_$category';
+      // ✅ FIX: Normalize category ID format (lowercase, underscores)
+      final normalizedCategory = _normalizeCategoryId(category);
+      final key = 'unbudgeted_${profileId}_$normalizedCategory';
       final amount = prefs.getDouble(key) ?? 0.0;
       if (amount > 0) {
-        unbudgeted[category] = amount;
+        unbudgeted[normalizedCategory] = amount;
       }
     }
 

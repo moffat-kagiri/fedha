@@ -10,6 +10,7 @@ from django.db.models import Sum, Q
 from django.utils import timezone
 from datetime import timedelta
 from .models import Transaction, PendingTransaction, TransactionType, TransactionStatus
+from accounts.models import Profile
 from .serializers import (
     TransactionSerializer, PendingTransactionSerializer,
     TransactionApprovalSerializer, TransactionSummarySerializer
@@ -29,7 +30,11 @@ class TransactionViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         """Return transactions for current user with date filtering."""
-        user_profile = self.request.user.profile
+        # Handle both User and Profile objects (authentication may set user to profile directly)
+        if isinstance(self.request.user, Profile):
+            user_profile = self.request.user
+        else:
+            user_profile = self.request.user.profile
         queryset = Transaction.objects.filter(profile=user_profile)
         
         # Validate profile_id if provided (must own this profile)
@@ -65,13 +70,22 @@ class TransactionViewSet(viewsets.ModelViewSet):
     
     def perform_create(self, serializer):
         """Set profile on create."""
-        serializer.save(profile=self.request.user.profile)
+        # Handle both User and Profile objects
+        if isinstance(self.request.user, Profile):
+            profile = self.request.user
+        else:
+            profile = self.request.user.profile
+        serializer.save(profile=profile)
     
     @action(detail=False, methods=['post'])
     def bulk_sync(self, request):
         """Bulk sync transactions from mobile app."""
         transactions_data = request.data if isinstance(request.data, list) else []
-        user_profile = request.user.profile
+        # Handle both User and Profile objects
+        if isinstance(request.user, Profile):
+            user_profile = request.user
+        else:
+            user_profile = request.user.profile
         
         created_count = 0
         updated_count = 0
@@ -216,7 +230,11 @@ class PendingTransactionViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         """Return pending transactions for current user."""
-        user_profile = self.request.user.profile
+        # Handle both User and Profile objects (authentication may set user to profile directly)
+        if isinstance(self.request.user, Profile):
+            user_profile = self.request.user
+        else:
+            user_profile = self.request.user.profile
         queryset = PendingTransaction.objects.filter(profile=user_profile)
         
         # Validate profile_id if provided (must own this profile)
@@ -236,7 +254,12 @@ class PendingTransactionViewSet(viewsets.ModelViewSet):
     
     def perform_create(self, serializer):
         """Set profile on create."""
-        serializer.save(profile=self.request.user.profile)
+        # Handle both User and Profile objects
+        if isinstance(self.request.user, Profile):
+            profile = self.request.user
+        else:
+            profile = self.request.user.profile
+        serializer.save(profile=profile)
     
     @action(detail=True, methods=['post'])
     def approve(self, request, pk=None):

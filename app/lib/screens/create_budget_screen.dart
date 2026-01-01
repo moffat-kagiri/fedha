@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:uuid/uuid.dart';
 import '../models/budget.dart';
 import '../models/enums.dart';
 import '../services/offline_data_service.dart';
@@ -93,6 +94,11 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
       final authService = Provider.of<AuthService>(context, listen: false);
       final profileId = authService.profileId ?? '';
 
+      // ✅ VALIDATION: Ensure profile is selected
+      if (profileId.isEmpty) {
+        throw Exception('No active profile. Please select a profile first.');
+      }
+
       // Create individual budget for each category with an allocation
       int budgetsCreated = 0;
       for (var category in _budgetCategories) {
@@ -101,7 +107,8 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
 
         if (amount > 0) {
           final budget = Budget(
-            id: '${DateTime.now().millisecondsSinceEpoch}_$categoryId',
+            id: const Uuid().v4(), // ✅ FIX: Use proper UUID instead of timestamp
+            remoteId: null, // ✅ FIX: Initialize as null, will be set on sync
             name: '$_budgetName - ${category['name']}',
             description: 'Budget for ${category['name']}',
             budgetAmount: amount,
@@ -111,6 +118,7 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
             startDate: _startDate,
             endDate: _endDate,
             isActive: true,
+            isSynced: false, // ✅ FIX: Mark as unsynced initially
           );
 
           await dataService.saveBudget(budget);
