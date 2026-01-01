@@ -154,6 +154,20 @@ class Loan {
     );
   }
 
+  /// Empty loan for comparison (used in sync operations)
+  factory Loan.empty() {
+    return Loan(
+      name: '',
+      principalMinor: 0,
+      currency: 'KES',
+      interestRate: 0,
+      startDate: DateTime.now(),
+      endDate: DateTime.now(),
+      profileId: '',
+      id: '',
+    );
+  }
+
   /// Creates a Loan from JSON data
   factory Loan.fromJson(Map<String, dynamic> json) => _$LoanFromJson(json);
 

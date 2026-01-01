@@ -95,6 +95,20 @@ class Budget {
   }
 
   factory Budget.fromJson(Map<String, dynamic> json) => _$BudgetFromJson(json);
+  
+  /// Empty budget for comparison (used in sync operations)
+  factory Budget.empty() {
+    return Budget(
+      id: '',
+      name: '',
+      budgetAmount: 0,
+      categoryId: '',
+      profileId: '',
+      startDate: DateTime.now(),
+      endDate: DateTime.now(),
+    );
+  }
+  
   Map<String, dynamic> toJson() => _$BudgetToJson(this);
 
   bool isDateInRange(DateTime date) {

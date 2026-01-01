@@ -208,30 +208,37 @@ class UnifiedSyncService with ChangeNotifier {
               final remoteId = remote['id']?.toString();
               if (remoteId == null) continue;
               
-              // Check if already exists locally by remoteId
-              final existsLocally = localTransactions.any((t) => t.remoteId == remoteId);
+              // Check if already exists locally by remoteId (upsert pattern)
+              final existingTransaction = localTransactions.firstWhere(
+                (t) => t.remoteId == remoteId,
+                orElse: () => Transaction.empty(),
+              );
               
-              if (!existsLocally) {
-                // Convert server transaction to local model
-                final amountMinor = int.tryParse(remote['amount_minor']?.toString() ?? '0') ?? 0;
-                final transaction = Transaction(
-                  amount: amountMinor / 100.0, // Convert from minor units
-                  description: remote['description']?.toString() ?? '',
-                  date: DateTime.tryParse(remote['date']?.toString() ?? '') ?? DateTime.now(),
-                  createdAt: DateTime.tryParse(remote['created_at']?.toString() ?? '') ?? DateTime.now(), // ✅ NOW SUPPORTED
-                  isExpense: remote['is_expense'] == true,
-                  type: TransactionType.values.firstWhere(
-                    (t) => t.name == remote['transaction_type']?.toString(),
-                    orElse: () => TransactionType.income,
-                  ),
-                  categoryId: remote['category_id']?.toString() ?? '',
-                  profileId: profileId,
-                  goalId: remote['goal_id']?.toString(),
-                  remoteId: remoteId,
-                );
-                
+              final amount = double.tryParse(remote['amount']?.toString() ?? '0') ?? 0.0;
+              final transaction = Transaction(
+                remoteId: remoteId,
+                amount: amount,
+                description: remote['description']?.toString() ?? '',
+                transaction_date: DateTime.tryParse(remote['transaction_date']?.toString() ?? '') ?? DateTime.now(),
+                createdAt: DateTime.tryParse(remote['created_at']?.toString() ?? '') ?? DateTime.now(),
+                isExpense: remote['is_expense'] == true,
+                type: TransactionType.values.firstWhere(
+                  (t) => t.name == remote['type']?.toString(),
+                  orElse: () => TransactionType.income,
+                ),
+                categoryId: remote['category']?.toString() ?? '',
+                profileId: profileId,
+                goalId: remote['goal']?.toString(),
+              );
+              
+              if (existingTransaction.id == null || existingTransaction.id!.isEmpty) {
+                // New transaction - save it
                 await _offlineDataService.saveTransaction(transaction);
                 result.downloaded++;
+              } else {
+                // Existing transaction - update it with new server data
+                final updatedTransaction = transaction.copyWith(id: existingTransaction.id);
+                await _offlineDataService.updateTransaction(updatedTransaction);
               }
             } catch (e) {
               _logger.warning('Failed to process remote transaction: $e');
@@ -246,15 +253,14 @@ class UnifiedSyncService with ChangeNotifier {
             for (final transaction in unsyncedTransactions) {
               try {
                 final payload = {
-                  'amount_minor': (transaction.amount * 100).round(),
-                  'currency': 'KES',
+                  'amount': transaction.amount,
+                  'type': transaction.type.name,
                   'description': transaction.description ?? '',
-                  'category_id': transaction.categoryId,
-                  'date': transaction.date.toIso8601String(),
+                  'category': transaction.categoryId,
+                  'transaction_date': transaction.date.toIso8601String(),
                   'is_expense': transaction.isExpense,
-                  'transaction_type': transaction.type.name,
-                  'profile_id': profileId,
-                  'goal_id': transaction.goalId,
+                  'goal': transaction.goalId,
+                  'status': 'completed',
                 };
                 
                 final response = await _apiClient.createTransaction(payload);
@@ -315,26 +321,29 @@ class UnifiedSyncService with ChangeNotifier {
               final name = remote['name']?.toString() ?? '';
               final targetAmount = double.tryParse(remote['target_amount']?.toString() ?? '0') ?? 0.0;
               final currentAmount = double.tryParse(remote['current_amount']?.toString() ?? '0') ?? 0.0;
-              final dueDate = DateTime.tryParse(remote['due_date']?.toString() ?? '') ?? DateTime.now();
-              final isCompleted = remote['is_completed'] == true;
+              final targetDate = DateTime.tryParse(remote['target_date']?.toString() ?? '') ?? DateTime.now();
+              final status = remote['status']?.toString() ?? 'active';
               
-              // Check if goal exists locally by remoteId
+              // Check if goal exists locally by remoteId (upsert pattern)
               final existingGoal = localGoals.firstWhere(
                 (g) => g.remoteId == remoteId,
                 orElse: () => Goal.empty(),
               );
               
-              if (existingGoal.id!.isEmpty) {
+              final goalType = _parseGoalType(remote['goal_type']?.toString() ?? 'other');
+              final goalStatus = status == 'completed' ? GoalStatus.completed : GoalStatus.active;
+              
+              if (existingGoal.id == null || existingGoal.id!.isEmpty) {
                 // Create new goal locally
                 final goal = Goal(
+                  remoteId: remoteId,
                   name: name,
                   targetAmount: targetAmount,
                   currentAmount: currentAmount,
-                  targetDate: dueDate,
+                  targetDate: targetDate,
                   profileId: profileId,
-                  goalType: GoalType.other, // Default, adjust as needed
-                  status: isCompleted ? GoalStatus.completed : GoalStatus.active,
-                  remoteId: remoteId,
+                  goalType: goalType,
+                  status: goalStatus,
                   createdAt: DateTime.tryParse(remote['created_at']?.toString() ?? '') ?? DateTime.now(),
                 );
                 
@@ -346,8 +355,8 @@ class UnifiedSyncService with ChangeNotifier {
                   name: name,
                   targetAmount: targetAmount,
                   currentAmount: currentAmount,
-                  targetDate: dueDate,
-                  status: isCompleted ? GoalStatus.completed : GoalStatus.active,
+                  targetDate: targetDate,
+                  status: goalStatus,
                 );
                 
                 await _offlineDataService.updateGoal(updatedGoal);
@@ -365,9 +374,10 @@ class UnifiedSyncService with ChangeNotifier {
                   'name': localGoal.name,
                   'target_amount': localGoal.targetAmount,
                   'current_amount': localGoal.currentAmount,
-                  'due_date': localGoal.targetDate.toIso8601String(),
-                  'is_completed': localGoal.status == GoalStatus.completed,
-                  'profile_id': profileId,
+                  'target_date': localGoal.targetDate.toIso8601String(),
+                  'status': localGoal.status == GoalStatus.completed ? 'completed' : 'active',
+                  'goal_type': localGoal.goalType.name.toLowerCase(),
+                  'priority': 'medium',
                 };
                 
                 final response = await _apiClient.createGoal(payload);
@@ -425,25 +435,31 @@ class UnifiedSyncService with ChangeNotifier {
               final remoteId = remote['id']?.toString();
               if (remoteId == null) continue;
               
-              // Check if exists locally
-              final exists = localBudgets.any((b) => b.remoteId == remoteId);
+              // Check if exists locally by remoteId (upsert pattern)
+              final existingBudget = localBudgets.firstWhere(
+                (b) => b.remoteId == remoteId,
+                orElse: () => Budget.empty(),
+              );
               
-              if (!exists) {
-                // Create local budget from server data
-                final budget = Budget(
-                  id: const Uuid().v4(),
-                  remoteId: remoteId,
-                  name: remote['name']?.toString() ?? '',
-                  budgetAmount: double.tryParse(remote['budget_amount']?.toString() ?? '0') ?? 0.0,
-                  spentAmount: double.tryParse(remote['spent_amount']?.toString() ?? '0') ?? 0.0,
-                  categoryId: remote['category_id']?.toString() ?? '',
-                  profileId: profileId,
-                  startDate: DateTime.tryParse(remote['start_date']?.toString() ?? '') ?? DateTime.now(),
-                  endDate: DateTime.tryParse(remote['end_date']?.toString() ?? '') ?? DateTime.now(),
-                );
-                
+              final budget = Budget(
+                remoteId: remoteId,
+                name: remote['name']?.toString() ?? '',
+                budgetAmount: double.tryParse(remote['budget_amount']?.toString() ?? '0') ?? 0.0,
+                spentAmount: double.tryParse(remote['spent_amount']?.toString() ?? '0') ?? 0.0,
+                categoryId: remote['category']?.toString() ?? '',
+                profileId: profileId,
+                startDate: DateTime.tryParse(remote['start_date']?.toString() ?? '') ?? DateTime.now(),
+                endDate: DateTime.tryParse(remote['end_date']?.toString() ?? '') ?? DateTime.now(),
+              );
+              
+              if (existingBudget.id == null || existingBudget.id!.isEmpty) {
+                // New budget - save it
                 await _offlineDataService.saveBudget(budget);
                 result.downloaded++;
+              } else {
+                // Existing budget - update it with server data
+                final updatedBudget = budget.copyWith(id: existingBudget.id);
+                await _offlineDataService.updateBudget(updatedBudget);
               }
             } catch (e) {
               _logger.warning('Failed to process remote budget: $e');
@@ -458,10 +474,10 @@ class UnifiedSyncService with ChangeNotifier {
                   'name': localBudget.name,
                   'budget_amount': localBudget.budgetAmount,
                   'spent_amount': localBudget.spentAmount,
-                  'category_id': localBudget.categoryId,
+                  'category': localBudget.categoryId,
                   'start_date': localBudget.startDate.toIso8601String(),
                   'end_date': localBudget.endDate.toIso8601String(),
-                  'profile_id': profileId,
+                  'period': 'monthly',
                 };
                 
                 final response = await _apiClient.createBudget(payload);
@@ -528,36 +544,36 @@ class UnifiedSyncService with ChangeNotifier {
               if (remoteId == null) continue;
               
               final name = remote['name']?.toString() ?? '';
-              final principalMinor = (remote['principal_minor'] is int)
-                  ? (remote['principal_minor'] as int).toDouble()
-                  : (remote['principal_minor'] is double)
-                      ? remote['principal_minor'] as double
-                      : double.tryParse(remote['principal_minor']?.toString() ?? '0') ?? 0.0;
+              final principalAmount = double.tryParse(remote['principal_amount']?.toString() ?? '0') ?? 0.0;
               final interestRate = double.tryParse(remote['interest_rate']?.toString() ?? '0') ?? 0.0;
               final startDate = DateTime.tryParse(remote['start_date']?.toString() ?? '') ?? DateTime.now();
               final endDate = DateTime.tryParse(remote['end_date']?.toString() ?? '') ?? DateTime.now();
-              final profileIdRemote = remote['profile_id']?.toString() ?? profileId;
               
-              // Check if loan exists locally
-              final exists = localLoans.any((loan) => 
-                (loan.remoteId == remoteId) ||
-                (loan.name == name && loan.startDate == startDate)
+              // Check if loan exists locally by remoteId (upsert pattern)
+              final existingLoan = localLoans.firstWhere(
+                (loan) => loan.remoteId == remoteId,
+                orElse: () => Loan.empty(),
               );
               
-              if (!exists) {
-                final loan = Loan(
-                  name: name,
-                  principalMinor: principalMinor,
-                  currency: remote['currency']?.toString() ?? 'KES',
-                  interestRate: interestRate,
-                  startDate: startDate,
-                  endDate: endDate,
-                  profileId: profileIdRemote,
-                  remoteId: remoteId,
-                );
+              final loan = Loan(
+                remoteId: remoteId,
+                name: name,
+                principalMinor: principalAmount,
+                currency: remote['currency']?.toString() ?? 'KES',
+                interestRate: interestRate,
+                startDate: startDate,
+                endDate: endDate,
+                profileId: profileId,
+              );
 
+              if (existingLoan.id == null || existingLoan.id!.isEmpty) {
+                // New loan - save it
                 await _offlineDataService.saveLoan(loan);
                 result.downloaded++;
+              } else {
+                // Existing loan - update it with server data
+                final updatedLoan = loan.copyWith(id: existingLoan.id);
+                await _offlineDataService.updateLoan(updatedLoan);
               }
             } catch (e) {
               _logger.warning('Failed to merge remote loan: $e');
@@ -570,12 +586,12 @@ class UnifiedSyncService with ChangeNotifier {
               if (localLoan.remoteId == null || localLoan.remoteId!.isEmpty) {
                 final payload = {
                   'name': localLoan.name,
-                  'principal_minor': localLoan.principalMinor,
+                  'principal_amount': localLoan.principalMinor,
                   'currency': localLoan.currency,
                   'interest_rate': localLoan.interestRate,
+                  'interest_model': 'reducing_balance',
                   'start_date': localLoan.startDate.toIso8601String(),
                   'end_date': localLoan.endDate.toIso8601String(),
-                  'profile_id': localLoan.profileId,
                 };
 
                 final created = await _apiClient.createLoan(loan: payload);
@@ -695,6 +711,19 @@ class UnifiedSyncService with ChangeNotifier {
     _isSyncing = false;
     notifyListeners();
     _logger.info('Sync cache cleared');
+  }
+
+  /// Parse goal type from backend string format
+  GoalType _parseGoalType(String typeStr) {
+    try {
+      return GoalType.values.firstWhere(
+        (t) => t.name.toLowerCase() == typeStr.toLowerCase(),
+        orElse: () => GoalType.other,
+      );
+    } catch (e) {
+      _logger.warning('Failed to parse goal type: $typeStr, using default: other');
+      return GoalType.other;
+    }
   }
 }
 

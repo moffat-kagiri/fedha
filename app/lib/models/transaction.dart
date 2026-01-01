@@ -109,6 +109,18 @@ class Transaction {
 
   factory Transaction.fromJson(Map<String, dynamic> json) =>
       _$TransactionFromJson(json);
+  
+  /// Empty transaction for comparison (used in sync operations)
+  factory Transaction.empty() {
+    return Transaction(
+      amount: 0,
+      type: TransactionType.income,
+      categoryId: '',
+      date: DateTime.now(),
+      profileId: '',
+      id: '',
+    );
+  }
       
   Map<String, dynamic> toJson() => _$TransactionToJson(this);
 
