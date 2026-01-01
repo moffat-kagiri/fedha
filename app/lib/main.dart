@@ -191,6 +191,7 @@ Future<void> _initializeServices() async {
   // ==================== SYNC & BUDGET SERVICES ====================
   final apiClient = ApiClient.instance;
   
+  // Initialize Unified Sync Service FIRST
   final unifiedSyncService = UnifiedSyncService.instance;
   await unifiedSyncService.initialize(
     offlineDataService: offlineDataService,
@@ -223,12 +224,30 @@ Future<void> _initializeServices() async {
   );
   logger.info('✅ Auth service initialized with all dependencies');
 
-  // ==================== 🔴 NEW: RECALCULATE ON APP START ====================
+  // ==================== SET PROFILE FOR SYNC SERVICE ====================
   if (authService.hasActiveProfile && authService.profileId != null) {
     logger.info('User logged in - setting profile for services');
     
+    // 🔴 CRITICAL: Set profile for sync service BEFORE sync
+    unifiedSyncService.setCurrentProfile(authService.profileId!);
+    
     // Set profile for transaction event service
     transactionEventService.setCurrentProfile(authService.profileId!);
+    
+    // 🔴 CRITICAL: Perform initial sync to fetch existing data from server
+    logger.info('🔄 Performing initial sync to fetch existing data...');
+    try {
+      final syncResult = await unifiedSyncService.syncAll();
+      if (syncResult.success) {
+        logger.info('✅ Initial sync successful. '
+            'Downloaded: ${syncResult.totalDownloaded} items, '
+            'Uploaded: ${syncResult.totalUploaded} items');
+      } else {
+        logger.warning('⚠️ Initial sync failed: ${syncResult.error}');
+      }
+    } catch (e, stackTrace) {
+      logger.severe('❌ Initial sync failed with error', e, stackTrace);
+    }
     
     // 🔴 CRITICAL: Recalculate all budgets and goals on app start
     // This ensures data consistency even if app was closed mid-transaction
@@ -456,6 +475,28 @@ Future<void> _registerBackgroundTasks(String profileId) async {
     
     logger.info('✅ Daily review task registered');
     
+    // ==================== SYNC TASK (BACKGROUND SYNC) ====================
+    // This runs periodically to sync data in background
+    await Workmanager().registerPeriodicTask(
+      'background_sync',
+      'background_sync_task',
+      frequency: const Duration(hours: 4), // Sync every 4 hours
+      initialDelay: const Duration(minutes: 5),
+      constraints: Constraints(
+        networkType: NetworkType.connected, // Needs network for sync
+        requiresBatteryNotLow: false,
+        requiresCharging: false,
+        requiresDeviceIdle: true, // Sync when device is idle
+        requiresStorageNotLow: false,
+      ),
+      inputData: {
+        'profileId': profileId,
+        'task_type': 'background_sync',
+      },
+    );
+    
+    logger.info('✅ Background sync task registered');
+    
     // ==================== ONE-TIME IMMEDIATE TASK ====================
     // Process SMS immediately on registration
     await Workmanager().registerOneOffTask(
@@ -583,13 +624,48 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             _logger.info('Biometric overlay shown on resume');
           }
         } else if (isLoggedIn) {
+          // 🔴 CRITICAL: Set profile for sync service on resume
+          final syncService = context.read<UnifiedSyncService>();
+          if (authService.profileId != null) {
+            syncService.setCurrentProfile(authService.profileId!);
+          }
+          
           // Restart foreground SMS listener
           _restartForegroundSmsListener();
+          
+          // 🔴 CRITICAL: Trigger sync on resume
+          _syncDataOnResume(authService.profileId);
         }
         break;
 
       default:
         break;
+    }
+  }
+  
+  /// 🔴 NEW: Sync data when app resumes
+  Future<void> _syncDataOnResume(String? profileId) async {
+    if (profileId == null) return;
+    
+    try {
+      final syncService = context.read<UnifiedSyncService>();
+      
+      // Only sync if last sync was more than 30 minutes ago
+      final lastSyncTime = syncService.lastSyncTime;
+      final shouldSync = lastSyncTime == null || 
+          DateTime.now().difference(lastSyncTime) > const Duration(minutes: 30);
+      
+      if (shouldSync) {
+        _logger.info('🔄 Syncing data on resume...');
+        final result = await syncService.syncAll();
+        if (result.success) {
+          _logger.info('✅ Resume sync successful. Downloaded: ${result.totalDownloaded}');
+        }
+      } else {
+        _logger.info('Skipping resume sync - last sync was recent');
+      }
+    } catch (e) {
+      _logger.warning('Resume sync failed (non-critical): $e');
     }
   }
   
@@ -622,6 +698,14 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   /// Data syncing happens in background after navigation
   Future<void> _handleBiometricUnlock() async {
     _logger.info('✅ Biometric unlock successful');
+    
+    final authService = context.read<AuthService>();
+    final syncService = context.read<UnifiedSyncService>();
+    
+    // 🔴 CRITICAL: Set profile for sync service
+    if (authService.profileId != null) {
+      syncService.setCurrentProfile(authService.profileId!);
+    }
     
     // Navigate FIRST - instant response
     _navigateToCanonicalMain();
@@ -658,10 +742,14 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       
       if (authService.profileId != null) {
         // Sync data without blocking UI
-        await syncService.syncAll();
+        final syncResult = await syncService.syncAll();
+        if (syncResult.success) {
+          _logger.info('✅ Background sync complete. Downloaded: ${syncResult.totalDownloaded}');
+        }
+        
         await budgetService.loadBudgetsForProfile(authService.profileId!);
         
-        _logger.info('✅ Background sync complete');
+        _logger.info('✅ Background processing complete');
       }
     } catch (e, stackTrace) {
       _logger.warning('Background sync failed (non-critical)', e, stackTrace);
