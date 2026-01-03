@@ -72,13 +72,7 @@ class Goal(models.Model):
         null=True, 
         blank=True
     )
-    linked_category = models.ForeignKey(
-        'categories.Category',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        db_column='linked_category_id'  # Keep database column name
-    )
+    linked_category = models.CharField(max_length=255, null=True, blank=True)
     projected_completion_date = models.DateTimeField(null=True, blank=True)
     days_ahead_behind = models.IntegerField(null=True, blank=True)
     goal_group = models.CharField(max_length=100, blank=True, null=True)

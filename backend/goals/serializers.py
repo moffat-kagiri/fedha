@@ -3,20 +3,17 @@ from rest_framework import serializers
 from django.utils import timezone
 from .models import Goal, GoalType, GoalStatus
 
-
 class GoalSerializer(serializers.ModelSerializer):
-    """Serializer for Goal model - PROPERLY aligned with Goal model."""
+    """Serializer for Goal model."""
     progress_percentage = serializers.ReadOnlyField()
     remaining_amount = serializers.ReadOnlyField()
     is_overdue = serializers.ReadOnlyField()
     days_remaining = serializers.ReadOnlyField()
     
-    # Add write-only fields for Flutter integration
-    profile_id = serializers.UUIDField(write_only=True)
+    # ✅ FIXED: Accept profile_id as string
+    profile_id = serializers.CharField(write_only=True)
     due_date = serializers.DateTimeField(write_only=True, source='target_date', required=False)
     
-    # CRITICAL FIX: The model field is 'status' (db_column='goal_status')
-    # So we need to use 'status' in the serializer, not 'goal_status'
     status = serializers.ChoiceField(
         choices=GoalStatus.choices,
         write_only=True,
@@ -27,10 +24,9 @@ class GoalSerializer(serializers.ModelSerializer):
     goal_type = serializers.ChoiceField(
         choices=GoalType.choices,
         write_only=True,
-        required=True  # This is REQUIRED in database (NOT NULL)
+        required=True
     )
     
-    # Optional: Add a read-only field to see goal_status from DB
     goal_status = serializers.CharField(source='status', read_only=True)
     
     class Meta:
@@ -58,7 +54,7 @@ class GoalSerializer(serializers.ModelSerializer):
     
     def validate(self, attrs):
         """Validate goal data and handle field conversions."""
-        # Remove write-only fields before validation
+        # Remove write-only fields
         profile_id = attrs.pop('profile_id', None)
         due_date = attrs.pop('due_date', None)
         
@@ -66,16 +62,29 @@ class GoalSerializer(serializers.ModelSerializer):
         if due_date is not None:
             attrs['target_date'] = due_date
         
-        # Handle profile_id
+        # ✅ FIXED: Handle profile_id as STRING (UUID or name)
         if profile_id:
             from accounts.models import Profile
+            
+            # Try as UUID first
+            profile = None
             try:
-                profile = Profile.objects.get(id=profile_id)
-                attrs['profile'] = profile
-            except Profile.DoesNotExist:
+                import uuid
+                uuid_obj = uuid.UUID(profile_id)
+                profile = Profile.objects.filter(id=uuid_obj).first()
+            except (ValueError, AttributeError):
+                pass
+            
+            # Try as email if UUID fails
+            if not profile:
+                profile = Profile.objects.filter(email=profile_id).first()
+            
+            if not profile:
                 raise serializers.ValidationError({
-                    'profile_id': f'Profile with id {profile_id} does not exist'
+                    'profile_id': f'Profile {profile_id} does not exist'
                 })
+            
+            attrs['profile'] = profile
         
         # Validate amounts
         target_amount = attrs.get('target_amount')
@@ -92,23 +101,6 @@ class GoalSerializer(serializers.ModelSerializer):
             })
         
         return attrs
-    
-    def create(self, validated_data):
-        """Override create to ensure profile is set."""
-        # Profile should already be in validated_data from validate method
-        if 'profile' not in validated_data:
-            # If somehow profile is missing, try to get from request
-            request = self.context.get('request')
-            if request and hasattr(request, 'user'):
-                from accounts.models import Profile
-                try:
-                    profile = Profile.objects.get(user=request.user)
-                    validated_data['profile'] = profile
-                except Profile.DoesNotExist:
-                    pass
-        
-        return super().create(validated_data)
-
 
 class GoalContributionSerializer(serializers.Serializer):
     """Serializer for goal contributions."""

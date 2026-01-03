@@ -44,17 +44,27 @@ class Transaction(models.Model):
         on_delete=models.CASCADE,
         related_name='transactions'
     )
-    category = models.ForeignKey(
-        'categories.Category', 
-        on_delete=models.SET_NULL,
+    # ✅ Changed from ForeignKey to CharField
+    category = models.CharField(
+        max_length=255,
         null=True,
-        blank=True
+        blank=True,
+        help_text="Category name as string (not ForeignKey)"
     )
-    goal = models.ForeignKey(
-        'goals.Goal',
-        on_delete=models.SET_NULL,
+    
+    # ✅ Changed from ForeignKey to CharField
+    goal_id = models.CharField(
+        max_length=255,
         null=True,
-        blank=True
+        blank=True,
+        help_text="Goal name or ID as string (not ForeignKey)"
+    )
+    
+    goal = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        help_text="Goal name or ID as string (not ForeignKey)"
     )
 
     is_synced = models.BooleanField(default=False)
@@ -238,11 +248,9 @@ class PendingTransaction(models.Model):
         on_delete=models.CASCADE,
         related_name='pending_transactions'
     )
-    category = models.ForeignKey(
-        'categories.Category',  # ✅ Updated to match
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True
+    category = models.CharField(
+        max_length=255,
+        null=True
     )
     transaction = models.ForeignKey(
         Transaction,
