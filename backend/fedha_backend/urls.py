@@ -9,16 +9,15 @@ urlpatterns = [
     # Admin
     path('admin/', admin.site.urls),
     
-    # Health check - NO AUTH REQUIRED
+    # Health check
     path('api/health/', health_check, name='health-check'),
     
-    # Authentication - NO AUTH REQUIRED
+    # Authentication
     path('api/auth/', include('accounts.urls')),
-    
-    # Profile - REQUIRES AUTH
     path('api/profile/', include('accounts.profile_urls')),
     
-    # App endpoints - REQUIRE AUTH
+    # App endpoints
+    path('api/categories/', include('categories.urls')),  
     path('api/transactions/', include('transactions.urls')),
     path('api/budgets/', include('budgets.urls')),
     path('api/goals/', include('goals.urls')),

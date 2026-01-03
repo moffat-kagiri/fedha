@@ -22,7 +22,7 @@ class Budget(models.Model):
         related_name='budgets'
     )
     category = models.ForeignKey(
-        'accounts.Category',
+        'categories.Category',
         on_delete=models.SET_NULL,
         related_name='budgets',
         null=True,

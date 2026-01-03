@@ -14,7 +14,7 @@ from .serializers import (
     TransactionSerializer, PendingTransactionSerializer,
     TransactionApprovalSerializer, TransactionSummarySerializer
 )
-from accounts.models import Category
+from categories.models import Category
 
 
 class TransactionViewSet(viewsets.ModelViewSet):
@@ -24,8 +24,8 @@ class TransactionViewSet(viewsets.ModelViewSet):
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ['type', 'status', 'category', 'payment_method', 'is_synced']
     search_fields = ['description', 'notes', 'reference', 'recipient']
-    ordering_fields = ['transaction_date', 'amount', 'created_at']
-    ordering = ['-transaction_date']
+    ordering_fields = ['date', 'amount', 'created_at']
+    ordering = ['-date']
     
     def get_serializer_context(self):
         """Add request to serializer context."""
@@ -57,9 +57,9 @@ class TransactionViewSet(viewsets.ModelViewSet):
         end_date = self.request.query_params.get('end_date')
         
         if start_date:
-            queryset = queryset.filter(transaction_date__gte=start_date)
+            queryset = queryset.filter(date__gte=start_date)
         if end_date:
-            queryset = queryset.filter(transaction_date__lte=end_date)
+            queryset = queryset.filter(date__lte=end_date)
         
         # Filter by month
         month = self.request.query_params.get('month')  # Format: YYYY-MM
@@ -67,8 +67,8 @@ class TransactionViewSet(viewsets.ModelViewSet):
             try:
                 year, month_num = month.split('-')
                 queryset = queryset.filter(
-                    transaction_date__year=year,
-                    transaction_date__month=month_num
+                    date__year=year,
+                    date__month=month_num
                 )
             except ValueError:
                 pass
@@ -83,34 +83,68 @@ class TransactionViewSet(viewsets.ModelViewSet):
     
     def create(self, request, *args, **kwargs):
         """Override create to handle profile_id validation."""
-        # Log the incoming data for debugging
-        print(f"Transaction POST data: {request.data}")
+        print(f"📥 Transaction POST data: {request.data}")
         
         # Check if profile_id is provided
         profile_id = request.data.get('profile_id')
         if not profile_id:
+            print(f"❌ No profile_id provided")
             return Response(
                 {'error': 'profile_id is required'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
         # Verify the user owns this profile
-        try:
-            user_profile = request.user.profile
-            if str(user_profile.id) != str(profile_id):
-                return Response(
-                    {'error': 'You can only create transactions for your own profile'},
-                    status=status.HTTP_403_FORBIDDEN
-                )
-        except (Profile.DoesNotExist, AttributeError):
+        # request.user IS the Profile instance (AUTH_USER_MODEL = 'accounts.Profile')
+        user_profile = request.user  # This is already the Profile
+        
+        if str(user_profile.id) != str(profile_id):
+            print(f"❌ User {user_profile.id} doesn't own profile {profile_id}")
             return Response(
-                {'error': 'User profile not found'},
-                status=status.HTTP_400_BAD_REQUEST
+                {'error': 'You can only create transactions for your own profile'},
+                status=status.HTTP_403_FORBIDDEN
             )
         
-        # Continue with normal create
-        return super().create(request, *args, **kwargs)
-    
+        print(f"✅ User {user_profile.id} is authorized for profile {profile_id}")
+        
+        try:
+            # Get serializer and validate
+            serializer = self.get_serializer(data=request.data)
+            print(f"✅ Serializer created")
+            
+            # Check if data is valid
+            if not serializer.is_valid():
+                print(f"❌❌❌ TRANSACTION VALIDATION ERRORS: {serializer.errors}")
+                print(f"❌❌❌ Raw errors dict: {dict(serializer.errors)}")
+                
+                # Log each field error in detail
+                for field_name, errors in serializer.errors.items():
+                    print(f"❌ Field '{field_name}': {errors}")
+                
+                return Response(
+                    serializer.errors,
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            print(f"✅ Transaction data is valid, creating...")
+            print(f"✅ Validated data: {serializer.validated_data}")
+            
+            # If valid, proceed with creation
+            self.perform_create(serializer)
+            headers = self.get_success_headers(serializer.data)
+            print(f"✅ Transaction created successfully!")
+            return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+            
+        except Exception as e:
+            print(f"❌❌❌ EXCEPTION in create method: {str(e)}")
+            print(f"❌❌❌ Exception type: {type(e)}")
+            import traceback
+            print(f"❌❌❌ Traceback: {traceback.format_exc()}")
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
     @action(detail=False, methods=['post'])
     def bulk_sync(self, request):
         """Bulk sync transactions from mobile app."""
@@ -236,13 +270,13 @@ class TransactionViewSet(viewsets.ModelViewSet):
         
         queryset = self.get_queryset().filter(
             status=TransactionStatus.COMPLETED,
-            transaction_date__gte=start_date,
-            transaction_date__lte=end_date
+            date__gte=start_date,
+            date__lte=end_date
         )
         
         # Group by month
         monthly_data = queryset.annotate(
-            month=TruncMonth('transaction_date')
+            month=TruncMonth('date')
         ).values('month', 'type').annotate(
             total=Sum('amount')
         ).order_by('month')

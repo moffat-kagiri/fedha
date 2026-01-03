@@ -1,4 +1,4 @@
-# goals/models.py
+# goals/models.py 
 import uuid
 from django.db import models
 from django.utils import timezone
@@ -35,27 +35,27 @@ class Goal(models.Model):
     description = models.TextField(blank=True, null=True)
     
     goal_type = models.CharField(
-        max_length=50,  # Changed from 20 to match database enum
+        max_length=50,
         choices=GoalType.choices,
         default=GoalType.SAVINGS
     )
     status = models.CharField(
-        max_length=50,  # Changed from 20 to match database enum
+        max_length=50,
         choices=GoalStatus.choices,
         default=GoalStatus.ACTIVE,
-        db_column='goal_status'  # ✅ CRITICAL: Database column is 'goal_status' not 'status'
+        db_column='goal_status'  # ✅ Database column is 'goal_status'
     )
     
     target_amount = models.DecimalField(
         max_digits=15, 
         decimal_places=2,
-        validators=[MinValueValidator(0.01)]
+        validators=[MinValueValidator(Decimal('0.01'))]
     )
     current_amount = models.DecimalField(
         max_digits=15, 
         decimal_places=2, 
-        default=0,
-        validators=[MinValueValidator(0)]
+        default=Decimal('0'),
+        validators=[MinValueValidator(Decimal('0'))]
     )
     
     # ✅ Database shows target_date is nullable
@@ -72,17 +72,19 @@ class Goal(models.Model):
         null=True, 
         blank=True
     )
-    linked_category_id = models.UUIDField(null=True, blank=True)
+    linked_category = models.ForeignKey(
+        'categories.Category',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        db_column='linked_category_id'  # Keep database column name
+    )
     projected_completion_date = models.DateTimeField(null=True, blank=True)
     days_ahead_behind = models.IntegerField(null=True, blank=True)
     goal_group = models.CharField(max_length=100, blank=True, null=True)
     
-    # ✅ ADDED: This field exists in your database but was missing
+    # ✅ This field exists in your database
     remote_id = models.CharField(max_length=255, blank=True, null=True)
-    
-    # Note: 'is_synced' field doesn't exist in your database schema
-    # If you want it, you'll need to add it to the database first
-    # is_synced = models.BooleanField(default=False)
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -96,19 +98,13 @@ class Goal(models.Model):
             models.Index(fields=['status']),
             models.Index(fields=['goal_type']),
             models.Index(fields=['target_date']),
-            models.Index(fields=['linked_category_id']),
-            # Removed 'is_synced' index since field doesn't exist in DB
+            models.Index(fields=['linked_category']),
         ]
         constraints = [
             models.CheckConstraint(
-                condition=models.Q(target_amount__gt=0),
-                name='goal_amounts_positive'
-            ),
-            # Database already has: CHECK (current_amount <= target_amount OR goal_status = 'completed'::goal_status)
-            models.CheckConstraint(
                 condition=models.Q(current_amount__lte=models.F('target_amount')) | 
                            models.Q(status=GoalStatus.COMPLETED),
-                name='goal_current_amount_check'
+                name='goals_check'
             ),
         ]
     
@@ -131,7 +127,7 @@ class Goal(models.Model):
                         self.contribution_count += 1
                         contribution_amount = self.current_amount - old.current_amount
                         if self.contribution_count > 0:
-                            self.average_contribution = self.current_amount / self.contribution_count
+                            self.average_contribution = self.current_amount / Decimal(str(self.contribution_count))
             except Goal.DoesNotExist:
                 pass  # New goal
         
@@ -183,26 +179,6 @@ class Goal(models.Model):
         except (ValueError, TypeError):
             return 0
     
-    @property
-    def daily_savings_needed(self):
-        """Calculate daily savings needed to reach target."""
-        days = self.days_remaining
-        if days <= 0:
-            return self.remaining_amount
-        try:
-            return self.remaining_amount / Decimal(str(days))
-        except (ZeroDivisionError, ValueError):
-            return Decimal('0')
-    
-    @property
-    def monthly_savings_needed(self):
-        """Calculate monthly savings needed to reach target."""
-        months = max(self.days_remaining / 30, 1)  # At least 1 month
-        try:
-            return self.remaining_amount / Decimal(str(months))
-        except (ZeroDivisionError, ValueError):
-            return Decimal('0')
-    
     def add_contribution(self, amount):
         """Add a contribution to the goal."""
         try:
@@ -217,8 +193,6 @@ class Goal(models.Model):
                 self.status = GoalStatus.COMPLETED
                 self.completed_date = timezone.now()
             
-            # Note: Can't set is_synced since field doesn't exist
-            # self.is_synced = False
             self.save()
         except (ValueError, TypeError) as e:
             raise ValueError(f"Invalid contribution amount: {e}")
@@ -229,28 +203,5 @@ class Goal(models.Model):
         self.completed_date = timezone.now()
         if self.current_amount < self.target_amount:
             self.current_amount = self.target_amount  # Set to target if manually completed
-        # Note: Can't set is_synced since field doesn't exist
-        # self.is_synced = False
         self.save()
-    
-    def update_progress(self, new_current_amount):
-        """Update the current amount manually."""
-        try:
-            new_amount = Decimal(str(new_current_amount))
-            if new_amount < 0:
-                raise ValueError("Current amount cannot be negative")
-            
-            self.current_amount = new_amount
-            
-            # Check if goal is now completed
-            if self.current_amount >= self.target_amount:
-                self.status = GoalStatus.COMPLETED
-                if not self.completed_date:
-                    self.completed_date = timezone.now()
-            
-            # Note: Can't set is_synced since field doesn't exist
-            # self.is_synced = False
-            self.save()
-        except (ValueError, TypeError) as e:
-            raise ValueError(f"Invalid amount: {e}")
-            
+        

@@ -1,4 +1,4 @@
-# accounts/models.py
+# accounts/models.py (remove Category and DefaultCategory sections)
 import uuid
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.db import models
@@ -85,7 +85,7 @@ class Profile(AbstractBaseUser, PermissionsMixin):
     objects = ProfileManager()
     
     USERNAME_FIELD = 'email'
-    REQUIRED_FIELDS = ['name']
+    REQUIRED_FIELDS = ['first_name', 'last_name']
     
     class Meta:
         db_table = 'profiles'
@@ -99,13 +99,18 @@ class Profile(AbstractBaseUser, PermissionsMixin):
     def __str__(self):
         return self.email or self.phone_number or str(self.id)
     
+    @property
+    def name(self):
+        """Return full name."""
+        return f"{self.first_name} {self.last_name}".strip()
+    
     def get_full_name(self):
         """Return the display name or name."""
         return self.display_name or self.name
     
     def get_short_name(self):
-        """Return the name."""
-        return self.name
+        """Return the first name."""
+        return self.first_name
 
 
 class Session(models.Model):
@@ -147,71 +152,3 @@ class Session(models.Model):
         """Update last activity timestamp."""
         self.last_activity = timezone.now()
         self.save(update_fields=['last_activity'])
-
-
-class Category(models.Model):
-    """
-    Transaction category model.
-    Can be profile-specific or global (when profile is None).
-    """
-    TYPE_CHOICES = [
-        ('income', 'Income'),
-        ('expense', 'Expense'),
-    ]
-    
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    profile = models.ForeignKey(
-        Profile,
-        on_delete=models.CASCADE,
-        related_name='categories',
-        null=True,
-        blank=True
-    )
-    
-    name = models.CharField(max_length=100)
-    description = models.TextField(null=True, blank=True)
-    color = models.CharField(max_length=7, default='#2196F3')
-    icon = models.CharField(max_length=50, default='category')
-    type = models.CharField(max_length=20, choices=TYPE_CHOICES, default='expense')
-    
-    is_active = models.BooleanField(default=True)
-    is_synced = models.BooleanField(default=False)
-    
-    created_at = models.DateTimeField(default=timezone.now)
-    updated_at = models.DateTimeField(auto_now=True)
-    
-    class Meta:
-        db_table = 'categories'
-        ordering = ['name']
-        verbose_name_plural = 'Categories'
-        indexes = [
-            models.Index(fields=['profile']),
-            models.Index(fields=['type']),
-            models.Index(fields=['is_active']),
-        ]
-        constraints = [
-            models.UniqueConstraint(
-                fields=['profile', 'name'],
-                name='unique_profile_category_name'
-            )
-        ]
-    
-    def __str__(self):
-        return f"{self.name} ({self.type})"
-
-
-class DefaultCategory(models.Model):
-    """
-    Template categories that are copied for new users.
-    """
-    name = models.CharField(max_length=100)
-    description = models.TextField(null=True, blank=True)
-    color = models.CharField(max_length=7)
-    icon = models.CharField(max_length=50)
-    type = models.CharField(max_length=20)
-    
-    class Meta:
-        db_table = 'default_categories'
-    
-    def __str__(self):
-        return f"{self.name} ({self.type})"

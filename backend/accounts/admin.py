@@ -1,7 +1,7 @@
 # accounts/admin.py
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import Profile, Session, Category, DefaultCategory
+from .models import Profile, Session
 
 
 @admin.register(Profile)
@@ -37,21 +37,4 @@ class SessionAdmin(admin.ModelAdmin):
     list_filter = ['created_at', 'expires_at']
     search_fields = ['profile__email', 'session_token']
     readonly_fields = ['created_at']
-
-
-@admin.register(Category)
-class CategoryAdmin(admin.ModelAdmin):
-    """Admin interface for Category model."""
-    list_display = ['name', 'type', 'profile', 'is_active', 'created_at']
-    list_filter = ['type', 'is_active', 'created_at']
-    search_fields = ['name', 'description']
-    readonly_fields = ['created_at', 'updated_at']
-
-
-@admin.register(DefaultCategory)
-class DefaultCategoryAdmin(admin.ModelAdmin):
-    """Admin interface for DefaultCategory model."""
-    list_display = ['name', 'type', 'color', 'icon']
-    list_filter = ['type']
-    search_fields = ['name']
-
+    

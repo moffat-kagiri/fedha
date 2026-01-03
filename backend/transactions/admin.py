@@ -6,10 +6,10 @@ from .models import Transaction, PendingTransaction
 @admin.register(Transaction)
 class TransactionAdmin(admin.ModelAdmin):
     """Admin interface for Transaction model."""
-    list_display = ['profile', 'amount', 'type', 'category', 'transaction_date', 'status']
-    list_filter = ['type', 'status', 'payment_method', 'transaction_date']
+    list_display = ['profile', 'amount', 'type', 'category', 'date', 'status']
+    list_filter = ['type', 'status', 'payment_method', 'date']
     search_fields = ['description', 'notes', 'reference', 'recipient']
-    date_hierarchy = 'transaction_date'
+    date_hierarchy = 'date'
     readonly_fields = ['created_at', 'updated_at']
     
     fieldsets = (
@@ -17,7 +17,7 @@ class TransactionAdmin(admin.ModelAdmin):
             'fields': ('profile', 'category', 'goal')
         }),
         ('Transaction Details', {
-            'fields': ('amount', 'type', 'status', 'payment_method', 'transaction_date')
+            'fields': ('amount', 'type', 'status', 'payment_method', 'date')
         }),
         ('Description', {
             'fields': ('description', 'notes', 'reference', 'recipient')

@@ -62,7 +62,6 @@ class GoalViewSet(viewsets.ModelViewSet):
     
     def create(self, request, *args, **kwargs):
         """Override create to handle profile_id validation."""
-        # Log the incoming data for debugging
         print(f"Goal POST data: {request.data}")
         
         # Check if profile_id is provided
@@ -74,22 +73,40 @@ class GoalViewSet(viewsets.ModelViewSet):
             )
         
         # Verify the user owns this profile
-        try:
-            user_profile = request.user.profile
-            if str(user_profile.id) != str(profile_id):
-                return Response(
-                    {'error': 'You can only create goals for your own profile'},
-                    status=status.HTTP_403_FORBIDDEN
-                )
-        except (Profile.DoesNotExist, AttributeError):
+        # request.user IS the Profile instance
+        user_profile = request.user
+        
+        if str(user_profile.id) != str(profile_id):
+            print(f"❌ User {user_profile.id} doesn't own profile {profile_id}")
             return Response(
-                {'error': 'User profile not found'},
+                {'error': 'You can only create goals for your own profile'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        print(f"✅ User {user_profile.id} is authorized for profile {profile_id}")
+        
+        # Continue with normal create but add error logging
+        serializer = self.get_serializer(data=request.data)
+        
+        # Log validation errors
+        if not serializer.is_valid():
+            print(f"❌❌❌ GOAL VALIDATION ERRORS: {serializer.errors}")
+            print(f"❌❌❌ Raw errors dict: {dict(serializer.errors)}")
+            
+            for field_name, errors in serializer.errors.items():
+                print(f"❌ Field '{field_name}': {errors}")
+            
+            return Response(
+                serializer.errors,
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Continue with normal create
-        return super().create(request, *args, **kwargs)
-    
+        print(f"✅ Goal data is valid, creating...")
+        
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
     @action(detail=True, methods=['post'])
     def contribute(self, request, pk=None):
         """Add a contribution to a goal."""

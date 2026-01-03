@@ -54,7 +54,7 @@ tables_to_check = {
         'type', 'status', 'payment_method', 'description',
         'notes', 'reference', 'recipient', 'sms_source',
         'is_expense', 'is_pending', 'is_recurring', 'is_synced',
-        'transaction_date', 'created_at', 'updated_at'
+        'date', 'created_at', 'updated_at'
     },
     'goals': {
         'id', 'profile_id', 'name', 'description',

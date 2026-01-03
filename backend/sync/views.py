@@ -16,7 +16,7 @@ from goals.models import Goal
 from goals.serializers import GoalSerializer
 from budgets.models import Budget
 from budgets.serializers import BudgetSerializer
-from accounts.models import Category
+from categories.models import Category
 from accounts import serializers as account_serializers
 
 

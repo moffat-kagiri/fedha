@@ -1,4 +1,4 @@
-// lib/services/api_client.dart - PostgreSQL Backend Compatible
+// lib/services/api_client.dart - PostgreSQL Backend Compatible (REWRITTEN)
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -319,20 +319,53 @@ class ApiClient {
     try {
       logger.info('POST ${url.toString()}');
       
+      // Ensure the transaction data matches serializer expectations
+      final processedTransaction = Map<String, dynamic>.from(transaction);
+      
+      // ✅ FIX: Add is_synced field with default true (as per serializer extra_kwargs)
+      if (!processedTransaction.containsKey('is_synced')) {
+        processedTransaction['is_synced'] = true;
+      }
+      
+      // ✅ FIX: Ensure date is in ISO 8601 format
+      if (processedTransaction.containsKey('date') && 
+          processedTransaction['date'] is! String) {
+        // Convert DateTime to ISO string if needed
+        processedTransaction['date'] = processedTransaction['date'].toString();
+      }
+      
+      // ✅ FIX: Ensure amount_minor is integer (not double)
+      if (processedTransaction.containsKey('amount_minor') && 
+          processedTransaction['amount_minor'] is double) {
+        processedTransaction['amount_minor'] = (processedTransaction['amount_minor'] as double).toInt();
+      }
+      
+      logger.info('Sending transaction data: $processedTransaction');
+      
       final resp = await _http
           .post(
             url,
             headers: _headers,
-            body: jsonEncode(transaction),
+            body: jsonEncode(processedTransaction),
           )
           .timeout(Duration(seconds: _config.timeoutSeconds));
       
-      logger.info('Create transaction response: ${resp.statusCode}');
+      logger.info('Create transaction response: ${resp.statusCode} - ${resp.body}');
       
       if (resp.statusCode == 201 || resp.statusCode == 200) {
         final data = jsonDecode(resp.body) as Map<String, dynamic>;
         logger.info('✅ Transaction created successfully');
         return data;
+      }
+      
+      // Parse validation errors for debugging
+      if (resp.statusCode == 400) {
+        try {
+          final errorData = jsonDecode(resp.body) as Map<String, dynamic>;
+          logger.warning('Transaction validation errors: $errorData');
+        } catch (e) {
+          logger.warning('Transaction error body: ${resp.body}');
+        }
       }
       
       return {
@@ -354,20 +387,73 @@ class ApiClient {
     try {
       logger.info('POST ${url.toString()}');
       
+      // Ensure the goal data matches serializer expectations
+      final processedGoal = Map<String, dynamic>.from(goal);
+      
+      // ✅ FIX: Add required goal_type field if missing (default to 'savings')
+      if (!processedGoal.containsKey('goal_type')) {
+        processedGoal['goal_type'] = 'savings';
+        logger.info('Added default goal_type: savings');
+      }
+      
+      // ✅ FIX: Map due_date to target_date (serializer will map due_date -> target_date)
+      if (processedGoal.containsKey('due_date') && 
+          !processedGoal.containsKey('target_date')) {
+        // Keep due_date, serializer will handle mapping
+        if (processedGoal['due_date'] is! String) {
+          processedGoal['due_date'] = processedGoal['due_date'].toString();
+        }
+      }
+      
+      // ✅ FIX: Ensure target_amount is numeric
+      if (processedGoal.containsKey('target_amount') && 
+          processedGoal['target_amount'] is String) {
+        processedGoal['target_amount'] = double.parse(processedGoal['target_amount']);
+      }
+      
+      // ✅ FIX: Ensure current_amount is numeric with default 0
+      if (!processedGoal.containsKey('current_amount')) {
+        processedGoal['current_amount'] = 0.0;
+      } else if (processedGoal['current_amount'] is String) {
+        processedGoal['current_amount'] = double.parse(processedGoal['current_amount']);
+      }
+      
+      // ✅ FIX: Add status field if missing (default to 'active')
+      if (!processedGoal.containsKey('status')) {
+        processedGoal['status'] = 'active';
+      }
+      
+      // ✅ FIX: Add currency field if missing (default to 'KES')
+      if (!processedGoal.containsKey('currency')) {
+        processedGoal['currency'] = 'KES';
+      }
+      
+      logger.info('Sending goal data: $processedGoal');
+      
       final resp = await _http
           .post(
             url,
             headers: _headers,
-            body: jsonEncode(goal),
+            body: jsonEncode(processedGoal),
           )
           .timeout(Duration(seconds: _config.timeoutSeconds));
       
-      logger.info('Create goal response: ${resp.statusCode}');
+      logger.info('Create goal response: ${resp.statusCode} - ${resp.body}');
       
       if (resp.statusCode == 201 || resp.statusCode == 200) {
         final data = jsonDecode(resp.body) as Map<String, dynamic>;
         logger.info('✅ Goal created successfully');
         return data;
+      }
+      
+      // Parse validation errors for debugging
+      if (resp.statusCode == 400) {
+        try {
+          final errorData = jsonDecode(resp.body) as Map<String, dynamic>;
+          logger.warning('Goal validation errors: $errorData');
+        } catch (e) {
+          logger.warning('Goal error body: ${resp.body}');
+        }
       }
       
       return {
@@ -384,7 +470,7 @@ class ApiClient {
   // Update getTransactions method to be optional sessionToken
   Future<List<dynamic>> getTransactions({
     required String profileId,
-    String? sessionToken, // Make this optional
+    String? sessionToken,
   }) async {
     final url = Uri.parse(_config.getEndpoint('api/transactions/?profile_id=$profileId'));
     
@@ -420,6 +506,7 @@ class ApiClient {
       return [];
     }
   }
+
   Future<Map<String, dynamic>> syncTransactions(
     String profileId,
     List<dynamic> transactions,
@@ -433,13 +520,31 @@ class ApiClient {
         logger.warning('⚠️ No auth token for sync - request may fail');
       }
       
+      // Process each transaction to ensure it matches serializer expectations
+      final processedTransactions = transactions.map((transaction) {
+        final processed = Map<String, dynamic>.from(transaction);
+        
+        // Ensure each transaction has required fields
+        if (!processed.containsKey('is_synced')) {
+          processed['is_synced'] = true;
+        }
+        
+        // Ensure amount_minor is integer
+        if (processed.containsKey('amount_minor') && 
+            processed['amount_minor'] is double) {
+          processed['amount_minor'] = (processed['amount_minor'] as double).toInt();
+        }
+        
+        return processed;
+      }).toList();
+      
       final resp = await _http
           .post(
             url,
             headers: _headers,
             body: jsonEncode({
               'profile_id': profileId,
-              'transactions': transactions,
+              'transactions': processedTransactions,
             }),
           )
           .timeout(Duration(seconds: _config.timeoutSeconds));
@@ -621,7 +726,7 @@ class ApiClient {
   }
 
   Future<Map<String, dynamic>> updateGoal({
-    required int goalId,
+    required String goalId,
     required Map<String, dynamic> goal,
     String? sessionToken,
   }) async {
@@ -634,11 +739,20 @@ class ApiClient {
           ? _getHeaders(customToken: sessionToken)
           : _headers;
       
+      final processedGoal = Map<String, dynamic>.from(goal);
+      
+      // Ensure required fields are present for update
+      if (!processedGoal.containsKey('goal_type')) {
+        processedGoal['goal_type'] = 'savings';
+      }
+      
+      logger.info('Updating goal with data: $processedGoal');
+      
       final resp = await _http
           .put(
             url,
             headers: headers,
-            body: jsonEncode(goal),
+            body: jsonEncode(processedGoal),
           )
           .timeout(Duration(seconds: _config.timeoutSeconds));
       
@@ -667,7 +781,7 @@ class ApiClient {
   }
 
   Future<bool> deleteGoal({
-    required int goalId,
+    required String goalId,
     String? sessionToken,
   }) async {
     final url = Uri.parse(_config.getEndpoint('api/goals/$goalId/'));
@@ -691,6 +805,7 @@ class ApiClient {
       return false;
     }
   }
+
   Future<Map<String, dynamic>> syncGoals(
     String profileId,
     List<dynamic> goals,
@@ -700,13 +815,48 @@ class ApiClient {
     try {
       logger.info('POST ${url.toString()} - ${goals.length} goals');
       
+      // Process each goal to ensure it matches serializer expectations
+      final processedGoals = goals.map((goal) {
+        final processed = Map<String, dynamic>.from(goal);
+        
+        // Ensure required fields
+        if (!processed.containsKey('goal_type')) {
+          processed['goal_type'] = 'savings';
+        }
+        
+        if (!processed.containsKey('status')) {
+          processed['status'] = 'active';
+        }
+        
+        if (!processed.containsKey('currency')) {
+          processed['currency'] = 'KES';
+        }
+        
+        if (!processed.containsKey('current_amount')) {
+          processed['current_amount'] = 0.0;
+        }
+        
+        // Ensure numeric types
+        if (processed.containsKey('target_amount') && 
+            processed['target_amount'] is String) {
+          processed['target_amount'] = double.parse(processed['target_amount']);
+        }
+        
+        if (processed.containsKey('current_amount') && 
+            processed['current_amount'] is String) {
+          processed['current_amount'] = double.parse(processed['current_amount']);
+        }
+        
+        return processed;
+      }).toList();
+      
       final resp = await _http
           .post(
             url,
             headers: _headers,
             body: jsonEncode({
               'profile_id': profileId,
-              'goals': goals,
+              'goals': processedGoals,
             }),
           )
           .timeout(Duration(seconds: _config.timeoutSeconds));
@@ -861,7 +1011,7 @@ class ApiClient {
   }
 
   Future<Map<String, dynamic>> updateLoan({
-    required int loanId,
+    required String loanId,
     required Map<String, dynamic> loan,
   }) async {
     final url = Uri.parse(_config.getEndpoint('api/invoicing/loans/$loanId/'));
@@ -883,7 +1033,7 @@ class ApiClient {
   }
 
   Future<bool> deleteLoan({
-    required int loanId,
+    required String loanId,
   }) async {
     final url = Uri.parse(_config.getEndpoint('api/invoicing/loans/$loanId/'));
 
@@ -971,4 +1121,74 @@ class ApiClient {
   }
 
   void dispose() => _http.close();
+
+  // ==================== DATA PREPARATION HELPERS ====================
+  /// Prepares transaction data for API submission
+  static Map<String, dynamic> prepareTransactionData({
+    required String profileId,
+    required int amountMinor,
+    required String transactionType,
+    required String description,
+    String? category, // Optional - can be null or empty
+    String? goalId,
+    DateTime? date,
+    bool isExpense = false,
+    String currency = 'KES',
+    bool isSynced = true,
+  }) {
+    final data = <String, dynamic>{
+      'profile_id': profileId,
+      'amount_minor': amountMinor,
+      'transaction_type': transactionType,
+      'description': description,
+      'category': category ?? '', // Default to empty string if null
+      'currency': currency,
+      'is_synced': isSynced,
+      'is_expense': isExpense,
+    };
+
+    if (goalId != null) {
+      data['goal_id'] = goalId;
+    }
+
+    if (date != null) {
+      data['date'] = date.toIso8601String();
+    } else {
+      data['date'] = DateTime.now().toIso8601String();
+    }
+
+    return data;
+  }
+  /// Prepares goal data for API submission
+  static Map<String, dynamic> prepareGoalData({
+    required String profileId,
+    required String name,
+    required double targetAmount,
+    String goalType = 'savings',
+    String status = 'active',
+    String? description,
+    DateTime? dueDate,
+    double currentAmount = 0.0,
+    String currency = 'KES',
+  }) {
+    final data = <String, dynamic>{
+      'profile_id': profileId,
+      'name': name,
+      'goal_type': goalType,
+      'status': status,
+      'target_amount': targetAmount,
+      'current_amount': currentAmount,
+      'currency': currency,
+    };
+
+    if (description != null) {
+      data['description'] = description;
+    }
+
+    if (dueDate != null) {
+      data['due_date'] = dueDate.toIso8601String();
+    }
+
+    return data;
+  }
 }

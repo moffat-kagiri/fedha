@@ -1,49 +1,59 @@
-# goals/serializers.py
+# goals/serializers.py - CLEANED VERSION
 from rest_framework import serializers
 from django.utils import timezone
 from .models import Goal, GoalType, GoalStatus
 
 
 class GoalSerializer(serializers.ModelSerializer):
-    """Serializer for Goal model."""
+    """Serializer for Goal model - PROPERLY aligned with Goal model."""
     progress_percentage = serializers.ReadOnlyField()
     remaining_amount = serializers.ReadOnlyField()
-    is_completed = serializers.ReadOnlyField()
     is_overdue = serializers.ReadOnlyField()
     days_remaining = serializers.ReadOnlyField()
     
     # Add write-only fields for Flutter integration
     profile_id = serializers.UUIDField(write_only=True)
-    due_date = serializers.DateTimeField(write_only=True, source='target_date')
-    is_completed_field = serializers.BooleanField(
-        write_only=True, 
-        required=False, 
-        source='goal_status'  # ✅ Changed from 'status' to 'goal_status' to match db_column
+    due_date = serializers.DateTimeField(write_only=True, source='target_date', required=False)
+    
+    # CRITICAL FIX: The model field is 'status' (db_column='goal_status')
+    # So we need to use 'status' in the serializer, not 'goal_status'
+    status = serializers.ChoiceField(
+        choices=GoalStatus.choices,
+        write_only=True,
+        required=False,
+        default=GoalStatus.ACTIVE
     )
+    
     goal_type = serializers.ChoiceField(
         choices=GoalType.choices,
         write_only=True,
-        required=False,
-        default=GoalType.SAVINGS
+        required=True  # This is REQUIRED in database (NOT NULL)
     )
+    
+    # Optional: Add a read-only field to see goal_status from DB
+    goal_status = serializers.CharField(source='status', read_only=True)
     
     class Meta:
         model = Goal
         fields = [
             'id', 'profile', 'profile_id', 'name', 'description',
-            'target_amount', 'current_amount',
-            'target_date', 'due_date', 'completed_date',
-            'goal_type', 'status', 'is_completed_field',  # status maps to goal_status in DB
-            'created_at', 'updated_at', 'remote_id',  # ✅ Added remote_id, removed is_synced
-            'progress_percentage', 'remaining_amount',
-            'is_completed', 'is_overdue', 'days_remaining'
+            'goal_type', 'status', 'goal_status', 'target_amount', 'current_amount',
+            'currency', 'target_date', 'due_date', 'last_contribution_date',
+            'contribution_count', 'average_contribution', 'linked_category',
+            'projected_completion_date', 'days_ahead_behind', 'goal_group',
+            'created_at', 'updated_at', 'completed_date', 'remote_id',
+            'progress_percentage', 'remaining_amount', 'is_overdue', 'days_remaining'
         ]
         read_only_fields = [
-            'id', 'profile', 'completed_date', 'status', 'goal_type',
-            'created_at', 'updated_at', 'remote_id'  # ✅ remote_id is read-only from API
+            'id', 'profile', 'goal_status', 'created_at', 'updated_at', 'completed_date',
+            'last_contribution_date', 'contribution_count', 'average_contribution',
+            'projected_completion_date', 'days_ahead_behind',
+            'progress_percentage', 'remaining_amount', 'is_overdue', 'days_remaining'
         ]
         extra_kwargs = {
-            'status': {'source': 'goal_status'},  # Map serializer 'status' to model 'goal_status' field
+            'currency': {'default': 'KES'},
+            'current_amount': {'default': 0.0},
+            'linked_category': {'required': False, 'allow_null': True},
         }
     
     def validate(self, attrs):
@@ -51,21 +61,10 @@ class GoalSerializer(serializers.ModelSerializer):
         # Remove write-only fields before validation
         profile_id = attrs.pop('profile_id', None)
         due_date = attrs.pop('due_date', None)
-        is_completed_field = attrs.pop('is_completed_field', None)
-        goal_type = attrs.pop('goal_type', None)
         
         # Map due_date to target_date
         if due_date is not None:
             attrs['target_date'] = due_date
-        
-        # Map is_completed_field to status enum
-        if is_completed_field is not None:
-            # Note: status field in model maps to goal_status column in DB
-            attrs['goal_status'] = GoalStatus.COMPLETED if is_completed_field else GoalStatus.ACTIVE
-        
-        # Map goal_type if provided
-        if goal_type is not None:
-            attrs['goal_type'] = goal_type
         
         # Handle profile_id
         if profile_id:
@@ -91,22 +90,6 @@ class GoalSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({
                 'current_amount': 'Current amount cannot be negative'
             })
-        
-        # Ensure current_amount doesn't exceed target_amount
-        if target_amount and current_amount > target_amount:
-            attrs['current_amount'] = target_amount
-            # Auto-complete if exceeds target
-            if 'goal_status' not in attrs or attrs['goal_status'] != GoalStatus.COMPLETED:
-                attrs['goal_status'] = GoalStatus.COMPLETED
-                attrs['completed_date'] = timezone.now()
-        
-        # Auto-set completed_date if status is COMPLETED
-        if attrs.get('goal_status') == GoalStatus.COMPLETED and not attrs.get('completed_date'):
-            attrs['completed_date'] = timezone.now()
-        
-        # Handle remote_id from Flutter if provided
-        # In your Flutter app, you might send remote_id for updates
-        # But for new creations, remote_id will be null
         
         return attrs
     
@@ -183,4 +166,3 @@ class BulkGoalSerializer(serializers.Serializer):
             'created': created,
             'updated': updated
         }
-        
