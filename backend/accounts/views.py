@@ -1,4 +1,4 @@
-# backend_v1/accounts/views.py
+# backend/accounts/views.py
 
 from rest_framework import status
 from rest_framework.response import Response

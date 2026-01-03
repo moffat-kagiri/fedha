@@ -1,5 +1,4 @@
 # goals/views.py
-# Create your views here.
 from rest_framework import viewsets, status, permissions
 from rest_framework.decorators import action
 from django.shortcuts import render
@@ -18,18 +17,26 @@ class GoalViewSet(viewsets.ModelViewSet):
     serializer_class = GoalSerializer
     permission_classes = [permissions.IsAuthenticated]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
-    filterset_fields = ['status', 'goal_type', 'priority']
+    filterset_fields = ['status', 'goal_type']
     search_fields = ['name', 'description']
     ordering_fields = ['created_at', 'target_date', 'target_amount', 'current_amount']
     ordering = ['-created_at']
     
+    def get_serializer_context(self):
+        """Add request to serializer context."""
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
+    
     def get_queryset(self):
         """Return goals for current user."""
-        # Handle both User and Profile objects (authentication may set user to profile directly)
-        if isinstance(self.request.user, Profile):
-            user_profile = self.request.user
-        else:
+        # Get user's profile
+        try:
             user_profile = self.request.user.profile
+        except (Profile.DoesNotExist, AttributeError):
+            # If no profile exists, return empty queryset
+            return Goal.objects.none()
+        
         queryset = Goal.objects.filter(profile=user_profile)
         
         # Validate profile_id if provided (must own this profile)
@@ -46,15 +53,42 @@ class GoalViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(status=GoalStatus.ACTIVE)
         
         return queryset
-    
+
     def perform_create(self, serializer):
-        """Set profile on create."""
-        # Handle both User and Profile objects
-        if isinstance(self.request.user, Profile):
-            profile = self.request.user
-        else:
-            profile = self.request.user.profile
-        serializer.save(profile=profile)
+        """Override create to let serializer handle profile assignment."""
+        # The serializer now handles profile assignment via profile_id
+        # We don't need to set profile here anymore
+        serializer.save()
+    
+    def create(self, request, *args, **kwargs):
+        """Override create to handle profile_id validation."""
+        # Log the incoming data for debugging
+        print(f"Goal POST data: {request.data}")
+        
+        # Check if profile_id is provided
+        profile_id = request.data.get('profile_id')
+        if not profile_id:
+            return Response(
+                {'error': 'profile_id is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Verify the user owns this profile
+        try:
+            user_profile = request.user.profile
+            if str(user_profile.id) != str(profile_id):
+                return Response(
+                    {'error': 'You can only create goals for your own profile'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+        except (Profile.DoesNotExist, AttributeError):
+            return Response(
+                {'error': 'User profile not found'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Continue with normal create
+        return super().create(request, *args, **kwargs)
     
     @action(detail=True, methods=['post'])
     def contribute(self, request, pk=None):
@@ -69,7 +103,7 @@ class GoalViewSet(viewsets.ModelViewSet):
                 goal.add_contribution(amount)
                 return Response({
                     'message': 'Contribution added successfully',
-                    'goal': GoalSerializer(goal).data
+                    'goal': GoalSerializer(goal, context={'request': request}).data
                 }, status=status.HTTP_200_OK)
             except ValueError as e:
                 return Response({
@@ -83,11 +117,15 @@ class GoalViewSet(viewsets.ModelViewSet):
         """Bulk sync goals from mobile app."""
         # Expect array of goals directly
         goals_data = request.data if isinstance(request.data, list) else []
-        # Handle both User and Profile objects
-        if isinstance(request.user, Profile):
-            user_profile = request.user
-        else:
+        
+        # Get user's profile
+        try:
             user_profile = request.user.profile
+        except (Profile.DoesNotExist, AttributeError):
+            return Response(
+                {'error': 'User profile not found'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
         
         created_count = 0
         updated_count = 0
@@ -95,8 +133,8 @@ class GoalViewSet(viewsets.ModelViewSet):
         
         for goal_data in goals_data:
             try:
-                # Ensure profile is set
-                goal_data['profile'] = str(user_profile.id)
+                # Ensure profile_id is set
+                goal_data['profile_id'] = str(user_profile.id)
                 
                 goal_id = goal_data.get('id')
                 
@@ -104,7 +142,12 @@ class GoalViewSet(viewsets.ModelViewSet):
                     # Try to update existing goal
                     try:
                         goal = Goal.objects.get(id=goal_id, profile=user_profile)
-                        serializer = GoalSerializer(goal, data=goal_data, partial=True)
+                        serializer = GoalSerializer(
+                            goal, 
+                            data=goal_data, 
+                            partial=True,
+                            context={'request': request}
+                        )
                         if serializer.is_valid():
                             serializer.save()
                             updated_count += 1
@@ -115,9 +158,12 @@ class GoalViewSet(viewsets.ModelViewSet):
                             })
                     except Goal.DoesNotExist:
                         # Create new goal with specified ID
-                        serializer = GoalSerializer(data=goal_data)
+                        serializer = GoalSerializer(
+                            data=goal_data,
+                            context={'request': request}
+                        )
                         if serializer.is_valid():
-                            serializer.save(profile=user_profile)
+                            serializer.save()
                             created_count += 1
                         else:
                             errors.append({
@@ -126,9 +172,12 @@ class GoalViewSet(viewsets.ModelViewSet):
                             })
                 else:
                     # Create new goal
-                    serializer = GoalSerializer(data=goal_data)
+                    serializer = GoalSerializer(
+                        data=goal_data,
+                        context={'request': request}
+                    )
                     if serializer.is_valid():
-                        serializer.save(profile=user_profile)
+                        serializer.save()
                         created_count += 1
                     else:
                         errors.append({
@@ -168,4 +217,47 @@ class GoalViewSet(viewsets.ModelViewSet):
             'total_current_amount': total_current,
             'overall_progress': round(overall_progress, 2)
         })
-
+    
+    @action(detail=True, methods=['patch'])
+    def complete(self, request, pk=None):
+        """Mark a goal as completed."""
+        goal = self.get_object()
+        
+        try:
+            goal.mark_completed()
+            return Response({
+                'message': 'Goal marked as completed',
+                'goal': GoalSerializer(goal, context={'request': request}).data
+            }, status=status.HTTP_200_OK)
+        except ValueError as e:
+            return Response({
+                'error': str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
+    
+    @action(detail=True, methods=['patch'])
+    def update_progress(self, request, pk=None):
+        """Update goal progress manually."""
+        goal = self.get_object()
+        
+        current_amount = request.data.get('current_amount')
+        if current_amount is None:
+            return Response(
+                {'error': 'current_amount is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            goal.current_amount = float(current_amount)
+            if goal.current_amount >= goal.target_amount:
+                goal.status = GoalStatus.COMPLETED
+            goal.save()
+            
+            return Response({
+                'message': 'Progress updated successfully',
+                'goal': GoalSerializer(goal, context={'request': request}).data
+            }, status=status.HTTP_200_OK)
+        except (ValueError, TypeError) as e:
+            return Response({
+                'error': 'Invalid amount value'
+            }, status=status.HTTP_400_BAD_REQUEST)
+            

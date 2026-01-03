@@ -374,7 +374,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    'Financial management made simple',
+                    'Personal finance made simple',
                     style: TextStyle(
                       fontSize: 16,
                       color: Color.fromRGBO(255, 255, 255, 0.86),

@@ -1,4 +1,4 @@
-# backend_v1/accounts/urls.py
+# backend/accounts/urls.py
 from django.urls import path
 from rest_framework_simplejwt.views import TokenRefreshView
 from .views import RegisterView, LoginView, LogoutView

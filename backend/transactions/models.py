@@ -1,8 +1,10 @@
 # transactions/models.py
 import uuid
+import json
 from django.db import models
 from django.utils import timezone
 from decimal import Decimal
+from django.core.validators import MinValueValidator, MaxValueValidator
 
 
 class TransactionType(models.TextChoices):
@@ -26,6 +28,9 @@ class PaymentMethod(models.TextChoices):
     MOBILE = 'mobile', 'Mobile'
     ONLINE = 'online', 'Online'
     CHEQUE = 'cheque', 'Cheque'
+    MPESA = 'mpesa', 'Mpesa'
+    BANK_TRANSFER = 'bank_transfer', 'Bank Transfer'
+    OTHER = 'other', 'Other'
 
 
 class Transaction(models.Model):
@@ -39,84 +44,183 @@ class Transaction(models.Model):
         related_name='transactions'
     )
     category = models.ForeignKey(
-        'accounts.Category',
+        'categories.Category',  # ✅ Your database shows 'categories' table
         on_delete=models.SET_NULL,
-        related_name='transactions',
         null=True,
         blank=True
     )
     goal = models.ForeignKey(
         'goals.Goal',
         on_delete=models.SET_NULL,
-        related_name='transactions',
         null=True,
         blank=True
     )
     
-    amount = models.DecimalField(max_digits=15, decimal_places=2)
+    amount = models.DecimalField(
+        max_digits=15, 
+        decimal_places=2,
+        validators=[MinValueValidator(0.01)]
+    )
     type = models.CharField(max_length=20, choices=TransactionType.choices)
     status = models.CharField(
         max_length=20,
         choices=TransactionStatus.choices,
         default=TransactionStatus.COMPLETED
     )
+    currency = models.CharField(max_length=3, default='KES')
     payment_method = models.CharField(
-        max_length=20,
+        max_length=50,
         choices=PaymentMethod.choices,
         null=True,
         blank=True
     )
     
-    description = models.TextField(null=True, blank=True)
-    notes = models.TextField(null=True, blank=True)
-    reference = models.CharField(max_length=100, null=True, blank=True)
-    recipient = models.CharField(max_length=255, null=True, blank=True)
-    sms_source = models.TextField(null=True, blank=True)
+    description = models.TextField(blank=True, null=True)
+    notes = models.TextField(blank=True, null=True)  # ✅ Added from database
+    reference = models.CharField(max_length=255, blank=True, null=True)
+    recipient = models.CharField(max_length=255, blank=True, null=True)
+    sms_source = models.TextField(blank=True, null=True)  # ✅ Added from database
     
-    is_expense = models.BooleanField(default=True)
-    is_pending = models.BooleanField(default=False)
+    # ✅ CRITICAL: Database column is 'date' not 'transaction_date'
+    date = models.DateTimeField(default=timezone.now, db_column='date')
+    
+    # Database fields that exist
     is_recurring = models.BooleanField(default=False)
-    is_synced = models.BooleanField(default=False)
+    recurring_pattern = models.CharField(max_length=50, blank=True, null=True)
+    parent_transaction = models.ForeignKey(
+        'self',  # ✅ Self-referencing foreign key
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='child_transactions'
+    )
+    merchant_name = models.CharField(max_length=255, blank=True, null=True)
+    merchant_category = models.CharField(max_length=100, blank=True, null=True)
+    tags = models.JSONField(default=list, blank=True)  # text[] in DB, using JSONField
+    location = models.CharField(max_length=255, blank=True, null=True)
+    latitude = models.DecimalField(
+        max_digits=10, 
+        decimal_places=8, 
+        null=True, 
+        blank=True
+    )
+    longitude = models.DecimalField(
+        max_digits=11, 
+        decimal_places=8, 
+        null=True, 
+        blank=True
+    )
+    is_flagged = models.BooleanField(default=False)
+    anomaly_score = models.DecimalField(
+        max_digits=5, 
+        decimal_places=2, 
+        null=True, 
+        blank=True,
+        validators=[MinValueValidator(0), MaxValueValidator(1)]
+    )
+    budget_period = models.CharField(max_length=50, blank=True, null=True)
+    budget_id = models.UUIDField(null=True, blank=True)
+    budget_category_id = models.CharField(max_length=255, blank=True, null=True)  # ✅ Added
+    remote_id = models.CharField(max_length=255, blank=True, null=True)  # ✅ Added
+    is_pending = models.BooleanField(default=False)  # ✅ Added from database
+    is_expense = models.BooleanField(null=True)  # ✅ Can be null in database
     
-    transaction_date = models.DateTimeField(default=timezone.now)
-    created_at = models.DateTimeField(default=timezone.now)
+    created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
     class Meta:
         db_table = 'transactions'
-        ordering = ['-transaction_date']
+        ordering = ['-date']  # ✅ Changed from '-transaction_date' to '-date'
         indexes = [
             models.Index(fields=['profile']),
             models.Index(fields=['category']),
             models.Index(fields=['goal']),
-            models.Index(fields=['transaction_date']),
+            models.Index(fields=['date']),  # ✅ Changed from 'transaction_date'
             models.Index(fields=['type']),
             models.Index(fields=['status']),
-            models.Index(fields=['is_synced']),
-            models.Index(fields=['profile', '-transaction_date']),
+            models.Index(fields=['profile', '-date']),  # ✅ Changed from '-transaction_date'
+            # Additional indexes that exist in database:
+            models.Index(fields=['anomaly_score'], name='idx_transactions_anomaly'),
+            models.Index(fields=['budget_id'], name='idx_transactions_budget_id'),
+            models.Index(fields=['location'], name='idx_transactions_location'),
+            models.Index(fields=['merchant_name'], name='idx_transactions_merchant'),
         ]
         constraints = [
             models.CheckConstraint(
                 condition=models.Q(amount__gt=0),
                 name='amount_positive'
-            )
+            ),
+            models.CheckConstraint(
+                condition=(models.Q(anomaly_score__gte=0) & models.Q(anomaly_score__lte=1)) | 
+                           models.Q(anomaly_score__isnull=True),
+                name='transactions_anomaly_score_check'  # ✅ Must match database constraint name
+            ),
         ]
     
     def __str__(self):
-        return f"{self.type.capitalize()} - {self.amount} - {self.transaction_date.date()}"
+        return f"{self.type.capitalize()} - KES {self.amount} - {self.date.date()}"
     
     def save(self, *args, **kwargs):
-        """Override save to set is_expense based on type."""
-        if self.type == TransactionType.EXPENSE:
-            self.is_expense = True
-        else:
-            self.is_expense = False
+        """Override save to set derived fields."""
+        # Auto-set is_expense based on type if not set
+        if self.is_expense is None:
+            self.is_expense = (self.type == TransactionType.EXPENSE)
+        
+        # Set is_pending based on status
+        self.is_pending = (self.status == TransactionStatus.PENDING)
+        
+        # Handle tags JSON serialization
+        if isinstance(self.tags, list):
+            self.tags = json.dumps(self.tags)
+        
         super().save(*args, **kwargs)
     
     @property
-    def currency(self):
-        """Get currency from profile."""
-        return self.profile.base_currency if self.profile else 'KES'
+    def transaction_date(self):
+        """Property alias for 'date' field for backward compatibility."""
+        return self.date
+    
+    @transaction_date.setter
+    def transaction_date(self, value):
+        """Setter for transaction_date alias."""
+        self.date = value
+    
+    @property
+    def display_amount(self):
+        """Get formatted amount with currency."""
+        return f"{self.currency} {self.amount:,.2f}"
+    
+    @property
+    def tags_list(self):
+        """Get tags as Python list."""
+        if isinstance(self.tags, str):
+            try:
+                return json.loads(self.tags)
+            except json.JSONDecodeError:
+                return []
+        elif isinstance(self.tags, list):
+            return self.tags
+        return []
+    
+    @property
+    def has_location(self):
+        """Check if transaction has location data."""
+        return self.latitude is not None and self.longitude is not None
+    
+    @property
+    def is_anomalous(self):
+        """Check if transaction is flagged as anomalous."""
+        return self.anomaly_score is not None and self.anomaly_score > 0.7
+    
+    @property
+    def is_child(self):
+        """Check if this is a child transaction."""
+        return self.parent_transaction is not None
+    
+    @property
+    def is_parent(self):
+        """Check if this is a parent transaction."""
+        return self.child_transactions.exists()
 
 
 class PendingTransaction(models.Model):
@@ -130,9 +234,8 @@ class PendingTransaction(models.Model):
         related_name='pending_transactions'
     )
     category = models.ForeignKey(
-        'accounts.Category',
+        'categories.Category',  # ✅ Changed to match database
         on_delete=models.SET_NULL,
-        related_name='pending_transactions',
         null=True,
         blank=True
     )
@@ -144,11 +247,15 @@ class PendingTransaction(models.Model):
         blank=True
     )
     
-    raw_text = models.TextField(null=True, blank=True)
-    amount = models.DecimalField(max_digits=15, decimal_places=2)
-    description = models.TextField(null=True, blank=True)
+    raw_text = models.TextField(blank=True, null=True)
+    amount = models.DecimalField(
+        max_digits=15, 
+        decimal_places=2,
+        validators=[MinValueValidator(0.01)]
+    )
+    description = models.TextField(blank=True, null=True)
     
-    transaction_date = models.DateTimeField(default=timezone.now)
+    date = models.DateTimeField(default=timezone.now, db_column='date')  # ✅ Changed to match DB
     type = models.CharField(
         max_length=20,
         choices=TransactionType.choices,
@@ -163,11 +270,12 @@ class PendingTransaction(models.Model):
     confidence = models.DecimalField(
         max_digits=3,
         decimal_places=2,
-        default=Decimal('0.5')
+        default=Decimal('0.5'),
+        validators=[MinValueValidator(0), MaxValueValidator(1)]
     )
     metadata = models.JSONField(default=dict, blank=True)
     
-    created_at = models.DateTimeField(default=timezone.now)
+    created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
     class Meta:
@@ -196,20 +304,20 @@ class PendingTransaction(models.Model):
         if self.status != TransactionStatus.PENDING:
             raise ValueError("Only pending transactions can be approved")
         
-        # Create the actual transaction
         transaction = Transaction.objects.create(
             profile=self.profile,
             category=category or self.category,
             amount=self.amount,
             type=self.type,
             status=TransactionStatus.COMPLETED,
+            currency='KES',
             description=self.description,
             sms_source=self.raw_text,
-            transaction_date=self.transaction_date,
-            is_synced=False
+            date=self.date,  # ✅ Changed from transaction_date
+            is_expense=(self.type == TransactionType.EXPENSE),
+            is_pending=False
         )
         
-        # Update this pending transaction
         self.transaction = transaction
         self.status = TransactionStatus.COMPLETED
         self.save()
@@ -220,30 +328,13 @@ class PendingTransaction(models.Model):
         """Reject this pending transaction."""
         self.status = TransactionStatus.CANCELLED
         self.save()
-
-
-class TransactionCategory(models.TextChoices):
-    """
-    Enum for transaction categories (matches Flutter app).
-    """
-    FOOD = 'food', 'Food'
-    TRANSPORT = 'transport', 'Transport'
-    UTILITIES = 'utilities', 'Utilities'
-    ENTERTAINMENT = 'entertainment', 'Entertainment'
-    HEALTHCARE = 'healthcare', 'Healthcare'
-    GROCERIES = 'groceries', 'Groceries'
-    DINING_OUT = 'diningOut', 'Dining Out'
-    SHOPPING = 'shopping', 'Shopping'
-    EDUCATION = 'education', 'Education'
-    SALARY = 'salary', 'Salary'
-    BUSINESS = 'business', 'Business'
-    INVESTMENT = 'investment', 'Investment'
-    GIFT = 'gift', 'Gift'
-    OTHER_INCOME = 'otherIncome', 'Other Income'
-    OTHER_EXPENSE = 'otherExpense', 'Other Expense'
-    EMERGENCY_FUND = 'emergencyFund', 'Emergency Fund'
-    RENT = 'rent', 'Rent'
-    RETIREMENT = 'retirement', 'Retirement'
-    OTHER = 'other', 'Other'
-    SAVINGS = 'savings', 'Savings'
-    OTHER_SAVINGS = 'otherSavings', 'Other Savings'
+    
+    @property
+    def confidence_percentage(self):
+        """Get confidence as percentage."""
+        return f"{self.confidence * 100:.1f}%"
+    
+    @property
+    def is_high_confidence(self):
+        """Check if confidence is high."""
+        return self.confidence >= Decimal('0.8')

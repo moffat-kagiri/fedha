@@ -1,5 +1,4 @@
 # transactions/views.py
-# Create your views here.
 from django.shortcuts import render
 from rest_framework import viewsets, status, permissions
 from rest_framework.decorators import action
@@ -28,13 +27,21 @@ class TransactionViewSet(viewsets.ModelViewSet):
     ordering_fields = ['transaction_date', 'amount', 'created_at']
     ordering = ['-transaction_date']
     
+    def get_serializer_context(self):
+        """Add request to serializer context."""
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
+    
     def get_queryset(self):
         """Return transactions for current user with date filtering."""
-        # Handle both User and Profile objects (authentication may set user to profile directly)
-        if isinstance(self.request.user, Profile):
-            user_profile = self.request.user
-        else:
+        # Get user's profile
+        try:
             user_profile = self.request.user.profile
+        except (Profile.DoesNotExist, AttributeError):
+            # If no profile exists, return empty queryset
+            return Transaction.objects.none()
+        
         queryset = Transaction.objects.filter(profile=user_profile)
         
         # Validate profile_id if provided (must own this profile)
@@ -69,23 +76,54 @@ class TransactionViewSet(viewsets.ModelViewSet):
         return queryset
     
     def perform_create(self, serializer):
-        """Set profile on create."""
-        # Handle both User and Profile objects
-        if isinstance(self.request.user, Profile):
-            profile = self.request.user
-        else:
-            profile = self.request.user.profile
-        serializer.save(profile=profile)
+        """Override create to let serializer handle profile assignment."""
+        # The serializer now handles profile assignment via profile_id
+        # We don't need to set profile here anymore
+        serializer.save()
+    
+    def create(self, request, *args, **kwargs):
+        """Override create to handle profile_id validation."""
+        # Log the incoming data for debugging
+        print(f"Transaction POST data: {request.data}")
+        
+        # Check if profile_id is provided
+        profile_id = request.data.get('profile_id')
+        if not profile_id:
+            return Response(
+                {'error': 'profile_id is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Verify the user owns this profile
+        try:
+            user_profile = request.user.profile
+            if str(user_profile.id) != str(profile_id):
+                return Response(
+                    {'error': 'You can only create transactions for your own profile'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+        except (Profile.DoesNotExist, AttributeError):
+            return Response(
+                {'error': 'User profile not found'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Continue with normal create
+        return super().create(request, *args, **kwargs)
     
     @action(detail=False, methods=['post'])
     def bulk_sync(self, request):
         """Bulk sync transactions from mobile app."""
         transactions_data = request.data if isinstance(request.data, list) else []
-        # Handle both User and Profile objects
-        if isinstance(request.user, Profile):
-            user_profile = request.user
-        else:
+        
+        # Get user's profile
+        try:
             user_profile = request.user.profile
+        except (Profile.DoesNotExist, AttributeError):
+            return Response(
+                {'error': 'User profile not found'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
         
         created_count = 0
         updated_count = 0
@@ -93,8 +131,8 @@ class TransactionViewSet(viewsets.ModelViewSet):
         
         for transaction_data in transactions_data:
             try:
-                # Ensure profile is set
-                transaction_data['profile'] = str(user_profile.id)
+                # Ensure profile_id is set
+                transaction_data['profile_id'] = str(user_profile.id)
                 
                 transaction_id = transaction_data.get('id')
                 
@@ -108,7 +146,8 @@ class TransactionViewSet(viewsets.ModelViewSet):
                         serializer = TransactionSerializer(
                             transaction,
                             data=transaction_data,
-                            partial=True
+                            partial=True,
+                            context={'request': request}
                         )
                         if serializer.is_valid():
                             serializer.save()
@@ -120,9 +159,12 @@ class TransactionViewSet(viewsets.ModelViewSet):
                             })
                     except Transaction.DoesNotExist:
                         # Create new transaction with specified ID
-                        serializer = TransactionSerializer(data=transaction_data)
+                        serializer = TransactionSerializer(
+                            data=transaction_data,
+                            context={'request': request}
+                        )
                         if serializer.is_valid():
-                            serializer.save(profile=user_profile)
+                            serializer.save()
                             created_count += 1
                         else:
                             errors.append({
@@ -131,9 +173,12 @@ class TransactionViewSet(viewsets.ModelViewSet):
                             })
                 else:
                     # Create new transaction
-                    serializer = TransactionSerializer(data=transaction_data)
+                    serializer = TransactionSerializer(
+                        data=transaction_data,
+                        context={'request': request}
+                    )
                     if serializer.is_valid():
-                        serializer.save(profile=request.user)
+                        serializer.save()
                         created_count += 1
                     else:
                         errors.append({
@@ -230,11 +275,12 @@ class PendingTransactionViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         """Return pending transactions for current user."""
-        # Handle both User and Profile objects (authentication may set user to profile directly)
-        if isinstance(self.request.user, Profile):
-            user_profile = self.request.user
-        else:
+        # Get user's profile
+        try:
             user_profile = self.request.user.profile
+        except (Profile.DoesNotExist, AttributeError):
+            return PendingTransaction.objects.none()
+        
         queryset = PendingTransaction.objects.filter(profile=user_profile)
         
         # Validate profile_id if provided (must own this profile)
@@ -254,12 +300,15 @@ class PendingTransactionViewSet(viewsets.ModelViewSet):
     
     def perform_create(self, serializer):
         """Set profile on create."""
-        # Handle both User and Profile objects
-        if isinstance(self.request.user, Profile):
-            profile = self.request.user
-        else:
-            profile = self.request.user.profile
-        serializer.save(profile=profile)
+        # Get user's profile
+        try:
+            user_profile = self.request.user.profile
+            serializer.save(profile=user_profile)
+        except (Profile.DoesNotExist, AttributeError):
+            # If no profile exists, raise validation error
+            raise serializers.ValidationError({
+                'profile': 'User profile not found'
+            })
     
     @action(detail=True, methods=['post'])
     def approve(self, request, pk=None):
@@ -315,4 +364,4 @@ class PendingTransactionViewSet(viewsets.ModelViewSet):
             return Response({
                 'error': str(e)
             }, status=status.HTTP_400_BAD_REQUEST)
-
+            
