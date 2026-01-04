@@ -1,3 +1,4 @@
+// app/lib/models/transaction.dart - FIXED VERSION
 import 'package:json_annotation/json_annotation.dart';
 import 'package:uuid/uuid.dart';
 import 'enums.dart';
@@ -9,39 +10,44 @@ class Transaction {
   String? id; // Local unique identifier
   String? remoteId; // PostgreSQL backend ID (nullable until synced)
   double amount;
-  TransactionType type;
-  String categoryId;
-  TransactionCategory? category;
+  @JsonKey(name: 'transaction_type')
+  String transactionType; // 'income', 'expense', 'savings', 'transfer'
+  String category; // Category name as string
   DateTime date;
-  DateTime createdAt; // ✅ When transaction was created
-  String? budgetCategoryId;  
+  DateTime createdAt;
+  @JsonKey(name: 'budget_category_id')
+  String? budgetCategoryId; // Budget category as string
   String? notes;
   String? description;
   bool isSynced;
   String profileId;
   DateTime updatedAt;
-  String? goalId;
+  String? goalId; // Goal ID or name as string
   String? smsSource;
   String? reference;
   String? recipient;
   bool isPending;
-  bool isExpense;
+  bool? isExpense;
   bool isRecurring;
-  PaymentMethod? paymentMethod;
+  String? paymentMethod;
+  String? currency;
+  String? status;
+  String? merchantName;
+  String? merchantCategory;
+  String? tags;
+  String? location;
+  double? latitude;
+  double? longitude;
 
   Transaction({
-    String? id,  
-    this.remoteId,      
+    String? id,
+    this.remoteId,
     required this.amount,
-    required this.type,
-    required this.categoryId,
-    this.category,
+    required this.transactionType,
+    required this.category,
     required this.date,
     DateTime? createdAt,
-    
-    // ✅ NEW: Add budgetCategoryId parameter
     this.budgetCategoryId,
-    
     this.notes,
     this.description,
     this.isSynced = false,
@@ -55,101 +61,41 @@ class Transaction {
     bool? isExpense,
     this.isRecurring = false,
     this.paymentMethod,
-  }) : id = id ?? const Uuid().v4(),
-      createdAt = createdAt ?? DateTime.now(),
-      isExpense = isExpense ?? (type == TransactionType.expense),
-      updatedAt = updatedAt ?? DateTime.now() {
-    // ✅ Initialize budgetCategoryId in constructor body
+    this.currency,
+    this.status,
+    this.merchantName,
+    this.merchantCategory,
+    this.tags,
+    this.location,
+    this.latitude,
+    this.longitude,
+  })  : id = id ?? const Uuid().v4(),
+        createdAt = createdAt ?? DateTime.now(),
+        isExpense = isExpense ?? (transactionType == 'expense'),
+        updatedAt = updatedAt ?? DateTime.now() {
+    // Initialize budgetCategoryId based on transaction type
     if (budgetCategoryId == null) {
-      budgetCategoryId = switch (type) {
-        TransactionType.expense => 
-          categoryId.isNotEmpty ? categoryId : 'other',
-        TransactionType.savings => 'savings',
+      budgetCategoryId = switch (transactionType) {
+        'expense' => category.isNotEmpty ? category : 'other',
+        'savings' => 'savings',
         _ => null,
       };
     }
   }
 
-  // Helper method to ensure category is properly set
-  Transaction withCategory(TransactionCategory category) {
-    return Transaction(
-      id: id,
-      remoteId: remoteId,
-      amount: amount,
-      type: type,
-      categoryId: categoryId,
-      category: category,
-      date: date,
-      createdAt: createdAt,
-      budgetCategoryId: budgetCategoryId,
-      notes: notes,
-      description: description,
-      isSynced: isSynced,
-      profileId: profileId,
-      updatedAt: updatedAt,
-      goalId: goalId,
-      smsSource: smsSource,
-      reference: reference,
-      recipient: recipient,
-      isPending: isPending,
-      isExpense: isExpense,
-      isRecurring: isRecurring,
-      paymentMethod: paymentMethod,
-    );
-  }
+  /// Helper property for amount in minor units (cents)
+  int get amountMinor => (amount * 100).round();
 
-  // Improved constructor for SMS transactions
-  factory Transaction.fromSmsCandidate({
-    required double amount,
-    required String description,
-    required DateTime date,
-    required TransactionType type,
-    TransactionCategory? category,
-    String? smsSource,
-    String? profileId,
-  }) {
-    final categoryId = category?.name ?? 'other';
-    
-    return Transaction(
-      amount: amount,
-      type: type,
-      categoryId: categoryId,
-      category: category,
-      date: date,
-      description: description,
-      smsSource: smsSource,
-      profileId: profileId ?? '0',
-      isExpense: type == TransactionType.expense,
-      // Let the main constructor handle budgetCategoryId default
-    );
-  }
+  /// Set amount from minor units
+  set amountMinor(int minor) => amount = minor / 100.0;
 
-  factory Transaction.fromJson(Map<String, dynamic> json) =>
-      _$TransactionFromJson(json);
-  
-  /// Empty transaction for comparison (used in sync operations)
-  factory Transaction.empty() {
-    return Transaction(
-      amount: 0,
-      type: TransactionType.income,
-      categoryId: '',
-      date: DateTime.now(),
-      profileId: '',
-      id: '',
-      budgetCategoryId: null,
-    );
-  }
-      
-  Map<String, dynamic> toJson() => _$TransactionToJson(this);
-
-  /// Returns a copy of this transaction with the given fields replaced.
+  /// Copy with method
   Transaction copyWith({
     String? id,
     String? remoteId,
     double? amount,
-    TransactionType? type,
-    String? categoryId,
-    TransactionCategory? category,
+    String? transactionType,
+    String? category,
     DateTime? date,
     DateTime? createdAt,
     String? budgetCategoryId,
@@ -165,19 +111,21 @@ class Transaction {
     bool? isPending,
     bool? isExpense,
     bool? isRecurring,
-    PaymentMethod? paymentMethod,
+    String? paymentMethod,
+    String? currency,
+    String? status,
+    String? merchantName,
+    String? merchantCategory,
+    String? tags,
+    String? location,
+    double? latitude,
+    double? longitude,
   }) {
-    // Handle type changes that affect isExpense
-    final newType = type ?? this.type;
-    final newIsExpense = isExpense ?? 
-      (type != null ? (type == TransactionType.expense) : this.isExpense);
-    
     return Transaction(
       id: id ?? this.id,
       remoteId: remoteId ?? this.remoteId,
       amount: amount ?? this.amount,
-      type: newType,
-      categoryId: categoryId ?? this.categoryId,
+      transactionType: transactionType ?? this.transactionType,
       category: category ?? this.category,
       date: date ?? this.date,
       createdAt: createdAt ?? this.createdAt,
@@ -186,36 +134,47 @@ class Transaction {
       description: description ?? this.description,
       isSynced: isSynced ?? this.isSynced,
       profileId: profileId ?? this.profileId,
-      updatedAt: updatedAt ?? this.updatedAt,
+      updatedAt: updatedAt ?? DateTime.now(),
       goalId: goalId ?? this.goalId,
       smsSource: smsSource ?? this.smsSource,
       reference: reference ?? this.reference,
       recipient: recipient ?? this.recipient,
       isPending: isPending ?? this.isPending,
-      isExpense: newIsExpense,
+      isExpense: isExpense ?? this.isExpense,
       isRecurring: isRecurring ?? this.isRecurring,
       paymentMethod: paymentMethod ?? this.paymentMethod,
+      currency: currency ?? this.currency,
+      status: status ?? this.status,
+      merchantName: merchantName ?? this.merchantName,
+      merchantCategory: merchantCategory ?? this.merchantCategory,
+      tags: tags ?? this.tags,
+      location: location ?? this.location,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
     );
   }
 
-  /// Check if transaction has been synced to backend
-  bool get hasRemoteId => remoteId != null && remoteId!.isNotEmpty;
+  /// Create from JSON
+  factory Transaction.fromJson(Map<String, dynamic> json) => _$TransactionFromJson(json);
 
-  /// Get display name for budget category
-  String get budgetCategoryDisplayName {
-    if (budgetCategoryId == null) return 'Unassigned';
-    if (budgetCategoryId == 'other') return 'Other';
-    if (budgetCategoryId == 'savings') return 'Savings';
-    return budgetCategoryId!;
+  /// Convert to JSON
+  Map<String, dynamic> toJson() => _$TransactionToJson(this);
+
+  /// Empty transaction for comparison
+  factory Transaction.empty() {
+    return Transaction(
+      amount: 0,
+      transactionType: 'income',
+      category: '',
+      date: DateTime.now(),
+      profileId: '',
+      id: '',
+    );
   }
-
-  /// Check if transaction is assigned to a budget category
-  bool get hasBudgetCategory => budgetCategoryId != null && budgetCategoryId!.isNotEmpty;
 
   @override
   String toString() {
-    return 'Transaction(id: $id, remoteId: $remoteId, amount: $amount, type: $type, '
-        'category: $category, categoryId: $categoryId, budgetCategoryId: $budgetCategoryId, '
-        'date: $date, description: $description, isExpense: $isExpense)';
+    return 'Transaction(id: $id, remoteId: $remoteId, amount: $amount, '
+        'type: $transactionType, category: $category, date: $date)';
   }
 }
