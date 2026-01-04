@@ -10,16 +10,25 @@ class BudgetSerializer(serializers.ModelSerializer):
     days_remaining = serializers.ReadOnlyField()
     is_current = serializers.ReadOnlyField()
     
-    category_name = serializers.CharField(source='category.name', read_only=True)
+    # ✅ Keep category_name read-only (shows stored string)
+    category_name = serializers.CharField(source='category', read_only=True)
     
-    # ✅ FIXED: Accept as strings
+    # ✅ Accept category as STRING (no ID lookup needed)
+    category = serializers.CharField(
+        write_only=True, 
+        required=False, 
+        allow_null=True,
+        allow_blank=True,
+        max_length=255
+    )
+    
+    # ✅ Accept profile_id as string
     profile_id = serializers.CharField(write_only=True, required=False)
-    category_id = serializers.CharField(write_only=True, required=False, allow_null=True, allow_blank=True)
     
     class Meta:
         model = Budget
         fields = [
-            'id', 'profile', 'profile_id', 'category', 'category_id', 'category_name',
+            'id', 'profile', 'profile_id', 'category', 'category_name',
             'name', 'description',
             'budget_amount', 'spent_amount',
             'period', 'start_date', 'end_date',
@@ -33,9 +42,12 @@ class BudgetSerializer(serializers.ModelSerializer):
         ]
     
     def validate(self, attrs):
-        """Validate budget data."""
+        """Validate budget data - simplified for string storage."""
         profile_id = attrs.pop('profile_id', None)
-        category_id = attrs.pop('category_id', None)
+        
+        # ✅ Handle frontend sending category_id instead of category
+        if 'category_id' in attrs and 'category' not in attrs:
+            attrs['category'] = attrs.pop('category_id')
         
         # Handle profile_id
         if profile_id:
@@ -49,35 +61,6 @@ class BudgetSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError({
                     'profile_id': f'Profile {profile_id} does not exist'
                 })
-        
-        # Handle category_id as string
-        if category_id is not None and category_id.strip():
-            from categories.models import Category
-            profile = attrs.get('profile')
-            
-            if not profile:
-                raise serializers.ValidationError({
-                    'category_id': 'Profile must be specified before category'
-                })
-            
-            # Try UUID, then name
-            category = None
-            try:
-                import uuid
-                uuid_obj = uuid.UUID(category_id)
-                category = Category.objects.filter(id=uuid_obj, profile=profile).first()
-            except (ValueError, AttributeError):
-                category = Category.objects.filter(
-                    profile=profile,
-                    name__iexact=category_id
-                ).first()
-            
-            if not category:
-                raise serializers.ValidationError({
-                    'category_id': f'Category {category_id} not found'
-                })
-            
-            attrs['category'] = category
         
         # Validate amounts
         budget_amount = attrs.get('budget_amount')
@@ -95,7 +78,8 @@ class BudgetSerializer(serializers.ModelSerializer):
             })
         
         return attrs
-        
+
+
 class BudgetSummarySerializer(serializers.Serializer):
     """Serializer for budget summary."""
     total_budget = serializers.DecimalField(max_digits=15, decimal_places=2)
@@ -105,3 +89,14 @@ class BudgetSummarySerializer(serializers.Serializer):
     active_budgets = serializers.IntegerField()
     over_budget_count = serializers.IntegerField()
 
+
+class BudgetPeriodSerializer(serializers.ModelSerializer):
+    """Serializer for BudgetPeriod model."""
+    class Meta:
+        model = BudgetPeriod
+        fields = [
+            'id', 'budget', 'start_date', 'end_date',
+            'budget_amount', 'spent_amount',
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']

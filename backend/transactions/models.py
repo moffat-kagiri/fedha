@@ -1,4 +1,4 @@
-# transactions/models.py 
+# transactions/models.py - FIXED VERSION
 import uuid
 import json
 from django.db import models
@@ -44,29 +44,23 @@ class Transaction(models.Model):
         on_delete=models.CASCADE,
         related_name='transactions'
     )
-    # ✅ Changed from ForeignKey to CharField
+    
+    # ✅ Store category as string
     category = models.CharField(
         max_length=255,
         null=True,
         blank=True,
-        help_text="Category name as string (not ForeignKey)"
+        help_text="Category name as string"
     )
     
-    # ✅ Changed from ForeignKey to CharField
+    # ✅ Store goal_id as string (REMOVED duplicate 'goal' field)
     goal_id = models.CharField(
         max_length=255,
         null=True,
         blank=True,
-        help_text="Goal name or ID as string (not ForeignKey)"
+        help_text="Goal name or ID as string"
     )
     
-    goal = models.CharField(
-        max_length=255,
-        null=True,
-        blank=True,
-        help_text="Goal name or ID as string (not ForeignKey)"
-    )
-
     is_synced = models.BooleanField(default=False)
     
     amount = models.DecimalField(
@@ -110,11 +104,11 @@ class Transaction(models.Model):
     merchant_name = models.CharField(max_length=255, blank=True, null=True)
     merchant_category = models.CharField(max_length=100, blank=True, null=True)
     tags = models.CharField(
-        default= '', 
+        default='', 
         blank=True,
         max_length=500,
         help_text="Comma-separated tags for categorizing transactions"
-        )
+    )
     location = models.CharField(max_length=255, blank=True, null=True)
     latitude = models.DecimalField(
         max_digits=10, 
@@ -152,7 +146,7 @@ class Transaction(models.Model):
         indexes = [
             models.Index(fields=['profile']),
             models.Index(fields=['category']),
-            models.Index(fields=['goal']),
+            models.Index(fields=['goal_id']),
             models.Index(fields=['date']),
             models.Index(fields=['type']),
             models.Index(fields=['status']),
@@ -183,11 +177,6 @@ class Transaction(models.Model):
             self.is_expense = (self.type == TransactionType.EXPENSE)
         
         self.is_pending = (self.status == TransactionStatus.PENDING)
-        
-        # Remove the JSON conversion logic
-        # JSONField handles conversion automatically, CharField doesn't need it
-        # if isinstance(self.tags, list):
-        #     self.tags = json.dumps(self.tags)
         
         # If tags is a list, convert to comma-separated string
         if isinstance(self.tags, list):
@@ -236,8 +225,7 @@ class Transaction(models.Model):
     def is_anomalous(self):
         """Check if transaction is flagged as anomalous."""
         return self.anomaly_score is not None and self.anomaly_score > 0.7
-
-
+        
 class PendingTransaction(models.Model):
     """
     Pending transactions detected from SMS that await user review.
@@ -248,9 +236,11 @@ class PendingTransaction(models.Model):
         on_delete=models.CASCADE,
         related_name='pending_transactions'
     )
+    # ✅ Store category as string (not ForeignKey)
     category = models.CharField(
         max_length=255,
-        null=True
+        null=True,
+        blank=True  # Changed to allow blank
     )
     transaction = models.ForeignKey(
         Transaction,
@@ -308,36 +298,3 @@ class PendingTransaction(models.Model):
     
     def __str__(self):
         return f"Pending - {self.amount} - {self.created_at.date()}"
-    
-    def approve(self, category=None):
-        """
-        Approve this pending transaction and create a real transaction.
-        Returns the created Transaction instance.
-        """
-        if self.status != TransactionStatus.PENDING:
-            raise ValueError("Only pending transactions can be approved")
-        
-        transaction = Transaction.objects.create(
-            profile=self.profile,
-            category=category or self.category,
-            amount=self.amount,
-            type=self.type,
-            status=TransactionStatus.COMPLETED,
-            currency='KES',
-            description=self.description,
-            sms_source=self.raw_text,
-            date=self.date,
-            is_expense=(self.type == TransactionType.EXPENSE),
-            is_pending=False
-        )
-        
-        self.transaction = transaction
-        self.status = TransactionStatus.COMPLETED
-        self.save()
-        
-        return transaction
-    
-    def reject(self):
-        """Reject this pending transaction."""
-        self.status = TransactionStatus.CANCELLED
-        self.save()

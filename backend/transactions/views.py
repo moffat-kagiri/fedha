@@ -11,8 +11,12 @@ from datetime import timedelta
 from .models import Transaction, PendingTransaction, TransactionType, TransactionStatus
 from accounts.models import Profile
 from .serializers import (
-    TransactionSerializer, PendingTransactionSerializer,
-    TransactionApprovalSerializer, TransactionSummarySerializer
+    TransactionSerializer,
+    TransactionListSerializer,
+    PendingTransactionSerializer,
+    TransactionApprovalSerializer,
+    TransactionSummarySerializer,
+    TransactionExportSerializer
 )
 from categories.models import Category
 
@@ -85,6 +89,11 @@ class TransactionViewSet(viewsets.ModelViewSet):
         """Override create to handle profile_id validation."""
         print(f"📥 Transaction POST data: {request.data}")
         
+        data = request.data.copy()
+        if 'category_id' in data and 'category' not in data:
+            data['category'] = data.pop('category_id')
+    
+        serializer = self.get_serializer(data=data)
         # Check if profile_id is provided
         profile_id = request.data.get('profile_id')
         if not profile_id:

@@ -7,7 +7,7 @@ class TransactionSerializer(serializers.ModelSerializer):
     """Serializer for Transaction model - Updated for string storage."""
     profile_id = serializers.UUIDField(write_only=True)
     
-    # ✅ Accept category as STRING name (no ID lookup needed)
+    # ✅ Accept category as STRING name
     category = serializers.CharField(
         write_only=True, 
         required=False, 
@@ -38,8 +38,8 @@ class TransactionSerializer(serializers.ModelSerializer):
         model = Transaction
         fields = [
             'id', 'profile', 'profile_id', 
-            'category', 'category_readable',  # category is now CharField
-            'goal_id',  # goal_id is now CharField
+            'category', 'category_readable',
+            'goal_id',
             'amount', 'amount_minor', 'type', 'transaction_type',
             'status', 'payment_method', 'description', 'notes',
             'date', 'created_at', 'updated_at', 'currency',
@@ -58,15 +58,17 @@ class TransactionSerializer(serializers.ModelSerializer):
         }
     
     def validate(self, attrs):
-        """Validate transaction data - simplified for string storage."""
+        """Validate transaction data - handle frontend sending category_id."""
         # Remove write-only fields
         amount_minor = attrs.pop('amount_minor', None)
         profile_id = attrs.pop('profile_id', None)
         transaction_type = attrs.pop('type', None)
         date = attrs.pop('date', None)
         
-        # ✅ Note: category and goal_id remain in attrs as strings
-        # They will be saved directly to the database
+        # ✅ Handle frontend sending 'category_id' instead of 'category'
+        # Check if category_id was sent (frontend compatibility)
+        if 'category_id' in attrs and 'category' not in attrs:
+            attrs['category'] = attrs.pop('category_id')
         
         # Convert amount
         if amount_minor is not None:
@@ -95,17 +97,12 @@ class TransactionSerializer(serializers.ModelSerializer):
                     'profile_id': f'Profile {profile_id} does not exist'
                 })
         
-        # ✅ SIMPLIFIED: category is already a string, no lookup needed
-        # The database will store the string directly
-        
-        # ✅ SIMPLIFIED: goal_id is already a string, no lookup needed
-        # The database will store the string directly
-        
         # Auto-set is_expense
         if 'is_expense' not in attrs and 'type' in attrs:
             attrs['is_expense'] = (attrs['type'] == TransactionType.EXPENSE)
         
         return attrs
+
 
 class TransactionListSerializer(serializers.ModelSerializer):
     """Simplified serializer for listing transactions."""
@@ -126,9 +123,11 @@ class TransactionListSerializer(serializers.ModelSerializer):
             'merchant_name', 'payment_method'
         ]
 
+
 class PendingTransactionSerializer(serializers.ModelSerializer):
     """Serializer for PendingTransaction model."""
-    category_name = serializers.CharField(source='category.name', read_only=True)
+    # ✅ Updated: Read category as string (not ForeignKey)
+    category_name = serializers.CharField(source='category', read_only=True)
     
     class Meta:
         model = PendingTransaction
@@ -158,7 +157,8 @@ class TransactionSummarySerializer(serializers.Serializer):
 
 class TransactionExportSerializer(serializers.ModelSerializer):
     """Serializer for exporting transactions."""
-    category_name = serializers.CharField(source='category.name', read_only=True)
+    # ✅ Updated: Read category as string (not ForeignKey)
+    category_name = serializers.CharField(source='category', read_only=True)
     tags_csv = serializers.CharField(source='tags', read_only=True)
     
     class Meta:

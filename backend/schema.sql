@@ -101,7 +101,7 @@ CREATE TABLE goals (
     last_contribution_date TIMESTAMPTZ,
     contribution_count INTEGER DEFAULT 0,
     average_contribution DECIMAL(15, 2),
-    linked_category VARCHAR(255),  -- Changed from linked_category_id UUID to VARCHAR
+    linked_category VARCHAR(255),  -- Changed from linked_category UUID to VARCHAR
     projected_completion_date TIMESTAMPTZ,
     days_ahead_behind INTEGER,
     goal_group VARCHAR(100),
@@ -122,7 +122,7 @@ CREATE TABLE transactions (
     profile_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
     
     -- CHANGED: String fields instead of UUID foreign keys
-    category VARCHAR(255),  -- Changed from category_id UUID
+    category VARCHAR(255),  -- Changed from category UUID
     goal_id VARCHAR(255),   -- Changed from goal_id UUID (stores goal name or ID as string)
     
     amount DECIMAL(15, 2) NOT NULL CHECK (amount > 0),
@@ -191,7 +191,7 @@ CREATE TABLE pending_transactions (
 CREATE TABLE budgets (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     profile_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-    category VARCHAR(255),  -- Changed from category_id UUID
+    category VARCHAR(255),  -- Changed from category UUID
     
     name VARCHAR(255) NOT NULL,
     description TEXT,
@@ -323,11 +323,11 @@ CREATE INDEX idx_goals_profile_status ON goals(profile_id, goal_status);
 CREATE INDEX idx_goals_status ON goals(goal_status);
 CREATE INDEX idx_goals_goal_type ON goals(goal_type);
 CREATE INDEX idx_goals_target_date ON goals(target_date);
-CREATE INDEX idx_goals_linked_category ON goals(linked_category_id);
+CREATE INDEX idx_goals_linked_category ON goals(linked_category);
 
 -- Transactions indexes
 CREATE INDEX idx_transactions_profile_id ON transactions(profile_id);
-CREATE INDEX idx_transactions_category_id ON transactions(category_id);
+CREATE INDEX idx_transactions_category_id ON transactions(category);
 CREATE INDEX idx_transactions_goal_id ON transactions(goal_id);
 CREATE INDEX idx_transactions_date ON transactions(date);
 CREATE INDEX idx_transactions_type ON transactions(type);
@@ -345,7 +345,7 @@ CREATE INDEX idx_pending_transactions_created_at ON pending_transactions(created
 
 -- Budgets indexes
 CREATE INDEX idx_budgets_profile_id ON budgets(profile_id);
-CREATE INDEX idx_budgets_category_id ON budgets(category_id);
+CREATE INDEX idx_budgets_category ON budgets(category);
 CREATE INDEX idx_budgets_period ON budgets(period);
 CREATE INDEX idx_budgets_dates ON budgets(start_date, end_date);
 CREATE INDEX idx_budgets_is_active ON budgets(is_active);

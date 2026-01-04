@@ -21,13 +21,7 @@ class Budget(models.Model):
         on_delete=models.CASCADE,
         related_name='budgets'
     )
-    category = models.ForeignKey(
-        'categories.Category',
-        on_delete=models.SET_NULL,
-        related_name='budgets',
-        null=True,
-        blank=True
-    )
+    category = models.CharField(max_length=255, null=True, blank=True)
     
     name = models.CharField(max_length=255)
     description = models.TextField(null=True, blank=True)

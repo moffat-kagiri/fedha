@@ -5,7 +5,6 @@ import '../models/transaction.dart';
 import '../models/goal.dart';
 import '../models/budget.dart';
 import '../models/loan.dart';
-import '../models/enums.dart';
 import '../utils/logger.dart';
 import 'offline_data_service.dart';
 import 'api_client.dart';
@@ -18,6 +17,7 @@ class UnifiedSyncService with ChangeNotifier {
   static UnifiedSyncService get instance => _instance ??= UnifiedSyncService._();
 
   final _logger = AppLogger.getLogger('UnifiedSyncService');
+  final _uuid = Uuid();
   
   late OfflineDataService _offlineDataService;
   late ApiClient _apiClient;
@@ -207,24 +207,30 @@ class UnifiedSyncService with ChangeNotifier {
             
             for (final transaction in unsyncedTransactions) {
               try {
-                final payload = {
-                  'amount_minor': (transaction.amount * 100).round(),
-                  'currency': 'KES',
-                  'description': transaction.description ?? '',
-                  'category_id': transaction.categoryId,
-                  'date': transaction.date.toIso8601String(),
-                  'is_expense': transaction.isExpense,
-                  'transaction_type': transaction.type.name,
-                  'profile_id': profileId,
-                  'goal_id': transaction.goalId,
-                };
+                // Prepare transaction data using ApiClient helper
+                final payload = ApiClient.prepareTransactionData(
+                  profileId: profileId,
+                  amountMinor: transaction.amountMinor,
+                  transactionType: transaction.transactionType,
+                  description: transaction.description ?? '',
+                  category: transaction.category,
+                  goalId: transaction.goalId,
+                  date: transaction.date,
+                  isExpense: transaction.isExpense ?? transaction.transactionType == 'expense',
+                  currency: transaction.currency ?? 'KES',
+                  isSynced: true,
+                );
                 
                 final response = await _apiClient.createTransaction(payload);
                 final remoteId = response['id']?.toString();
                 
                 if (remoteId != null) {
                   // Update local transaction with remoteId
-                  final updatedTransaction = transaction.copyWith(remoteId: remoteId);
+                  final updatedTransaction = transaction.copyWith(
+                    remoteId: remoteId,
+                    isSynced: true,
+                    updatedAt: DateTime.now(),
+                  );
                   await _offlineDataService.updateTransaction(updatedTransaction);
                   _logger.info('✅ Transaction uploaded with remote ID: $remoteId');
                   result.uploaded++;
@@ -252,20 +258,26 @@ class UnifiedSyncService with ChangeNotifier {
               if (!existsLocally) {
                 // Convert server transaction to local model
                 final amountMinor = int.tryParse(remote['amount_minor']?.toString() ?? '0') ?? 0;
+                final isExpense = remote['is_expense'] == true;
+                final transactionType = remote['transaction_type']?.toString() ?? 
+                    (isExpense ? 'expense' : 'income');
+                
                 final transaction = Transaction(
-                  amount: amountMinor / 100.0, // Convert from minor units
+                  id: _uuid.v4(),
+                  remoteId: remoteId,
+                  profileId: profileId,
+                  amountMinor: amountMinor,
+                  transactionType: transactionType,
+                  isExpense: isExpense,
+                  category: remote['category']?.toString() ?? '',
                   description: remote['description']?.toString() ?? '',
                   date: DateTime.tryParse(remote['date']?.toString() ?? '') ?? DateTime.now(),
-                  createdAt: DateTime.tryParse(remote['created_at']?.toString() ?? '') ?? DateTime.now(),
-                  isExpense: remote['is_expense'] == true,
-                  type: TransactionType.values.firstWhere(
-                    (t) => t.name == remote['transaction_type']?.toString(),
-                    orElse: () => TransactionType.income,
-                  ),
-                  categoryId: remote['category_id']?.toString() ?? '',
-                  profileId: profileId,
                   goalId: remote['goal_id']?.toString(),
-                  remoteId: remoteId,
+                  budgetCategory: remote['budget_category']?.toString(),
+                  currency: remote['currency']?.toString() ?? 'KES',
+                  isSynced: true,
+                  createdAt: DateTime.tryParse(remote['created_at']?.toString() ?? '') ?? DateTime.now(),
+                  updatedAt: DateTime.tryParse(remote['updated_at']?.toString() ?? '') ?? DateTime.now(),
                 );
                 
                 await _offlineDataService.saveTransaction(transaction);
@@ -313,21 +325,29 @@ class UnifiedSyncService with ChangeNotifier {
           for (final localGoal in localGoals) {
             if (localGoal.remoteId == null || localGoal.remoteId!.isEmpty) {
               try {
-                final payload = {
-                  'name': localGoal.name,
-                  'target_amount': localGoal.targetAmount,
-                  'current_amount': localGoal.currentAmount,
-                  'due_date': localGoal.targetDate.toIso8601String(),
-                  'is_completed': localGoal.status == GoalStatus.completed,
-                  'profile_id': profileId,
-                };
+                // Prepare goal data using ApiClient helper
+                final payload = ApiClient.prepareGoalData(
+                  profileId: profileId,
+                  name: localGoal.name,
+                  targetAmount: localGoal.targetAmount,
+                  goalType: localGoal.goalType ?? 'savings',
+                  status: localGoal.status ?? 'active',
+                  description: localGoal.description,
+                  dueDate: localGoal.targetDate,
+                  currentAmount: localGoal.currentAmount,
+                  currency: localGoal.currency ?? 'KES',
+                );
                 
                 final response = await _apiClient.createGoal(payload);
                 final remoteId = response['id']?.toString();
                 
                 if (remoteId != null) {
                   // Update local goal with remoteId
-                  final updatedGoal = localGoal.copyWith(remoteId: remoteId);
+                  final updatedGoal = localGoal.copyWith(
+                    remoteId: remoteId,
+                    isSynced: true,
+                    updatedAt: DateTime.now(),
+                  );
                   await _offlineDataService.updateGoal(updatedGoal);
                   _logger.info('✅ Goal uploaded with remote ID: $remoteId');
                   result.uploaded++;
@@ -352,8 +372,12 @@ class UnifiedSyncService with ChangeNotifier {
               final name = remote['name']?.toString() ?? '';
               final targetAmount = double.tryParse(remote['target_amount']?.toString() ?? '0') ?? 0.0;
               final currentAmount = double.tryParse(remote['current_amount']?.toString() ?? '0') ?? 0.0;
-              final dueDate = DateTime.tryParse(remote['due_date']?.toString() ?? '') ?? DateTime.now();
-              final isCompleted = remote['is_completed'] == true;
+              final dueDate = DateTime.tryParse(remote['due_date']?.toString() ?? '') ?? 
+                              DateTime.tryParse(remote['target_date']?.toString() ?? '') ?? 
+                              DateTime.now();
+              final status = remote['status']?.toString() ?? 'active';
+              final goalType = remote['goal_type']?.toString() ?? 'savings';
+              final currency = remote['currency']?.toString() ?? 'KES';
               
               // Check if goal exists locally by remoteId
               final existingGoal = localGoals.firstWhere(
@@ -364,15 +388,19 @@ class UnifiedSyncService with ChangeNotifier {
               // Only download if NOT already present locally
               if (existingGoal.id!.isEmpty) {
                 final goal = Goal(
+                  id: _uuid.v4(),
+                  remoteId: remoteId,
                   name: name,
                   targetAmount: targetAmount,
                   currentAmount: currentAmount,
                   targetDate: dueDate,
                   profileId: profileId,
-                  goalType: GoalType.other, // Default, adjust as needed
-                  status: isCompleted ? GoalStatus.completed : GoalStatus.active,
-                  remoteId: remoteId,
+                  goalType: goalType,
+                  status: status,
+                  currency: currency,
+                  isSynced: true,
                   createdAt: DateTime.tryParse(remote['created_at']?.toString() ?? '') ?? DateTime.now(),
+                  updatedAt: DateTime.tryParse(remote['updated_at']?.toString() ?? '') ?? DateTime.now(),
                 );
                 
                 await _offlineDataService.saveGoal(goal);
@@ -424,10 +452,12 @@ class UnifiedSyncService with ChangeNotifier {
                   'name': localBudget.name,
                   'budget_amount': localBudget.budgetAmount,
                   'spent_amount': localBudget.spentAmount,
-                  'category_id': localBudget.categoryId,
+                  'category': localBudget.category, // Changed from categoryId to category
                   'start_date': localBudget.startDate.toIso8601String(),
                   'end_date': localBudget.endDate.toIso8601String(),
                   'profile_id': profileId,
+                  'currency': localBudget.currency ?? 'KES',
+                  'is_active': localBudget.isActive,
                 };
                 
                 final response = await _apiClient.createBudget(payload);
@@ -435,7 +465,11 @@ class UnifiedSyncService with ChangeNotifier {
                 
                 if (remoteId != null) {
                   // Update local budget with remoteId
-                  final updatedBudget = localBudget.copyWith(remoteId: remoteId);
+                  final updatedBudget = localBudget.copyWith(
+                    remoteId: remoteId,
+                    isSynced: true,
+                    updatedAt: DateTime.now(),
+                  );
                   await _offlineDataService.updateBudget(updatedBudget);
                   _logger.info('✅ Budget uploaded with remote ID: $remoteId');
                   result.uploaded++;
@@ -466,15 +500,20 @@ class UnifiedSyncService with ChangeNotifier {
               // Only download if NOT already present locally
               if (existingBudget.id.isEmpty) {
                 final budget = Budget(
-                  id: const Uuid().v4(),
+                  id: _uuid.v4(),
                   remoteId: remoteId,
                   name: remote['name']?.toString() ?? '',
                   budgetAmount: double.tryParse(remote['budget_amount']?.toString() ?? '0') ?? 0.0,
                   spentAmount: double.tryParse(remote['spent_amount']?.toString() ?? '0') ?? 0.0,
-                  categoryId: remote['category_id']?.toString() ?? '',
+                  category: remote['category']?.toString() ?? '', // Changed from category_id to category
                   profileId: profileId,
                   startDate: DateTime.tryParse(remote['start_date']?.toString() ?? '') ?? DateTime.now(),
                   endDate: DateTime.tryParse(remote['end_date']?.toString() ?? '') ?? DateTime.now(),
+                  currency: remote['currency']?.toString() ?? 'KES',
+                  isActive: remote['is_active'] ?? true,
+                  isSynced: true,
+                  createdAt: DateTime.tryParse(remote['created_at']?.toString() ?? '') ?? DateTime.now(),
+                  updatedAt: DateTime.tryParse(remote['updated_at']?.toString() ?? '') ?? DateTime.now(),
                 );
                 
                 await _offlineDataService.saveBudget(budget);
