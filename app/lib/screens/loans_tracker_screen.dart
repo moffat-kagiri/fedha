@@ -608,7 +608,6 @@ class _LoansTrackerTabState extends State<LoansTrackerTab> {
                 if (loan.id != null) {
                   final svc = Provider.of<OfflineDataService>(context, listen: false);
                   await svc.deleteLoan(loan.id.toString());
-                  await svc.removeRemoteLoanId(loan.id!);
                   await _loadLoans();
                 } else {
                   setState(() => _loans.removeAt(index));

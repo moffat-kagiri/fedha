@@ -543,7 +543,6 @@ class OfflineDataService {
       profileId: _profileIdToInt(tx.profileId),
       type: Value(tx.type),
       category: Value(tx.category),
-      budgetCategory: Value(tx.budgetCategory),
     );
     
     await _db.insertPending(companion);
@@ -641,13 +640,62 @@ class OfflineDataService {
     await _db.updateLoan(companion);
   }
 
+  /// Delete a loan by ID
   Future<void> deleteLoan(String loanId) async {
     final loanIdInt = int.tryParse(loanId);
     if (loanIdInt == null) {
       throw Exception('Invalid loan ID format: $loanId');
     }
     
-    await _db.deleteLoanById(loanIdInt);
+    try {
+      await _db.deleteLoanById(loanIdInt);
+      _logger.info('Deleted loan: $loanId');
+    } catch (e, stackTrace) {
+      _logger.severe('Error deleting loan: $loanId', e, stackTrace);
+      rethrow;
+    }
+  }
+
+  /// Remove remote ID from loan (makes it local-only for re-sync)
+  Future<void> removeRemoteLoanId(String loanId) async {
+    final loanIdInt = int.tryParse(loanId);
+    if (loanIdInt == null) {
+      throw Exception('Invalid loan ID format: $loanId');
+    }
+    
+    try {
+      // Get the loan first to preserve other fields
+      final loan = await _db.getLoanById(loanIdInt);
+      if (loan == null) {
+        _logger.warning('Loan not found: $loanId');
+        return;
+      }
+      
+      // Update only the remoteId and isSynced fields
+      await _db.updateLoan(
+        app_db.LoansCompanion(
+          id: Value(loanIdInt),
+          remoteId: const Value(null), // Clear remote ID
+          isSynced: const Value(false), // Mark as unsynced
+          updatedAt: Value(DateTime.now()),
+          // Preserve all other fields from the existing loan
+          name: Value(loan.name),
+          principalMinor: Value(loan.principalMinor),
+          currency: Value(loan.currency),
+          interestRate: Value(loan.interestRate),
+          startDate: Value(loan.startDate),
+          endDate: Value(loan.endDate),
+          profileId: Value(loan.profileId),
+          description: Value(loan.description),
+          createdAt: Value(loan.createdAt),
+        ),
+      );
+      
+      _logger.info('Removed remote ID from loan: $loanId');
+    } catch (e, stackTrace) {
+      _logger.severe('Error removing remote loan ID: $loanId', e, stackTrace);
+      rethrow;
+    }
   }
 
   dom.Loan _mapDbLoanToDomain(app_db.Loan r, String profileId) {

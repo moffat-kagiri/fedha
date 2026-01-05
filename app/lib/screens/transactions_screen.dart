@@ -336,9 +336,9 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     return filtered;
   }
 
-  String _categoryToString(TransactionCategory? category) {
-    if (category == null) return 'Other';
-    return category.toString().split('.').last;
+  String _categoryToString(String? category) {
+    if (category == null || category.isEmpty) return 'Other';
+    return category.toString();
   }
 
   String _formatDate(DateTime date) {
@@ -528,7 +528,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
           items: availableCategories.map((category) {
             return DropdownMenuItem(
               value: category,
-              child: Text(_categoryToString(category)),
+              child: Text(category.toString().split('.').last),
             );
           }).toList(),
           onChanged: (value) {
@@ -928,7 +928,7 @@ class _TransactionDetailsSheet extends StatelessWidget {
           const SizedBox(height: 20),
           _buildDetailRow('Amount', 'KSh ${transaction.amount.toStringAsFixed(2)}', context),
           _buildDetailRow('Type', _prettyEnum(transaction.type), context),
-          _buildDetailRow('Category', _categoryToString(transaction.category), context),
+          _buildDetailRow('Category', transaction.category?.toString().split('.').last ?? 'Other', context),
           _buildDetailRow('Description', transaction.description ?? 'No description', context),
           _buildDetailRow('Date', _formatDate(transaction.date), context),
           if (transaction.notes?.isNotEmpty == true)

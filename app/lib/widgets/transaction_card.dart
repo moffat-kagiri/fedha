@@ -155,14 +155,16 @@ class TransactionCard extends StatelessWidget {
     );
   }
 
-  (IconData, Color) _getTransactionIconAndColor(Type type) {
-    switch (type) {
-      case Type.income:
-        return (Icons.add_circle, Colors.green);
-      case Type.expense:
-        return (Icons.remove_circle, Colors.red);
-      case Type.savings:
+  (IconData, Color) _getTransactionIconAndColor(String typeString) {
+    switch (typeString.toLowerCase()) {
+      case 'income':
+        return (Icons.arrow_downward, Colors.green);
+      case 'expense':
+        return (Icons.arrow_upward, Colors.red);
+      case 'savings':
         return (Icons.savings, Colors.blue);
+      default:
+        return (Icons.help_outline, Colors.grey); // Default
     }
   }
 

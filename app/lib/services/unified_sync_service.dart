@@ -5,6 +5,7 @@ import '../models/transaction.dart';
 import '../models/goal.dart';
 import '../models/budget.dart';
 import '../models/loan.dart';
+import '../models/enums.dart';
 import '../utils/logger.dart';
 import 'offline_data_service.dart';
 import 'api_client.dart';
@@ -332,18 +333,6 @@ class UnifiedSyncService with ChangeNotifier {
       final targetAmount = _parseAmount(remote['target_amount']);
       final currentAmount = _parseAmount(remote['current_amount']);
       
-      // Validate goal status
-      String status = remote['status']?.toString() ?? 'active';
-      if (!['active', 'completed', 'paused', 'cancelled'].contains(status)) {
-        status = 'active';
-      }
-      
-      // Validate goal type
-      String goalType = remote['goal_type']?.toString() ?? 'savings';
-      if (!['savings', 'debtReduction', 'insurance', 'emergencyFund', 'investment', 'other'].contains(goalType)) {
-        goalType = 'savings';
-      }
-      
       return Goal(
         id: _uuid.v4(),
         remoteId: remote['id']?.toString(),
@@ -352,8 +341,8 @@ class UnifiedSyncService with ChangeNotifier {
         currentAmount: currentAmount,
         targetDate: _parseDate(remote['due_date'] ?? remote['target_date']) ?? DateTime.now(),
         profileId: profileId,
-        goalType: goalType,
-        status: status,
+        goalType: GoalTypeExtension.fromString(remote['goal_type']?.toString() ?? 'savings'),
+        status: GoalStatusExtension.fromString(remote['status']?.toString() ?? 'active'),
         currency: remote['currency']?.toString() ?? 'KES',
         description: remote['description']?.toString(),
         isSynced: true,

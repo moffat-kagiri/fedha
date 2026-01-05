@@ -42,6 +42,7 @@ import 'services/risk_assessment_service.dart';
 import 'services/profile_management_extension.dart';
 import 'services/budget_service.dart';
 import 'services/transaction_event_service.dart';
+import 'services/goal_transaction_service.dart';
 import 'data/app_database.dart' as data_db;
 
 // Background services
@@ -360,8 +361,8 @@ List<SingleChildWidget> _buildProviders() {
     Provider<conn_svc.ConnectivityService>.value(
       value: conn_svc.ConnectivityService(ApiClient.instance),
     ),
-    Provider<stubs.GoalTransactionService>.value(
-      value: stubs.GoalTransactionService(OfflineDataService()),
+    Provider<GoalTransactionService>.value(
+      value: GoalTransactionService(OfflineDataService()),
     ),
     Provider<stubs.TextRecognitionService>.value(
       value: stubs.TextRecognitionService(OfflineDataService()),
@@ -851,7 +852,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       '/detailed_transaction_entry': (context) => const TransactionEntryUnifiedScreen(),
       '/login': (context) => const LoginScreen(),
       '/signup': (context) => const SignupScreen(),
-      '/test_profiles': (context) => const TestProfilesScreen(),
       '/spending_overview': (context) => const SpendingOverviewScreen(),
       '/loans_tracker': (context) => const LoansTrackerScreen(),
       '/device_network_info': (context) => const DeviceInfoScreen(),

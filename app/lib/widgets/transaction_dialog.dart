@@ -21,9 +21,9 @@ class TransactionDialog extends StatelessWidget {
     return raw[0].toUpperCase() + raw.substring(1);
   }
 
-  String _categoryToString(TransactionCategory? category) {
-    if (category == null) return 'Other';
-    return category.name.toUpperCase();
+  String _categoryToString(String? category) {
+    if (category == null || category.isEmpty) return 'Other';
+    return category.toString();
   }
 
   @override

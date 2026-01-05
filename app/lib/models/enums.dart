@@ -24,11 +24,34 @@ enum GoalType {
   other,
 }
 
+extension GoalTypeExtension on GoalType {
+  String get name => toString().split('.').last;
+  
+  static GoalType fromString(String value) {
+    for (var type in GoalType.values) {
+      if (type.name == value) return type;
+    }
+    return GoalType.savings; // Default fallback
+  }
+}
+
 enum GoalStatus {
   active,
   completed,
   paused,
   cancelled
+}
+
+// Extension for GoalStatus
+extension GoalStatusExtension on GoalStatus {
+  String get name => toString().split('.').last;
+  
+  static GoalStatus fromString(String value) {
+    return GoalStatus.values.firstWhere(
+      (e) => e.name == value.toLowerCase(), // Lowercase for case-insensitive matching
+      orElse: () => GoalStatus.active,
+    );
+  }
 }
 
 enum TransactionCategory {

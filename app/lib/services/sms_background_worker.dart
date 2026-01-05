@@ -159,8 +159,8 @@ class SmsBackgroundWorker {
         amount: parsedData.amount,
         type: parsedData.type.toLowerCase().contains('credit') ||
                parsedData.type.toLowerCase().contains('received')
-            ? Type.income
-            : Type.expense,
+            ? 'income'
+            : 'expense',
         category: '',
         date: parsedData.timestamp,
         profileId: profileId,

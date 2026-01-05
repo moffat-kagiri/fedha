@@ -42,7 +42,7 @@ class GoalTransactionService {
     final transaction = Transaction(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       profileId: profileId,
-      amountMinor: amountMinor,
+      amount: (amountMinor/100.0), // Store as major units
       type: 'savings', // ✅ Use string 'savings' instead of Type.savings
       isExpense: false,
       category: category ?? 'savings',
@@ -196,7 +196,7 @@ class GoalTransactionService {
     final withdrawalTransaction = Transaction(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       profileId: fromGoal.profileId,
-      amountMinor: amountMinor,
+      amount: (amountMinor / 100.0), // Store as major units
       type: 'expense', // ✅ Use string 'expense'
       isExpense: true,
       category: 'goal_transfer',
@@ -213,7 +213,7 @@ class GoalTransactionService {
     final depositTransaction = Transaction(
       id: '${DateTime.now().millisecondsSinceEpoch}_deposit',
       profileId: toGoal.profileId,
-      amountMinor: amountMinor,
+      amount: (amountMinor / 100.0), // Store as major units
       type: 'savings', // ✅ Use string 'savings'
       isExpense: false,
       category: 'goal_transfer',

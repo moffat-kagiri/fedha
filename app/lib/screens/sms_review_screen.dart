@@ -59,7 +59,7 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
             ? Type.expense
             : lower.contains('received')
                 ? Type.income
-                : (transaction.isExpense ? Type.expense : Type.income);
+                : ((transaction.isExpense ?? false) ? Type.expense : Type.income);
         return TransactionCandidate(
           id: transaction.id!,
           rawText: raw.isNotEmpty ? raw : 'No SMS source available',
@@ -163,15 +163,13 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
         description: candidate.description ?? 'SMS Transaction',
         date: candidate.date,
         smsSource: candidate.rawText,
-        category: category.name,  // Use category enum's name
-        category: category,  // Set the enum value
-        type: candidate.type,
+        category: category.toString().split('.').last,  // ✅ Fixed: Convert enum to string
+        type: candidate.type == Type.expense ? 'expense' : 'income',
         isExpense: candidate.type == Type.expense,
         profileId: profileId,
-        paymentMethod: PaymentMethod.cash,  // Default payment method
-        // goalId: null, // Optional - leave as null
+        paymentMethod: 'cash',
+        // goalId: null,
       );
-      
       // USE TRANSACTION OPERATIONS HELPER FOR APPROVAL
       final success = await TransactionOperations.approvePendingTransaction(
         pendingTransaction: tx,
@@ -284,10 +282,10 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
                     date: candidate.date,
                     smsSource: candidate.rawText,
                     category: category.name,
-                    type: candidate.type,
+                    type: candidate.type.toString().split('.').last,
                     isExpense: candidate.type == Type.expense,
                     profileId: profileId,
-                    paymentMethod: PaymentMethod.cash,
+                    paymentMethod: 'cash',
                   );
                 }).toList();
                 

@@ -365,7 +365,7 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
       final transaction = Transaction(
         id: widget.editingTransaction?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
         profileId: profileId,
-        amountMinor: amountMinor,
+        amount: (amountMinor/100).toDouble(), // Store as major units (double)
         type: _selectedType, // String
         isExpense: _selectedType == 'expense',
         category: _selectedCategory ?? '',

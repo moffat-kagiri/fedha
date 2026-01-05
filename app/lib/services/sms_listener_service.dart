@@ -245,10 +245,11 @@ class SmsListenerService extends ChangeNotifier {
           
           final tx = Transaction(
             amount: parsedData.amount,
-            type: parsedData.type.toLowerCase().contains('credit') ||
-                   parsedData.type.toLowerCase().contains('received')
-                ? Type.income
-                : Type.expense,
+            type: parsedData.type.toLowerCase().contains('credit') || 
+                  parsedData.type.toLowerCase().contains('received') ||
+                  parsedData.type.toLowerCase().contains('deposit')
+                ? 'income'
+                : 'expense',
             category: '',
             date: parsedData.timestamp,
             profileId: _currentProfileId!,
