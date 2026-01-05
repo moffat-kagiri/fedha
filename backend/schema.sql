@@ -20,8 +20,78 @@ CREATE TYPE category_type AS ENUM ('income', 'expense', 'savings');
 
 -- ==================== CORE TABLES ====================
 
+-- Django System Tables
+CREATE TABLE IF NOT EXISTS django_content_type (
+    id serial PRIMARY KEY,
+    app_label varchar(100) NOT NULL,
+    model varchar(100) NOT NULL,
+    CONSTRAINT django_content_type_app_label_model_76bd3d3b_uniq UNIQUE (app_label, model)
+);
+
+CREATE TABLE IF NOT EXISTS django_migrations (
+    id serial PRIMARY KEY,
+    app varchar(255) NOT NULL,
+    name varchar(255) NOT NULL,
+    applied timestamp with time zone NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS auth_permission (
+    id serial PRIMARY KEY,
+    name varchar(255) NOT NULL,
+    content_type_id integer REFERENCES django_content_type(id) DEFERRABLE INITIALLY DEFERRED,
+    codename varchar(100) NOT NULL,
+    CONSTRAINT auth_permission_content_type_id_codename_01ab375a_uniq UNIQUE (content_type_id, codename)
+);
+
+CREATE TABLE IF NOT EXISTS auth_group (
+    id serial PRIMARY KEY,
+    name varchar(150) NOT NULL UNIQUE
+);
+
+CREATE TABLE IF NOT EXISTS auth_user (
+    id serial PRIMARY KEY,
+    password varchar(128) NOT NULL,
+    last_login timestamp with time zone,
+    is_superuser boolean NOT NULL,
+    username varchar(150) NOT NULL UNIQUE,
+    first_name varchar(150) NOT NULL,
+    last_name varchar(150) NOT NULL,
+    email varchar(254) NOT NULL,
+    is_staff boolean NOT NULL,
+    is_active boolean NOT NULL,
+    date_joined timestamp with time zone NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS django_session (
+    session_key varchar(40) PRIMARY KEY,
+    session_data text NOT NULL,
+    expire_date timestamp with time zone NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS django_admin_log (
+    id serial PRIMARY KEY,
+    action_time timestamp with time zone NOT NULL,
+    object_id text,
+    object_repr varchar(200) NOT NULL,
+    action_flag smallint NOT NULL CHECK (action_flag >= 0),
+    change_message text NOT NULL,
+    content_type_id integer REFERENCES django_content_type(id) DEFERRABLE INITIALLY DEFERRED,
+    user_id integer REFERENCES auth_user(id) DEFERRABLE INITIALLY DEFERRED
+);
+
+-- Insert initial content type to satisfy Django
+INSERT INTO django_content_type (app_label, model) VALUES 
+('contenttypes', 'contenttype'),
+('auth', 'permission'),
+('auth', 'group'),
+('auth', 'user'),
+('admin', 'logentry'),
+('sessions', 'session')
+ON CONFLICT DO NOTHING;
+
+
 -- Profiles (Users) - Custom User Model
-CREATE TABLE profiles (
+CREATE TABLE IF NOT EXISTS profiles (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     email VARCHAR(255) UNIQUE,
     phone_number VARCHAR(20) UNIQUE,
@@ -46,7 +116,7 @@ CREATE TABLE profiles (
 );
 
 -- Sessions for authentication
-CREATE TABLE sessions (
+CREATE TABLE IF NOT EXISTS sessions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     profile_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
     session_token VARCHAR(500) UNIQUE NOT NULL,
@@ -58,7 +128,7 @@ CREATE TABLE sessions (
 );
 
 -- Categories - Updated with is_active and is_synced
-CREATE TABLE categories (
+CREATE TABLE IF NOT EXISTS categories (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     profile_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
@@ -76,7 +146,7 @@ CREATE TABLE categories (
 );
 
 -- Default Categories Template
-CREATE TABLE default_categories (
+CREATE TABLE IF NOT EXISTS default_categories (
     id BIGSERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     description TEXT,
@@ -86,7 +156,7 @@ CREATE TABLE default_categories (
 );
 
 -- Goals
-CREATE TABLE goals (
+CREATE TABLE IF NOT EXISTS goals (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     profile_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
@@ -117,7 +187,7 @@ CREATE TABLE goals (
 -- ==================== TRANSACTIONS TABLE - UPDATED WITH STRING FIELDS ====================
 
 -- Transactions - Updated with string category and goal_id
-CREATE TABLE transactions (
+CREATE TABLE IF NOT EXISTS transactions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     profile_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
     
@@ -166,7 +236,7 @@ CREATE TABLE transactions (
 );
 
 -- Pending Transactions (SMS candidates)
-CREATE TABLE pending_transactions (
+CREATE TABLE IF NOT EXISTS pending_transactions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     profile_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
     category VARCHAR(255),  -- Changed from category_id UUID
@@ -188,7 +258,7 @@ CREATE TABLE pending_transactions (
 );
 
 -- Budgets
-CREATE TABLE budgets (
+CREATE TABLE IF NOT EXISTS budgets (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     profile_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
     category VARCHAR(255),  -- Changed from category UUID
@@ -211,7 +281,7 @@ CREATE TABLE budgets (
 );
 
 -- Clients (for invoicing)
-CREATE TABLE clients (
+CREATE TABLE IF NOT EXISTS clients (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     profile_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
     
@@ -229,7 +299,7 @@ CREATE TABLE clients (
 );
 
 -- Invoices
-CREATE TABLE invoices (
+CREATE TABLE IF NOT EXISTS invoices (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     profile_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
     client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
@@ -254,7 +324,7 @@ CREATE TABLE invoices (
 );
 
 -- Loans
-CREATE TABLE loans (
+CREATE TABLE IF NOT EXISTS loans (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     profile_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
     
@@ -278,7 +348,7 @@ CREATE TABLE loans (
 );
 
 -- Sync Queue
-CREATE TABLE sync_queue (
+CREATE TABLE IF NOT EXISTS sync_queue (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     profile_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
     
