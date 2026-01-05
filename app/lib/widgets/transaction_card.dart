@@ -70,8 +70,8 @@ class TransactionCard extends StatelessWidget {
                             ),
                             const SizedBox(width: 4),
                             Text(
-                              transaction.categoryId.isNotEmpty 
-                                  ? transaction.categoryId 
+                              transaction.category.isNotEmpty 
+                                  ? transaction.category 
                                   : 'No category',
                               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                 color: Colors.grey.shade600,
@@ -155,13 +155,13 @@ class TransactionCard extends StatelessWidget {
     );
   }
 
-  (IconData, Color) _getTransactionIconAndColor(TransactionType type) {
+  (IconData, Color) _getTransactionIconAndColor(Type type) {
     switch (type) {
-      case TransactionType.income:
+      case Type.income:
         return (Icons.add_circle, Colors.green);
-      case TransactionType.expense:
+      case Type.expense:
         return (Icons.remove_circle, Colors.red);
-      case TransactionType.savings:
+      case Type.savings:
         return (Icons.savings, Colors.blue);
     }
   }
@@ -193,7 +193,7 @@ class TransactionCard extends StatelessWidget {
             children: [
               _buildDetailRow('Amount:', Provider.of<CurrencyService>(context, listen: false).formatCurrency(transaction.amount)),
               _buildDetailRow('Type:', transaction.type.toString().split('.').last.toUpperCase()),
-              _buildDetailRow('Category:', transaction.categoryId.isNotEmpty ? transaction.categoryId : 'No category'),
+              _buildDetailRow('Category:', transaction.category.isNotEmpty ? transaction.category : 'No category'),
               _buildDetailRow('Description:', transaction.description ?? 'No description'),
               _buildDetailRow('Date:', '${transaction.date.day}/${transaction.date.month}/${transaction.date.year}'),
               if (transaction.goalId != null && transaction.goalId!.isNotEmpty)

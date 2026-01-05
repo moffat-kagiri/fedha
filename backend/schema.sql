@@ -158,7 +158,7 @@ CREATE TABLE transactions (
     anomaly_score DECIMAL(5, 2) CHECK (anomaly_score IS NULL OR (anomaly_score >= 0 AND anomaly_score <= 1)),
     budget_period VARCHAR(50),
     budget_id UUID,
-    budget_category_id VARCHAR(255),
+    budget_category VARCHAR(255),
     remote_id VARCHAR(255),
     
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

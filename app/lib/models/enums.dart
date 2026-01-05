@@ -56,7 +56,7 @@ enum TransactionCategory {
   // Add other categories as needed
 }
 
-enum TransactionType {
+enum Type {
   income,
   expense,
   savings,
@@ -180,13 +180,13 @@ class InvoiceLineItem {
 }
 
 class BudgetLineItem {
-  final String categoryId;
+  final String category;
   final String categoryName;
   final double allocatedAmount;
   final double spentAmount;
 
   BudgetLineItem({
-    required this.categoryId,
+    required this.category,
     required this.categoryName,
     required this.allocatedAmount,
     this.spentAmount = 0.0,
@@ -198,7 +198,7 @@ class BudgetLineItem {
 
   Map<String, dynamic> toJson() {
     return {
-      'category_id': categoryId,
+      'category': category,
       'category_name': categoryName,
       'allocated_amount': allocatedAmount,
       'spent_amount': spentAmount,
@@ -207,7 +207,7 @@ class BudgetLineItem {
 
   factory BudgetLineItem.fromJson(Map<String, dynamic> json) {
     return BudgetLineItem(
-      categoryId: json['category_id'] ?? '',
+      category: json['category'] ?? '',
       categoryName: json['category_name'] ?? '',
       allocatedAmount: (json['allocated_amount'] ?? 0).toDouble(),
       spentAmount: (json['spent_amount'] ?? 0).toDouble(),

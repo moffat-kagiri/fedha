@@ -1127,7 +1127,7 @@ class ApiClient {
   static Map<String, dynamic> prepareTransactionData({
     required String profileId,
     required int amountMinor,
-    required String transactionType,
+    required String type,
     required String description,
     String? category, // Optional - can be null or empty
     String? goalId,
@@ -1139,7 +1139,7 @@ class ApiClient {
     final data = <String, dynamic>{
       'profile_id': profileId,
       'amount_minor': amountMinor,
-      'transaction_type': transactionType,
+      'transaction': type,
       'description': description,
       'category': category ?? '', // Default to empty string if null
       'currency': currency,

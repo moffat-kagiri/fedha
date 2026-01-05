@@ -247,9 +247,9 @@ class SmsListenerService extends ChangeNotifier {
             amount: parsedData.amount,
             type: parsedData.type.toLowerCase().contains('credit') ||
                    parsedData.type.toLowerCase().contains('received')
-                ? TransactionType.income
-                : TransactionType.expense,
-            categoryId: '',
+                ? Type.income
+                : Type.expense,
+            category: '',
             date: parsedData.timestamp,
             profileId: _currentProfileId!,
             smsSource: parsedData.rawMessage,

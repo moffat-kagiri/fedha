@@ -32,6 +32,7 @@ Goal _$GoalFromJson(Map<String, dynamic> json) => Goal(
   completedDate: json['completedDate'] == null
       ? null
       : DateTime.parse(json['completedDate'] as String),
+  currency: json['currency'] as String?,
 );
 
 Map<String, dynamic> _$GoalToJson(Goal instance) => <String, dynamic>{
@@ -50,6 +51,7 @@ Map<String, dynamic> _$GoalToJson(Goal instance) => <String, dynamic>{
   'updatedAt': instance.updatedAt?.toIso8601String(),
   'isSynced': instance.isSynced,
   'completedDate': instance.completedDate?.toIso8601String(),
+  'currency': instance.currency,
 };
 
 const _$GoalTypeEnumMap = {

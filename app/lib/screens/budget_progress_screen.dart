@@ -40,15 +40,15 @@ class _BudgetProgressScreenState extends State<BudgetProgressScreen>
     final eventService = Provider.of<TransactionEventService>(context, listen: false);
     
     _eventSubscription = eventService.eventStream.listen((event) {
-      if (event.transaction.type == TransactionType.expense) {
+      if (event.transaction.type == Type.expense) {
         _loadData(); // Refresh when expenses change
       }
     });
   }
 
   /// ✅ FIX: Normalize category IDs to consistent format
-  String _normalizeCategoryId(String categoryId) {
-    return categoryId.toLowerCase().replaceAll(' ', '_').replaceAll('-', '_');
+  String _normalizeCategoryId(String category) {
+    return category.toLowerCase().replaceAll(' ', '_').replaceAll('-', '_');
   }
 
   @override

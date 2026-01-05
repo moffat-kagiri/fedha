@@ -63,7 +63,6 @@ import 'screens/login_screen.dart';
 import 'screens/signup_screen.dart';
 import 'screens/biometric_lock_screen.dart';
 import 'screens/loan_calculator_screen.dart';
-import 'screens/test_profiles_screen.dart';
 import 'screens/welcome_onboarding_screen.dart';
 import 'device_network_info.dart';
 import 'ip_settings.dart';

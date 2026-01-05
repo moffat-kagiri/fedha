@@ -43,12 +43,10 @@ class $TransactionsTable extends Transactions
     requiredDuringInsert: false,
     defaultValue: const Constant('KES'),
   );
-  static const VerificationMeta _transactionTypeMeta = const VerificationMeta(
-    'transactionType',
-  );
+  static const VerificationMeta _typeMeta = const VerificationMeta('type');
   @override
-  late final GeneratedColumn<String> transactionType = GeneratedColumn<String>(
-    'transaction_type',
+  late final GeneratedColumn<String> type = GeneratedColumn<String>(
+    'type',
     aliasedName,
     false,
     type: DriftSqlType.string,
@@ -147,12 +145,12 @@ class $TransactionsTable extends Transactions
     type: DriftSqlType.int,
     requiredDuringInsert: true,
   );
-  static const VerificationMeta _budgetCategoryIdMeta = const VerificationMeta(
-    'budgetCategoryId',
+  static const VerificationMeta _budgetCategoryMeta = const VerificationMeta(
+    'budgetCategory',
   );
   @override
-  late final GeneratedColumn<String> budgetCategoryId = GeneratedColumn<String>(
-    'budget_category_id',
+  late final GeneratedColumn<String> budgetCategory = GeneratedColumn<String>(
+    'budget_category',
     aliasedName,
     true,
     type: DriftSqlType.string,
@@ -302,7 +300,7 @@ class $TransactionsTable extends Transactions
     id,
     amountMinor,
     currency,
-    transactionType,
+    type,
     description,
     category,
     goalId,
@@ -311,7 +309,7 @@ class $TransactionsTable extends Transactions
     isPending,
     rawSms,
     profileId,
-    budgetCategoryId,
+    budgetCategory,
     paymentMethod,
     merchantName,
     merchantCategory,
@@ -346,13 +344,10 @@ class $TransactionsTable extends Transactions
         currency.isAcceptableOrUnknown(data['currency']!, _currencyMeta),
       );
     }
-    if (data.containsKey('transaction_type')) {
+    if (data.containsKey('type')) {
       context.handle(
-        _transactionTypeMeta,
-        transactionType.isAcceptableOrUnknown(
-          data['transaction_type']!,
-          _transactionTypeMeta,
-        ),
+        _typeMeta,
+        type.isAcceptableOrUnknown(data['type']!, _typeMeta),
       );
     }
     if (data.containsKey('description')) {
@@ -410,12 +405,12 @@ class $TransactionsTable extends Transactions
     } else if (isInserting) {
       context.missing(_profileIdMeta);
     }
-    if (data.containsKey('budget_category_id')) {
+    if (data.containsKey('budget_category')) {
       context.handle(
-        _budgetCategoryIdMeta,
-        budgetCategoryId.isAcceptableOrUnknown(
-          data['budget_category_id']!,
-          _budgetCategoryIdMeta,
+        _budgetCategoryMeta,
+        budgetCategory.isAcceptableOrUnknown(
+          data['budget_category']!,
+          _budgetCategoryMeta,
         ),
       );
     }
@@ -526,9 +521,9 @@ class $TransactionsTable extends Transactions
         DriftSqlType.string,
         data['${effectivePrefix}currency'],
       )!,
-      transactionType: attachedDatabase.typeMapping.read(
+      type: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
-        data['${effectivePrefix}transaction_type'],
+        data['${effectivePrefix}type'],
       )!,
       description: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
@@ -562,9 +557,9 @@ class $TransactionsTable extends Transactions
         DriftSqlType.int,
         data['${effectivePrefix}profile_id'],
       )!,
-      budgetCategoryId: attachedDatabase.typeMapping.read(
+      budgetCategory: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
-        data['${effectivePrefix}budget_category_id'],
+        data['${effectivePrefix}budget_category'],
       ),
       paymentMethod: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
@@ -630,7 +625,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
   final int id;
   final double amountMinor;
   final String currency;
-  final String transactionType;
+  final String type;
   final String description;
   final String category;
   final String? goalId;
@@ -639,7 +634,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
   final bool isPending;
   final String? rawSms;
   final int profileId;
-  final String? budgetCategoryId;
+  final String? budgetCategory;
   final String? paymentMethod;
   final String? merchantName;
   final String? merchantCategory;
@@ -656,7 +651,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
     required this.id,
     required this.amountMinor,
     required this.currency,
-    required this.transactionType,
+    required this.type,
     required this.description,
     required this.category,
     this.goalId,
@@ -665,7 +660,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
     required this.isPending,
     this.rawSms,
     required this.profileId,
-    this.budgetCategoryId,
+    this.budgetCategory,
     this.paymentMethod,
     this.merchantName,
     this.merchantCategory,
@@ -689,7 +684,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       );
     }
     map['currency'] = Variable<String>(currency);
-    map['transaction_type'] = Variable<String>(transactionType);
+    map['type'] = Variable<String>(type);
     map['description'] = Variable<String>(description);
     map['category'] = Variable<String>(category);
     if (!nullToAbsent || goalId != null) {
@@ -702,8 +697,8 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       map['raw_sms'] = Variable<String>(rawSms);
     }
     map['profile_id'] = Variable<int>(profileId);
-    if (!nullToAbsent || budgetCategoryId != null) {
-      map['budget_category_id'] = Variable<String>(budgetCategoryId);
+    if (!nullToAbsent || budgetCategory != null) {
+      map['budget_category'] = Variable<String>(budgetCategory);
     }
     if (!nullToAbsent || paymentMethod != null) {
       map['payment_method'] = Variable<String>(paymentMethod);
@@ -739,7 +734,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       id: Value(id),
       amountMinor: Value(amountMinor),
       currency: Value(currency),
-      transactionType: Value(transactionType),
+      type: Value(type),
       description: Value(description),
       category: Value(category),
       goalId: goalId == null && nullToAbsent
@@ -752,9 +747,9 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           ? const Value.absent()
           : Value(rawSms),
       profileId: Value(profileId),
-      budgetCategoryId: budgetCategoryId == null && nullToAbsent
+      budgetCategory: budgetCategory == null && nullToAbsent
           ? const Value.absent()
-          : Value(budgetCategoryId),
+          : Value(budgetCategory),
       paymentMethod: paymentMethod == null && nullToAbsent
           ? const Value.absent()
           : Value(paymentMethod),
@@ -791,7 +786,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       id: serializer.fromJson<int>(json['id']),
       amountMinor: serializer.fromJson<double>(json['amountMinor']),
       currency: serializer.fromJson<String>(json['currency']),
-      transactionType: serializer.fromJson<String>(json['transactionType']),
+      type: serializer.fromJson<String>(json['type']),
       description: serializer.fromJson<String>(json['description']),
       category: serializer.fromJson<String>(json['category']),
       goalId: serializer.fromJson<String?>(json['goalId']),
@@ -800,7 +795,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       isPending: serializer.fromJson<bool>(json['isPending']),
       rawSms: serializer.fromJson<String?>(json['rawSms']),
       profileId: serializer.fromJson<int>(json['profileId']),
-      budgetCategoryId: serializer.fromJson<String?>(json['budgetCategoryId']),
+      budgetCategory: serializer.fromJson<String?>(json['budgetCategory']),
       paymentMethod: serializer.fromJson<String?>(json['paymentMethod']),
       merchantName: serializer.fromJson<String?>(json['merchantName']),
       merchantCategory: serializer.fromJson<String?>(json['merchantCategory']),
@@ -822,7 +817,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       'id': serializer.toJson<int>(id),
       'amountMinor': serializer.toJson<double>(amountMinor),
       'currency': serializer.toJson<String>(currency),
-      'transactionType': serializer.toJson<String>(transactionType),
+      'type': serializer.toJson<String>(type),
       'description': serializer.toJson<String>(description),
       'category': serializer.toJson<String>(category),
       'goalId': serializer.toJson<String?>(goalId),
@@ -831,7 +826,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       'isPending': serializer.toJson<bool>(isPending),
       'rawSms': serializer.toJson<String?>(rawSms),
       'profileId': serializer.toJson<int>(profileId),
-      'budgetCategoryId': serializer.toJson<String?>(budgetCategoryId),
+      'budgetCategory': serializer.toJson<String?>(budgetCategory),
       'paymentMethod': serializer.toJson<String?>(paymentMethod),
       'merchantName': serializer.toJson<String?>(merchantName),
       'merchantCategory': serializer.toJson<String?>(merchantCategory),
@@ -851,7 +846,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
     int? id,
     double? amountMinor,
     String? currency,
-    String? transactionType,
+    String? type,
     String? description,
     String? category,
     Value<String?> goalId = const Value.absent(),
@@ -860,7 +855,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
     bool? isPending,
     Value<String?> rawSms = const Value.absent(),
     int? profileId,
-    Value<String?> budgetCategoryId = const Value.absent(),
+    Value<String?> budgetCategory = const Value.absent(),
     Value<String?> paymentMethod = const Value.absent(),
     Value<String?> merchantName = const Value.absent(),
     Value<String?> merchantCategory = const Value.absent(),
@@ -877,7 +872,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
     id: id ?? this.id,
     amountMinor: amountMinor ?? this.amountMinor,
     currency: currency ?? this.currency,
-    transactionType: transactionType ?? this.transactionType,
+    type: type ?? this.type,
     description: description ?? this.description,
     category: category ?? this.category,
     goalId: goalId.present ? goalId.value : this.goalId,
@@ -886,9 +881,9 @@ class Transaction extends DataClass implements Insertable<Transaction> {
     isPending: isPending ?? this.isPending,
     rawSms: rawSms.present ? rawSms.value : this.rawSms,
     profileId: profileId ?? this.profileId,
-    budgetCategoryId: budgetCategoryId.present
-        ? budgetCategoryId.value
-        : this.budgetCategoryId,
+    budgetCategory: budgetCategory.present
+        ? budgetCategory.value
+        : this.budgetCategory,
     paymentMethod: paymentMethod.present
         ? paymentMethod.value
         : this.paymentMethod,
@@ -913,9 +908,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           ? data.amountMinor.value
           : this.amountMinor,
       currency: data.currency.present ? data.currency.value : this.currency,
-      transactionType: data.transactionType.present
-          ? data.transactionType.value
-          : this.transactionType,
+      type: data.type.present ? data.type.value : this.type,
       description: data.description.present
           ? data.description.value
           : this.description,
@@ -926,9 +919,9 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       isPending: data.isPending.present ? data.isPending.value : this.isPending,
       rawSms: data.rawSms.present ? data.rawSms.value : this.rawSms,
       profileId: data.profileId.present ? data.profileId.value : this.profileId,
-      budgetCategoryId: data.budgetCategoryId.present
-          ? data.budgetCategoryId.value
-          : this.budgetCategoryId,
+      budgetCategory: data.budgetCategory.present
+          ? data.budgetCategory.value
+          : this.budgetCategory,
       paymentMethod: data.paymentMethod.present
           ? data.paymentMethod.value
           : this.paymentMethod,
@@ -958,7 +951,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           ..write('id: $id, ')
           ..write('amountMinor: $amountMinor, ')
           ..write('currency: $currency, ')
-          ..write('transactionType: $transactionType, ')
+          ..write('type: $type, ')
           ..write('description: $description, ')
           ..write('category: $category, ')
           ..write('goalId: $goalId, ')
@@ -967,7 +960,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           ..write('isPending: $isPending, ')
           ..write('rawSms: $rawSms, ')
           ..write('profileId: $profileId, ')
-          ..write('budgetCategoryId: $budgetCategoryId, ')
+          ..write('budgetCategory: $budgetCategory, ')
           ..write('paymentMethod: $paymentMethod, ')
           ..write('merchantName: $merchantName, ')
           ..write('merchantCategory: $merchantCategory, ')
@@ -989,7 +982,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
     id,
     amountMinor,
     currency,
-    transactionType,
+    type,
     description,
     category,
     goalId,
@@ -998,7 +991,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
     isPending,
     rawSms,
     profileId,
-    budgetCategoryId,
+    budgetCategory,
     paymentMethod,
     merchantName,
     merchantCategory,
@@ -1019,7 +1012,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           other.id == this.id &&
           other.amountMinor == this.amountMinor &&
           other.currency == this.currency &&
-          other.transactionType == this.transactionType &&
+          other.type == this.type &&
           other.description == this.description &&
           other.category == this.category &&
           other.goalId == this.goalId &&
@@ -1028,7 +1021,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           other.isPending == this.isPending &&
           other.rawSms == this.rawSms &&
           other.profileId == this.profileId &&
-          other.budgetCategoryId == this.budgetCategoryId &&
+          other.budgetCategory == this.budgetCategory &&
           other.paymentMethod == this.paymentMethod &&
           other.merchantName == this.merchantName &&
           other.merchantCategory == this.merchantCategory &&
@@ -1047,7 +1040,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
   final Value<int> id;
   final Value<double> amountMinor;
   final Value<String> currency;
-  final Value<String> transactionType;
+  final Value<String> type;
   final Value<String> description;
   final Value<String> category;
   final Value<String?> goalId;
@@ -1056,7 +1049,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
   final Value<bool> isPending;
   final Value<String?> rawSms;
   final Value<int> profileId;
-  final Value<String?> budgetCategoryId;
+  final Value<String?> budgetCategory;
   final Value<String?> paymentMethod;
   final Value<String?> merchantName;
   final Value<String?> merchantCategory;
@@ -1073,7 +1066,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     this.id = const Value.absent(),
     this.amountMinor = const Value.absent(),
     this.currency = const Value.absent(),
-    this.transactionType = const Value.absent(),
+    this.type = const Value.absent(),
     this.description = const Value.absent(),
     this.category = const Value.absent(),
     this.goalId = const Value.absent(),
@@ -1082,7 +1075,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     this.isPending = const Value.absent(),
     this.rawSms = const Value.absent(),
     this.profileId = const Value.absent(),
-    this.budgetCategoryId = const Value.absent(),
+    this.budgetCategory = const Value.absent(),
     this.paymentMethod = const Value.absent(),
     this.merchantName = const Value.absent(),
     this.merchantCategory = const Value.absent(),
@@ -1100,7 +1093,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     this.id = const Value.absent(),
     required double amountMinor,
     this.currency = const Value.absent(),
-    this.transactionType = const Value.absent(),
+    this.type = const Value.absent(),
     this.description = const Value.absent(),
     this.category = const Value.absent(),
     this.goalId = const Value.absent(),
@@ -1109,7 +1102,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     this.isPending = const Value.absent(),
     this.rawSms = const Value.absent(),
     required int profileId,
-    this.budgetCategoryId = const Value.absent(),
+    this.budgetCategory = const Value.absent(),
     this.paymentMethod = const Value.absent(),
     this.merchantName = const Value.absent(),
     this.merchantCategory = const Value.absent(),
@@ -1129,7 +1122,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     Expression<int>? id,
     Expression<double>? amountMinor,
     Expression<String>? currency,
-    Expression<String>? transactionType,
+    Expression<String>? type,
     Expression<String>? description,
     Expression<String>? category,
     Expression<String>? goalId,
@@ -1138,7 +1131,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     Expression<bool>? isPending,
     Expression<String>? rawSms,
     Expression<int>? profileId,
-    Expression<String>? budgetCategoryId,
+    Expression<String>? budgetCategory,
     Expression<String>? paymentMethod,
     Expression<String>? merchantName,
     Expression<String>? merchantCategory,
@@ -1156,7 +1149,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
       if (id != null) 'id': id,
       if (amountMinor != null) 'amount_minor': amountMinor,
       if (currency != null) 'currency': currency,
-      if (transactionType != null) 'transaction_type': transactionType,
+      if (type != null) 'type': type,
       if (description != null) 'description': description,
       if (category != null) 'category': category,
       if (goalId != null) 'goal_id': goalId,
@@ -1165,7 +1158,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
       if (isPending != null) 'is_pending': isPending,
       if (rawSms != null) 'raw_sms': rawSms,
       if (profileId != null) 'profile_id': profileId,
-      if (budgetCategoryId != null) 'budget_category_id': budgetCategoryId,
+      if (budgetCategory != null) 'budget_category': budgetCategory,
       if (paymentMethod != null) 'payment_method': paymentMethod,
       if (merchantName != null) 'merchant_name': merchantName,
       if (merchantCategory != null) 'merchant_category': merchantCategory,
@@ -1185,7 +1178,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     Value<int>? id,
     Value<double>? amountMinor,
     Value<String>? currency,
-    Value<String>? transactionType,
+    Value<String>? type,
     Value<String>? description,
     Value<String>? category,
     Value<String?>? goalId,
@@ -1194,7 +1187,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     Value<bool>? isPending,
     Value<String?>? rawSms,
     Value<int>? profileId,
-    Value<String?>? budgetCategoryId,
+    Value<String?>? budgetCategory,
     Value<String?>? paymentMethod,
     Value<String?>? merchantName,
     Value<String?>? merchantCategory,
@@ -1212,7 +1205,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
       id: id ?? this.id,
       amountMinor: amountMinor ?? this.amountMinor,
       currency: currency ?? this.currency,
-      transactionType: transactionType ?? this.transactionType,
+      type: type ?? this.type,
       description: description ?? this.description,
       category: category ?? this.category,
       goalId: goalId ?? this.goalId,
@@ -1221,7 +1214,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
       isPending: isPending ?? this.isPending,
       rawSms: rawSms ?? this.rawSms,
       profileId: profileId ?? this.profileId,
-      budgetCategoryId: budgetCategoryId ?? this.budgetCategoryId,
+      budgetCategory: budgetCategory ?? this.budgetCategory,
       paymentMethod: paymentMethod ?? this.paymentMethod,
       merchantName: merchantName ?? this.merchantName,
       merchantCategory: merchantCategory ?? this.merchantCategory,
@@ -1251,8 +1244,8 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     if (currency.present) {
       map['currency'] = Variable<String>(currency.value);
     }
-    if (transactionType.present) {
-      map['transaction_type'] = Variable<String>(transactionType.value);
+    if (type.present) {
+      map['type'] = Variable<String>(type.value);
     }
     if (description.present) {
       map['description'] = Variable<String>(description.value);
@@ -1278,8 +1271,8 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     if (profileId.present) {
       map['profile_id'] = Variable<int>(profileId.value);
     }
-    if (budgetCategoryId.present) {
-      map['budget_category_id'] = Variable<String>(budgetCategoryId.value);
+    if (budgetCategory.present) {
+      map['budget_category'] = Variable<String>(budgetCategory.value);
     }
     if (paymentMethod.present) {
       map['payment_method'] = Variable<String>(paymentMethod.value);
@@ -1326,7 +1319,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
           ..write('id: $id, ')
           ..write('amountMinor: $amountMinor, ')
           ..write('currency: $currency, ')
-          ..write('transactionType: $transactionType, ')
+          ..write('type: $type, ')
           ..write('description: $description, ')
           ..write('category: $category, ')
           ..write('goalId: $goalId, ')
@@ -1335,7 +1328,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
           ..write('isPending: $isPending, ')
           ..write('rawSms: $rawSms, ')
           ..write('profileId: $profileId, ')
-          ..write('budgetCategoryId: $budgetCategoryId, ')
+          ..write('budgetCategory: $budgetCategory, ')
           ..write('paymentMethod: $paymentMethod, ')
           ..write('merchantName: $merchantName, ')
           ..write('merchantCategory: $merchantCategory, ')
@@ -3031,12 +3024,10 @@ class $PendingTransactionsTable extends PendingTransactions
     type: DriftSqlType.int,
     requiredDuringInsert: true,
   );
-  static const VerificationMeta _transactionTypeMeta = const VerificationMeta(
-    'transactionType',
-  );
+  static const VerificationMeta _typeMeta = const VerificationMeta('type');
   @override
-  late final GeneratedColumn<String> transactionType = GeneratedColumn<String>(
-    'transaction_type',
+  late final GeneratedColumn<String> type = GeneratedColumn<String>(
+    'type',
     aliasedName,
     false,
     type: DriftSqlType.string,
@@ -3065,7 +3056,7 @@ class $PendingTransactionsTable extends PendingTransactions
     isExpense,
     rawSms,
     profileId,
-    transactionType,
+    type,
     category,
   ];
   @override
@@ -3128,13 +3119,10 @@ class $PendingTransactionsTable extends PendingTransactions
     } else if (isInserting) {
       context.missing(_profileIdMeta);
     }
-    if (data.containsKey('transaction_type')) {
+    if (data.containsKey('type')) {
       context.handle(
-        _transactionTypeMeta,
-        transactionType.isAcceptableOrUnknown(
-          data['transaction_type']!,
-          _transactionTypeMeta,
-        ),
+        _typeMeta,
+        type.isAcceptableOrUnknown(data['type']!, _typeMeta),
       );
     }
     if (data.containsKey('category')) {
@@ -3186,9 +3174,9 @@ class $PendingTransactionsTable extends PendingTransactions
         DriftSqlType.int,
         data['${effectivePrefix}profile_id'],
       )!,
-      transactionType: attachedDatabase.typeMapping.read(
+      type: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
-        data['${effectivePrefix}transaction_type'],
+        data['${effectivePrefix}type'],
       )!,
       category: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
@@ -3216,7 +3204,7 @@ class PendingTransaction extends DataClass
   final bool isExpense;
   final String? rawSms;
   final int profileId;
-  final String transactionType;
+  final String type;
   final String category;
   const PendingTransaction({
     required this.id,
@@ -3227,7 +3215,7 @@ class PendingTransaction extends DataClass
     required this.isExpense,
     this.rawSms,
     required this.profileId,
-    required this.transactionType,
+    required this.type,
     required this.category,
   });
   @override
@@ -3249,7 +3237,7 @@ class PendingTransaction extends DataClass
       map['raw_sms'] = Variable<String>(rawSms);
     }
     map['profile_id'] = Variable<int>(profileId);
-    map['transaction_type'] = Variable<String>(transactionType);
+    map['type'] = Variable<String>(type);
     map['category'] = Variable<String>(category);
     return map;
   }
@@ -3268,7 +3256,7 @@ class PendingTransaction extends DataClass
           ? const Value.absent()
           : Value(rawSms),
       profileId: Value(profileId),
-      transactionType: Value(transactionType),
+      type: Value(type),
       category: Value(category),
     );
   }
@@ -3287,7 +3275,7 @@ class PendingTransaction extends DataClass
       isExpense: serializer.fromJson<bool>(json['isExpense']),
       rawSms: serializer.fromJson<String?>(json['rawSms']),
       profileId: serializer.fromJson<int>(json['profileId']),
-      transactionType: serializer.fromJson<String>(json['transactionType']),
+      type: serializer.fromJson<String>(json['type']),
       category: serializer.fromJson<String>(json['category']),
     );
   }
@@ -3303,7 +3291,7 @@ class PendingTransaction extends DataClass
       'isExpense': serializer.toJson<bool>(isExpense),
       'rawSms': serializer.toJson<String?>(rawSms),
       'profileId': serializer.toJson<int>(profileId),
-      'transactionType': serializer.toJson<String>(transactionType),
+      'type': serializer.toJson<String>(type),
       'category': serializer.toJson<String>(category),
     };
   }
@@ -3317,7 +3305,7 @@ class PendingTransaction extends DataClass
     bool? isExpense,
     Value<String?> rawSms = const Value.absent(),
     int? profileId,
-    String? transactionType,
+    String? type,
     String? category,
   }) => PendingTransaction(
     id: id ?? this.id,
@@ -3328,7 +3316,7 @@ class PendingTransaction extends DataClass
     isExpense: isExpense ?? this.isExpense,
     rawSms: rawSms.present ? rawSms.value : this.rawSms,
     profileId: profileId ?? this.profileId,
-    transactionType: transactionType ?? this.transactionType,
+    type: type ?? this.type,
     category: category ?? this.category,
   );
   PendingTransaction copyWithCompanion(PendingTransactionsCompanion data) {
@@ -3345,9 +3333,7 @@ class PendingTransaction extends DataClass
       isExpense: data.isExpense.present ? data.isExpense.value : this.isExpense,
       rawSms: data.rawSms.present ? data.rawSms.value : this.rawSms,
       profileId: data.profileId.present ? data.profileId.value : this.profileId,
-      transactionType: data.transactionType.present
-          ? data.transactionType.value
-          : this.transactionType,
+      type: data.type.present ? data.type.value : this.type,
       category: data.category.present ? data.category.value : this.category,
     );
   }
@@ -3363,7 +3349,7 @@ class PendingTransaction extends DataClass
           ..write('isExpense: $isExpense, ')
           ..write('rawSms: $rawSms, ')
           ..write('profileId: $profileId, ')
-          ..write('transactionType: $transactionType, ')
+          ..write('type: $type, ')
           ..write('category: $category')
           ..write(')'))
         .toString();
@@ -3379,7 +3365,7 @@ class PendingTransaction extends DataClass
     isExpense,
     rawSms,
     profileId,
-    transactionType,
+    type,
     category,
   );
   @override
@@ -3394,7 +3380,7 @@ class PendingTransaction extends DataClass
           other.isExpense == this.isExpense &&
           other.rawSms == this.rawSms &&
           other.profileId == this.profileId &&
-          other.transactionType == this.transactionType &&
+          other.type == this.type &&
           other.category == this.category);
 }
 
@@ -3407,7 +3393,7 @@ class PendingTransactionsCompanion extends UpdateCompanion<PendingTransaction> {
   final Value<bool> isExpense;
   final Value<String?> rawSms;
   final Value<int> profileId;
-  final Value<String> transactionType;
+  final Value<String> type;
   final Value<String> category;
   final Value<int> rowid;
   const PendingTransactionsCompanion({
@@ -3419,7 +3405,7 @@ class PendingTransactionsCompanion extends UpdateCompanion<PendingTransaction> {
     this.isExpense = const Value.absent(),
     this.rawSms = const Value.absent(),
     this.profileId = const Value.absent(),
-    this.transactionType = const Value.absent(),
+    this.type = const Value.absent(),
     this.category = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -3432,7 +3418,7 @@ class PendingTransactionsCompanion extends UpdateCompanion<PendingTransaction> {
     this.isExpense = const Value.absent(),
     this.rawSms = const Value.absent(),
     required int profileId,
-    this.transactionType = const Value.absent(),
+    this.type = const Value.absent(),
     this.category = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
@@ -3448,7 +3434,7 @@ class PendingTransactionsCompanion extends UpdateCompanion<PendingTransaction> {
     Expression<bool>? isExpense,
     Expression<String>? rawSms,
     Expression<int>? profileId,
-    Expression<String>? transactionType,
+    Expression<String>? type,
     Expression<String>? category,
     Expression<int>? rowid,
   }) {
@@ -3461,7 +3447,7 @@ class PendingTransactionsCompanion extends UpdateCompanion<PendingTransaction> {
       if (isExpense != null) 'is_expense': isExpense,
       if (rawSms != null) 'raw_sms': rawSms,
       if (profileId != null) 'profile_id': profileId,
-      if (transactionType != null) 'transaction_type': transactionType,
+      if (type != null) 'type': type,
       if (category != null) 'category': category,
       if (rowid != null) 'rowid': rowid,
     });
@@ -3476,7 +3462,7 @@ class PendingTransactionsCompanion extends UpdateCompanion<PendingTransaction> {
     Value<bool>? isExpense,
     Value<String?>? rawSms,
     Value<int>? profileId,
-    Value<String>? transactionType,
+    Value<String>? type,
     Value<String>? category,
     Value<int>? rowid,
   }) {
@@ -3489,7 +3475,7 @@ class PendingTransactionsCompanion extends UpdateCompanion<PendingTransaction> {
       isExpense: isExpense ?? this.isExpense,
       rawSms: rawSms ?? this.rawSms,
       profileId: profileId ?? this.profileId,
-      transactionType: transactionType ?? this.transactionType,
+      type: type ?? this.type,
       category: category ?? this.category,
       rowid: rowid ?? this.rowid,
     );
@@ -3526,8 +3512,8 @@ class PendingTransactionsCompanion extends UpdateCompanion<PendingTransaction> {
     if (profileId.present) {
       map['profile_id'] = Variable<int>(profileId.value);
     }
-    if (transactionType.present) {
-      map['transaction_type'] = Variable<String>(transactionType.value);
+    if (type.present) {
+      map['type'] = Variable<String>(type.value);
     }
     if (category.present) {
       map['category'] = Variable<String>(category.value);
@@ -3549,7 +3535,7 @@ class PendingTransactionsCompanion extends UpdateCompanion<PendingTransaction> {
           ..write('isExpense: $isExpense, ')
           ..write('rawSms: $rawSms, ')
           ..write('profileId: $profileId, ')
-          ..write('transactionType: $transactionType, ')
+          ..write('type: $type, ')
           ..write('category: $category, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -4537,7 +4523,7 @@ typedef $$TransactionsTableCreateCompanionBuilder =
       Value<int> id,
       required double amountMinor,
       Value<String> currency,
-      Value<String> transactionType,
+      Value<String> type,
       Value<String> description,
       Value<String> category,
       Value<String?> goalId,
@@ -4546,7 +4532,7 @@ typedef $$TransactionsTableCreateCompanionBuilder =
       Value<bool> isPending,
       Value<String?> rawSms,
       required int profileId,
-      Value<String?> budgetCategoryId,
+      Value<String?> budgetCategory,
       Value<String?> paymentMethod,
       Value<String?> merchantName,
       Value<String?> merchantCategory,
@@ -4565,7 +4551,7 @@ typedef $$TransactionsTableUpdateCompanionBuilder =
       Value<int> id,
       Value<double> amountMinor,
       Value<String> currency,
-      Value<String> transactionType,
+      Value<String> type,
       Value<String> description,
       Value<String> category,
       Value<String?> goalId,
@@ -4574,7 +4560,7 @@ typedef $$TransactionsTableUpdateCompanionBuilder =
       Value<bool> isPending,
       Value<String?> rawSms,
       Value<int> profileId,
-      Value<String?> budgetCategoryId,
+      Value<String?> budgetCategory,
       Value<String?> paymentMethod,
       Value<String?> merchantName,
       Value<String?> merchantCategory,
@@ -4614,8 +4600,8 @@ class $$TransactionsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<String> get transactionType => $composableBuilder(
-    column: $table.transactionType,
+  ColumnFilters<String> get type => $composableBuilder(
+    column: $table.type,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -4659,8 +4645,8 @@ class $$TransactionsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<String> get budgetCategoryId => $composableBuilder(
-    column: $table.budgetCategoryId,
+  ColumnFilters<String> get budgetCategory => $composableBuilder(
+    column: $table.budgetCategory,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -4749,8 +4735,8 @@ class $$TransactionsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<String> get transactionType => $composableBuilder(
-    column: $table.transactionType,
+  ColumnOrderings<String> get type => $composableBuilder(
+    column: $table.type,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -4794,8 +4780,8 @@ class $$TransactionsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<String> get budgetCategoryId => $composableBuilder(
-    column: $table.budgetCategoryId,
+  ColumnOrderings<String> get budgetCategory => $composableBuilder(
+    column: $table.budgetCategory,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -4881,10 +4867,8 @@ class $$TransactionsTableAnnotationComposer
   GeneratedColumn<String> get currency =>
       $composableBuilder(column: $table.currency, builder: (column) => column);
 
-  GeneratedColumn<String> get transactionType => $composableBuilder(
-    column: $table.transactionType,
-    builder: (column) => column,
-  );
+  GeneratedColumn<String> get type =>
+      $composableBuilder(column: $table.type, builder: (column) => column);
 
   GeneratedColumn<String> get description => $composableBuilder(
     column: $table.description,
@@ -4912,8 +4896,8 @@ class $$TransactionsTableAnnotationComposer
   GeneratedColumn<int> get profileId =>
       $composableBuilder(column: $table.profileId, builder: (column) => column);
 
-  GeneratedColumn<String> get budgetCategoryId => $composableBuilder(
-    column: $table.budgetCategoryId,
+  GeneratedColumn<String> get budgetCategory => $composableBuilder(
+    column: $table.budgetCategory,
     builder: (column) => column,
   );
 
@@ -4996,7 +4980,7 @@ class $$TransactionsTableTableManager
                 Value<int> id = const Value.absent(),
                 Value<double> amountMinor = const Value.absent(),
                 Value<String> currency = const Value.absent(),
-                Value<String> transactionType = const Value.absent(),
+                Value<String> type = const Value.absent(),
                 Value<String> description = const Value.absent(),
                 Value<String> category = const Value.absent(),
                 Value<String?> goalId = const Value.absent(),
@@ -5005,7 +4989,7 @@ class $$TransactionsTableTableManager
                 Value<bool> isPending = const Value.absent(),
                 Value<String?> rawSms = const Value.absent(),
                 Value<int> profileId = const Value.absent(),
-                Value<String?> budgetCategoryId = const Value.absent(),
+                Value<String?> budgetCategory = const Value.absent(),
                 Value<String?> paymentMethod = const Value.absent(),
                 Value<String?> merchantName = const Value.absent(),
                 Value<String?> merchantCategory = const Value.absent(),
@@ -5022,7 +5006,7 @@ class $$TransactionsTableTableManager
                 id: id,
                 amountMinor: amountMinor,
                 currency: currency,
-                transactionType: transactionType,
+                type: type,
                 description: description,
                 category: category,
                 goalId: goalId,
@@ -5031,7 +5015,7 @@ class $$TransactionsTableTableManager
                 isPending: isPending,
                 rawSms: rawSms,
                 profileId: profileId,
-                budgetCategoryId: budgetCategoryId,
+                budgetCategory: budgetCategory,
                 paymentMethod: paymentMethod,
                 merchantName: merchantName,
                 merchantCategory: merchantCategory,
@@ -5050,7 +5034,7 @@ class $$TransactionsTableTableManager
                 Value<int> id = const Value.absent(),
                 required double amountMinor,
                 Value<String> currency = const Value.absent(),
-                Value<String> transactionType = const Value.absent(),
+                Value<String> type = const Value.absent(),
                 Value<String> description = const Value.absent(),
                 Value<String> category = const Value.absent(),
                 Value<String?> goalId = const Value.absent(),
@@ -5059,7 +5043,7 @@ class $$TransactionsTableTableManager
                 Value<bool> isPending = const Value.absent(),
                 Value<String?> rawSms = const Value.absent(),
                 required int profileId,
-                Value<String?> budgetCategoryId = const Value.absent(),
+                Value<String?> budgetCategory = const Value.absent(),
                 Value<String?> paymentMethod = const Value.absent(),
                 Value<String?> merchantName = const Value.absent(),
                 Value<String?> merchantCategory = const Value.absent(),
@@ -5076,7 +5060,7 @@ class $$TransactionsTableTableManager
                 id: id,
                 amountMinor: amountMinor,
                 currency: currency,
-                transactionType: transactionType,
+                type: type,
                 description: description,
                 category: category,
                 goalId: goalId,
@@ -5085,7 +5069,7 @@ class $$TransactionsTableTableManager
                 isPending: isPending,
                 rawSms: rawSms,
                 profileId: profileId,
-                budgetCategoryId: budgetCategoryId,
+                budgetCategory: budgetCategory,
                 paymentMethod: paymentMethod,
                 merchantName: merchantName,
                 merchantCategory: merchantCategory,
@@ -5864,7 +5848,7 @@ typedef $$PendingTransactionsTableCreateCompanionBuilder =
       Value<bool> isExpense,
       Value<String?> rawSms,
       required int profileId,
-      Value<String> transactionType,
+      Value<String> type,
       Value<String> category,
       Value<int> rowid,
     });
@@ -5878,7 +5862,7 @@ typedef $$PendingTransactionsTableUpdateCompanionBuilder =
       Value<bool> isExpense,
       Value<String?> rawSms,
       Value<int> profileId,
-      Value<String> transactionType,
+      Value<String> type,
       Value<String> category,
       Value<int> rowid,
     });
@@ -5933,8 +5917,8 @@ class $$PendingTransactionsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<String> get transactionType => $composableBuilder(
-    column: $table.transactionType,
+  ColumnFilters<String> get type => $composableBuilder(
+    column: $table.type,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -5993,8 +5977,8 @@ class $$PendingTransactionsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<String> get transactionType => $composableBuilder(
-    column: $table.transactionType,
+  ColumnOrderings<String> get type => $composableBuilder(
+    column: $table.type,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -6042,10 +6026,8 @@ class $$PendingTransactionsTableAnnotationComposer
   GeneratedColumn<int> get profileId =>
       $composableBuilder(column: $table.profileId, builder: (column) => column);
 
-  GeneratedColumn<String> get transactionType => $composableBuilder(
-    column: $table.transactionType,
-    builder: (column) => column,
-  );
+  GeneratedColumn<String> get type =>
+      $composableBuilder(column: $table.type, builder: (column) => column);
 
   GeneratedColumn<String> get category =>
       $composableBuilder(column: $table.category, builder: (column) => column);
@@ -6102,7 +6084,7 @@ class $$PendingTransactionsTableTableManager
                 Value<bool> isExpense = const Value.absent(),
                 Value<String?> rawSms = const Value.absent(),
                 Value<int> profileId = const Value.absent(),
-                Value<String> transactionType = const Value.absent(),
+                Value<String> type = const Value.absent(),
                 Value<String> category = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => PendingTransactionsCompanion(
@@ -6114,7 +6096,7 @@ class $$PendingTransactionsTableTableManager
                 isExpense: isExpense,
                 rawSms: rawSms,
                 profileId: profileId,
-                transactionType: transactionType,
+                type: type,
                 category: category,
                 rowid: rowid,
               ),
@@ -6128,7 +6110,7 @@ class $$PendingTransactionsTableTableManager
                 Value<bool> isExpense = const Value.absent(),
                 Value<String?> rawSms = const Value.absent(),
                 required int profileId,
-                Value<String> transactionType = const Value.absent(),
+                Value<String> type = const Value.absent(),
                 Value<String> category = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => PendingTransactionsCompanion.insert(
@@ -6140,7 +6122,7 @@ class $$PendingTransactionsTableTableManager
                 isExpense: isExpense,
                 rawSms: rawSms,
                 profileId: profileId,
-                transactionType: transactionType,
+                type: type,
                 category: category,
                 rowid: rowid,
               ),

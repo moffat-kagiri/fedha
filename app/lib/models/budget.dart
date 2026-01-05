@@ -10,7 +10,7 @@ class Budget {
   String? description;
   double budgetAmount;
   double spentAmount; 
-  String categoryId;
+  String category;
   String profileId; // ✅ ADD THIS
   String period;
   DateTime startDate;
@@ -18,7 +18,8 @@ class Budget {
   bool isActive;
   DateTime createdAt;
   DateTime updatedAt;
-  bool isSynced; // ✅ ADD THIS 
+  bool isSynced; // ✅ ADD THIS
+  String currency;
   Budget({
     required this.id,
     this.remoteId, // ✅ ADDED: Optional remote ID
@@ -26,7 +27,7 @@ class Budget {
     this.description,
     required this.budgetAmount,
     this.spentAmount = 0.0,
-    required this.categoryId,
+    required this.category,
     required this.profileId, 
     this.period = 'monthly',
     this.isSynced = false, 
@@ -35,6 +36,7 @@ class Budget {
     this.isActive = true,
     DateTime? createdAt,
     DateTime? updatedAt,
+    this.currency = 'KES',
   }) : 
     createdAt = createdAt ?? DateTime.now(),
     updatedAt = updatedAt ?? DateTime.now();
@@ -65,7 +67,7 @@ class Budget {
     String? description,
     double? budgetAmount,
     double? spentAmount,
-    String? categoryId,
+    String? category,
     String? profileId,
     String? period,
     DateTime? startDate,
@@ -74,6 +76,7 @@ class Budget {
     bool? isSynced,
     DateTime? createdAt,
     DateTime? updatedAt,
+    String? currency,
     }) {
     return Budget(
       id: id ?? this.id,
@@ -82,7 +85,7 @@ class Budget {
       description: description ?? this.description,
       budgetAmount: budgetAmount ?? this.budgetAmount,
       spentAmount: spentAmount ?? this.spentAmount,
-      categoryId: categoryId ?? this.categoryId,
+      category: category ?? this.category,
       profileId: profileId ?? this.profileId,
       period: period ?? this.period,
       startDate: startDate ?? this.startDate,
@@ -91,6 +94,7 @@ class Budget {
       isSynced: isSynced ?? this.isSynced,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      currency: currency ?? 'KES',
     );
   }
 
@@ -102,10 +106,11 @@ class Budget {
       id: '',
       name: '',
       budgetAmount: 0,
-      categoryId: '',
+      category: '',
       profileId: '',
       startDate: DateTime.now(),
       endDate: DateTime.now(),
+      currency: 'KES',
     );
   }
   

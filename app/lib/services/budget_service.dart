@@ -139,7 +139,7 @@ class BudgetService with ChangeNotifier {
   Future<bool> recordSpending({
     required String budgetId,
     required double amount,
-    String? categoryId,
+    String? category,
   }) async {
     if (_offlineDataService == null) {
       _logger.warning('Cannot record spending: service not initialized');
@@ -155,7 +155,7 @@ class BudgetService with ChangeNotifier {
         description: budget.description,
         budgetAmount: budget.budgetAmount,
         spentAmount: budget.spentAmount + amount,
-        categoryId: budget.categoryId,
+        category: budget.category,
         period: budget.period,
         startDate: budget.startDate,
         endDate: budget.endDate,
@@ -182,8 +182,8 @@ class BudgetService with ChangeNotifier {
   }
 
   /// Get budgets by category
-  List<Budget> getBudgetsByCategory(String categoryId) {
-    return _cachedBudgets.where((b) => b.categoryId == categoryId).toList();
+  List<Budget> getBudgetsByCategory(String category) {
+    return _cachedBudgets.where((b) => b.category == category).toList();
   }
 
   /// Check if over budget

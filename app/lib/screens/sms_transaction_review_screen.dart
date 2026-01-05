@@ -359,7 +359,7 @@ class _SmsTransactionReviewScreenState extends State<SmsTransactionReviewScreen>
   }
 
   Widget _buildTransactionCard(Transaction transaction, ColorScheme colorScheme, TextTheme textTheme) {
-    final isExpense = transaction.type == TransactionType.expense;
+    final isExpense = transaction.type == Type.expense;
     
     return Card(
       margin: const EdgeInsets.only(bottom: 16),

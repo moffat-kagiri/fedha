@@ -1,17 +1,19 @@
 import 'enums.dart';
-import 'package:json_annotation/json_annotation.dart';
+import 'transaction.dart';
+// Remove: import 'package:json_annotation/json_annotation.dart';
+// Remove: import 'dart:core' as core;
 
-part 'transaction_candidate.g.dart';
+// Remove: part 'transaction_candidate.g.dart';
 
 // Helper functions for enum conversion - used by generated adapters
-TransactionType parseTransactionTypeString(String? typeStr) {
-  if (typeStr == null) return TransactionType.expense;
+Type parseTransactionTypeString(String? typeStr) {
+  if (typeStr == null) return Type.expense;
   
   switch (typeStr.toLowerCase()) {
-    case 'income': return TransactionType.income;
-    case 'savings': return TransactionType.savings;
+    case 'income': return Type.income;
+    case 'savings': return Type.savings;
     case 'expense':
-    default: return TransactionType.expense;
+    default: return Type.expense;
   }
 }
 
@@ -28,15 +30,15 @@ TransactionStatus parseTransactionStatusString(String? statusStr) {
   }
 }
 
-@JsonSerializable()
+// Remove: @JsonSerializable()
 class TransactionCandidate {
   String id;
   String? rawText;
   double amount;
   String? description;
-  String? categoryId;
+  String? category;
   DateTime date;
-  TransactionType type;
+  Type type;
   TransactionStatus status;
   double confidence; // 0.0 to 1.0
   String? transactionId; // If approved and converted
@@ -49,7 +51,7 @@ class TransactionCandidate {
     this.rawText,
     required this.amount,
     this.description,
-    this.categoryId,
+    this.category,
     required this.date,
     required this.type,
     this.status = TransactionStatus.pending,
@@ -74,7 +76,7 @@ class TransactionCandidate {
       'raw_text': rawText,
       'amount': amount,
       'description': description,
-      'category_id': categoryId,
+      'category': category,
       'date': date.toIso8601String(),
       'type': type.toString().split('.').last,
       'status': status.toString().split('.').last,
@@ -92,13 +94,13 @@ class TransactionCandidate {
       rawText: json['raw_text'],
       amount: (json['amount'] ?? 0).toDouble(),
       description: json['description'],
-      categoryId: json['category_id'],
+      category: json['category'],
       date: json['date'] != null 
         ? DateTime.parse(json['date']) 
         : DateTime.now(),
       type: json['type'] is String 
         ? parseTransactionTypeString(json['type']) 
-        : TransactionType.expense,
+        : Type.expense,
       status: json['status'] is String 
         ? parseTransactionStatusString(json['status']) 
         : TransactionStatus.pending,
@@ -119,9 +121,9 @@ class TransactionCandidate {
     String? rawText,
     double? amount,
     String? description,
-    String? categoryId,
+    String? category,
     DateTime? date,
-    TransactionType? type,
+    Type? type,
     TransactionStatus? status,
     double? confidence,
     String? transactionId,
@@ -132,7 +134,7 @@ class TransactionCandidate {
       rawText: rawText ?? this.rawText,
       amount: amount ?? this.amount,
       description: description ?? this.description,
-      categoryId: categoryId ?? this.categoryId,
+      category: category ?? this.category,
       date: date ?? this.date,
       type: type ?? this.type,
       status: status ?? this.status,
@@ -147,6 +149,5 @@ class TransactionCandidate {
   String toString() {
     return 'TransactionCandidate(id: $id, amount: $amount, type: $type, status: $status, confidence: $confidence)';
   }
-  
 }
 

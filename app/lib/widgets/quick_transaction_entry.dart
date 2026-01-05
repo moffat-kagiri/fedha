@@ -27,7 +27,7 @@ class _QuickTransactionEntryState extends State<QuickTransactionEntry> {
   final _amountController = TextEditingController();
   final _descriptionController = TextEditingController();
   
-  TransactionType _selectedType = TransactionType.expense;
+  Type _selectedType = Type.expense;
   String _selectedCategory = 'Other';
   Goal? _selectedGoal;
   bool _isSaving = false;
@@ -56,7 +56,7 @@ class _QuickTransactionEntryState extends State<QuickTransactionEntry> {
     _selectedType = transaction.type;
     _selectedCategory = transaction.category?.toString() ?? 'Other';
     
-    if (transaction.type == TransactionType.savings && transaction.goalId != null) {
+    if (transaction.type == Type.savings && transaction.goalId != null) {
       // Load the goal if it's a savings transaction
       final dataService = Provider.of<OfflineDataService>(context, listen: false);
       Goal? selectedGoal = await dataService.getGoal(transaction.goalId!);
@@ -86,10 +86,10 @@ class _QuickTransactionEntryState extends State<QuickTransactionEntry> {
         amount: double.parse(_amountController.text),
         description: _descriptionController.text.trim(),
         type: _selectedType,
-        categoryId: _selectedType == TransactionType.savings ? 'savings' : _selectedCategory,
-        category: _selectedType == TransactionType.savings ? TransactionCategory.other : null,
+        category: _selectedType == Type.savings ? 'savings' : _selectedCategory,
+        category: _selectedType == Type.savings ? TransactionCategory.other : null,
         date: existingTransaction?.date ?? DateTime.now(),
-        goalId: _selectedType == TransactionType.savings ? _selectedGoal?.id : null,
+        goalId: _selectedType == Type.savings ? _selectedGoal?.id : null,
         profileId: 'current_profile', // TODO: Get actual profile ID
       );
 
@@ -100,7 +100,7 @@ class _QuickTransactionEntryState extends State<QuickTransactionEntry> {
       }
 
       // Update goal progress if it's a savings transaction
-      if (_selectedType == TransactionType.savings && _selectedGoal != null) {
+      if (_selectedType == Type.savings && _selectedGoal != null) {
         final updatedGoal = Goal(
           id: _selectedGoal!.id,
           name: _selectedGoal!.name,
@@ -149,11 +149,11 @@ class _QuickTransactionEntryState extends State<QuickTransactionEntry> {
 
   List<String> get _currentCategories {
     switch (_selectedType) {
-      case TransactionType.income:
+      case Type.income:
         return _incomeCategories;
-      case TransactionType.expense:
+      case Type.expense:
         return _expenseCategories;
-      case TransactionType.savings:
+      case Type.savings:
         return ['Savings'];
     }
   }
@@ -224,9 +224,9 @@ class _QuickTransactionEntryState extends State<QuickTransactionEntry> {
                       ),
                       child: Row(
                         children: [
-                          _buildTypeButton(TransactionType.income, 'Income', Icons.arrow_upward, Colors.green),
-                          _buildTypeButton(TransactionType.expense, 'Expense', Icons.arrow_downward, Colors.red),
-                          _buildTypeButton(TransactionType.savings, 'Savings', Icons.savings, const Color(0xFF007A39)),
+                          _buildTypeButton(Type.income, 'Income', Icons.arrow_upward, Colors.green),
+                          _buildTypeButton(Type.expense, 'Expense', Icons.arrow_downward, Colors.red),
+                          _buildTypeButton(Type.savings, 'Savings', Icons.savings, const Color(0xFF007A39)),
                         ],
                       ),
                     ),
@@ -279,7 +279,7 @@ class _QuickTransactionEntryState extends State<QuickTransactionEntry> {
                     const SizedBox(height: 16),
                     
                     // Category Dropdown (only for income/expense)
-                    if (_selectedType != TransactionType.savings)
+                    if (_selectedType != Type.savings)
                       DropdownButtonFormField<String>(
                         value: _selectedCategory,
                         decoration: const InputDecoration(
@@ -301,7 +301,7 @@ class _QuickTransactionEntryState extends State<QuickTransactionEntry> {
                       ),
                     
                     // Goal Selection (only for savings)
-                    if (_selectedType == TransactionType.savings) ...[
+                    if (_selectedType == Type.savings) ...[
                       Consumer<OfflineDataService>(
                         builder: (context, dataService, child) {
                           final goals = dataService.getAllGoals(OfflineDataService.userId)
@@ -381,7 +381,7 @@ class _QuickTransactionEntryState extends State<QuickTransactionEntry> {
     );
   }
 
-  Widget _buildTypeButton(TransactionType type, String label, IconData icon, Color color) {
+  Widget _buildTypeButton(Type type, String label, IconData icon, Color color) {
     final isSelected = _selectedType == type;
     
     return Expanded(
@@ -389,7 +389,7 @@ class _QuickTransactionEntryState extends State<QuickTransactionEntry> {
         onTap: () {
           setState(() {
             _selectedType = type;
-            if (_selectedType != TransactionType.savings) {
+            if (_selectedType != Type.savings) {
               _selectedGoal = null;
             }
             // Reset category to first available when switching types

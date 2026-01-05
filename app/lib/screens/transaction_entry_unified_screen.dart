@@ -35,57 +35,60 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
   bool _showAdvancedOptions = false;
   DateTime _selectedDate = DateTime.now();
   TimeOfDay _selectedTime = TimeOfDay.now();
-  TransactionCategory? _selectedCategory;
-  TransactionType _selectedType = TransactionType.expense;
+  String? _selectedCategory; // Changed from TransactionCategory? to String?
+  String _selectedType = 'expense'; // Changed from Type to String
   String? _selectedGoalId;
-  PaymentMethod _selectedPaymentMethod = PaymentMethod.cash;
+  String _selectedPaymentMethod = 'cash'; // Changed from PaymentMethod to String
   dom_goal.Goal? _selectedGoal;
   List<dom_goal.Goal> _goals = [];
   List<Goal> _goalList = [];
   bool _isSaving = false;
   
-  final Map<TransactionType, List<TransactionCategory>> _categories = {
-    TransactionType.income: [
-      TransactionCategory.salary,
-      TransactionCategory.business,
-      TransactionCategory.investment,
-      TransactionCategory.gift,
-      TransactionCategory.otherIncome,
+  final Map<String, List<String>> _categories = { // Changed from Type to String keys
+    'income': [
+      'salary',
+      'business',
+      'investment',
+      'gift',
+      'otherIncome',
     ],
-    TransactionType.expense: [
-      TransactionCategory.food,
-      TransactionCategory.transport,
-      TransactionCategory.utilities,
-      TransactionCategory.entertainment,
-      TransactionCategory.healthcare,
-      TransactionCategory.shopping,
-      TransactionCategory.education,
-      TransactionCategory.otherExpense,
+    'expense': [
+      'food',
+      'transport',
+      'utilities',
+      'entertainment',
+      'healthcare',
+      'shopping',
+      'education',
+      'otherExpense',
     ],
-    TransactionType.savings: [
-      TransactionCategory.emergencyFund,
-      TransactionCategory.investment,
-      TransactionCategory.retirement,
-      TransactionCategory.otherSavings,
+    'savings': [
+      'emergencyFund',
+      'investment',
+      'retirement',
+      'otherSavings',
     ],
   };
 
-  // 3. Add helper methods for enum-string conversion
-  String _categoryToId(TransactionCategory? category) {
-    if (category == null) return 'other';
-    return category.name;
+  // Helper methods for string conversions
+  String _categoryToDisplayName(String? category) {
+    if (category == null || category.isEmpty) return 'Other';
+    
+    // Convert snake_case or camelCase to Title Case with spaces
+    String result = category.replaceAllMapped(
+      RegExp(r'([A-Z])|_'),
+      (Match m) => m[1] != null ? " ${m[1]}" : " ",
+    ).trim();
+    
+    // Capitalize first letter of each word
+    return result.split(' ').map((word) {
+      if (word.isNotEmpty) {
+        return word[0].toUpperCase() + word.substring(1).toLowerCase();
+      }
+      return word;
+    }).join(' ');
   }
 
-  String _categoryToDisplayName(TransactionCategory? category) {
-    if (category == null) return 'Other';
-    final raw = category.toString().split('.').last;
-    // Convert camelCase to Title Case with spaces
-    return raw.replaceAllMapped(
-      RegExp(r'^([a-z])|[A-Z]'),
-      (Match m) => m[1] == null ? " ${m[0]}" : m[1]!.toUpperCase(),
-    ).trim();
-  }
-  // 4. Fix the variable initialization (line 67)
   void _initializeCategory() {
     final availableCategories = _categories[_selectedType];
     if (availableCategories != null && availableCategories.isNotEmpty) {
@@ -145,7 +148,6 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
     }
   }
 
-  // In your goal selection widget, update _selectedGoalId when user selects a goal
   Widget _buildGoalSelector() {
     return Column(
       children: [
@@ -173,8 +175,8 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
             });
           },
         ),
-        // ✅ UPDATED: Show info hint for both goal-linked and general savings
-        if (_selectedType == TransactionType.savings)
+        // Show info hint for both goal-linked and general savings
+        if (_selectedType == 'savings')
           Padding(
             padding: const EdgeInsets.only(top: 8),
             child: Card(
@@ -241,13 +243,11 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
     // Format the amount properly
     _amountController.text = transaction.amount.toStringAsFixed(2);
     _descriptionController.text = transaction.description ?? '';
-    _selectedType = transaction.type;
-    if (transaction.category != null) {
-      _selectedCategory = transaction.category;
-    } else {
-      final defaultCategories = _categories[transaction.type];
-      _selectedCategory = defaultCategories?.isNotEmpty == true ? defaultCategories?.first : null;
-    }
+    
+    // FIXED: Use string values directly from transaction
+    _selectedType = transaction.type; // Now matches (String = String)
+    _selectedCategory = transaction.category; // Now matches (String? = String?)
+    
     _selectedDate = transaction.date;
     
     // Extract time from the transaction date
@@ -262,6 +262,7 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
     
     // Set payment method if available
     if (transaction.paymentMethod != null) {
+      // FIXED: Use string directly
       _selectedPaymentMethod = transaction.paymentMethod!;
     }
   }
@@ -326,12 +327,11 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
     }
   }
 
-  // UPDATED: Save transaction with TransactionOperationsHelper
   Future<void> _saveTransaction() async {
     if (!_formKey.currentState!.validate()) return;
     
     // Validate that expense transactions aren't linked to goals
-    if (_selectedType == TransactionType.expense && _selectedGoalId != null) {
+    if (_selectedType == 'expense' && _selectedGoalId != null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -342,9 +342,6 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
       }
       return;
     }
-    
-    // ✅ FIX: Savings transactions are now optional for goals
-    // Users can save money without linking to a specific goal
     
     setState(() {
       _isSaving = true;
@@ -361,39 +358,25 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
       double amount = double.parse(raw);
       String formattedAmount = amount.toStringAsFixed(2);
       
-      // Determine category and goal ID based on transaction type
-      String? categoryId;
-      String? categoryName;
-      String? goalId;
-      
-      if (_selectedType == TransactionType.savings) {
-        // For savings, use goal ID and name
-        if (_selectedGoalId != null) {
-          goalId = _selectedGoalId;
-          categoryId = _selectedGoalId;
-          
-          // FIX: Use proper Goal constructor or handle the case
-          final goal = _goalList.firstWhere((g) => g.id == _selectedGoalId, orElse: () => Goal.empty());
-          categoryName = goal.name;
-        }
-      } else {
-        // For income/expense, use the selected category
-        categoryId = _categoryToId(_selectedCategory);
-        categoryName = _categoryToDisplayName(_selectedCategory);
-      }
+      // FIXED: Create transaction with string values
+      // Convert amount to minor units for Transaction model
+      final amountMinor = (amount * 100).toInt();
       
       final transaction = Transaction(
         id: widget.editingTransaction?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
-        amount: double.parse(formattedAmount),
-        description: _descriptionController.text.trim(),
-        type: _selectedType,
-        categoryId: categoryId ?? '',
-        category: _selectedCategory,
-        date: _selectedDate,
-        goalId: goalId,
-        paymentMethod: _selectedPaymentMethod,
         profileId: profileId,
-        isExpense: _selectedType == TransactionType.expense,
+        amountMinor: amountMinor,
+        type: _selectedType, // String
+        isExpense: _selectedType == 'expense',
+        category: _selectedCategory ?? '',
+        description: _descriptionController.text.trim(),
+        date: _selectedDate,
+        goalId: _selectedGoalId,
+        budgetCategory: null, // Will be assigned by TransactionEventService
+        currency: 'KES',
+        isSynced: false,
+        createdAt: widget.editingTransaction?.createdAt ?? DateTime.now(),
+        updatedAt: DateTime.now(),
       );
 
       bool success = false;
@@ -406,7 +389,7 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
         );
         if (success) {
           await eventService.onTransactionUpdated(transaction); 
-          }
+        }
       } else {
         // Create new transaction with event emission
         success = await TransactionOperations.createTransaction(
@@ -415,7 +398,7 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
         );
         if (success) {
           await eventService.onTransactionCreated(transaction); 
-          }
+        }
       }
       
       if (success) {
@@ -427,12 +410,12 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
               ? 'Transaction updated successfully' 
               : 'Transaction saved successfully';
           
-          if (_selectedType == TransactionType.expense) {
+          if (_selectedType == 'expense') {
             updateMessage += ' • Budget updated';
-          } else if (_selectedType == TransactionType.savings && _selectedGoalId != null) {
+          } else if (_selectedType == 'savings' && _selectedGoalId != null) {
             updateMessage += ' • Goal progress updated';
-          } else if (_selectedType == TransactionType.savings) {
-            updateMessage += ' • General savings recorded'; // ✅ NEW: Message for unlinked savings
+          } else if (_selectedType == 'savings') {
+            updateMessage += ' • General savings recorded';
           }
           
           ScaffoldMessenger.of(context).showSnackBar(
@@ -475,7 +458,6 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
     }
   }
 
-  // UPDATED: Delete transaction with TransactionOperationsHelper
   Future<void> _deleteTransaction() async {
     if (widget.editingTransaction == null) return;
     
@@ -504,7 +486,7 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
     if (!confirm) return;
     
     setState(() {
-      _isSaving = true; // Reuse saving indicator for deletion
+      _isSaving = true;
     });
     
     try {
@@ -632,7 +614,7 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
                   const SizedBox(height: 16),
                   
                   // Category or Goal Field
-                  if (_selectedType == TransactionType.savings)
+                  if (_selectedType == 'savings')
                     _buildGoalSelector()
                   else
                     _buildCategorySelector(),
@@ -726,37 +708,35 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
   }
 
   Widget _buildTransactionTypeTabs() {
-    return SegmentedButton<TransactionType>(
-      segments: TransactionType.values.map((type) {
-        String label;
-        IconData icon;
-        
-        switch (type) {
-          case TransactionType.income:
-            label = 'Income';
-            icon = Icons.arrow_downward;
-            break;
-          case TransactionType.expense:
-            label = 'Expense';
-            icon = Icons.arrow_upward;
-            break;
-          case TransactionType.savings:
-            label = 'Savings';
-            icon = Icons.savings;
-            break;
-          default:
-            label = type.toString().split('.').last;
-            icon = Icons.category;
-        }
-        
-        return ButtonSegment<TransactionType>(
-          value: type,
-          label: Text(label),
-          icon: Icon(icon),
+    // Define the transaction type options
+    final List<Map<String, dynamic>> typeOptions = [
+      {
+        'value': 'income',
+        'label': 'Income',
+        'icon': Icons.arrow_downward,
+      },
+      {
+        'value': 'expense',
+        'label': 'Expense',
+        'icon': Icons.arrow_upward,
+      },
+      {
+        'value': 'savings',
+        'label': 'Savings',
+        'icon': Icons.savings,
+      },
+    ];
+
+    return SegmentedButton<String>(
+      segments: typeOptions.map((option) {
+        return ButtonSegment<String>(
+          value: option['value'],
+          label: Text(option['label']),
+          icon: Icon(option['icon']),
         );
       }).toList(),
       selected: {_selectedType},
-      onSelectionChanged: (Set<TransactionType> newSelection) {
+      onSelectionChanged: (Set<String> newSelection) {
         setState(() {
           _selectedType = newSelection.first;
           // Reset category to first in list when changing type
@@ -764,7 +744,7 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
             _initializeCategory();
           }
           // Reset goal when switching away from savings
-          if (_selectedType != TransactionType.savings) {
+          if (_selectedType != 'savings') {
             _selectedGoalId = null;
           }
         });
@@ -773,19 +753,21 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
   }
 
   Widget _buildCategorySelector() {
-    return DropdownButtonFormField<TransactionCategory>(
+    final categories = _categories[_selectedType] ?? [];
+    
+    return DropdownButtonFormField<String>(
       value: _selectedCategory,
       decoration: InputDecoration(
-        labelText: _selectedType == TransactionType.savings ? 'Goal' : 'Category',
+        labelText: _selectedType == 'savings' ? 'Goal' : 'Category',
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       ),
-      items: _categories[_selectedType]!.map((TransactionCategory category) {
-        return DropdownMenuItem<TransactionCategory>(
+      items: categories.map((String category) {
+        return DropdownMenuItem<String>(
           value: category,
           child: Text(_categoryToDisplayName(category)),
         );
       }).toList(),
-      onChanged: (TransactionCategory? value) {
+      onChanged: (String? value) {
         if (value != null) {
           setState(() {
             _selectedCategory = value;
@@ -794,7 +776,7 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
       },
       validator: (value) {
         if (value == null) {
-          return _selectedType == TransactionType.savings
+          return _selectedType == 'savings'
               ? 'Please select a goal'
               : 'Please select a category';
         }
@@ -804,6 +786,14 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
   }
 
   Widget _buildAdvancedOptions() {
+    // Define payment method options
+    final List<Map<String, dynamic>> paymentMethodOptions = [
+      {'value': 'cash', 'label': 'Cash'},
+      {'value': 'card', 'label': 'Card'},
+      {'value': 'bank', 'label': 'Bank Transfer'},
+      {'value': 'mobile', 'label': 'Mobile Money'},
+    ];
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -861,41 +851,22 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
           ),
         ),
         const SizedBox(height: 12),
-        DropdownButtonFormField<PaymentMethod>(
-      value: _selectedPaymentMethod,
-      items: PaymentMethod.values.map((PaymentMethod method) {
-        String label;
-        
-        switch (method) {
-          case PaymentMethod.cash:
-            label = 'Cash';
-            break;
-          case PaymentMethod.card:
-            label = 'Card';
-            break;
-          case PaymentMethod.bank:
-            label = 'Bank Transfer';
-            break;
-          case PaymentMethod.mobile:
-            label = 'Mobile Money';
-            break;
-          default:
-            label = method.toString().split('.').last;
-        }
-        
-        return DropdownMenuItem<PaymentMethod>(
-          value: method,
-          child: Text(label),
-        );
-      }).toList(),
-      onChanged: (PaymentMethod? value) {
-        if (value != null) {
-          setState(() {
-            _selectedPaymentMethod = value;
-          });
-        }
-      },
-    ),
+        DropdownButtonFormField<String>(
+          value: _selectedPaymentMethod,
+          items: paymentMethodOptions.map((option) {
+            return DropdownMenuItem<String>(
+              value: option['value'],
+              child: Text(option['label']),
+            );
+          }).toList(),
+          onChanged: (String? value) {
+            if (value != null) {
+              setState(() {
+                _selectedPaymentMethod = value;
+              });
+            }
+          },
+        ),
       ],
     );
   }

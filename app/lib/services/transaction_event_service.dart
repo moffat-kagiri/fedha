@@ -135,10 +135,10 @@ class TransactionEventService extends ChangeNotifier {
       return;
     }
 
-    _logger.info('Processing new transaction: ${transaction.transactionType} - ${transaction.amountMinor}');
+    _logger.info('Processing new transaction: ${transaction.type} - ${transaction.amountMinor}');
 
     // Update budgets for expense transactions
-    if (transaction.transactionType == 'expense' || transaction.isExpense == true) {
+    if (transaction.type == 'expense' || transaction.isExpense == true) {
       await _updateBudgetSpending(
         transaction: transaction,
         isAddition: true,
@@ -146,7 +146,7 @@ class TransactionEventService extends ChangeNotifier {
     }
 
     // Update savings budget for all savings transactions
-    if (transaction.transactionType == 'savings') {
+    if (transaction.type == 'savings') {
       await _updateSavingsBudget(transaction, isAddition: true);
       
       // Also update goal progress if linked to a goal
@@ -171,7 +171,7 @@ class TransactionEventService extends ChangeNotifier {
   }
 
   Future<void> _handleTransactionDeleted(Transaction transaction) async {
-    if (transaction.transactionType == 'expense' || transaction.isExpense == true) {
+    if (transaction.type == 'expense' || transaction.isExpense == true) {
       await _updateBudgetSpending(
         transaction: transaction,
         isAddition: false,
@@ -179,7 +179,7 @@ class TransactionEventService extends ChangeNotifier {
     }
 
     // Update savings budget when savings transactions are deleted
-    if (transaction.transactionType == 'savings') {
+    if (transaction.type == 'savings') {
       await _updateSavingsBudget(transaction, isAddition: false);
       
       if (transaction.goalId != null && transaction.goalId!.isNotEmpty) {
@@ -323,8 +323,8 @@ class TransactionEventService extends ChangeNotifier {
         final updatedTransaction = Transaction(
           id: transaction.id,
           profileId: transaction.profileId,
-          amountMinor: transaction.amountMinor,
-          transactionType: transaction.transactionType,
+          amount: transaction.amountMinor / 100.0, // Convert to amount (major units)
+          type: transaction.type,
           isExpense: transaction.isExpense,
           category: transaction.category,
           description: transaction.description,
@@ -438,7 +438,7 @@ class TransactionEventService extends ChangeNotifier {
 
       // Re-apply all transactions to their assigned categories
       for (final transaction in transactions.where((t) => 
-        t.transactionType == 'expense' || t.isExpense == true
+        t.type == 'expense' || t.isExpense == true
       )) {
         await _updateBudgetSpending(
           transaction: transaction,
@@ -473,7 +473,7 @@ class TransactionEventService extends ChangeNotifier {
           : goal.currentAmount - amount;
 
       final isCompleted = newCurrentAmount >= goal.targetAmount;
-      final newStatus = isCompleted ? 'completed' : goal.status;
+      final newStatus = isCompleted ? GoalStatus.completed : goal.status;
 
       final updatedGoal = goal.copyWith(
         currentAmount: newCurrentAmount.clamp(0.0, goal.targetAmount),
@@ -487,7 +487,7 @@ class TransactionEventService extends ChangeNotifier {
       
       _logger.info('✅ Goal updated: ${goal.name} - progress: ${updatedGoal.progressPercentage.toStringAsFixed(1)}%');
       
-      if (isCompleted && goal.status != 'completed') {
+      if (isCompleted && goal.status != GoalStatus.completed) {
         _logger.info('🎉 Goal completed: ${goal.name}');
       }
       
@@ -507,7 +507,7 @@ class TransactionEventService extends ChangeNotifier {
 
       final allTransactions = await _offlineDataService!.getAllTransactions(goal.profileId);
       final goalTransactions = allTransactions.where((tx) =>
-        tx.transactionType == 'savings' && tx.goalId == goalId
+        tx.type == 'savings' && tx.goalId == goalId
       ).toList();
 
       final totalSavings = goalTransactions.fold<double>(
@@ -520,7 +520,7 @@ class TransactionEventService extends ChangeNotifier {
         
         final updatedGoal = goal.copyWith(
           currentAmount: totalSavings.clamp(0.0, goal.targetAmount),
-          status: isCompleted ? 'completed' : goal.status,
+          status: isCompleted ? GoalStatus.completed : goal.status,
           completedDate: isCompleted ? DateTime.now() : goal.completedDate,
           updatedAt: DateTime.now(),
           isSynced: false,
@@ -544,7 +544,7 @@ class TransactionEventService extends ChangeNotifier {
     if (_offlineDataService != null) {
       final goals = await _offlineDataService!.getAllGoals(profileId);
       for (final goal in goals) {
-        if (goal.status == 'active') {
+        if (goal.status == GoalStatus.active) {
           await _recalculateGoalProgress(goal.id!);
         }
       }
@@ -562,13 +562,13 @@ class TransactionEventService extends ChangeNotifier {
       
       // Clear all budget category assignments by creating new transaction objects
       for (final transaction in transactions.where((t) => 
-        t.transactionType == 'expense' || t.isExpense == true
+        t.type == 'expense' || t.isExpense == true
       )) {
         final updatedTransaction = Transaction(
           id: transaction.id,
           profileId: transaction.profileId,
-          amountMinor: transaction.amountMinor,
-          transactionType: transaction.transactionType,
+          amount: transaction.amountMinor / 100.0, // Convert to amount (major units)
+          type: transaction.type,
           isExpense: transaction.isExpense,
           category: transaction.category,
           description: transaction.description,
@@ -610,8 +610,8 @@ class TransactionEventService extends ChangeNotifier {
       final updatedTransaction = Transaction(
         id: transaction.id,
         profileId: transaction.profileId,
-        amountMinor: transaction.amountMinor,
-        transactionType: transaction.transactionType,
+        amount: transaction.amountMinor / 100.0, // Convert to amount (major units)
+        type: transaction.type,
         isExpense: transaction.isExpense,
         category: transaction.category,
         description: transaction.description,

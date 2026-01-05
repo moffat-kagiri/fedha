@@ -13,7 +13,7 @@ Budget _$BudgetFromJson(Map<String, dynamic> json) => Budget(
   description: json['description'] as String?,
   budgetAmount: (json['budgetAmount'] as num).toDouble(),
   spentAmount: (json['spentAmount'] as num?)?.toDouble() ?? 0.0,
-  categoryId: json['categoryId'] as String,
+  category: json['category'] as String,
   profileId: json['profileId'] as String,
   period: json['period'] as String? ?? 'monthly',
   isSynced: json['isSynced'] as bool? ?? false,
@@ -26,6 +26,7 @@ Budget _$BudgetFromJson(Map<String, dynamic> json) => Budget(
   updatedAt: json['updatedAt'] == null
       ? null
       : DateTime.parse(json['updatedAt'] as String),
+  currency: json['currency'] as String? ?? 'KES',
 );
 
 Map<String, dynamic> _$BudgetToJson(Budget instance) => <String, dynamic>{
@@ -35,7 +36,7 @@ Map<String, dynamic> _$BudgetToJson(Budget instance) => <String, dynamic>{
   'description': instance.description,
   'budgetAmount': instance.budgetAmount,
   'spentAmount': instance.spentAmount,
-  'categoryId': instance.categoryId,
+  'category': instance.category,
   'profileId': instance.profileId,
   'period': instance.period,
   'startDate': instance.startDate.toIso8601String(),
@@ -44,4 +45,5 @@ Map<String, dynamic> _$BudgetToJson(Budget instance) => <String, dynamic>{
   'createdAt': instance.createdAt.toIso8601String(),
   'updatedAt': instance.updatedAt.toIso8601String(),
   'isSynced': instance.isSynced,
+  'currency': instance.currency,
 };

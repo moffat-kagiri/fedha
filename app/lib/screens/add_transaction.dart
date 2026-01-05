@@ -20,7 +20,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   final _amountController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _notesController = TextEditingController();
-  TransactionType _selectedType = TransactionType.expense;
+  Type _selectedType = Type.expense;
   TransactionCategory _selectedCategory = TransactionCategory.other;
   DateTime _selectedDate = DateTime.now();
   Goal? _selectedGoal;
@@ -41,7 +41,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   }
 
   void _onDescriptionChanged() {
-    if (_selectedType == TransactionType.savings &&
+    if (_selectedType == Type.savings &&
         _descriptionController.text.isNotEmpty) {
       _updateSuggestedGoals();
     }
@@ -73,7 +73,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       final tempTransaction = Transaction(
         amount: double.tryParse(_amountController.text) ?? 0.0,
         type: _selectedType,
-        categoryId: _selectedCategory.toString().split('.').last,
+        category: _selectedCategory.toString().split('.').last,
         profileId: profileId,
         description: _descriptionController.text,
         date: _selectedDate,
@@ -98,10 +98,10 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
           child: ListView(
             children: [
               // Type selector
-              DropdownButtonFormField<TransactionType>(
+              DropdownButtonFormField<Type>(
                 value: _selectedType,
                 items:
-                    TransactionType.values.map((type) {
+                    Type.values.map((type) {
                       return DropdownMenuItem(
                         value: type,
                         child: Text(type.toString().split('.').last),
@@ -112,7 +112,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                     _selectedType = value!;
                     _selectedGoal = null; // Reset goal when type changes
                   });
-                  if (value == TransactionType.savings) {
+                  if (value == Type.savings) {
                     _loadGoals();
                   }
                 },
@@ -177,7 +177,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
               const SizedBox(height: 16),
 
               // Goal selection for savings transactions
-              if (_selectedType == TransactionType.savings) ...[
+              if (_selectedType == Type.savings) ...[
                 // Show suggested goals if available
                 if (_suggestedGoals.isNotEmpty) ...[
                   const Text(
@@ -331,20 +331,20 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       // Create the transaction object first
       Transaction transaction;
 
-      if (_selectedType == TransactionType.savings && _selectedGoal?.id != null) {
+      if (_selectedType == Type.savings && _selectedGoal?.id != null) {
         // Use the goal transaction service for savings
         transaction = await _goalService.createSavingsTransaction(
           amount: double.parse(_amountController.text),
           goalId: _selectedGoal!.id,
           description: _descriptionController.text.isEmpty ? null : _descriptionController.text,
-          categoryId: _selectedCategory.toString().split('.').last,
+          category: _selectedCategory.toString().split('.').last,
         );
       } else {
         // Regular transaction creation
         transaction = Transaction(
           amount: double.parse(_amountController.text),
           type: _selectedType,
-          categoryId: _selectedCategory.toString().split('.').last,
+          category: _selectedCategory.toString().split('.').last,
           category: _selectedCategory,
           date: _selectedDate,
           description:
@@ -361,7 +361,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       // Now handle the UI updates if still mounted
       if (mounted) {
         // Create the success message
-        final successMessage = _selectedType == TransactionType.savings && _selectedGoal != null
+        final successMessage = _selectedType == Type.savings && _selectedGoal != null
             ? 'Transaction saved and added to ${_selectedGoal!.name}'
             : 'Transaction saved successfully';
             

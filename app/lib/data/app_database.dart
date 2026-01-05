@@ -16,7 +16,7 @@ class Transactions extends Table {
   // Core transaction fields
   RealColumn get amountMinor => real().map(const _DecimalConverter())();
   TextColumn get currency => text().withDefault(const Constant('KES'))();
-  TextColumn get transactionType => text().withDefault(const Constant('expense'))();
+  TextColumn get type => text().withDefault(const Constant('expense'))();
   TextColumn get description => text().withDefault(const Constant(''))();
   
   // Category stored as string (not FK)
@@ -36,7 +36,7 @@ class Transactions extends Table {
   IntColumn get profileId => integer()();
   
   // Budget category (string)
-  TextColumn get budgetCategoryId => text().nullable()();
+  TextColumn get budgetCategory => text().nullable()();
   
   // Additional fields
   TextColumn get paymentMethod => text().nullable()();
@@ -110,7 +110,7 @@ class PendingTransactions extends Table {
   BoolColumn get isExpense => boolean().withDefault(const Constant(true))();
   TextColumn get rawSms => text().nullable()();
   IntColumn get profileId => integer()();
-  TextColumn get transactionType => text().withDefault(const Constant('expense'))();
+  TextColumn get type => text().withDefault(const Constant('expense'))();
   TextColumn get category => text().withDefault(const Constant(''))();
   
   @override
@@ -193,7 +193,7 @@ class AppDatabase extends _$AppDatabase {
           // Add new transaction fields
           await m.addColumn(transactions, transactions.category);
           await m.addColumn(transactions, transactions.goalId);
-          await m.addColumn(transactions, transactions.budgetCategoryId);
+          await m.addColumn(transactions, transactions.budgetCategory);
           await m.addColumn(transactions, transactions.paymentMethod);
           await m.addColumn(transactions, transactions.merchantName);
           await m.addColumn(transactions, transactions.merchantCategory);
@@ -219,7 +219,7 @@ class AppDatabase extends _$AppDatabase {
           await m.addColumn(loans, loans.updatedAt);
           
           // Add new pending transaction fields
-          await m.addColumn(pendingTransactions, pendingTransactions.transactionType);
+          await m.addColumn(pendingTransactions, pendingTransactions.type);
           await m.addColumn(pendingTransactions, pendingTransactions.category);
           
           // Migrate existing data
@@ -265,7 +265,7 @@ class AppDatabase extends _$AppDatabase {
       
       for (final goal in allGoals) {
         final goalTransactions = allTransactions.where((tx) =>
-          tx.transactionType.contains('savings') &&
+          tx.type.contains('savings') &&
           tx.goalId == goal.id.toString()
         );
         

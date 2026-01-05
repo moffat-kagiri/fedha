@@ -10,13 +10,13 @@ class Transaction {
   String? id; // Local unique identifier
   String? remoteId; // PostgreSQL backend ID (nullable until synced)
   double amount;
-  @JsonKey(name: 'transaction_type')
-  String transactionType; // 'income', 'expense', 'savings', 'transfer'
+  @JsonKey(name: 'type')
+  String type; // 'income', 'expense', 'savings', 'transfer'
   String category; // Category name as string
   DateTime date;
   DateTime createdAt;
-  @JsonKey(name: 'budget_category_id')
-  String? budgetCategoryId; // Budget category as string
+  @JsonKey(name: 'budget_category')
+  String? budgetCategory; // Budget category as string
   String? notes;
   String? description;
   bool isSynced;
@@ -43,11 +43,11 @@ class Transaction {
     String? id,
     this.remoteId,
     required this.amount,
-    required this.transactionType,
+    required this.type,
     required this.category,
     required this.date,
     DateTime? createdAt,
-    this.budgetCategoryId,
+    this.budgetCategory,
     this.notes,
     this.description,
     this.isSynced = false,
@@ -71,11 +71,11 @@ class Transaction {
     this.longitude,
   })  : id = id ?? const Uuid().v4(),
         createdAt = createdAt ?? DateTime.now(),
-        isExpense = isExpense ?? (transactionType == 'expense'),
+        isExpense = isExpense ?? (type == 'expense'),
         updatedAt = updatedAt ?? DateTime.now() {
-    // Initialize budgetCategoryId based on transaction type
-    if (budgetCategoryId == null) {
-      budgetCategoryId = switch (transactionType) {
+    // Initialize budgetCategory based on transaction type
+    if (budgetCategory == null) {
+      budgetCategory = switch (type) {
         'expense' => category.isNotEmpty ? category : 'other',
         'savings' => 'savings',
         _ => null,
@@ -94,11 +94,11 @@ class Transaction {
     String? id,
     String? remoteId,
     double? amount,
-    String? transactionType,
+    String? type,
     String? category,
     DateTime? date,
     DateTime? createdAt,
-    String? budgetCategoryId,
+    String? budgetCategory,
     String? notes,
     String? description,
     bool? isSynced,
@@ -125,11 +125,11 @@ class Transaction {
       id: id ?? this.id,
       remoteId: remoteId ?? this.remoteId,
       amount: amount ?? this.amount,
-      transactionType: transactionType ?? this.transactionType,
+      type: type ?? this.type,
       category: category ?? this.category,
       date: date ?? this.date,
       createdAt: createdAt ?? this.createdAt,
-      budgetCategoryId: budgetCategoryId ?? this.budgetCategoryId,
+      budgetCategory: budgetCategory ?? this.budgetCategory,
       notes: notes ?? this.notes,
       description: description ?? this.description,
       isSynced: isSynced ?? this.isSynced,
@@ -164,7 +164,7 @@ class Transaction {
   factory Transaction.empty() {
     return Transaction(
       amount: 0,
-      transactionType: 'income',
+      type: 'income',
       category: '',
       date: DateTime.now(),
       profileId: '',
@@ -175,6 +175,6 @@ class Transaction {
   @override
   String toString() {
     return 'Transaction(id: $id, remoteId: $remoteId, amount: $amount, '
-        'type: $transactionType, category: $category, date: $date)';
+        'type: $type, category: $category, date: $date)';
   }
 }

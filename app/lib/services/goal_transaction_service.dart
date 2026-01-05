@@ -20,7 +20,7 @@ class GoalTransactionService {
     required double amount,
     String? goalId, // ✅ NOW OPTIONAL
     String? description,
-    String? categoryId,
+    String? category,
     DateTime? date,
     required String profileId, // ✅ ADDED: Need profileId for general savings
   }) async {
@@ -35,18 +35,26 @@ class GoalTransactionService {
       _logger.info('💰 Creating general savings transaction - Amount: $amount');
     }
 
+    // Convert amount to minor units for the transaction
+    final amountMinor = (amount * 100).toInt();
+
     // Create the savings transaction
     final transaction = Transaction(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
-      amount: amount,
-      type: TransactionType.savings,
-      categoryId: categoryId ?? 'savings',
-      date: date ?? DateTime.now(),
+      profileId: profileId,
+      amountMinor: amountMinor,
+      type: 'savings', // ✅ Use string 'savings' instead of Type.savings
+      isExpense: false,
+      category: category ?? 'savings',
       description: description ?? (goalId != null 
           ? 'Savings contribution' 
           : 'General savings'),
+      date: date ?? DateTime.now(),
       goalId: goalId, // ✅ Can be null for general savings
-      profileId: profileId,
+      currency: 'KES',
+      isSynced: false,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
     );
 
     // Save transaction
@@ -63,7 +71,8 @@ class GoalTransactionService {
 
   /// Links a transaction to a goal and updates goal progress
   Future<void> linkTransactionToGoal(Transaction transaction, String goalId) async {
-    if (transaction.type != TransactionType.income && transaction.type != TransactionType.savings) {
+    // Check if transaction is income or savings type
+    if (transaction.type != 'income' && transaction.type != 'savings') {
       return;
     }
 
@@ -72,28 +81,32 @@ class GoalTransactionService {
       throw Exception('Goal not found: $goalId');
     }
 
-    final updatedTransaction = transaction.copyWith(goalId: goalId);
+    final updatedTransaction = transaction.copyWith(
+      goalId: goalId,
+      updatedAt: DateTime.now(),
+      isSynced: false,
+    );
     
     await _offlineService.saveTransaction(updatedTransaction);
     
     final eventService = TransactionEventService.instance;
-    await eventService.onTransactionCreated(updatedTransaction);
+    await eventService.onTransactionUpdated(updatedTransaction);
     
     _logger.info('✅ Transaction linked to goal: ${goal.name}');
   }
 
   /// Unlinks a transaction from a goal
   Future<void> unlinkTransactionFromGoal(String transactionId, String profileId) async {
-    final transactions = await _offlineService.getAllTransactions(profileId);
-    final matches = transactions.where((t) => t.id == transactionId).toList();
-    if (matches.isEmpty) return;
-
-    final transaction = matches.first;
-    if (transaction.goalId == null) return;
+    final transaction = await _offlineService.getTransaction(transactionId);
+    if (transaction == null || transaction.goalId == null) return;
 
     _logger.info('Unlinking transaction from goal: ${transaction.goalId}');
 
-    final updatedTransaction = transaction.copyWith(goalId: null);
+    final updatedTransaction = transaction.copyWith(
+      goalId: null,
+      updatedAt: DateTime.now(),
+      isSynced: false,
+    );
     
     await _offlineService.updateTransaction(updatedTransaction);
     
@@ -113,7 +126,7 @@ class GoalTransactionService {
   Future<List<Transaction>> getGeneralSavings(String profileId) async {
     final all = await _offlineService.getAllTransactions(profileId);
     return all.where((transaction) => 
-      transaction.type == TransactionType.savings && 
+      transaction.type == 'savings' && 
       transaction.goalId == null
     ).toList();
   }
@@ -123,26 +136,30 @@ class GoalTransactionService {
     final generalSavings = await getGeneralSavings(profileId);
     double total = 0.0;
     for (final tx in generalSavings) {
-      total += tx.amount;
+      total += tx.amountMinor / 100.0; // Convert minor units to major units
     }
     return total;
   }
 
   /// Gets suggested goals for a transaction
   Future<List<Goal>> getSuggestedGoalsForTransaction(Transaction transaction) async {
-    if (transaction.type != TransactionType.income && transaction.type != TransactionType.savings) {
+    // Only suggest goals for income or savings transactions
+    if (transaction.type != 'income' && transaction.type != 'savings') {
       return [];
     }
 
     final allGoals = await _offlineService.getAllGoals(transaction.profileId);
-    final activeGoals = allGoals.where((goal) => goal.status == GoalStatus.active && !goal.isCompleted).toList();
+    final activeGoals = allGoals.where((goal) => goal.status == GoalStatus.active).toList();
+
+    // Convert amount to major units for comparison
+    final amountMajor = transaction.amountMinor / 100.0;
 
     return activeGoals.where((goal) {
       final bool isRelevant =
-          (goal.goalType == GoalType.savings && transaction.amount >= 100) ||
-          (goal.goalType == GoalType.investment && transaction.amount >= 500) ||
-          (goal.goalType == GoalType.emergencyFund && transaction.amount >= 200) ||
-          (goal.amountNeeded >= transaction.amount * 0.8);
+          (goal.goalType == GoalType.savings && amountMajor >= 100) ||
+          (goal.goalType == GoalType.investment && amountMajor >= 500) ||
+          (goal.goalType == GoalType.emergencyFund && amountMajor >= 200) ||
+          ((goal.targetAmount - goal.currentAmount) >= amountMajor * 0.8);
 
       return isRelevant;
     }).toList();
@@ -172,26 +189,41 @@ class GoalTransactionService {
 
     _logger.info('Transferring $amount from ${fromGoal.name} to ${toGoal.name}');
 
+    // Convert amount to minor units
+    final amountMinor = (amount * 100).toInt();
+
+    // Withdrawal from source goal (as expense)
     final withdrawalTransaction = Transaction(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
-      amount: amount,
-      type: TransactionType.expense,
-      categoryId: 'goal_transfer',
-      date: DateTime.now(),
-      description: description ?? 'Transfer to ${toGoal.name}',
-      goalId: fromGoalId,
       profileId: fromGoal.profileId,
+      amountMinor: amountMinor,
+      type: 'expense', // ✅ Use string 'expense'
+      isExpense: true,
+      category: 'goal_transfer',
+      description: description ?? 'Transfer to ${toGoal.name}',
+      date: DateTime.now(),
+      goalId: fromGoalId,
+      currency: 'KES',
+      isSynced: false,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
     );
 
+    // Deposit to target goal (as savings)
     final depositTransaction = Transaction(
       id: '${DateTime.now().millisecondsSinceEpoch}_deposit',
-      amount: amount,
-      type: TransactionType.savings,
-      categoryId: 'goal_transfer',
-      date: DateTime.now(),
-      description: description ?? 'Transfer from ${fromGoal.name}',
-      goalId: toGoalId,
       profileId: toGoal.profileId,
+      amountMinor: amountMinor,
+      type: 'savings', // ✅ Use string 'savings'
+      isExpense: false,
+      category: 'goal_transfer',
+      description: description ?? 'Transfer from ${fromGoal.name}',
+      date: DateTime.now(),
+      goalId: toGoalId,
+      currency: 'KES',
+      isSynced: false,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
     );
 
     final eventService = TransactionEventService.instance;
@@ -210,10 +242,11 @@ class GoalTransactionService {
     final goalTransactions = await getTransactionsForGoal(profileId, goalId);
     double total = 0.0;
     for (final transaction in goalTransactions) {
-      if (transaction.type == TransactionType.savings) {
-        total += transaction.amount;
-      } else if (transaction.type == TransactionType.expense) {
-        total -= transaction.amount;
+      final amountMajor = transaction.amountMinor / 100.0;
+      if (transaction.type == 'savings') {
+        total += amountMajor;
+      } else if (transaction.type == 'expense') {
+        total -= amountMajor;
       }
     }
     return total;

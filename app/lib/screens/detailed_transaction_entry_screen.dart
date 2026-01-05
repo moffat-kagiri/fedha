@@ -30,7 +30,7 @@ class _DetailedTransactionEntryScreenState extends State<DetailedTransactionEntr
   final _referenceController = TextEditingController();
   
   late TabController _tabController;
-  TransactionType _selectedType = TransactionType.expense;
+  Type _selectedType = Type.expense;
   String _selectedCategory = '';
   String _selectedSubcategory = '';
   Goal? _selectedGoal;
@@ -43,15 +43,15 @@ class _DetailedTransactionEntryScreenState extends State<DetailedTransactionEntr
   bool _isBusinessExpense = false;
   List<String> _tags = [];
   
-  final Map<TransactionType, Map<String, List<String>>> _categoryStructure = {
-    TransactionType.income: {
+  final Map<Type, Map<String, List<String>>> _categoryStructure = {
+    Type.income: {
       'Employment': ['Salary', 'Bonus', 'Commission', 'Tips', 'Overtime'],
       'Business': ['Revenue', 'Consulting', 'Freelance', 'Partnership'],
       'Investments': ['Dividends', 'Interest', 'Capital Gains', 'Rental Income'],
       'Government': ['Tax Refund', 'Benefits', 'Grants', 'Pension'],
       'Other': ['Gift', 'Loan Received', 'Miscellaneous']
     },
-    TransactionType.expense: {
+    Type.expense: {
       'Housing': ['Rent', 'Mortgage', 'Property Tax', 'Home Insurance', 'Utilities'],
       'Transportation': ['Fuel', 'Public Transport', 'Car Payment', 'Insurance', 'Maintenance'],
       'Food': ['Groceries', 'Restaurants', 'Coffee', 'Snacks', 'Delivery'],
@@ -65,7 +65,7 @@ class _DetailedTransactionEntryScreenState extends State<DetailedTransactionEntr
       'Financial': ['Bank Fees', 'Interest', 'Insurance', 'Taxes', 'Loans'],
       'Other': ['Charity', 'Gifts', 'Miscellaneous', 'Emergency']
     },
-    TransactionType.savings: {
+    Type.savings: {
       'Goals': [], // Will be populated with user goals
     },
   };
@@ -114,7 +114,7 @@ class _DetailedTransactionEntryScreenState extends State<DetailedTransactionEntr
     _selectedType = transaction.type;
     _selectedDate = transaction.date;
     _selectedTime = TimeOfDay.fromDateTime(transaction.date);
-    _selectedCategory = transaction.categoryId;
+    _selectedCategory = transaction.category;
   }
 
   void _updateDefaultCategory() {
@@ -227,7 +227,7 @@ class _DetailedTransactionEntryScreenState extends State<DetailedTransactionEntr
                   ),
                   const SizedBox(height: 16),
                   Row(
-                    children: TransactionType.values.map((type) {
+                    children: Type.values.map((type) {
                       return Expanded(
                         child: GestureDetector(
                           onTap: () {
@@ -855,24 +855,24 @@ class _DetailedTransactionEntryScreenState extends State<DetailedTransactionEntr
     );
   }
 
-  IconData _getTransactionIcon(TransactionType type) {
+  IconData _getTransactionIcon(Type type) {
     switch (type) {
-      case TransactionType.income:
+      case Type.income:
         return Icons.add_circle;
-      case TransactionType.expense:
+      case Type.expense:
         return Icons.remove_circle;
-      case TransactionType.savings:
+      case Type.savings:
         return Icons.savings;
     }
   }
 
-  String _getTransactionLabel(TransactionType type) {
+  String _getTransactionLabel(Type type) {
     switch (type) {
-      case TransactionType.income:
+      case Type.income:
         return 'Income';
-      case TransactionType.expense:
+      case Type.expense:
         return 'Expense';
-      case TransactionType.savings:
+      case Type.savings:
         return 'Savings';
     }
   }
@@ -953,7 +953,7 @@ class _DetailedTransactionEntryScreenState extends State<DetailedTransactionEntr
         uuid: widget.editingTransaction?.uuid ?? DateTime.now().millisecondsSinceEpoch.toString(),
         amount: double.parse(_amountController.text),
         type: _selectedType,
-        categoryId: _selectedSubcategory.isNotEmpty ? _selectedSubcategory : _selectedCategory,
+        category: _selectedSubcategory.isNotEmpty ? _selectedSubcategory : _selectedCategory,
         date: transactionDate,
         description: _descriptionController.text.trim(),
         notes: _notesController.text.trim().isNotEmpty ? _notesController.text.trim() : null,

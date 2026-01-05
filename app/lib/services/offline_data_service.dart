@@ -96,16 +96,16 @@ class OfflineDataService {
     final companion = app_db.TransactionsCompanion.insert(
       amountMinor: tx.amount,
       currency: Value(tx.currency ?? 'KES'),
-      transactionType: Value(tx.transactionType),
+      type: Value(tx.type),
       description: Value(tx.description ?? ''),
       category: Value(tx.category),
       goalId: Value(tx.goalId),
       date: tx.date,
-      isExpense: Value(tx.isExpense ?? (tx.transactionType == 'expense')),
+      isExpense: Value(tx.isExpense ?? (tx.type == 'expense')),
       isPending: Value(tx.isPending),
       rawSms: Value(tx.smsSource),
       profileId: _profileIdToInt(tx.profileId),
-      budgetCategoryId: Value(tx.budgetCategoryId),
+      budgetCategory: Value(tx.budgetCategory),
       paymentMethod: Value(tx.paymentMethod),
       merchantName: Value(tx.merchantName),
       merchantCategory: Value(tx.merchantCategory),
@@ -141,16 +141,16 @@ class OfflineDataService {
       id: Value(txId),
       amountMinor: Value(tx.amount),
       currency: Value(tx.currency ?? 'KES'),
-      transactionType: Value(tx.transactionType),
+      type: Value(tx.type),
       description: Value(tx.description ?? ''),
       category: Value(tx.category),
       goalId: Value(tx.goalId),
       date: Value(tx.date),
-      isExpense: Value(tx.isExpense ?? (tx.transactionType == 'expense')),
+      isExpense: Value(tx.isExpense ?? (tx.type == 'expense')),
       isPending: Value(tx.isPending),
       rawSms: Value(tx.smsSource),
       profileId: Value(_profileIdToInt(tx.profileId)),
-      budgetCategoryId: Value(tx.budgetCategoryId),
+      budgetCategory: Value(tx.budgetCategory),
       paymentMethod: Value(tx.paymentMethod),
       merchantName: Value(tx.merchantName),
       merchantCategory: Value(tx.merchantCategory),
@@ -227,13 +227,13 @@ class OfflineDataService {
       id: r.id.toString(),
       remoteId: r.remoteId,
       amount: r.amountMinor,
-      transactionType: r.transactionType,
+      type: r.type,
       category: r.category,
       description: r.description,
       date: r.date,
       createdAt: r.createdAt,
       updatedAt: r.updatedAt,
-      budgetCategoryId: r.budgetCategoryId,
+      budgetCategory: r.budgetCategory,
       notes: null, // Not stored in DB
       isSynced: r.isSynced,
       profileId: r.profileId.toString(),
@@ -371,7 +371,7 @@ class OfflineDataService {
       isSynced: Value(goal.isSynced),
       remoteId: Value(goal.remoteId),
       createdAt: Value(goal.createdAt),
-      updatedAt: Value(goal.updatedAt),
+      updatedAt: Value(goal.updatedAt ?? DateTime.now()),
     );
     
     final insertedId = await _db.insertGoal(companion);
@@ -490,7 +490,7 @@ class OfflineDataService {
       final allTransactions = await getAllTransactions(profileId);
       
       final goalTransactions = allTransactions.where((tx) =>
-        tx.transactionType == 'savings' &&
+        tx.type == 'savings' &&
         tx.goalId == goalId
       ).toList();
       
@@ -541,8 +541,9 @@ class OfflineDataService {
       isExpense: Value(tx.isExpense ?? true),
       rawSms: Value(tx.smsSource),
       profileId: _profileIdToInt(tx.profileId),
-      transactionType: Value(tx.transactionType),
+      type: Value(tx.type),
       category: Value(tx.category),
+      budgetCategory: Value(tx.budgetCategory),
     );
     
     await _db.insertPending(companion);
@@ -559,7 +560,7 @@ class OfflineDataService {
       id: r.id,
       remoteId: null,
       amount: r.amountMinor,
-      transactionType: r.transactionType,
+      type: r.type,
       category: r.category,
       description: r.description ?? '',
       date: r.date,
@@ -676,7 +677,7 @@ class OfflineDataService {
 
     final threeMonthsAgo = DateTime.now().subtract(const Duration(days: 90));
     final expenses = transactions
-      .where((tx) => tx.transactionType == 'expense' && tx.date.isAfter(threeMonthsAgo))
+      .where((tx) => tx.type == 'expense' && tx.date.isAfter(threeMonthsAgo))
       .map((tx) => tx.amount)
       .toList();
 

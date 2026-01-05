@@ -76,15 +76,15 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       ).toList();
 
       final monthlyIncome = monthlyTransactions
-          .where((t) => t.type == TransactionType.income)
+          .where((t) => t.type == Type.income)
           .fold(0.0, (sum, t) => sum + t.amount);
       
       final monthlyExpenses = monthlyTransactions
-          .where((t) => t.type == TransactionType.expense)
+          .where((t) => t.type == Type.expense)
           .fold(0.0, (sum, t) => sum + t.amount);
       
       final monthlySavings = monthlyTransactions
-          .where((t) => t.type == TransactionType.savings)
+          .where((t) => t.type == Type.savings)
           .fold(0.0, (sum, t) => sum + t.amount);
 
       setState(() {

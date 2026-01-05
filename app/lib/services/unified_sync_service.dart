@@ -213,13 +213,13 @@ class UnifiedSyncService with ChangeNotifier {
       final isExpense = remote['is_expense'] == true;
       
       // Better transaction type handling
-      String transactionType = remote['transaction_type']?.toString() ?? 
+      String type = remote['type']?.toString() ?? 
           remote['type']?.toString() ?? 
           (isExpense ? 'expense' : 'income');
       
       // Ensure valid transaction type
-      if (!['income', 'expense', 'savings', 'transfer'].contains(transactionType)) {
-        transactionType = isExpense ? 'expense' : 'income';
+      if (!['income', 'expense', 'savings', 'transfer'].contains(type)) {
+        type = isExpense ? 'expense' : 'income';
       }
       
       return Transaction(
@@ -227,14 +227,13 @@ class UnifiedSyncService with ChangeNotifier {
         remoteId: remoteId,
         profileId: profileId,
         amount: amount,
-        transactionType: transactionType,
+        type: type,
         isExpense: isExpense,
         category: remote['category']?.toString() ?? '',
         description: remote['description']?.toString() ?? '',
         date: _parseDate(remote['date']) ?? DateTime.now(),
         goalId: remote['goal_id']?.toString(),
-        budgetCategoryId: remote['budget_category_id']?.toString() ?? 
-                         remote['budget_category']?.toString(),
+        budgetCategory: remote['budget_category']?.toString(),
         currency: remote['currency']?.toString() ?? 'KES',
         status: remote['status']?.toString() ?? 'completed',
         isSynced: true,
@@ -258,16 +257,16 @@ class UnifiedSyncService with ChangeNotifier {
     return {
       'profile_id': profileId,
       'amount_minor': t.amountMinor,
-      'transaction_type': t.transactionType,
+      'type': t.type,
       'description': t.description ?? '',
       'category': t.category,
       'goal_id': t.goalId,
       'date': t.date.toIso8601String(),
-      'is_expense': t.isExpense ?? (t.transactionType == 'expense'),
+      'is_expense': t.isExpense ?? (t.type == 'expense'),
       'currency': t.currency ?? 'KES',
       'is_synced': true,
       'status': t.status ?? 'completed',
-      'budget_category_id': t.budgetCategoryId,
+      'budget_category': t.budgetCategory,
       'payment_method': t.paymentMethod,
       'merchant_name': t.merchantName,
       'merchant_category': t.merchantCategory,

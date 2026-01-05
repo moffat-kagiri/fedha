@@ -101,19 +101,19 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
 
       // Create individual budget for each category with an allocation
       int budgetsCreated = 0;
-      for (var category in _budgetCategories) {
-        final categoryId = category['id'] as String;
-        final amount = _categoryBudgets[categoryId] ?? 0.0;
+      for (var categoryData in _budgetCategories) { // ✅ FIX: Renamed variable to avoid conflict
+        final category = categoryData['id'] as String; // ✅ FIX: Use different variable name
+        final amount = _categoryBudgets[category] ?? 0.0;
 
         if (amount > 0) {
           final budget = Budget(
             id: const Uuid().v4(), // ✅ FIX: Use proper UUID instead of timestamp
             remoteId: null, // ✅ FIX: Initialize as null, will be set on sync
-            name: '$_budgetName - ${category['name']}',
-            description: 'Budget for ${category['name']}',
+            name: '$_budgetName - ${categoryData['name']}',
+            description: 'Budget for ${categoryData['name']}',
             budgetAmount: amount,
             spentAmount: 0.0,
-            categoryId: categoryId, // ✅ CRITICAL: Match transaction categoryId
+            category: category, // ✅ FIX: Use category (string), not categoryData (map)
             profileId: profileId,
             startDate: _startDate,
             endDate: _endDate,
@@ -538,13 +538,13 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
           const SizedBox(height: 24),
 
           // Category inputs
-          ..._budgetCategories.map((category) {
+          ..._budgetCategories.map((categoryData) { // ✅ FIX: Renamed to categoryData
             return Padding(
               padding: const EdgeInsets.only(bottom: 16),
               child: TextFormField(
                 decoration: InputDecoration(
-                  labelText: '${category['name']} (KSh)',
-                  prefixIcon: Icon(category['icon'] as IconData, color: colorScheme.primary),
+                  labelText: '${categoryData['name']} (KSh)',
+                  prefixIcon: Icon(categoryData['icon'] as IconData, color: colorScheme.primary),
                   hintText: 'Optional',
                 ),
                 keyboardType: TextInputType.number,
@@ -553,7 +553,7 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
                 ],
                 onChanged: (value) {
                   setState(() {
-                    _categoryBudgets[category['id']] = double.tryParse(value) ?? 0.0;
+                    _categoryBudgets[categoryData['id']] = double.tryParse(value) ?? 0.0;
                   });
                 },
               ),

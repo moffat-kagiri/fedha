@@ -256,19 +256,19 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     var filtered = transactions;
 
     if (_selectedFilter != 'All') {
-      late final TransactionType type;
+      late final Type type;
       switch (_selectedFilter) {
         case 'Income':
-          type = TransactionType.income;
+          type = Type.income;
           break;
         case 'Expense':
-          type = TransactionType.expense;
+          type = Type.expense;
           break;
         case 'Savings':
-          type = TransactionType.savings;
+          type = Type.savings;
           break;
         default:
-          type = TransactionType.income;
+          type = Type.income;
       }
       filtered = filtered.where((t) => t.type == type).toList();
     }
@@ -633,13 +633,13 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
 
   Widget _buildSummaryCards(List<Transaction> transactions, ColorScheme colorScheme, TextTheme textTheme) {
     final income = transactions
-        .where((t) => t.type == TransactionType.income)
+        .where((t) => t.type == Type.income)
         .fold(0.0, (sum, t) => sum + t.amount);
     final expenses = transactions
-        .where((t) => t.type == TransactionType.expense)
+        .where((t) => t.type == Type.expense)
         .fold(0.0, (sum, t) => sum + t.amount);
     final savings = transactions
-        .where((t) => t.type == TransactionType.savings)
+        .where((t) => t.type == Type.savings)
         .fold(0.0, (sum, t) => sum + t.amount);
 
     return Container(
@@ -769,17 +769,17 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     late String prefix;
 
     switch (transaction.type) {
-      case TransactionType.income:
+      case Type.income:
         color = FedhaColors.successGreen;
         icon = Icons.trending_up_rounded;
         prefix = '+';
         break;
-      case TransactionType.expense:
+      case Type.expense:
         color = FedhaColors.errorRed;
         icon = Icons.trending_down_rounded;
         prefix = '-';
         break;
-      case TransactionType.savings:
+      case Type.savings:
         color = FedhaColors.primaryGreen;
         icon = Icons.savings_rounded;
         prefix = '-';

@@ -46,7 +46,7 @@ class _BudgetReviewScreenState extends State<BudgetReviewScreen> {
       _transactions = allTransactions.where((tx) =>
         tx.date.isAfter(widget.budget.startDate.subtract(const Duration(days: 1))) &&
         tx.date.isBefore(widget.budget.endDate.add(const Duration(days: 1))) &&
-        tx.type == TransactionType.expense
+        tx.type == Type.expense
       ).toList();
 
       // Analyze the data
@@ -66,11 +66,11 @@ class _BudgetReviewScreenState extends State<BudgetReviewScreen> {
   BudgetAnalysis _analyzeBudget(List<Transaction> transactions) {
     // Filter transactions by category
     final budgetCategoryTxs = transactions.where((tx) => 
-      tx.categoryId == widget.budget.categoryId
+      tx.category == widget.budget.category
     ).toList();
     
     final otherCategoryTxs = transactions.where((tx) => 
-      tx.categoryId != widget.budget.categoryId
+      tx.category != widget.budget.category
     ).toList();
 
     // Calculate spending
@@ -149,7 +149,7 @@ class _BudgetReviewScreenState extends State<BudgetReviewScreen> {
     final breakdown = <String, double>{};
     
     for (final tx in transactions) {
-      breakdown[tx.categoryId] = (breakdown[tx.categoryId] ?? 0.0) + tx.amount;
+      breakdown[tx.category] = (breakdown[tx.category] ?? 0.0) + tx.amount;
     }
     
     return breakdown;

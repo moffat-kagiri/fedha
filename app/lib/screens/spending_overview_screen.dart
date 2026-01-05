@@ -33,7 +33,7 @@ class _SpendingOverviewScreenState extends State<SpendingOverviewScreen> {
             return const Center(child: CircularProgressIndicator());
           }
           final txs = snapshot.data
-                  ?.where((t) => t.type == TransactionType.expense)
+                  ?.where((t) => t.type == Type.expense)
                   .toList() ?? [];
            
           if (txs.isEmpty) {
@@ -230,7 +230,7 @@ class _SpendingOverviewScreenState extends State<SpendingOverviewScreen> {
         ),
         title: Text(transaction.description ?? 'Unknown'),
         subtitle: Text(
-          transaction.category?.toString() ?? transaction.categoryId ?? 'Uncategorized',
+          transaction.category?.toString() ?? transaction.category ?? 'Uncategorized',
         ),
         trailing: Text(
           'Ksh ${transaction.amount.toStringAsFixed(2)}',

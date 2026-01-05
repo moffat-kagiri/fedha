@@ -22,6 +22,7 @@ class Goal {
   final DateTime? updatedAt;
   final bool isSynced;
   final DateTime? completedDate;
+  final String? currency;
 
   Goal({
     String? id,
@@ -39,6 +40,7 @@ class Goal {
     this.updatedAt,
     this.isSynced = false,
     this.completedDate,
+    this.currency,
   }) : id = id ?? const Uuid().v4(),
         createdAt = createdAt ?? DateTime.now();
   
@@ -110,6 +112,7 @@ class Goal {
     GoalType? goalType,
     String? profileId,
     bool? isSynced,
+    String? currency,
   }) {
     return Goal(
       id: id ?? this.id,
@@ -127,6 +130,7 @@ class Goal {
       goalType: goalType ?? this.goalType,
       profileId: profileId ?? this.profileId,
       isSynced: isSynced ?? this.isSynced,
+      currency: currency ?? this.currency,
     );
   }
 
@@ -141,6 +145,7 @@ class Goal {
       targetDate: DateTime.now(),
       profileId: '',
       isSynced: false,
+      currency: 'KES',
     );
   }
 
