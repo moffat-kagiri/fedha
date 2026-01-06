@@ -14,8 +14,9 @@ import 'package:fedha/models/budget.dart' as dom;
 import '../utils/logger.dart';
 import 'transaction_event_service.dart';
 
+
 class OfflineDataService {
-  late final SharedPreferences _prefs;
+  SharedPreferences? _prefs;  // ✅ Make nullable
   final app_db.AppDatabase _db;
   final _logger = AppLogger.getLogger('OfflineDataService');
   final _uuid = const Uuid();
@@ -26,6 +27,14 @@ class OfflineDataService {
 
   Future<void> initialize() async {
     _prefs = await SharedPreferences.getInstance();
+    _logger.info('✅ OfflineDataService initialized');
+  }
+  
+  // ✅ Add helper to ensure _prefs is initialized
+  void _ensureInitialized() {
+    if (_prefs == null) {
+      throw StateError('OfflineDataService not initialized. Call initialize() first.');
+    }
   }
 
   void setEventService(TransactionEventService eventService) {
@@ -256,11 +265,12 @@ class OfflineDataService {
   // ==================== BUDGETS ====================
 
   Future<void> saveBudget(dom.Budget budget) async {
+    _ensureInitialized();
     _validateProfileId(budget.profileId);
     
     try {
       final budgetsKey = 'budgets_${_profileIdToInt(budget.profileId)}';
-      final existingJson = _prefs.getString(budgetsKey);
+      final existingJson = _prefs!.getString(budgetsKey);
       List<Map<String, dynamic>> budgets = [];
       
       if (existingJson != null) {
@@ -286,10 +296,12 @@ class OfflineDataService {
   }
 
   Future<void> addBudget(dom.Budget budget) async {
+    _ensureInitialized();
     await saveBudget(budget);
   }
 
   Future<List<dom.Budget>> getAllBudgets(String profileId) async {
+    _ensureInitialized();
     _validateProfileId(profileId);
     
     try {
@@ -312,6 +324,7 @@ class OfflineDataService {
   }
 
   Future<dom.Budget?> getCurrentBudget(String profileId) async {
+    _ensureInitialized();
     final budgets = await getAllBudgets(profileId);
     if (budgets.isEmpty) return null;
     
@@ -323,10 +336,12 @@ class OfflineDataService {
   }
 
   Future<void> updateBudget(dom.Budget budget) async {
+    _ensureInitialized();
     await saveBudget(budget);
   }
 
   Future<void> deleteBudget(String budgetId) async {
+    _ensureInitialized();
     try {
       final keys = _prefs.getKeys().where((k) => k.startsWith('budgets_'));
       

@@ -610,27 +610,72 @@ class ApiClient {
     }
   }
 
-  /// ✅ NEW: Create a new budget
   Future<Map<String, dynamic>> createBudget(Map<String, dynamic> budget) async {
     final url = Uri.parse(_config.getEndpoint('api/budgets/'));
     
     try {
       logger.info('POST ${url.toString()}');
       
+      // ✅ Ensure required fields are present
+      final processedBudget = Map<String, dynamic>.from(budget);
+      
+      // Validate required fields
+      if (!processedBudget.containsKey('profile_id') || processedBudget['profile_id'] == null) {
+        throw Exception('profile_id is required');
+      }
+      
+      if (!processedBudget.containsKey('name') || processedBudget['name'] == null) {
+        throw Exception('name is required');
+      }
+      
+      // Convert date fields to ISO strings if needed
+      if (processedBudget['startDate'] is! String) {
+        processedBudget['startDate'] = processedBudget['startDate'].toString();
+      }
+      if (processedBudget['endDate'] is! String) {
+        processedBudget['endDate'] = processedBudget['endDate'].toString();
+      }
+      
+      // Map Flutter field names to backend field names
+      final backendData = {
+        'profile_id': processedBudget['profile_id'] ?? processedBudget['profileId'],
+        'name': processedBudget['name'],
+        'budget_amount': processedBudget['budgetAmount'] ?? processedBudget['budget_amount'],
+        'spent_amount': processedBudget['spentAmount'] ?? processedBudget['spent_amount'] ?? 0.0,
+        'category': processedBudget['category'] ?? '',
+        'start_date': processedBudget['startDate'] ?? processedBudget['start_date'],
+        'end_date': processedBudget['endDate'] ?? processedBudget['end_date'],
+        'period': processedBudget['period'] ?? 'monthly',
+        'is_active': processedBudget['isActive'] ?? processedBudget['is_active'] ?? true,
+        'currency': processedBudget['currency'] ?? 'KES',
+      };
+      
+      logger.info('Sending budget data: $backendData');
+      
       final resp = await _http
           .post(
             url,
             headers: _headers,
-            body: jsonEncode(budget),
+            body: jsonEncode(backendData),
           )
           .timeout(Duration(seconds: _config.timeoutSeconds));
       
-      logger.info('Create budget response: ${resp.statusCode}');
+      logger.info('Create budget response: ${resp.statusCode} - ${resp.body}');
       
       if (resp.statusCode == 201 || resp.statusCode == 200) {
         final data = jsonDecode(resp.body) as Map<String, dynamic>;
         logger.info('✅ Budget created successfully');
         return data;
+      }
+      
+      // Log validation errors
+      if (resp.statusCode == 400) {
+        try {
+          final errorData = jsonDecode(resp.body) as Map<String, dynamic>;
+          logger.warning('Budget validation errors: $errorData');
+        } catch (e) {
+          logger.warning('Budget error body: ${resp.body}');
+        }
       }
       
       return {

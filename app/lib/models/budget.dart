@@ -114,7 +114,28 @@ class Budget {
     );
   }
   
-  Map<String, dynamic> toJson() => _$BudgetToJson(this);
+  Map<String, dynamic> toJson() {
+    final json = _$BudgetToJson(this);
+    
+    // ✅ Ensure profile_id is included for backend
+    if (!json.containsKey('profile_id') && profileId.isNotEmpty) {
+      json['profile_id'] = profileId;
+    }
+    
+    // ✅ Ensure required fields are present
+    json['name'] = name;
+    json['budgetAmount'] = budgetAmount;
+    json['spentAmount'] = spentAmount;
+    json['category'] = category;
+    json['startDate'] = startDate.toIso8601String();
+    json['endDate'] = endDate.toIso8601String();
+    json['period'] = period;
+    json['isActive'] = isActive;
+    json['isSynced'] = isSynced;
+    json['currency'] = currency;
+    
+    return json;
+  }
 
   bool isDateInRange(DateTime date) {
     return !date.isBefore(startDate) && !date.isAfter(endDate);

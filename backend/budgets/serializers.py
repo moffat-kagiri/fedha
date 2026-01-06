@@ -10,20 +10,18 @@ class BudgetSerializer(serializers.ModelSerializer):
     days_remaining = serializers.ReadOnlyField()
     is_current = serializers.ReadOnlyField()
     
-    # ✅ Keep category_name read-only (shows stored string)
     category_name = serializers.CharField(source='category', read_only=True)
     
-    # ✅ Accept category as STRING (no ID lookup needed)
     category = serializers.CharField(
         write_only=True, 
-        required=False, 
+        required=False,  # ✅ Keep as optional
         allow_null=True,
         allow_blank=True,
         max_length=255
     )
     
-    # ✅ Accept profile_id as string
-    profile_id = serializers.CharField(write_only=True, required=False)
+    # ✅ FIX: Accept profile_id as string OR UUID
+    profile_id = serializers.CharField(write_only=True, required=True)  # Changed to required=True
     
     class Meta:
         model = Budget
@@ -42,25 +40,36 @@ class BudgetSerializer(serializers.ModelSerializer):
         ]
     
     def validate(self, attrs):
-        """Validate budget data - simplified for string storage."""
+        """Validate budget data - ensure profile_id is provided."""
         profile_id = attrs.pop('profile_id', None)
         
-        # ✅ Handle frontend sending category_id instead of category
+        # ✅ Require profile_id
+        if not profile_id:
+            raise serializers.ValidationError({
+                'profile_id': 'This field is required'
+            })
+        
+        # Handle frontend sending category_id instead of category
         if 'category_id' in attrs and 'category' not in attrs:
             attrs['category'] = attrs.pop('category_id')
         
-        # Handle profile_id
-        if profile_id:
-            from accounts.models import Profile
+        # Handle profile_id (convert to Profile object)
+        from accounts.models import Profile
+        try:
+            import uuid
+            # Try parsing as UUID first
             try:
-                import uuid
                 uuid_obj = uuid.UUID(profile_id)
                 profile = Profile.objects.get(id=uuid_obj)
-                attrs['profile'] = profile
-            except (ValueError, AttributeError, Profile.DoesNotExist):
-                raise serializers.ValidationError({
-                    'profile_id': f'Profile {profile_id} does not exist'
-                })
+            except (ValueError, AttributeError):
+                # Not a UUID, try as email
+                profile = Profile.objects.get(email=profile_id)
+            
+            attrs['profile'] = profile
+        except Profile.DoesNotExist:
+            raise serializers.ValidationError({
+                'profile_id': f'Profile {profile_id} does not exist'
+            })
         
         # Validate amounts
         budget_amount = attrs.get('budget_amount')
@@ -78,7 +87,6 @@ class BudgetSerializer(serializers.ModelSerializer):
             })
         
         return attrs
-
 
 class BudgetSummarySerializer(serializers.Serializer):
     """Serializer for budget summary."""
