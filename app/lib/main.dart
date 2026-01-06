@@ -118,6 +118,9 @@ void callbackDispatcher() {
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize OfflineDataService FIRST
+  await OfflineDataService().initialize();
 
   Provider.debugCheckInvalidValueType = null;
   AppLogger.init();
@@ -169,8 +172,8 @@ Future<void> _initializeServices() async {
   // ==================== CORE SERVICES ====================
   logger.info('Initializing core services...');
   
-  final offlineDataService = OfflineDataService();
-  await offlineDataService.initialize();
+  final offlineDataService = OfflineDataService(); // This gets singleton
+  //await offlineDataService.initialize(); 
   logger.info('✅ Offline data service initialized');
   
   final biometricAuthService = BiometricAuthService.instance;
@@ -205,7 +208,7 @@ Future<void> _initializeServices() async {
   logger.info('✅ Budget service initialized');
 
   // ==================== TRANSACTION EVENT SERVICE (NEW) ====================
-  final transactionEventService = TransactionEventService.instance;
+  final transactionEventService = TransactionEventService();
   await transactionEventService.initialize(
     offlineDataService: offlineDataService,
     budgetService: budgetService,
@@ -356,8 +359,10 @@ String _extractHost(String url) {
 
 List<SingleChildWidget> _buildProviders() {
   return [
+    Provider<OfflineDataService>.value(
+      value: OfflineDataService(), // Returns the singleton instance
+    ),
     Provider<ApiClient>.value(value: ApiClient.instance),
-    Provider<OfflineDataService>.value(value: OfflineDataService()),
     Provider<conn_svc.ConnectivityService>.value(
       value: conn_svc.ConnectivityService(ApiClient.instance),
     ),
@@ -396,7 +401,7 @@ List<SingleChildWidget> _buildProviders() {
       value: RiskAssessmentService(data_db.AppDatabase()),
     ),
     ChangeNotifierProvider<TransactionEventService>(
-      create: (_) => TransactionEventService.instance,
+      create: (_) => TransactionEventService(),
     ),
     ChangeNotifierProvider<SmsListenerService>.value(
       value: SmsListenerService.instance,

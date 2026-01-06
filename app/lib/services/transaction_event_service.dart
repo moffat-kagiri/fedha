@@ -33,24 +33,30 @@ class TransactionEvent {
 
 /// Service that handles transaction events and triggers updates
 class TransactionEventService extends ChangeNotifier {
-  static TransactionEventService? _instance;
-  static TransactionEventService get instance => _instance ??= TransactionEventService._();
-
+  static final TransactionEventService _instance = TransactionEventService._internal();
+  
+  factory TransactionEventService() => _instance;
+  
+  TransactionEventService._internal(); // Private constructor
+  
   final _logger = AppLogger.getLogger('TransactionEventService');
   final _eventController = StreamController<TransactionEvent>.broadcast();
   
   OfflineDataService? _offlineDataService;
   BudgetService? _budgetService;
   String? _currentProfileId;
-
-  TransactionEventService._();
-
+  
   Stream<TransactionEvent> get eventStream => _eventController.stream;
 
   Future<void> initialize({
     required OfflineDataService offlineDataService,
     required BudgetService budgetService,
   }) async {
+    // Prevent re-initialization if already done
+    if (_offlineDataService != null && _budgetService != null) {
+      return;
+    }
+    
     _offlineDataService = offlineDataService;
     _budgetService = budgetService;
     

@@ -83,6 +83,7 @@ enum Type {
   income,
   expense,
   savings,
+  transfer,
 }
 
 enum PaymentMethod {

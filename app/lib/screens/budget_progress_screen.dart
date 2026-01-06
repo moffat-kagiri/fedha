@@ -40,8 +40,11 @@ class _BudgetProgressScreenState extends State<BudgetProgressScreen>
     final eventService = Provider.of<TransactionEventService>(context, listen: false);
     
     _eventSubscription = eventService.eventStream.listen((event) {
-      if (event.transaction.type == Type.expense) {
-        _loadData(); // Refresh when expenses change
+      final type = event.transaction.type.toLowerCase();
+      
+      // Listen for both expense AND savings transactions
+      if (type == 'expense' || type == 'savings') {
+        _loadData(); // Refresh when expenses or savings change
       }
     });
   }
@@ -106,9 +109,9 @@ class _BudgetProgressScreenState extends State<BudgetProgressScreen>
     final prefs = await SharedPreferences.getInstance();
     final Map<String, double> unbudgeted = {};
     
-    // ✅ FIX: Use consistent category ID normalization
+    // ✅ FIX: Include savings in categories
     final categories = ['food', 'transport', 'utilities', 'shopping', 
-                       'entertainment', 'healthcare', 'education', 'savings', 'other'];
+                      'entertainment', 'healthcare', 'education', 'savings', 'other'];
 
     for (final category in categories) {
       // ✅ FIX: Normalize category ID format (lowercase, underscores)

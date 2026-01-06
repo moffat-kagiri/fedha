@@ -20,7 +20,7 @@ class TransactionOperations {
       _logger.info('✅ Transaction created: ${transaction.id}');
       
       // ❌ REMOVED: Duplicate event emission
-      // await TransactionEventService.instance.onTransactionCreated(transaction);
+      // await TransactionEventService();.onTransactionCreated(transaction);
       
       return true;
     } catch (e, stackTrace) {
@@ -41,7 +41,7 @@ class TransactionOperations {
       _logger.info('✅ Transaction updated: ${transaction.id}');
       
       // ❌ REMOVED: Duplicate event emission
-      // await TransactionEventService.instance.onTransactionUpdated(transaction);
+      // await TransactionEventService();.onTransactionUpdated(transaction);
       
       return true;
     } catch (e, stackTrace) {
@@ -62,7 +62,7 @@ class TransactionOperations {
       _logger.info('✅ Transaction deleted: ${transaction.id}');
       
       // ❌ REMOVED: Duplicate event emission
-      // await TransactionEventService.instance.onTransactionDeleted(transaction);
+      // await TransactionEventService();.onTransactionDeleted(transaction);
       
       return true;
     } catch (e, stackTrace) {
@@ -88,7 +88,7 @@ class TransactionOperations {
       _logger.info('✅ Pending transaction approved: ${confirmedTransaction.id}');
       
       // ❌ REMOVED: Duplicate event emission
-      // await TransactionEventService.instance.onTransactionApproved(confirmedTransaction);
+      // await TransactionEventService();.onTransactionApproved(confirmedTransaction);
       
       return true;
     } catch (e, stackTrace) {

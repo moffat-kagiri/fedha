@@ -61,7 +61,7 @@ class GoalTransactionService {
     await _offlineService.saveTransaction(transaction);
     
     // Emit event - this will update goal if goalId is provided
-    final eventService = TransactionEventService.instance;
+    final eventService = TransactionEventService();;
     await eventService.onTransactionCreated(transaction);
     
     _logger.info('✅ Savings transaction saved - Event system will update goal if linked');
@@ -89,7 +89,7 @@ class GoalTransactionService {
     
     await _offlineService.saveTransaction(updatedTransaction);
     
-    final eventService = TransactionEventService.instance;
+    final eventService = TransactionEventService();;
     await eventService.onTransactionUpdated(updatedTransaction);
     
     _logger.info('✅ Transaction linked to goal: ${goal.name}');
@@ -110,7 +110,7 @@ class GoalTransactionService {
     
     await _offlineService.updateTransaction(updatedTransaction);
     
-    final eventService = TransactionEventService.instance;
+    final eventService = TransactionEventService();;
     await eventService.onTransactionUpdated(updatedTransaction);
     
     _logger.info('✅ Transaction unlinked - Event system will recalculate goal');
@@ -226,7 +226,7 @@ class GoalTransactionService {
       updatedAt: DateTime.now(),
     );
 
-    final eventService = TransactionEventService.instance;
+    final eventService = TransactionEventService();;
     
     await _offlineService.saveTransaction(withdrawalTransaction);
     await eventService.onTransactionCreated(withdrawalTransaction);
@@ -273,7 +273,7 @@ class GoalTransactionService {
 
   /// Recalculate goal amount from transactions
   Future<void> recalculateGoalAmount(String goalId, String profileId) async {
-    final eventService = TransactionEventService.instance;
+    final eventService = TransactionEventService();;
     await eventService.recalculateAll(profileId);
   }
 }

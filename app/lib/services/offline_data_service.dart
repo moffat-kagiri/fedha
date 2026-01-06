@@ -14,26 +14,36 @@ import 'package:fedha/models/budget.dart' as dom;
 import '../utils/logger.dart';
 import 'transaction_event_service.dart';
 
-
+ /// Service to manage offline data storage and retrieval
 class OfflineDataService {
-  SharedPreferences? _prefs;  // ✅ Make nullable
+  static OfflineDataService? _instance;
+  
   final app_db.AppDatabase _db;
   final _logger = AppLogger.getLogger('OfflineDataService');
   final _uuid = const Uuid();
   
+  SharedPreferences? _prefs;
   TransactionEventService? _eventService;
-
-  OfflineDataService({app_db.AppDatabase? db}) : _db = db ?? app_db.AppDatabase();
+  
+  // Factory constructor with optional database parameter
+  factory OfflineDataService({app_db.AppDatabase? db}) {
+    _instance ??= OfflineDataService._internal(db: db);
+    return _instance!;
+  }
+  
+  // Private internal constructor
+  OfflineDataService._internal({app_db.AppDatabase? db}) 
+      : _db = db ?? app_db.AppDatabase();
 
   Future<void> initialize() async {
+    if (_prefs != null) return; // Already initialized
     _prefs = await SharedPreferences.getInstance();
     _logger.info('✅ OfflineDataService initialized');
   }
-  
-  // ✅ Add helper to ensure _prefs is initialized
-  void _ensureInitialized() {
+
+  Future<void> ensureInitialized() async {
     if (_prefs == null) {
-      throw StateError('OfflineDataService not initialized. Call initialize() first.');
+      await initialize();
     }
   }
 
@@ -42,11 +52,25 @@ class OfflineDataService {
     _logger.info('TransactionEventService linked to OfflineDataService');
   }
 
-  bool get onboardingComplete => _prefs.getBool('onboarding_complete') ?? false;
-  set onboardingComplete(bool v) => _prefs.setBool('onboarding_complete', v);
+  bool get onboardingComplete {
+    // _prefs should never be null if initialize() was called
+    return _prefs!.getBool('onboarding_complete') ?? false;
+  }
 
-  bool get darkMode => _prefs.getBool('dark_mode') ?? false;
-  set darkMode(bool v) => _prefs.setBool('dark_mode', v);
+  set onboardingComplete(bool v) {
+    _prefs!.setBool('onboarding_complete', v);
+  }
+  bool get darkMode {
+    return _prefs?.getBool('dark_mode') ?? false;
+  }
+
+  set darkMode(bool v) {
+    if (_prefs == null) {
+      _logger.warning('Setting darkMode before initialization');
+      return;
+    }
+    _prefs!.setBool('dark_mode', v);
+  }
 
   int _profileIdToInt(String profileId) {
     final parsed = int.tryParse(profileId);
@@ -265,7 +289,7 @@ class OfflineDataService {
   // ==================== BUDGETS ====================
 
   Future<void> saveBudget(dom.Budget budget) async {
-    _ensureInitialized();
+    await ensureInitialized();
     _validateProfileId(budget.profileId);
     
     try {
@@ -287,7 +311,7 @@ class OfflineDataService {
         budgets.add(budgetJson);
       }
       
-      await _prefs.setString(budgetsKey, jsonEncode(budgets));
+      await _prefs!.setString(budgetsKey, jsonEncode(budgets));
       _logger.info('Budget saved: ${budget.name}');
     } catch (e) {
       _logger.severe('Error saving budget: $e');
@@ -296,17 +320,17 @@ class OfflineDataService {
   }
 
   Future<void> addBudget(dom.Budget budget) async {
-    _ensureInitialized();
+    await ensureInitialized();
     await saveBudget(budget);
   }
 
   Future<List<dom.Budget>> getAllBudgets(String profileId) async {
-    _ensureInitialized();
+    await ensureInitialized();
     _validateProfileId(profileId);
     
     try {
       final budgetsKey = 'budgets_${_profileIdToInt(profileId)}';
-      final existingJson = _prefs.getString(budgetsKey);
+      final existingJson = _prefs!.getString(budgetsKey);
       
       if (existingJson == null) return [];
       
@@ -324,7 +348,7 @@ class OfflineDataService {
   }
 
   Future<dom.Budget?> getCurrentBudget(String profileId) async {
-    _ensureInitialized();
+    await ensureInitialized();
     final budgets = await getAllBudgets(profileId);
     if (budgets.isEmpty) return null;
     
@@ -336,17 +360,17 @@ class OfflineDataService {
   }
 
   Future<void> updateBudget(dom.Budget budget) async {
-    _ensureInitialized();
+    await ensureInitialized();
     await saveBudget(budget);
   }
 
   Future<void> deleteBudget(String budgetId) async {
-    _ensureInitialized();
+    await ensureInitialized();
     try {
-      final keys = _prefs.getKeys().where((k) => k.startsWith('budgets_'));
+      final keys = _prefs!.getKeys().where((k) => k.startsWith('budgets_'));
       
       for (final key in keys) {
-        final existingJson = _prefs.getString(key);
+        final existingJson = _prefs!.getString(key);
         if (existingJson == null) continue;
         
         final decoded = jsonDecode(existingJson) as List;
@@ -356,7 +380,7 @@ class OfflineDataService {
         budgets.removeWhere((b) => b['id'] == budgetId);
         
         if (budgets.length < originalLength) {
-          await _prefs.setString(key, jsonEncode(budgets));
+          await _prefs!.setString(key, jsonEncode(budgets));
           _logger.info('Budget deleted: $budgetId');
           return;
         }
@@ -756,7 +780,7 @@ class OfflineDataService {
 
   Future<int> getPendingTransactionCountFast(String profileId) async {
     try {
-      return _prefs.getInt('pending_transaction_count_$profileId') ?? 0;
+      return _prefs!.getInt('pending_transaction_count_$profileId') ?? 0;
     } catch (e) {
       return await getPendingTransactionCount(profileId);
     }
@@ -765,7 +789,7 @@ class OfflineDataService {
   Future<void> updatePendingTransactionCount(String profileId) async {
     try {
       final pending = await getPendingTransactions(profileId);
-      await _prefs.setInt('pending_transaction_count_$profileId', pending.length);
+      await _prefs!.setInt('pending_transaction_count_$profileId', pending.length);
     } catch (e) {
       _logger.warning('Error updating pending transaction count: $e');
     }

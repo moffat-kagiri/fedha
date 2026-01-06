@@ -255,20 +255,21 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
   List<Transaction> _filterTransactions(List<Transaction> transactions) {
     var filtered = transactions;
 
+    // Line 207 in _filterTransactions method:
     if (_selectedFilter != 'All') {
-      late final Type type;
+      String type = '';
       switch (_selectedFilter) {
         case 'Income':
-          type = Type.income;
+          type = 'income';
           break;
         case 'Expense':
-          type = Type.expense;
+          type = 'expense';
           break;
         case 'Savings':
-          type = Type.savings;
+          type = 'savings';
           break;
         default:
-          type = Type.income;
+          type = 'income';
       }
       filtered = filtered.where((t) => t.type == type).toList();
     }
@@ -633,13 +634,13 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
 
   Widget _buildSummaryCards(List<Transaction> transactions, ColorScheme colorScheme, TextTheme textTheme) {
     final income = transactions
-        .where((t) => t.type == Type.income)
+        .where((t) => t.type.toLowerCase() == 'income')
         .fold(0.0, (sum, t) => sum + t.amount);
     final expenses = transactions
-        .where((t) => t.type == Type.expense)
+        .where((t) => t.type.toLowerCase() == 'expense')
         .fold(0.0, (sum, t) => sum + t.amount);
     final savings = transactions
-        .where((t) => t.type == Type.savings)
+        .where((t) => t.type.toLowerCase() == 'savings')
         .fold(0.0, (sum, t) => sum + t.amount);
 
     return Container(
@@ -764,25 +765,31 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
   }
 
   Widget _buildTransactionCard(Transaction transaction, ColorScheme colorScheme, TextTheme textTheme) {
-    late Color color;
-    late IconData icon;
-    late String prefix;
+    // Change from enum switch to string comparison
+    Color color = Colors.grey;
+    IconData icon = Icons.receipt_long_rounded;
+    String prefix = '';
 
-    switch (transaction.type) {
-      case Type.income:
+    switch (transaction.type.toLowerCase()) { // Convert to lowercase for consistency
+      case 'income':
         color = FedhaColors.successGreen;
         icon = Icons.trending_up_rounded;
         prefix = '+';
         break;
-      case Type.expense:
+      case 'expense':
         color = FedhaColors.errorRed;
         icon = Icons.trending_down_rounded;
         prefix = '-';
         break;
-      case Type.savings:
+      case 'savings':
         color = FedhaColors.primaryGreen;
         icon = Icons.savings_rounded;
         prefix = '-';
+        break;
+      default:
+        color = Colors.grey;
+        icon = Icons.receipt_long_rounded;
+        prefix = '';
         break;
     }
 
