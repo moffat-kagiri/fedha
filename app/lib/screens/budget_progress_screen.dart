@@ -49,11 +49,6 @@ class _BudgetProgressScreenState extends State<BudgetProgressScreen>
     });
   }
 
-  /// ✅ FIX: Normalize category IDs to consistent format
-  String _normalizeCategoryId(String category) {
-    return category.toLowerCase().replaceAll(' ', '_').replaceAll('-', '_');
-  }
-
   @override
   void dispose() {
     _eventSubscription?.cancel();
@@ -105,21 +100,28 @@ class _BudgetProgressScreenState extends State<BudgetProgressScreen>
     }
   }
 
+  /// ✅ FIX: Normalize category IDs to consistent format
+  String _normalizeCategoryId(String category) {
+    return category.toLowerCase().replaceAll(' ', '_').replaceAll('-', '_');
+  }
+
   Future<Map<String, double>> _loadUnbudgetedSpending(String profileId) async {
     final prefs = await SharedPreferences.getInstance();
     final Map<String, double> unbudgeted = {};
     
-    // ✅ FIX: Include savings in categories
-    final categories = ['food', 'transport', 'utilities', 'shopping', 
-                      'entertainment', 'healthcare', 'education', 'savings', 'other'];
-
-    for (final category in categories) {
-      // ✅ FIX: Normalize category ID format (lowercase, underscores)
-      final normalizedCategory = _normalizeCategoryId(category);
-      final key = 'unbudgeted_${profileId}_$normalizedCategory';
-      final amount = prefs.getDouble(key) ?? 0.0;
-      if (amount > 0) {
-        unbudgeted[normalizedCategory] = amount;
+    // ✅ FIX: Get all keys for this profile
+    final allKeys = prefs.getKeys();
+    final unbudgetedPrefix = 'unbudgeted_${profileId}_';
+    
+    for (final key in allKeys) {
+      if (key.startsWith(unbudgetedPrefix)) {
+        final categoryKey = key.substring(unbudgetedPrefix.length);
+        final amount = prefs.getDouble(key) ?? 0.0;
+        if (amount > 0) {
+          // ✅ FIX: Convert from stored key format to display format
+          final displayCategory = categoryKey.replaceAll('_', ' ').toLowerCase();
+          unbudgeted[displayCategory] = amount;
+        }
       }
     }
 

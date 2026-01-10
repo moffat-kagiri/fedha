@@ -46,6 +46,9 @@ class TransactionEventService extends ChangeNotifier {
   BudgetService? _budgetService;
   String? _currentProfileId;
   
+  // Track processed transaction IDs to prevent duplicate processing
+  final Set<String> _processedTransactionIds = {};
+  
   Stream<TransactionEvent> get eventStream => _eventController.stream;
 
   Future<void> initialize({
@@ -73,6 +76,12 @@ class TransactionEventService extends ChangeNotifier {
   // ==================== EVENT EMITTERS ====================
 
   Future<void> onTransactionCreated(Transaction transaction) async {
+    // Check if we've already processed this transaction
+    if (transaction.id != null && _processedTransactionIds.contains(transaction.id)) {
+      _logger.info('Transaction ${transaction.id} already processed, skipping');
+      return;
+    }
+    
     _logger.info('Transaction created: ${transaction.id} - ${transaction.amountMinor}');
     _eventController.add(TransactionEvent(
       type: TransactionEventType.created,
@@ -118,6 +127,21 @@ class TransactionEventService extends ChangeNotifier {
 
   Future<void> _handleTransactionEvent(TransactionEvent event) async {
     try {
+      // Skip if transaction has no ID or is already being processed
+      if (event.transaction.id == null) {
+        _logger.warning('Transaction has no ID, skipping processing');
+        return;
+      }
+      
+      final transactionId = event.transaction.id!;
+      
+      if (_processedTransactionIds.contains(transactionId)) {
+        _logger.info('Skipping duplicate processing for transaction: $transactionId');
+        return;
+      }
+      
+      _processedTransactionIds.add(transactionId);
+      
       switch (event.type) {
         case TransactionEventType.created:
         case TransactionEventType.approved:
@@ -130,8 +154,16 @@ class TransactionEventService extends ChangeNotifier {
           await _handleTransactionDeleted(event.transaction);
           break;
       }
+      
+      // Clean up after a delay to prevent memory leak
+      Future.delayed(const Duration(seconds: 5), () {
+        _processedTransactionIds.remove(transactionId);
+      });
     } catch (e, stackTrace) {
       _logger.severe('Error handling transaction event', e, stackTrace);
+      if (event.transaction.id != null) {
+        _processedTransactionIds.remove(event.transaction.id!);
+      }
     }
   }
 
@@ -143,6 +175,9 @@ class TransactionEventService extends ChangeNotifier {
 
     _logger.info('Processing new transaction: ${transaction.type} - ${transaction.amountMinor}');
 
+    // ✅ FIXED: Call loadBudgetsForProfile which ensures defaults
+    await _budgetService!.loadBudgetsForProfile(transaction.profileId);
+
     // Update budgets for expense transactions
     if (transaction.type == 'expense' || transaction.isExpense == true) {
       await _updateBudgetSpending(
@@ -152,18 +187,16 @@ class TransactionEventService extends ChangeNotifier {
     }
 
     // Update savings budget for all savings transactions
-    if (transaction.type == 'savings') {
+    if (transaction.type == 'savings' || _categoriesMatch(transaction.category, 'savings')) {
       await _updateSavingsBudget(transaction, isAddition: true);
       
       // Also update goal progress if linked to a goal
       if (transaction.goalId != null && transaction.goalId!.isNotEmpty) {
-        await _updateGoalProgress(
-          goalId: transaction.goalId!,
-          amount: transaction.amountMinor.toDouble(), // Convert minor units to double for goals
-          isAddition: true,
-        );
+        // ✅ FIXED: Always recalculate from scratch when adding new transaction
+        // This prevents double-counting and ensures accuracy
+        await _recalculateGoalProgress(transaction.goalId!);
       } else {
-        _logger.info('💰 Savings transaction without goal - general savings recorded');
+        _logger.info('💰 Savings transaction without goal - tracked in general savings budget');
       }
     }
   }
@@ -171,6 +204,7 @@ class TransactionEventService extends ChangeNotifier {
   Future<void> _handleTransactionUpdated(Transaction transaction) async {
     await _recalculateBudgets(transaction.profileId);
     
+    // ✅ FIX: Always recalculate goal progress when transaction is updated
     if (transaction.goalId != null && transaction.goalId!.isNotEmpty) {
       await _recalculateGoalProgress(transaction.goalId!);
     }
@@ -189,18 +223,14 @@ class TransactionEventService extends ChangeNotifier {
       await _updateSavingsBudget(transaction, isAddition: false);
       
       if (transaction.goalId != null && transaction.goalId!.isNotEmpty) {
-        await _updateGoalProgress(
-          goalId: transaction.goalId!,
-          amount: transaction.amountMinor.toDouble(),
-          isAddition: false,
-        );
+        // ✅ FIXED: Recalculate from scratch when deleting
+        await _recalculateGoalProgress(transaction.goalId!);
       }
     }
   }
 
   // ==================== CATEGORY NORMALIZATION ====================
 
-  /// Normalize category names for proper matching
   String _normalizeCategory(String category) {
     if (category.isEmpty) return 'other';
     
@@ -218,6 +248,30 @@ class TransactionEventService extends ChangeNotifier {
       'savings': 'savings',
       'saving': 'savings',
       'save': 'savings',
+      'expense': 'expense',
+      'expenditure': 'expense',
+      'spending': 'expense',
+      'food': 'food',
+      'groceries': 'food',
+      'eating out': 'food',
+      'restaurant': 'food',
+      'transport': 'transport',
+      'transportation': 'transport',
+      'commute': 'transport',
+      'utilities': 'utilities',
+      'bills': 'utilities',
+      'electricity': 'utilities',
+      'water': 'utilities',
+      'internet': 'utilities',
+      'shopping': 'shopping',
+      'clothes': 'shopping',
+      'entertainment': 'entertainment',
+      'movies': 'entertainment',
+      'games': 'entertainment',
+      'healthcare': 'healthcare',
+      'medical': 'healthcare',
+      'education': 'education',
+      'school': 'education',
     };
     
     return categoryMap[normalized] ?? normalized;
@@ -262,7 +316,7 @@ class TransactionEventService extends ChangeNotifier {
         } else {
           // Check for 'other' budget
           final otherBudgets = budgets.where((b) => 
-            b.category == 'other' &&
+            _categoriesMatch(b.category, 'other') &&
             b.isActive &&
             !transaction.date.isBefore(b.startDate) &&
             !transaction.date.isAfter(b.endDate)
@@ -271,7 +325,9 @@ class TransactionEventService extends ChangeNotifier {
           if (otherBudgets.isNotEmpty) {
             assignedCategory = 'other';
           } else {
+            // ✅ FIX: If no budget exists (including 'other'), track as unbudgeted spending
             _logger.info('📊 No matching budget found for transaction. Category: ${transaction.category}');
+            await _trackUnbudgetedSpending(transaction, isAddition);
             return; // No budget to update
           }
         }
@@ -282,7 +338,7 @@ class TransactionEventService extends ChangeNotifier {
 
       // Find the budget(s) with the assigned category
       final targetBudgets = budgets.where((b) => 
-        b.category == assignedCategory &&
+        _categoriesMatch(b.category, assignedCategory) &&
         b.isActive &&
         !transaction.date.isBefore(b.startDate) &&
         !transaction.date.isAfter(b.endDate)
@@ -290,6 +346,8 @@ class TransactionEventService extends ChangeNotifier {
 
       if (targetBudgets.isEmpty) {
         _logger.warning('⚠️ No active budget found for category: $assignedCategory in date range');
+        // ✅ FIX: If no matching budget found, track as unbudgeted
+        await _trackUnbudgetedSpending(transaction, isAddition);
         return;
       }
 
@@ -363,18 +421,20 @@ class TransactionEventService extends ChangeNotifier {
 
       // Find savings budget that covers this transaction's date range
       final savingsBudgets = budgets.where((b) => 
-        b.category == 'savings' &&
+        _categoriesMatch(b.category, 'savings') &&
         b.isActive &&
         !transaction.date.isBefore(b.startDate) &&
         !transaction.date.isAfter(b.endDate)
       ).toList();
 
       if (savingsBudgets.isEmpty) {
-        _logger.info(
-          '📊 No savings budget found for date range. '
-          'Savings amount not tracked: KSh ${transaction.amountMinor / 100.0}'
+        _logger.warning(
+          '⚠️ No savings budget found. '
+          'Creating one now as fallback.'
         );
-        return;
+        // Ensure default budgets exist
+        await _budgetService!.loadBudgetsForProfile(transaction.profileId);
+        return; // Will be processed on next transaction
       }
 
       for (final budget in savingsBudgets) {
@@ -460,48 +520,7 @@ class TransactionEventService extends ChangeNotifier {
 
   // ==================== GOAL UPDATES ====================
 
-  Future<void> _updateGoalProgress({
-    required String goalId,
-    required double amount,
-    required bool isAddition,
-  }) async {
-    try {
-      if (_offlineDataService == null) return;
-
-      final goal = await _offlineDataService!.getGoal(goalId);
-      if (goal == null) {
-        _logger.warning('Goal not found: $goalId');
-        return;
-      }
-
-      final newCurrentAmount = isAddition
-          ? goal.currentAmount + amount
-          : goal.currentAmount - amount;
-
-      final isCompleted = newCurrentAmount >= goal.targetAmount;
-      final newStatus = isCompleted ? GoalStatus.completed : goal.status;
-
-      final updatedGoal = goal.copyWith(
-        currentAmount: newCurrentAmount.clamp(0.0, goal.targetAmount),
-        status: newStatus,
-        completedDate: isCompleted ? DateTime.now() : goal.completedDate,
-        updatedAt: DateTime.now(),
-        isSynced: false,
-      );
-
-      await _offlineDataService!.updateGoal(updatedGoal);
-      
-      _logger.info('✅ Goal updated: ${goal.name} - progress: ${updatedGoal.progressPercentage.toStringAsFixed(1)}%');
-      
-      if (isCompleted && goal.status != GoalStatus.completed) {
-        _logger.info('🎉 Goal completed: ${goal.name}');
-      }
-      
-    } catch (e, stackTrace) {
-      _logger.severe('Error updating goal progress', e, stackTrace);
-    }
-  }
-
+  // ✅ ENHANCED: Always recalculate goal progress from transactions to ensure accuracy
   Future<void> _recalculateGoalProgress(String goalId) async {
     try {
       if (_offlineDataService == null) return;
@@ -512,15 +531,20 @@ class TransactionEventService extends ChangeNotifier {
       _logger.info('Recalculating goal progress: ${goal.name}');
 
       final allTransactions = await _offlineDataService!.getAllTransactions(goal.profileId);
+      
+      // ✅ IMPROVED: Filter for savings transactions linked to this specific goal
       final goalTransactions = allTransactions.where((tx) =>
-        tx.type == 'savings' && tx.goalId == goalId
+        tx.goalId == goalId && 
+        (tx.type == 'savings' || (tx.category?.toLowerCase().contains('savings') ?? false))
       ).toList();
 
+      // ✅ IMPROVED: Use the correct amount calculation
       final totalSavings = goalTransactions.fold<double>(
         0.0,
         (sum, tx) => sum + (tx.amountMinor / 100.0), // Convert minor units to major units
       );
 
+      // ✅ IMPROVED: Only update if there's a meaningful difference (avoid floating-point precision issues)
       if ((totalSavings - goal.currentAmount).abs() > 0.01) {
         final isCompleted = totalSavings >= goal.targetAmount;
         
@@ -533,7 +557,7 @@ class TransactionEventService extends ChangeNotifier {
         );
 
         await _offlineDataService!.updateGoal(updatedGoal);
-        _logger.info('✅ Recalculated goal: ${goal.name} - KSh ${totalSavings.toStringAsFixed(0)}');
+        _logger.info('✅ Recalculated goal: ${goal.name} - KSh ${totalSavings.toStringAsFixed(0)} / KSh ${goal.targetAmount.toStringAsFixed(0)}');
       }
     } catch (e, stackTrace) {
       _logger.severe('Error recalculating goal progress', e, stackTrace);
@@ -649,6 +673,7 @@ class TransactionEventService extends ChangeNotifier {
   @override
   void dispose() {
     _eventController.close();
+    _processedTransactionIds.clear();
     super.dispose();
   }
 }

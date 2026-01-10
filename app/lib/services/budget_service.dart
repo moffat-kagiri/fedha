@@ -40,8 +40,71 @@ class BudgetService with ChangeNotifier {
 
     try {
       _currentProfileId = profileId;
+      
+      // ✅ FIRST: Load existing budgets
+      final existingBudgets = await _offlineDataService!.getAllBudgets(profileId);
+      
+      // ✅ SECOND: Ensure essential default budgets exist
+      final now = DateTime.now();
+      final monthStart = DateTime(now.year, now.month, 1);
+      final monthEnd = DateTime(now.year, now.month + 1, 0);
+      
+      // Helper function to check if a budget exists for current month
+      bool budgetExistsForMonth(String category, List<Budget> budgets) {
+        return budgets.any((b) => 
+          b.category.toLowerCase() == category.toLowerCase() &&
+          b.isActive &&
+          b.startDate.isAtSameMomentAs(monthStart) &&
+          b.endDate.isAtSameMomentAs(monthEnd)
+        );
+      }
+      
+      // Create "other" budget if it doesn't exist for current month
+      if (!budgetExistsForMonth('other', existingBudgets)) {
+        final otherBudget = Budget(
+          name: 'Other Expenses',
+          category: 'other',
+          budgetAmount: 10000.0, // Reasonable default
+          spentAmount: 0.0,
+          startDate: monthStart,
+          endDate: monthEnd,
+          profileId: profileId,
+          isActive: true,
+          isSynced: false,
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+          description: 'Auto-generated budget for uncategorized expenses',
+        );
+        
+        await _offlineDataService!.saveBudget(otherBudget);
+        _logger.info('✅ Created default "other" budget for profile: $profileId');
+      }
+      
+      // Create "savings" budget if it doesn't exist for current month
+      if (!budgetExistsForMonth('savings', existingBudgets)) {
+        final savingsBudget = Budget(
+          name: 'Monthly Savings',
+          category: 'savings',
+          budgetAmount: 5000.0, // Default savings target
+          spentAmount: 0.0,
+          startDate: monthStart,
+          endDate: monthEnd,
+          profileId: profileId,
+          isActive: true,
+          isSynced: false,
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+          description: 'Auto-generated savings budget for tracking all savings',
+        );
+        
+        await _offlineDataService!.saveBudget(savingsBudget);
+        _logger.info('✅ Created default "savings" budget for profile: $profileId');
+      }
+      
+      // ✅ FINALLY: Load all budgets again (including newly created defaults)
       _cachedBudgets = await _offlineDataService!.getAllBudgets(profileId);
       notifyListeners();
+      
       _logger.info('Loaded ${_cachedBudgets.length} budgets for profile: $profileId');
     } catch (e, stackTrace) {
       _logger.severe('Failed to load budgets', e, stackTrace);
@@ -87,7 +150,7 @@ class BudgetService with ChangeNotifier {
     try {
       // Create budget with current profileId
       final budgetWithProfile = budget.copyWith(
-        profileId: _currentProfileId!, // ✅ Use _currentProfileId
+        profileId: _currentProfileId!,
         isSynced: false,
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
@@ -132,7 +195,7 @@ class BudgetService with ChangeNotifier {
     try {
       // Ensure budget has the correct profileId (from current profile)
       final updatedBudget = budget.copyWith(
-        profileId: _currentProfileId!, // ✅ Use _currentProfileId
+        profileId: _currentProfileId!,
         isSynced: false,
         updatedAt: DateTime.now(),
       );

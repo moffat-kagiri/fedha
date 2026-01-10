@@ -1,5 +1,7 @@
+// lib/models/budget.dart
 import 'package:json_annotation/json_annotation.dart';
 import 'package:flutter/material.dart';
+import 'package:uuid/uuid.dart'; // ✅ ADDED: Import uuid package
 part 'budget.g.dart';
 
 @JsonSerializable()
@@ -20,8 +22,11 @@ class Budget {
   DateTime updatedAt;
   bool isSynced; // ✅ ADD THIS
   String currency;
+  
+  static final Uuid _uuid = Uuid(); // ✅ ADDED: UUID generator instance
+  
   Budget({
-    required this.id,
+    String? id, // ✅ MODIFIED: Made optional
     this.remoteId, // ✅ ADDED: Optional remote ID
     required this.name,
     this.description,
@@ -38,6 +43,7 @@ class Budget {
     DateTime? updatedAt,
     this.currency = 'KES',
   }) : 
+    id = id ?? _uuid.v4(), // ✅ MODIFIED: Generate ID if not provided
     createdAt = createdAt ?? DateTime.now(),
     updatedAt = updatedAt ?? DateTime.now();
 
@@ -103,7 +109,6 @@ class Budget {
   /// Empty budget for comparison (used in sync operations)
   factory Budget.empty() {
     return Budget(
-      id: '',
       name: '',
       budgetAmount: 0,
       category: '',
@@ -181,5 +186,21 @@ class Budget {
     if (isUpcoming) return Colors.blue;
     if (isExpired) return Colors.grey;
     return Colors.green;
+  }
+
+  /// Checks if this is a savings budget
+  bool get isSavingsBudget => category.toLowerCase() == 'savings';
+
+  /// For savings budgets, spentAmount represents "amount saved"
+  /// This getter provides a clearer name for savings budgets
+  double get amountSaved => isSavingsBudget ? spentAmount : 0.0;
+
+  /// For savings budgets, budgetAmount represents "savings target"
+  double get savingsTarget => isSavingsBudget ? budgetAmount : 0.0;
+
+  /// Progress percentage for savings budgets
+  double get savingsProgress {
+    if (!isSavingsBudget || budgetAmount == 0) return 0.0;
+    return (spentAmount / budgetAmount * 100).clamp(0.0, 100.0);
   }
 }

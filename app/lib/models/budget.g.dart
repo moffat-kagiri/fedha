@@ -7,7 +7,7 @@ part of 'budget.dart';
 // **************************************************************************
 
 Budget _$BudgetFromJson(Map<String, dynamic> json) => Budget(
-  id: json['id'] as String,
+  id: json['id'] as String?,
   remoteId: json['remoteId'] as String?,
   name: json['name'] as String,
   description: json['description'] as String?,

@@ -51,6 +51,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     super.dispose();
   }
 
+  // Update the _loadAnalytics method with better type checking and amount calculation
   Future<void> _loadAnalytics() async {
     setState(() => _isLoading = true);
 
@@ -68,24 +69,51 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       final loans = await offlineDataService.getAllLoans(profileId);
       final transactions = await offlineDataService.getAllTransactions(profileId);
 
-      
       final now = DateTime.now();
       final monthStart = DateTime(now.year, now.month, 1);
       final monthlyTransactions = transactions.where(
         (t) => t.date.isAfter(monthStart) && t.date.isBefore(now.add(const Duration(days: 1))),
       ).toList();
 
-      final monthlyIncome = monthlyTransactions
-          .where((t) => t.type == Type.income)
-          .fold(0.0, (sum, t) => sum + t.amount);
-      
-      final monthlyExpenses = monthlyTransactions
-          .where((t) => t.type == Type.expense)
-          .fold(0.0, (sum, t) => sum + t.amount);
-      
-      final monthlySavings = monthlyTransactions
-          .where((t) => t.type == Type.savings)
-          .fold(0.0, (sum, t) => sum + t.amount);
+      // Helper function to get transaction amount in major units
+      double getTransactionAmount(Transaction transaction) {
+        // Try amountMinor first (if available), then fall back to amount field
+        try {
+          // Check if amountMinor exists and is not null
+          if (transaction.amountMinor != null) {
+            return transaction.amountMinor! / 100.0;
+          }
+          // Fall back to amount field if it exists
+          return transaction.amount ?? 0.0;
+        } catch (e) {
+          // If neither field exists or is accessible, return 0
+          return 0.0;
+        }
+      }
+
+      // Helper function to check transaction type
+      bool isTransactionType(Transaction transaction, String typeToCheck) {
+        final type = transaction.type?.toLowerCase() ?? '';
+        return type == typeToCheck.toLowerCase() || 
+              (typeToCheck == 'expense' && transaction.isExpense == true);
+      }
+
+      // Calculate monthly totals with proper amount conversion
+      double monthlyIncome = 0.0;
+      double monthlyExpenses = 0.0;
+      double monthlySavings = 0.0;
+
+      for (final transaction in monthlyTransactions) {
+        final amount = getTransactionAmount(transaction);
+        
+        if (isTransactionType(transaction, 'income')) {
+          monthlyIncome += amount;
+        } else if (isTransactionType(transaction, 'expense')) {
+          monthlyExpenses += amount;
+        } else if (isTransactionType(transaction, 'savings')) {
+          monthlySavings += amount;
+        }
+      }
 
       setState(() {
         _data = AnalyticsData(
@@ -98,12 +126,19 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
         );
         _isLoading = false;
       });
-    } catch (e) {
+      
+      _logger.info('Analytics loaded: '
+                  'Transactions this month: ${monthlyTransactions.length}, '
+                  'Income: KSh ${monthlyIncome.toStringAsFixed(0)}, '
+                  'Expenses: KSh ${monthlyExpenses.toStringAsFixed(0)}, '
+                  'Savings: KSh ${monthlySavings.toStringAsFixed(0)}');
+    } catch (e, stackTrace) {
       setState(() => _isLoading = false);
+      _logger.severe('Error loading analytics', e, stackTrace);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to load analytics: $e'),
+            content: Text('Failed to load analytics: ${e.toString()}'),
             backgroundColor: Colors.red,
           ),
         );

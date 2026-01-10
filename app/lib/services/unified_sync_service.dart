@@ -378,7 +378,7 @@ class UnifiedSyncService with ChangeNotifier {
     }
   }
 
-  Map<String, dynamic> _prepareGoalForUpload(dom.Goal g, String profileId) {
+  Map<String, dynamic> _prepareGoalForUpload(Goal g, String profileId) {
     return {
       'profile_id': profileId,
       'name': g.name,

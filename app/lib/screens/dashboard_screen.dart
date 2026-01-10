@@ -267,11 +267,11 @@ class _DashboardContentState extends State<DashboardContent> {
 
     // Calculate monthly income and savings
     final monthlyIncome = monthlyTransactions
-        .where((t) => t.type == Type.income)
+        .where((t) => t.type == 'income')
         .fold(0.0, (sum, t) => sum + t.amount);
-    
+
     final monthlySavings = monthlyTransactions
-        .where((t) => t.type == Type.savings)
+        .where((t) => t.type == 'savings')  // Compare with string 'savings'
         .fold(0.0, (sum, t) => sum + t.amount);
     
     // Calculate savings rate percentage
