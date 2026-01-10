@@ -489,33 +489,17 @@ class UnifiedSyncService with ChangeNotifier {
       if (_apiClient.isAuthenticated) {
         final unsyncedLoans = localLoans.where((l) => l.remoteId == null).toList();
         
-        // Use the new prepareLoanData method from ApiClient
-        for (final loan in unsyncedLoans) {
-          try {
-            final payload = ApiClient.prepareLoanData(
-              profileId: loan.profileId,
-              name: loan.name,
-              principalAmount: loan.principalAmount,
-              interestRate: loan.interestRate,
-              interestModel: 'simple',  // Default
-              startDate: loan.startDate,
-              endDate: loan.endDate,
-              currency: loan.currency,
-              description: loan.description,
-            );
-            
-            final created = await _apiClient.createLoan(loan: payload);
-            
-            if (created['id'] != null) {
-              final updatedLoan = loan.copyWith(remoteId: created['id'].toString());
-              await _offlineDataService.updateLoan(updatedLoan);
-              result.uploaded++;
-            }
-          } catch (e) {
-            _logger.warning('Failed to upload loan: $e');
+        // ✅ NEW: Use bulk_sync instead of individual POSTs
+        if (unsyncedLoans.isNotEmpty) {
+          final loansData = unsyncedLoans.map((l) => _prepareLoanForUpload(l)).toList();
+          final response = await _apiClient.syncLoans(profileId, loansData);
+          
+          if (response['success'] == true) {
+            result.uploaded += response['created'] as int? ?? 0;
           }
         }
         
+        // Download from server
         final currentProfile = _authService.currentProfile;
         final sessionToken = currentProfile?.sessionToken;
         

@@ -569,57 +569,16 @@ class ApiClient {
     try {
       logger.info('POST ${url.toString()} - ${transactions.length} transactions');
       
-      // Process each transaction to match database schema
-      final processedTransactions = transactions.map((transaction) {
-        final processed = Map<String, dynamic>.from(transaction);
-        
-        // Ensure profile_id is set
-        processed['profile_id'] = processed['profile_id'] ?? profileId;
-        
-        // Convert amount_minor to amount if present
-        if (processed.containsKey('amount_minor')) {
-          final amountMinor = processed['amount_minor'];
-          final amount = (amountMinor is int ? amountMinor : double.parse(amountMinor.toString())) / 100.0;
-          processed['amount'] = amount;
-          processed.remove('amount_minor');
-        }
-        
-        // Ensure amount is numeric
-        if (processed.containsKey('amount') && processed['amount'] is String) {
-          processed['amount'] = double.parse(processed['amount']);
-        }
-        
-        // Ensure date is in ISO format
-        if (processed.containsKey('date') && processed['date'] is DateTime) {
-          processed['date'] = (processed['date'] as DateTime).toIso8601String();
-        }
-        
-        // Ensure required fields have defaults
-        if (!processed.containsKey('is_synced')) {
-          processed['is_synced'] = true;
-        }
-        
-        if (!processed.containsKey('status')) {
-          processed['status'] = 'completed';
-        }
-        
-        if (!processed.containsKey('currency')) {
-          processed['currency'] = 'KES';
-        }
-        
-        return processed;
-      }).toList();
+      if (!isAuthenticated) {
+        logger.warning('⚠️ No auth token for sync - request may fail');
+      }
       
-      final resp = await _http
-          .post(
-            url,
-            headers: _headers,
-            body: jsonEncode({
-              'profile_id': profileId,
-              'transactions': processedTransactions,
-            }),
-          )
-          .timeout(Duration(seconds: _config.timeoutSeconds));
+      // ✅ FIX: Use 'transactions' not 'processedTransactions'
+      final resp = await _http.post(
+        url,
+        headers: _headers,
+        body: jsonEncode(transactions),  // ✅ Changed from processedTransactions
+      ).timeout(Duration(seconds: _config.timeoutSeconds));
       
       if (resp.statusCode == 200 || resp.statusCode == 201) {
         final data = jsonDecode(resp.body) as Map<String, dynamic>;
@@ -627,13 +586,8 @@ class ApiClient {
         return data;
       }
       
-      if (resp.statusCode == 401) {
-        logger.warning('Sync unauthorized - token may be expired');
-        clearAuthToken();
-      }
-      
       logger.warning('Sync failed: ${resp.statusCode} - ${resp.body}');
-      return {'success': false, 'status': resp.statusCode};
+      return {'success': false, 'status': resp.statusCode, 'body': resp.body};
     } catch (e) {
       logger.severe('Sync transactions error: $e');
       return {'success': false, 'error': e.toString()};
@@ -932,51 +886,12 @@ class ApiClient {
     try {
       logger.info('POST ${url.toString()} - ${goals.length} goals');
       
-      // Process each goal to ensure it matches serializer expectations
-      final processedGoals = goals.map((goal) {
-        final processed = Map<String, dynamic>.from(goal);
-        
-        // Ensure required fields
-        if (!processed.containsKey('goal_type')) {
-          processed['goal_type'] = 'savings';
-        }
-        
-        if (!processed.containsKey('status')) {
-          processed['status'] = 'active';
-        }
-        
-        if (!processed.containsKey('currency')) {
-          processed['currency'] = 'KES';
-        }
-        
-        if (!processed.containsKey('current_amount')) {
-          processed['current_amount'] = 0.0;
-        }
-        
-        // Ensure numeric types
-        if (processed.containsKey('target_amount') && 
-            processed['target_amount'] is String) {
-          processed['target_amount'] = double.parse(processed['target_amount']);
-        }
-        
-        if (processed.containsKey('current_amount') && 
-            processed['current_amount'] is String) {
-          processed['current_amount'] = double.parse(processed['current_amount']);
-        }
-        
-        return processed;
-      }).toList();
-      
-      final resp = await _http
-          .post(
-            url,
-            headers: _headers,
-            body: jsonEncode({
-              'profile_id': profileId,
-              'goals': processedGoals,
-            }),
-          )
-          .timeout(Duration(seconds: _config.timeoutSeconds));
+      // ✅ FIX: Send as array directly, not wrapped
+      final resp = await _http.post(
+        url,
+        headers: _headers,
+        body: jsonEncode(goals),  // ✅ Changed - send array directly
+      ).timeout(Duration(seconds: _config.timeoutSeconds));
       
       if (resp.statusCode == 200 || resp.statusCode == 201) {
         final data = jsonDecode(resp.body) as Map<String, dynamic>;
@@ -984,12 +899,7 @@ class ApiClient {
         return data;
       }
       
-      if (resp.statusCode == 401) {
-        logger.warning('Goals sync unauthorized');
-        clearAuthToken();
-      }
-      
-      return {'success': false, 'status': resp.statusCode};
+      return {'success': false, 'status': resp.statusCode, 'body': resp.body};
     } catch (e) {
       logger.severe('Sync goals error: $e');
       return {'success': false, 'error': e.toString()};
@@ -1291,29 +1201,25 @@ class ApiClient {
     String profileId,
     List<dynamic> loans,
   ) async {
-    final url = Uri.parse(_config.getEndpoint('api/invoicing/loans/bulk_sync/'));  // ✅ Correct
-    
+    final url = Uri.parse(_config.getEndpoint('api/invoicing/loans/bulk_sync/'));
+
     try {
       logger.info('POST ${url.toString()} - ${loans.length} loans');
-      
-      final processedLoans = loans.map((loan) {
-        final processed = _processLoanData(loan);
-        return processed;
-      }).toList();
       
       final resp = await _http.post(
         url,
         headers: _headers,
-        body: jsonEncode(processedLoans),  // ✅ Send as array directly, not wrapped
+        body: jsonEncode(loans),  // ✅ Send array directly
       ).timeout(Duration(seconds: _config.timeoutSeconds));
       
       if (resp.statusCode == 200 || resp.statusCode == 201) {
         final data = jsonDecode(resp.body) as Map<String, dynamic>;
-        logger.info('✅ Loans sync complete');
+        logger.info('✅ Loans sync complete: ${data['created']} created, ${data['updated']} updated');
         return data;
       }
       
-      return {'success': false, 'status': resp.statusCode};
+      logger.warning('Loans sync failed: ${resp.statusCode} - ${resp.body}');
+      return {'success': false, 'status': resp.statusCode, 'body': resp.body};
     } catch (e) {
       logger.severe('Sync loans error: $e');
       return {'success': false, 'error': e.toString()};
