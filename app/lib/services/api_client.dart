@@ -333,13 +333,25 @@ class ApiClient {
         // Convert DateTime to ISO string if needed
         processedTransaction['date'] = processedTransaction['date'].toString();
       }
-      
-      // ✅ FIX: Ensure amount_minor is integer (not double)
-      if (processedTransaction.containsKey('amount_minor') && 
-          processedTransaction['amount_minor'] is double) {
-        processedTransaction['amount_minor'] = (processedTransaction['amount_minor'] as double).toInt();
+      // ✅ FIX: Ensure amount is numeric and positive
+      if (processedTransaction.containsKey('amount') && 
+          processedTransaction['amount'] is String) {
+        processedTransaction['amount'] = double.parse(processedTransaction['amount']);
       }
-      
+      // ✅ FIX: If using amount_minor, convert to amount
+      if (processedTransaction.containsKey('amount_minor') && 
+          !processedTransaction.containsKey('amount')) {
+        final amountMinor = processedTransaction['amount_minor'];
+        processedTransaction['amount'] = (amountMinor is int ? amountMinor : double.parse(amountMinor.toString())) / 100.0;
+        processedTransaction.remove('amount_minor');
+      }
+      // ✅ FIX: Map 'transaction' to 'type' if needed
+      if (processedTransaction.containsKey('transaction') && 
+          !processedTransaction.containsKey('type')) {
+        processedTransaction['type'] = processedTransaction['transaction'];
+        processedTransaction.remove('transaction');
+      }
+
       logger.info('Sending transaction data: $processedTransaction');
       
       final resp = await _http
@@ -959,7 +971,71 @@ class ApiClient {
     }
   }
 
-  // ==================== LOANS ====================
+  // ============================ LOANS =======================================
+  /// Process loan data to match backend schema
+  Map<String, dynamic> _processLoanData(Map<String, dynamic> loan) {
+    final processedLoan = Map<String, dynamic>.from(loan);
+
+    // ✅ FIX: Map 'principal_minor' to 'principal_amount' if needed
+    if (processedLoan.containsKey('principal_minor') && 
+        !processedLoan.containsKey('principal_amount')) {
+      final minor = processedLoan['principal_minor'];
+      processedLoan['principal_amount'] = 
+          (minor is int ? minor : double.parse(minor.toString())) / 100.0;
+      processedLoan.remove('principal_minor');
+    }
+
+    // ✅ FIX: Ensure interest_model is present (default to 'simple')
+    if (!processedLoan.containsKey('interest_model')) {
+      processedLoan['interest_model'] = 'simple';
+    }
+
+    // ✅ FIX: Remove 'status' field if it exists (not in backend model)
+    processedLoan.remove('status');
+
+    // ✅ FIX: Ensure numeric types are correct
+    if (processedLoan.containsKey('principal_amount') && 
+        processedLoan['principal_amount'] is String) {
+      processedLoan['principal_amount'] = 
+          double.parse(processedLoan['principal_amount']);
+    }
+    
+    if (processedLoan.containsKey('interest_rate') && 
+        processedLoan['interest_rate'] is String) {
+      processedLoan['interest_rate'] = 
+          double.parse(processedLoan['interest_rate']);
+    }
+
+    // ✅ FIX: Ensure dates are ISO strings
+    if (processedLoan.containsKey('start_date') && 
+        processedLoan['start_date'] is! String) {
+      if (processedLoan['start_date'] is DateTime) {
+        processedLoan['start_date'] = 
+            (processedLoan['start_date'] as DateTime).toIso8601String();
+      } else {
+        processedLoan['start_date'] = processedLoan['start_date'].toString();
+      }
+    }
+    
+    if (processedLoan.containsKey('end_date') && 
+        processedLoan['end_date'] is! String) {
+      if (processedLoan['end_date'] is DateTime) {
+        processedLoan['end_date'] = 
+            (processedLoan['end_date'] as DateTime).toIso8601String();
+      } else {
+        processedLoan['end_date'] = processedLoan['end_date'].toString();
+      }
+    }
+
+    // ✅ FIX: Ensure profile_id exists (required field)
+    if (!processedLoan.containsKey('profile_id') && 
+        processedLoan.containsKey('profileId')) {
+      processedLoan['profile_id'] = processedLoan['profileId'];
+      processedLoan.remove('profileId');
+    }
+
+    return processedLoan;
+  }
 
   Future<List<dynamic>> getLoans({
     required String profileId,
@@ -1015,18 +1091,23 @@ class ApiClient {
           ? _getHeaders(customToken: sessionToken)
           : _headers;
 
+      logger.info('GET ${url.toString()}');
       final resp = await _http
           .get(url, headers: headers)
           .timeout(Duration(seconds: _config.timeoutSeconds));
       
       if (resp.statusCode == 200) {
-        return jsonDecode(resp.body) as List<dynamic>;
+        final data = jsonDecode(resp.body);
+        logger.info('Got ${data.length} active loans');
+        return data as List<dynamic>;
       }
       
       if (resp.statusCode == 401) {
+        logger.warning('Active loans request unauthorized');
         clearAuthToken();
       }
       
+      logger.warning('Get active loans failed: ${resp.statusCode}');
       return [];
     } catch (e) {
       logger.severe('Get active loans error: $e');
@@ -1040,15 +1121,39 @@ class ApiClient {
     final url = Uri.parse(_config.getEndpoint('api/invoicing/loans/'));
 
     try {
+      // ✅ Process loan data to match backend schema
+      final processedLoan = _processLoanData(loan);
+      
+      logger.info('POST ${url.toString()}');
+      logger.info('Sending loan data: $processedLoan');
+      
       final resp = await _http
-          .post(url, headers: _headers, body: jsonEncode(loan))
+          .post(url, headers: _headers, body: jsonEncode(processedLoan))
           .timeout(Duration(seconds: _config.timeoutSeconds));
       
+      logger.info('Create loan response: ${resp.statusCode} - ${resp.body}');
+      
       if (resp.statusCode == 201 || resp.statusCode == 200) {
-        return jsonDecode(resp.body) as Map<String, dynamic>;
+        final data = jsonDecode(resp.body) as Map<String, dynamic>;
+        logger.info('✅ Loan created successfully');
+        return data;
       }
       
-      return {'success': false, 'status': resp.statusCode, 'body': resp.body};
+      // Log validation errors
+      if (resp.statusCode == 400) {
+        try {
+          final errorData = jsonDecode(resp.body) as Map<String, dynamic>;
+          logger.warning('Loan validation errors: $errorData');
+        } catch (e) {
+          logger.warning('Loan error body: ${resp.body}');
+        }
+      }
+      
+      return {
+        'success': false,
+        'status': resp.statusCode,
+        'body': resp.body,
+      };
     } catch (e) {
       logger.severe('Create loan error: $e');
       return {'success': false, 'error': e.toString()};
@@ -1062,15 +1167,39 @@ class ApiClient {
     final url = Uri.parse(_config.getEndpoint('api/invoicing/loans/$loanId/'));
 
     try {
+      // ✅ Process loan data to match backend schema
+      final processedLoan = _processLoanData(loan);
+      
+      logger.info('PUT ${url.toString()}');
+      logger.info('Updating loan with data: $processedLoan');
+      
       final resp = await _http
-          .put(url, headers: _headers, body: jsonEncode(loan))
+          .put(url, headers: _headers, body: jsonEncode(processedLoan))
           .timeout(Duration(seconds: _config.timeoutSeconds));
       
+      logger.info('Update loan response: ${resp.statusCode} - ${resp.body}');
+      
       if (resp.statusCode == 200) {
-        return jsonDecode(resp.body) as Map<String, dynamic>;
+        final data = jsonDecode(resp.body) as Map<String, dynamic>;
+        logger.info('✅ Loan updated successfully');
+        return data;
       }
       
-      return {'success': false, 'status': resp.statusCode, 'body': resp.body};
+      // Log validation errors
+      if (resp.statusCode == 400) {
+        try {
+          final errorData = jsonDecode(resp.body) as Map<String, dynamic>;
+          logger.warning('Loan update validation errors: $errorData');
+        } catch (e) {
+          logger.warning('Loan update error body: ${resp.body}');
+        }
+      }
+      
+      return {
+        'success': false,
+        'status': resp.statusCode,
+        'body': resp.body,
+      };
     } catch (e) {
       logger.severe('Update loan error: $e');
       return {'success': false, 'error': e.toString()};
@@ -1083,15 +1212,100 @@ class ApiClient {
     final url = Uri.parse(_config.getEndpoint('api/invoicing/loans/$loanId/'));
 
     try {
+      logger.info('DELETE ${url.toString()}');
+      
       final resp = await _http
           .delete(url, headers: _headers)
           .timeout(Duration(seconds: _config.timeoutSeconds));
       
-      return resp.statusCode == 204 || resp.statusCode == 200;
+      final success = resp.statusCode == 204 || resp.statusCode == 200;
+      logger.info('Delete loan: ${success ? "✅ OK" : "❌ FAIL"} (${resp.statusCode})');
+      return success;
     } catch (e) {
       logger.warning('Delete loan failed: $e');
       return false;
     }
+  }
+
+  Future<Map<String, dynamic>> syncLoans(
+    String profileId,
+    List<dynamic> loans,
+  ) async {
+    final url = Uri.parse(_config.getEndpoint('api/invoicing/loans/bulk_sync/'));
+
+    try {
+      logger.info('POST ${url.toString()} - ${loans.length} loans');
+      
+      // Process each loan to match backend schema
+      final processedLoans = loans.map((loan) {
+        final processed = _processLoanData(loan);
+        return processed;
+      }).toList();
+      
+      final body = {
+        'profile_id': profileId,
+        'loans': processedLoans,
+      };
+      
+      logger.info('Syncing loans with data: $body');
+      
+      final resp = await _http
+          .post(
+            url,
+            headers: _headers,
+            body: jsonEncode(body),
+          )
+          .timeout(Duration(seconds: _config.timeoutSeconds));
+      
+      if (resp.statusCode == 200 || resp.statusCode == 201) {
+        final data = jsonDecode(resp.body) as Map<String, dynamic>;
+        logger.info('✅ Loans sync complete');
+        return data;
+      }
+      
+      if (resp.statusCode == 401) {
+        logger.warning('Loans sync unauthorized - token may be expired');
+        clearAuthToken();
+      }
+      
+      logger.warning('Loans sync failed: ${resp.statusCode} - ${resp.body}');
+      return {'success': false, 'status': resp.statusCode};
+    } catch (e) {
+      logger.severe('Sync loans error: $e');
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  /// Prepares loan data for API submission
+  static Map<String, dynamic> prepareLoanData({
+    required String profileId,
+    required String name,
+    required double principalAmount,  // Major units (KES 100.00)
+    required double interestRate,     // Percentage (5.5 for 5.5%)
+    required String interestModel,    // 'simple', 'compound', 'reducingBalance'
+    required DateTime startDate,
+    required DateTime endDate,
+    String currency = 'KES',
+    bool isSynced = true,
+    String? description,
+  }) {
+    final data = <String, dynamic>{
+      'profile_id': profileId,
+      'name': name,
+      'principal_amount': principalAmount,
+      'interest_rate': interestRate,
+      'interest_model': interestModel,
+      'start_date': startDate.toIso8601String(),
+      'end_date': endDate.toIso8601String(),
+      'currency': currency,
+      'is_synced': isSynced,
+    };
+
+    if (description != null && description.isNotEmpty) {
+      data['description'] = description;
+    }
+
+    return data;
   }
 
   // ==================== PROFILE UPDATES ====================
@@ -1171,25 +1385,35 @@ class ApiClient {
   /// Prepares transaction data for API submission
   static Map<String, dynamic> prepareTransactionData({
     required String profileId,
-    required int amountMinor,
-    required String type,
+    required double amount,  // Not amount_minor
+    required String type,    // Not 'transaction'
     required String description,
-    String? category, // Optional - can be null or empty
+    String? category,
     String? goalId,
     DateTime? date,
     bool isExpense = false,
     String currency = 'KES',
     bool isSynced = true,
+    String status = 'completed',  // NEW
+    String? paymentMethod,        // NEW
+    String? reference,            // NEW
+    String? recipient,            // NEW
+    String? merchantName,         // NEW
+    String? merchantCategory,     // NEW
+    String? tags,                 // NEW
+    bool isRecurring = false,     // NEW
   }) {
     final data = <String, dynamic>{
       'profile_id': profileId,
-      'amount_minor': amountMinor,
-      'transaction': type,
+      'amount': amount,          // Changed from amount_minor
+      'type': type,              // Changed from 'transaction'
       'description': description,
-      'category': category ?? '', // Default to empty string if null
+      'category': category ?? '',
       'currency': currency,
       'is_synced': isSynced,
       'is_expense': isExpense,
+      'status': status,          // Added
+      'is_recurring': isRecurring, // Added
     };
 
     if (goalId != null) {
@@ -1197,13 +1421,22 @@ class ApiClient {
     }
 
     if (date != null) {
-      data['date'] = date.toIso8601String();
+      data['date'] = date.toIso8601String();  // FIXED: Use ISO format
     } else {
       data['date'] = DateTime.now().toIso8601String();
     }
 
+    // Optional fields
+    if (paymentMethod != null) data['payment_method'] = paymentMethod;
+    if (reference != null) data['reference'] = reference;
+    if (recipient != null) data['recipient'] = recipient;
+    if (merchantName != null) data['merchant_name'] = merchantName;
+    if (merchantCategory != null) data['merchant_category'] = merchantCategory;
+    if (tags != null) data['tags'] = tags;
+
     return data;
   }
+
   /// Prepares goal data for API submission
   static Map<String, dynamic> prepareGoalData({
     required String profileId,

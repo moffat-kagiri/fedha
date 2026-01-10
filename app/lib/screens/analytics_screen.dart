@@ -351,9 +351,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   }
 
   Widget _buildLoansSummary(ColorScheme colorScheme, TextTheme textTheme) {
-    // ✅ FIX: Divide principalMinor by 100 to get actual amount
-      // Calculate monthly spending
-    final totalDebt = _data!.loans.fold(0.0, (sum, l) => sum + (l.principalMinor / 100));
+    final totalDebt = _data!.loans.fold(0.0, (sum, l) => sum + l.principalAmount);
     
     return Card(
       child: Padding(
@@ -404,7 +402,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        'Total Debt: KSh ${totalDebt.toStringAsFixed(0)}',
+                        'Total Debt: KSh ${totalDebt.toFormattedString()}',
                         style: textTheme.bodyMedium?.copyWith(
                           fontWeight: FontWeight.w600,
                           color: FedhaColors.warningOrange,

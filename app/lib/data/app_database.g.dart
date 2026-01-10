@@ -2208,18 +2208,22 @@ class $LoansTable extends Loans with TableInfo<$LoansTable, Loan> {
     'name',
     aliasedName,
     false,
+    additionalChecks: GeneratedColumn.checkTextLength(
+      minTextLength: 1,
+      maxTextLength: 255,
+    ),
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
-  static const VerificationMeta _principalMinorMeta = const VerificationMeta(
-    'principalMinor',
+  static const VerificationMeta _principalAmountMeta = const VerificationMeta(
+    'principalAmount',
   );
   @override
-  late final GeneratedColumn<int> principalMinor = GeneratedColumn<int>(
-    'principal_minor',
+  late final GeneratedColumn<double> principalAmount = GeneratedColumn<double>(
+    'principal_amount',
     aliasedName,
     false,
-    type: DriftSqlType.int,
+    type: DriftSqlType.double,
     requiredDuringInsert: true,
   );
   static const VerificationMeta _currencyMeta = const VerificationMeta(
@@ -2243,8 +2247,19 @@ class $LoansTable extends Loans with TableInfo<$LoansTable, Loan> {
     aliasedName,
     false,
     type: DriftSqlType.double,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _interestModelMeta = const VerificationMeta(
+    'interestModel',
+  );
+  @override
+  late final GeneratedColumn<String> interestModel = GeneratedColumn<String>(
+    'interest_model',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
     requiredDuringInsert: false,
-    defaultValue: const Constant(0.0),
+    defaultValue: const Constant('simple'),
   );
   static const VerificationMeta _startDateMeta = const VerificationMeta(
     'startDate',
@@ -2279,6 +2294,17 @@ class $LoansTable extends Loans with TableInfo<$LoansTable, Loan> {
     type: DriftSqlType.int,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _descriptionMeta = const VerificationMeta(
+    'description',
+  );
+  @override
+  late final GeneratedColumn<String> description = GeneratedColumn<String>(
+    'description',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _isSyncedMeta = const VerificationMeta(
     'isSynced',
   );
@@ -2300,17 +2326,6 @@ class $LoansTable extends Loans with TableInfo<$LoansTable, Loan> {
   @override
   late final GeneratedColumn<String> remoteId = GeneratedColumn<String>(
     'remote_id',
-    aliasedName,
-    true,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-  );
-  static const VerificationMeta _descriptionMeta = const VerificationMeta(
-    'description',
-  );
-  @override
-  late final GeneratedColumn<String> description = GeneratedColumn<String>(
-    'description',
     aliasedName,
     true,
     type: DriftSqlType.string,
@@ -2344,15 +2359,16 @@ class $LoansTable extends Loans with TableInfo<$LoansTable, Loan> {
   List<GeneratedColumn> get $columns => [
     id,
     name,
-    principalMinor,
+    principalAmount,
     currency,
     interestRate,
+    interestModel,
     startDate,
     endDate,
     profileId,
+    description,
     isSynced,
     remoteId,
-    description,
     createdAt,
     updatedAt,
   ];
@@ -2379,16 +2395,16 @@ class $LoansTable extends Loans with TableInfo<$LoansTable, Loan> {
     } else if (isInserting) {
       context.missing(_nameMeta);
     }
-    if (data.containsKey('principal_minor')) {
+    if (data.containsKey('principal_amount')) {
       context.handle(
-        _principalMinorMeta,
-        principalMinor.isAcceptableOrUnknown(
-          data['principal_minor']!,
-          _principalMinorMeta,
+        _principalAmountMeta,
+        principalAmount.isAcceptableOrUnknown(
+          data['principal_amount']!,
+          _principalAmountMeta,
         ),
       );
     } else if (isInserting) {
-      context.missing(_principalMinorMeta);
+      context.missing(_principalAmountMeta);
     }
     if (data.containsKey('currency')) {
       context.handle(
@@ -2402,6 +2418,17 @@ class $LoansTable extends Loans with TableInfo<$LoansTable, Loan> {
         interestRate.isAcceptableOrUnknown(
           data['interest_rate']!,
           _interestRateMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_interestRateMeta);
+    }
+    if (data.containsKey('interest_model')) {
+      context.handle(
+        _interestModelMeta,
+        interestModel.isAcceptableOrUnknown(
+          data['interest_model']!,
+          _interestModelMeta,
         ),
       );
     }
@@ -2429,6 +2456,15 @@ class $LoansTable extends Loans with TableInfo<$LoansTable, Loan> {
     } else if (isInserting) {
       context.missing(_profileIdMeta);
     }
+    if (data.containsKey('description')) {
+      context.handle(
+        _descriptionMeta,
+        description.isAcceptableOrUnknown(
+          data['description']!,
+          _descriptionMeta,
+        ),
+      );
+    }
     if (data.containsKey('is_synced')) {
       context.handle(
         _isSyncedMeta,
@@ -2439,15 +2475,6 @@ class $LoansTable extends Loans with TableInfo<$LoansTable, Loan> {
       context.handle(
         _remoteIdMeta,
         remoteId.isAcceptableOrUnknown(data['remote_id']!, _remoteIdMeta),
-      );
-    }
-    if (data.containsKey('description')) {
-      context.handle(
-        _descriptionMeta,
-        description.isAcceptableOrUnknown(
-          data['description']!,
-          _descriptionMeta,
-        ),
       );
     }
     if (data.containsKey('created_at')) {
@@ -2479,9 +2506,9 @@ class $LoansTable extends Loans with TableInfo<$LoansTable, Loan> {
         DriftSqlType.string,
         data['${effectivePrefix}name'],
       )!,
-      principalMinor: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}principal_minor'],
+      principalAmount: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}principal_amount'],
       )!,
       currency: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
@@ -2490,6 +2517,10 @@ class $LoansTable extends Loans with TableInfo<$LoansTable, Loan> {
       interestRate: attachedDatabase.typeMapping.read(
         DriftSqlType.double,
         data['${effectivePrefix}interest_rate'],
+      )!,
+      interestModel: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}interest_model'],
       )!,
       startDate: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
@@ -2503,6 +2534,10 @@ class $LoansTable extends Loans with TableInfo<$LoansTable, Loan> {
         DriftSqlType.int,
         data['${effectivePrefix}profile_id'],
       )!,
+      description: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}description'],
+      ),
       isSynced: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}is_synced'],
@@ -2510,10 +2545,6 @@ class $LoansTable extends Loans with TableInfo<$LoansTable, Loan> {
       remoteId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}remote_id'],
-      ),
-      description: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}description'],
       ),
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
@@ -2535,29 +2566,31 @@ class $LoansTable extends Loans with TableInfo<$LoansTable, Loan> {
 class Loan extends DataClass implements Insertable<Loan> {
   final int id;
   final String name;
-  final int principalMinor;
+  final double principalAmount;
   final String currency;
   final double interestRate;
+  final String interestModel;
   final DateTime startDate;
   final DateTime endDate;
   final int profileId;
+  final String? description;
   final bool isSynced;
   final String? remoteId;
-  final String? description;
   final DateTime createdAt;
   final DateTime updatedAt;
   const Loan({
     required this.id,
     required this.name,
-    required this.principalMinor,
+    required this.principalAmount,
     required this.currency,
     required this.interestRate,
+    required this.interestModel,
     required this.startDate,
     required this.endDate,
     required this.profileId,
+    this.description,
     required this.isSynced,
     this.remoteId,
-    this.description,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -2566,18 +2599,19 @@ class Loan extends DataClass implements Insertable<Loan> {
     final map = <String, Expression>{};
     map['id'] = Variable<int>(id);
     map['name'] = Variable<String>(name);
-    map['principal_minor'] = Variable<int>(principalMinor);
+    map['principal_amount'] = Variable<double>(principalAmount);
     map['currency'] = Variable<String>(currency);
     map['interest_rate'] = Variable<double>(interestRate);
+    map['interest_model'] = Variable<String>(interestModel);
     map['start_date'] = Variable<DateTime>(startDate);
     map['end_date'] = Variable<DateTime>(endDate);
     map['profile_id'] = Variable<int>(profileId);
+    if (!nullToAbsent || description != null) {
+      map['description'] = Variable<String>(description);
+    }
     map['is_synced'] = Variable<bool>(isSynced);
     if (!nullToAbsent || remoteId != null) {
       map['remote_id'] = Variable<String>(remoteId);
-    }
-    if (!nullToAbsent || description != null) {
-      map['description'] = Variable<String>(description);
     }
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
@@ -2588,19 +2622,20 @@ class Loan extends DataClass implements Insertable<Loan> {
     return LoansCompanion(
       id: Value(id),
       name: Value(name),
-      principalMinor: Value(principalMinor),
+      principalAmount: Value(principalAmount),
       currency: Value(currency),
       interestRate: Value(interestRate),
+      interestModel: Value(interestModel),
       startDate: Value(startDate),
       endDate: Value(endDate),
       profileId: Value(profileId),
+      description: description == null && nullToAbsent
+          ? const Value.absent()
+          : Value(description),
       isSynced: Value(isSynced),
       remoteId: remoteId == null && nullToAbsent
           ? const Value.absent()
           : Value(remoteId),
-      description: description == null && nullToAbsent
-          ? const Value.absent()
-          : Value(description),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
     );
@@ -2614,15 +2649,16 @@ class Loan extends DataClass implements Insertable<Loan> {
     return Loan(
       id: serializer.fromJson<int>(json['id']),
       name: serializer.fromJson<String>(json['name']),
-      principalMinor: serializer.fromJson<int>(json['principalMinor']),
+      principalAmount: serializer.fromJson<double>(json['principalAmount']),
       currency: serializer.fromJson<String>(json['currency']),
       interestRate: serializer.fromJson<double>(json['interestRate']),
+      interestModel: serializer.fromJson<String>(json['interestModel']),
       startDate: serializer.fromJson<DateTime>(json['startDate']),
       endDate: serializer.fromJson<DateTime>(json['endDate']),
       profileId: serializer.fromJson<int>(json['profileId']),
+      description: serializer.fromJson<String?>(json['description']),
       isSynced: serializer.fromJson<bool>(json['isSynced']),
       remoteId: serializer.fromJson<String?>(json['remoteId']),
-      description: serializer.fromJson<String?>(json['description']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
     );
@@ -2633,15 +2669,16 @@ class Loan extends DataClass implements Insertable<Loan> {
     return <String, dynamic>{
       'id': serializer.toJson<int>(id),
       'name': serializer.toJson<String>(name),
-      'principalMinor': serializer.toJson<int>(principalMinor),
+      'principalAmount': serializer.toJson<double>(principalAmount),
       'currency': serializer.toJson<String>(currency),
       'interestRate': serializer.toJson<double>(interestRate),
+      'interestModel': serializer.toJson<String>(interestModel),
       'startDate': serializer.toJson<DateTime>(startDate),
       'endDate': serializer.toJson<DateTime>(endDate),
       'profileId': serializer.toJson<int>(profileId),
+      'description': serializer.toJson<String?>(description),
       'isSynced': serializer.toJson<bool>(isSynced),
       'remoteId': serializer.toJson<String?>(remoteId),
-      'description': serializer.toJson<String?>(description),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
     };
@@ -2650,29 +2687,31 @@ class Loan extends DataClass implements Insertable<Loan> {
   Loan copyWith({
     int? id,
     String? name,
-    int? principalMinor,
+    double? principalAmount,
     String? currency,
     double? interestRate,
+    String? interestModel,
     DateTime? startDate,
     DateTime? endDate,
     int? profileId,
+    Value<String?> description = const Value.absent(),
     bool? isSynced,
     Value<String?> remoteId = const Value.absent(),
-    Value<String?> description = const Value.absent(),
     DateTime? createdAt,
     DateTime? updatedAt,
   }) => Loan(
     id: id ?? this.id,
     name: name ?? this.name,
-    principalMinor: principalMinor ?? this.principalMinor,
+    principalAmount: principalAmount ?? this.principalAmount,
     currency: currency ?? this.currency,
     interestRate: interestRate ?? this.interestRate,
+    interestModel: interestModel ?? this.interestModel,
     startDate: startDate ?? this.startDate,
     endDate: endDate ?? this.endDate,
     profileId: profileId ?? this.profileId,
+    description: description.present ? description.value : this.description,
     isSynced: isSynced ?? this.isSynced,
     remoteId: remoteId.present ? remoteId.value : this.remoteId,
-    description: description.present ? description.value : this.description,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
   );
@@ -2680,21 +2719,24 @@ class Loan extends DataClass implements Insertable<Loan> {
     return Loan(
       id: data.id.present ? data.id.value : this.id,
       name: data.name.present ? data.name.value : this.name,
-      principalMinor: data.principalMinor.present
-          ? data.principalMinor.value
-          : this.principalMinor,
+      principalAmount: data.principalAmount.present
+          ? data.principalAmount.value
+          : this.principalAmount,
       currency: data.currency.present ? data.currency.value : this.currency,
       interestRate: data.interestRate.present
           ? data.interestRate.value
           : this.interestRate,
+      interestModel: data.interestModel.present
+          ? data.interestModel.value
+          : this.interestModel,
       startDate: data.startDate.present ? data.startDate.value : this.startDate,
       endDate: data.endDate.present ? data.endDate.value : this.endDate,
       profileId: data.profileId.present ? data.profileId.value : this.profileId,
-      isSynced: data.isSynced.present ? data.isSynced.value : this.isSynced,
-      remoteId: data.remoteId.present ? data.remoteId.value : this.remoteId,
       description: data.description.present
           ? data.description.value
           : this.description,
+      isSynced: data.isSynced.present ? data.isSynced.value : this.isSynced,
+      remoteId: data.remoteId.present ? data.remoteId.value : this.remoteId,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
@@ -2705,15 +2747,16 @@ class Loan extends DataClass implements Insertable<Loan> {
     return (StringBuffer('Loan(')
           ..write('id: $id, ')
           ..write('name: $name, ')
-          ..write('principalMinor: $principalMinor, ')
+          ..write('principalAmount: $principalAmount, ')
           ..write('currency: $currency, ')
           ..write('interestRate: $interestRate, ')
+          ..write('interestModel: $interestModel, ')
           ..write('startDate: $startDate, ')
           ..write('endDate: $endDate, ')
           ..write('profileId: $profileId, ')
+          ..write('description: $description, ')
           ..write('isSynced: $isSynced, ')
           ..write('remoteId: $remoteId, ')
-          ..write('description: $description, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
@@ -2724,15 +2767,16 @@ class Loan extends DataClass implements Insertable<Loan> {
   int get hashCode => Object.hash(
     id,
     name,
-    principalMinor,
+    principalAmount,
     currency,
     interestRate,
+    interestModel,
     startDate,
     endDate,
     profileId,
+    description,
     isSynced,
     remoteId,
-    description,
     createdAt,
     updatedAt,
   );
@@ -2742,15 +2786,16 @@ class Loan extends DataClass implements Insertable<Loan> {
       (other is Loan &&
           other.id == this.id &&
           other.name == this.name &&
-          other.principalMinor == this.principalMinor &&
+          other.principalAmount == this.principalAmount &&
           other.currency == this.currency &&
           other.interestRate == this.interestRate &&
+          other.interestModel == this.interestModel &&
           other.startDate == this.startDate &&
           other.endDate == this.endDate &&
           other.profileId == this.profileId &&
+          other.description == this.description &&
           other.isSynced == this.isSynced &&
           other.remoteId == this.remoteId &&
-          other.description == this.description &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt);
 }
@@ -2758,78 +2803,84 @@ class Loan extends DataClass implements Insertable<Loan> {
 class LoansCompanion extends UpdateCompanion<Loan> {
   final Value<int> id;
   final Value<String> name;
-  final Value<int> principalMinor;
+  final Value<double> principalAmount;
   final Value<String> currency;
   final Value<double> interestRate;
+  final Value<String> interestModel;
   final Value<DateTime> startDate;
   final Value<DateTime> endDate;
   final Value<int> profileId;
+  final Value<String?> description;
   final Value<bool> isSynced;
   final Value<String?> remoteId;
-  final Value<String?> description;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
   const LoansCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
-    this.principalMinor = const Value.absent(),
+    this.principalAmount = const Value.absent(),
     this.currency = const Value.absent(),
     this.interestRate = const Value.absent(),
+    this.interestModel = const Value.absent(),
     this.startDate = const Value.absent(),
     this.endDate = const Value.absent(),
     this.profileId = const Value.absent(),
+    this.description = const Value.absent(),
     this.isSynced = const Value.absent(),
     this.remoteId = const Value.absent(),
-    this.description = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
   });
   LoansCompanion.insert({
     this.id = const Value.absent(),
     required String name,
-    required int principalMinor,
+    required double principalAmount,
     this.currency = const Value.absent(),
-    this.interestRate = const Value.absent(),
+    required double interestRate,
+    this.interestModel = const Value.absent(),
     required DateTime startDate,
     required DateTime endDate,
     required int profileId,
+    this.description = const Value.absent(),
     this.isSynced = const Value.absent(),
     this.remoteId = const Value.absent(),
-    this.description = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
   }) : name = Value(name),
-       principalMinor = Value(principalMinor),
+       principalAmount = Value(principalAmount),
+       interestRate = Value(interestRate),
        startDate = Value(startDate),
        endDate = Value(endDate),
        profileId = Value(profileId);
   static Insertable<Loan> custom({
     Expression<int>? id,
     Expression<String>? name,
-    Expression<int>? principalMinor,
+    Expression<double>? principalAmount,
     Expression<String>? currency,
     Expression<double>? interestRate,
+    Expression<String>? interestModel,
     Expression<DateTime>? startDate,
     Expression<DateTime>? endDate,
     Expression<int>? profileId,
+    Expression<String>? description,
     Expression<bool>? isSynced,
     Expression<String>? remoteId,
-    Expression<String>? description,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (name != null) 'name': name,
-      if (principalMinor != null) 'principal_minor': principalMinor,
+      if (principalAmount != null) 'principal_amount': principalAmount,
       if (currency != null) 'currency': currency,
       if (interestRate != null) 'interest_rate': interestRate,
+      if (interestModel != null) 'interest_model': interestModel,
       if (startDate != null) 'start_date': startDate,
       if (endDate != null) 'end_date': endDate,
       if (profileId != null) 'profile_id': profileId,
+      if (description != null) 'description': description,
       if (isSynced != null) 'is_synced': isSynced,
       if (remoteId != null) 'remote_id': remoteId,
-      if (description != null) 'description': description,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
     });
@@ -2838,30 +2889,32 @@ class LoansCompanion extends UpdateCompanion<Loan> {
   LoansCompanion copyWith({
     Value<int>? id,
     Value<String>? name,
-    Value<int>? principalMinor,
+    Value<double>? principalAmount,
     Value<String>? currency,
     Value<double>? interestRate,
+    Value<String>? interestModel,
     Value<DateTime>? startDate,
     Value<DateTime>? endDate,
     Value<int>? profileId,
+    Value<String?>? description,
     Value<bool>? isSynced,
     Value<String?>? remoteId,
-    Value<String?>? description,
     Value<DateTime>? createdAt,
     Value<DateTime>? updatedAt,
   }) {
     return LoansCompanion(
       id: id ?? this.id,
       name: name ?? this.name,
-      principalMinor: principalMinor ?? this.principalMinor,
+      principalAmount: principalAmount ?? this.principalAmount,
       currency: currency ?? this.currency,
       interestRate: interestRate ?? this.interestRate,
+      interestModel: interestModel ?? this.interestModel,
       startDate: startDate ?? this.startDate,
       endDate: endDate ?? this.endDate,
       profileId: profileId ?? this.profileId,
+      description: description ?? this.description,
       isSynced: isSynced ?? this.isSynced,
       remoteId: remoteId ?? this.remoteId,
-      description: description ?? this.description,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -2876,14 +2929,17 @@ class LoansCompanion extends UpdateCompanion<Loan> {
     if (name.present) {
       map['name'] = Variable<String>(name.value);
     }
-    if (principalMinor.present) {
-      map['principal_minor'] = Variable<int>(principalMinor.value);
+    if (principalAmount.present) {
+      map['principal_amount'] = Variable<double>(principalAmount.value);
     }
     if (currency.present) {
       map['currency'] = Variable<String>(currency.value);
     }
     if (interestRate.present) {
       map['interest_rate'] = Variable<double>(interestRate.value);
+    }
+    if (interestModel.present) {
+      map['interest_model'] = Variable<String>(interestModel.value);
     }
     if (startDate.present) {
       map['start_date'] = Variable<DateTime>(startDate.value);
@@ -2894,14 +2950,14 @@ class LoansCompanion extends UpdateCompanion<Loan> {
     if (profileId.present) {
       map['profile_id'] = Variable<int>(profileId.value);
     }
+    if (description.present) {
+      map['description'] = Variable<String>(description.value);
+    }
     if (isSynced.present) {
       map['is_synced'] = Variable<bool>(isSynced.value);
     }
     if (remoteId.present) {
       map['remote_id'] = Variable<String>(remoteId.value);
-    }
-    if (description.present) {
-      map['description'] = Variable<String>(description.value);
     }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
@@ -2917,15 +2973,16 @@ class LoansCompanion extends UpdateCompanion<Loan> {
     return (StringBuffer('LoansCompanion(')
           ..write('id: $id, ')
           ..write('name: $name, ')
-          ..write('principalMinor: $principalMinor, ')
+          ..write('principalAmount: $principalAmount, ')
           ..write('currency: $currency, ')
           ..write('interestRate: $interestRate, ')
+          ..write('interestModel: $interestModel, ')
           ..write('startDate: $startDate, ')
           ..write('endDate: $endDate, ')
           ..write('profileId: $profileId, ')
+          ..write('description: $description, ')
           ..write('isSynced: $isSynced, ')
           ..write('remoteId: $remoteId, ')
-          ..write('description: $description, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
@@ -5497,15 +5554,16 @@ typedef $$LoansTableCreateCompanionBuilder =
     LoansCompanion Function({
       Value<int> id,
       required String name,
-      required int principalMinor,
+      required double principalAmount,
       Value<String> currency,
-      Value<double> interestRate,
+      required double interestRate,
+      Value<String> interestModel,
       required DateTime startDate,
       required DateTime endDate,
       required int profileId,
+      Value<String?> description,
       Value<bool> isSynced,
       Value<String?> remoteId,
-      Value<String?> description,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
     });
@@ -5513,15 +5571,16 @@ typedef $$LoansTableUpdateCompanionBuilder =
     LoansCompanion Function({
       Value<int> id,
       Value<String> name,
-      Value<int> principalMinor,
+      Value<double> principalAmount,
       Value<String> currency,
       Value<double> interestRate,
+      Value<String> interestModel,
       Value<DateTime> startDate,
       Value<DateTime> endDate,
       Value<int> profileId,
+      Value<String?> description,
       Value<bool> isSynced,
       Value<String?> remoteId,
-      Value<String?> description,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
     });
@@ -5544,8 +5603,8 @@ class $$LoansTableFilterComposer extends Composer<_$AppDatabase, $LoansTable> {
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<int> get principalMinor => $composableBuilder(
-    column: $table.principalMinor,
+  ColumnFilters<double> get principalAmount => $composableBuilder(
+    column: $table.principalAmount,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -5556,6 +5615,11 @@ class $$LoansTableFilterComposer extends Composer<_$AppDatabase, $LoansTable> {
 
   ColumnFilters<double> get interestRate => $composableBuilder(
     column: $table.interestRate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get interestModel => $composableBuilder(
+    column: $table.interestModel,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -5574,6 +5638,11 @@ class $$LoansTableFilterComposer extends Composer<_$AppDatabase, $LoansTable> {
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<bool> get isSynced => $composableBuilder(
     column: $table.isSynced,
     builder: (column) => ColumnFilters(column),
@@ -5581,11 +5650,6 @@ class $$LoansTableFilterComposer extends Composer<_$AppDatabase, $LoansTable> {
 
   ColumnFilters<String> get remoteId => $composableBuilder(
     column: $table.remoteId,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get description => $composableBuilder(
-    column: $table.description,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -5619,8 +5683,8 @@ class $$LoansTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<int> get principalMinor => $composableBuilder(
-    column: $table.principalMinor,
+  ColumnOrderings<double> get principalAmount => $composableBuilder(
+    column: $table.principalAmount,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -5631,6 +5695,11 @@ class $$LoansTableOrderingComposer
 
   ColumnOrderings<double> get interestRate => $composableBuilder(
     column: $table.interestRate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get interestModel => $composableBuilder(
+    column: $table.interestModel,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -5649,6 +5718,11 @@ class $$LoansTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get isSynced => $composableBuilder(
     column: $table.isSynced,
     builder: (column) => ColumnOrderings(column),
@@ -5656,11 +5730,6 @@ class $$LoansTableOrderingComposer
 
   ColumnOrderings<String> get remoteId => $composableBuilder(
     column: $table.remoteId,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get description => $composableBuilder(
-    column: $table.description,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -5690,8 +5759,8 @@ class $$LoansTableAnnotationComposer
   GeneratedColumn<String> get name =>
       $composableBuilder(column: $table.name, builder: (column) => column);
 
-  GeneratedColumn<int> get principalMinor => $composableBuilder(
-    column: $table.principalMinor,
+  GeneratedColumn<double> get principalAmount => $composableBuilder(
+    column: $table.principalAmount,
     builder: (column) => column,
   );
 
@@ -5700,6 +5769,11 @@ class $$LoansTableAnnotationComposer
 
   GeneratedColumn<double> get interestRate => $composableBuilder(
     column: $table.interestRate,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get interestModel => $composableBuilder(
+    column: $table.interestModel,
     builder: (column) => column,
   );
 
@@ -5712,16 +5786,16 @@ class $$LoansTableAnnotationComposer
   GeneratedColumn<int> get profileId =>
       $composableBuilder(column: $table.profileId, builder: (column) => column);
 
+  GeneratedColumn<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<bool> get isSynced =>
       $composableBuilder(column: $table.isSynced, builder: (column) => column);
 
   GeneratedColumn<String> get remoteId =>
       $composableBuilder(column: $table.remoteId, builder: (column) => column);
-
-  GeneratedColumn<String> get description => $composableBuilder(
-    column: $table.description,
-    builder: (column) => column,
-  );
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
@@ -5760,29 +5834,31 @@ class $$LoansTableTableManager
               ({
                 Value<int> id = const Value.absent(),
                 Value<String> name = const Value.absent(),
-                Value<int> principalMinor = const Value.absent(),
+                Value<double> principalAmount = const Value.absent(),
                 Value<String> currency = const Value.absent(),
                 Value<double> interestRate = const Value.absent(),
+                Value<String> interestModel = const Value.absent(),
                 Value<DateTime> startDate = const Value.absent(),
                 Value<DateTime> endDate = const Value.absent(),
                 Value<int> profileId = const Value.absent(),
+                Value<String?> description = const Value.absent(),
                 Value<bool> isSynced = const Value.absent(),
                 Value<String?> remoteId = const Value.absent(),
-                Value<String?> description = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
               }) => LoansCompanion(
                 id: id,
                 name: name,
-                principalMinor: principalMinor,
+                principalAmount: principalAmount,
                 currency: currency,
                 interestRate: interestRate,
+                interestModel: interestModel,
                 startDate: startDate,
                 endDate: endDate,
                 profileId: profileId,
+                description: description,
                 isSynced: isSynced,
                 remoteId: remoteId,
-                description: description,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
               ),
@@ -5790,29 +5866,31 @@ class $$LoansTableTableManager
               ({
                 Value<int> id = const Value.absent(),
                 required String name,
-                required int principalMinor,
+                required double principalAmount,
                 Value<String> currency = const Value.absent(),
-                Value<double> interestRate = const Value.absent(),
+                required double interestRate,
+                Value<String> interestModel = const Value.absent(),
                 required DateTime startDate,
                 required DateTime endDate,
                 required int profileId,
+                Value<String?> description = const Value.absent(),
                 Value<bool> isSynced = const Value.absent(),
                 Value<String?> remoteId = const Value.absent(),
-                Value<String?> description = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
               }) => LoansCompanion.insert(
                 id: id,
                 name: name,
-                principalMinor: principalMinor,
+                principalAmount: principalAmount,
                 currency: currency,
                 interestRate: interestRate,
+                interestModel: interestModel,
                 startDate: startDate,
                 endDate: endDate,
                 profileId: profileId,
+                description: description,
                 isSynced: isSynced,
                 remoteId: remoteId,
-                description: description,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
               ),

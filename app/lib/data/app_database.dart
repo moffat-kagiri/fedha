@@ -79,22 +79,28 @@ class Goals extends Table {
   DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
 }
 
-/// Table for storing loans
+/// Table for storing loans:
 class Loans extends Table {
   IntColumn get id => integer().autoIncrement()();
-  TextColumn get name => text()();
-  IntColumn get principalMinor => integer()();
+  
+  TextColumn get name => text().withLength(min: 1, max: 255)();
+  
+  // CHANGED: principal_amount (major units)
+  RealColumn get principalAmount => real()();
+  
   TextColumn get currency => text().withDefault(const Constant('KES'))();
-  RealColumn get interestRate => real().withDefault(const Constant(0.0))();
+  RealColumn get interestRate => real()();
+  
+  // NEW: interest_model field
+  TextColumn get interestModel => text().withDefault(const Constant('simple'))();
+  
   DateTimeColumn get startDate => dateTime()();
   DateTimeColumn get endDate => dateTime()();
   IntColumn get profileId => integer()();
+  TextColumn get description => text().nullable()();
   
-  // Sync fields
   BoolColumn get isSynced => boolean().withDefault(const Constant(false))();
   TextColumn get remoteId => text().nullable()();
-  
-  TextColumn get description => text().nullable()();
   
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();

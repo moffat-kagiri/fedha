@@ -302,7 +302,9 @@ class OfflineDataService {
         budgets = decoded.cast<Map<String, dynamic>>();
       }
       
-      final budgetJson = budget.toJson();
+      // ✅ USE toLocalJson() for local storage
+      final budgetJson = budget.toLocalJson(); // This should return camelCase
+      
       final index = budgets.indexWhere((b) => b['id'] == budget.id);
       
       if (index != -1) {
@@ -622,14 +624,17 @@ class OfflineDataService {
     return pending.length;
   }
 
-  // ==================== LOANS ====================
+// ==================== LOANS ====================
 
   Future<int> saveLoan(dom.Loan loan) async {
     final companion = app_db.LoansCompanion.insert(
       name: loan.name,
-      principalMinor: loan.principalMinor.toInt(),
+      // CHANGED: principal_amount not principal_minor
+      principalAmount: loan.principalAmount,
       currency: Value(loan.currency),
-      interestRate: Value(loan.interestRate),
+      interestRate: loan.interestRate,
+      // NEW: interest_model field
+      interestModel: Value(loan.interestModel),
       startDate: loan.startDate,
       endDate: loan.endDate,
       profileId: _profileIdToInt(loan.profileId),
@@ -664,9 +669,11 @@ class OfflineDataService {
     final companion = app_db.LoansCompanion(
       id: Value(loanIdInt),
       name: Value(loan.name),
-      principalMinor: Value(loan.principalMinor.toInt()),
+      // CHANGED: principal_amount
+      principalAmount: Value(loan.principalAmount),
       currency: Value(loan.currency),
       interestRate: Value(loan.interestRate),
+      interestModel: Value(loan.interestModel),
       startDate: Value(loan.startDate),
       endDate: Value(loan.endDate),
       profileId: Value(_profileIdToInt(loan.profileId)),
@@ -677,6 +684,27 @@ class OfflineDataService {
     );
 
     await _db.updateLoan(companion);
+  }
+
+  dom.Loan _mapDbLoanToDomain(app_db.Loan r, String profileId) {
+    return dom.Loan(
+      id: r.id.toString(),
+      remoteId: r.remoteId,
+      name: r.name,
+      // CHANGED: principal_amount not principal_minor
+      principalAmount: r.principalAmount,
+      currency: r.currency,
+      interestRate: r.interestRate,
+      // NEW: interest_model
+      interestModel: r.interestModel ?? 'simple', // Default value
+      startDate: r.startDate,
+      endDate: r.endDate,
+      profileId: profileId,
+      description: r.description,
+      isSynced: r.isSynced,
+      createdAt: r.createdAt,
+      updatedAt: r.updatedAt,
+    );
   }
 
   /// Delete a loan by ID
@@ -719,9 +747,10 @@ class OfflineDataService {
           updatedAt: Value(DateTime.now()),
           // Preserve all other fields from the existing loan
           name: Value(loan.name),
-          principalMinor: Value(loan.principalMinor),
+          principalAmount: Value(loan.principalAmount),
           currency: Value(loan.currency),
           interestRate: Value(loan.interestRate),
+          interestModel: Value(loan.interestModel),
           startDate: Value(loan.startDate),
           endDate: Value(loan.endDate),
           profileId: Value(loan.profileId),
@@ -737,23 +766,6 @@ class OfflineDataService {
     }
   }
 
-  dom.Loan _mapDbLoanToDomain(app_db.Loan r, String profileId) {
-    return dom.Loan(
-      id: r.id.toString(),
-      remoteId: r.remoteId,
-      name: r.name,
-      principalMinor: r.principalMinor.toDouble(),
-      currency: r.currency,
-      interestRate: r.interestRate,
-      startDate: r.startDate,
-      endDate: r.endDate,
-      profileId: profileId,
-      description: r.description,
-      isSynced: r.isSynced,
-      createdAt: r.createdAt,
-      updatedAt: r.updatedAt,
-    );
-  }
 
   // ==================== UTILITY METHODS ====================
 

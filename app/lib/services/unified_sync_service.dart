@@ -144,7 +144,7 @@ class UnifiedSyncService with ChangeNotifier {
     return result;
   }
 
-  /// ✅ NEW: Batch sync transactions
+  /// ✅ UPDATED: Use the new prepareTransactionData from ApiClient
   Future<EntitySyncResult> _syncTransactionsBatch(String profileId) async {
     final result = EntitySyncResult();
     
@@ -161,10 +161,28 @@ class UnifiedSyncService with ChangeNotifier {
         if (unsyncedTransactions.isNotEmpty) {
           _logger.info('Uploading ${unsyncedTransactions.length} transactions');
           
-          // Batch upload
+          // Use the new prepareTransactionData method
           for (int i = 0; i < unsyncedTransactions.length; i += _batchSize) {
             final batch = unsyncedTransactions.skip(i).take(_batchSize).toList();
-            final batchData = batch.map((t) => _prepareTransactionForUpload(t, profileId)).toList();
+            final batchData = batch.map((t) {
+              return ApiClient.prepareTransactionData(
+                profileId: profileId,
+                amount: t.amount,  // Use major units
+                type: t.type,
+                description: t.description ?? '',
+                category: t.category,
+                goalId: t.goalId,
+                date: t.date,
+                isExpense: t.isExpense ?? (t.type == 'expense'),
+                currency: t.currency ?? 'KES',
+                status: t.status ?? 'completed',
+                paymentMethod: t.paymentMethod,
+                merchantName: t.merchantName,
+                merchantCategory: t.merchantCategory,
+                tags: t.tags,
+                isRecurring: t.isRecurring,
+              );
+            }).toList();
             
             final response = await _apiClient.syncTransactions(profileId, batchData);
             
@@ -174,11 +192,11 @@ class UnifiedSyncService with ChangeNotifier {
             }
           }
         }
-        
+
         // STEP 2: Download from server
         final remoteTransactions = await _apiClient.getTransactions(profileId: profileId);
         _logger.info('Downloaded ${remoteTransactions.length} transactions');
-        
+
         // STEP 3: Merge only new transactions
         for (final remote in remoteTransactions) {
           final remoteId = remote['id']?.toString();
@@ -195,7 +213,7 @@ class UnifiedSyncService with ChangeNotifier {
           }
         }
       }
-
+      
       result.success = true;
     } catch (e, stackTrace) {
       _logger.severe('Transaction sync failed', e, stackTrace);
@@ -206,17 +224,16 @@ class UnifiedSyncService with ChangeNotifier {
     return result;
   }
 
-  /// ✅ IMPROVED: Parse remote transaction with better field handling
+  /// ✅ FIXED: Parse remote transaction with correct field mapping
   Transaction? _parseRemoteTransaction(Map<String, dynamic> remote, String profileId) {
     try {
       final remoteId = remote['id']?.toString();
-      final amount = _parseAmount(remote['amount_minor']);
+      // CHANGED: Use 'amount' not 'amount_minor'
+      final amount = _parseAmount(remote['amount'] ?? remote['amount_minor']);  
       final isExpense = remote['is_expense'] == true;
       
-      // Better transaction type handling
-      String type = remote['type']?.toString() ?? 
-          remote['type']?.toString() ?? 
-          (isExpense ? 'expense' : 'income');
+      // Field name is 'type' in backend
+      String type = remote['type']?.toString() ?? (isExpense ? 'expense' : 'income');
       
       // Ensure valid transaction type
       if (!['income', 'expense', 'savings', 'transfer'].contains(type)) {
@@ -246,6 +263,9 @@ class UnifiedSyncService with ChangeNotifier {
         tags: remote['tags']?.toString(),
         reference: remote['reference']?.toString(),
         recipient: remote['recipient']?.toString(),
+        // Add other optional fields
+        isRecurring: remote['is_recurring'] ?? false,
+        location: remote['location']?.toString(),
       );
     } catch (e) {
       _logger.warning('Failed to parse remote transaction: $e');
@@ -253,12 +273,12 @@ class UnifiedSyncService with ChangeNotifier {
     }
   }
 
-  /// ✅ NEW: Prepare transaction for upload
+  /// ✅ FIXED: Prepare transaction for upload with correct field names
   Map<String, dynamic> _prepareTransactionForUpload(Transaction t, String profileId) {
     return {
       'profile_id': profileId,
-      'amount_minor': t.amountMinor,
-      'type': t.type,
+      'amount': t.amount,  // CHANGED: Major units, not minor
+      'type': t.type,      // CHANGED: Field name fixed (should match backend)
       'description': t.description ?? '',
       'category': t.category,
       'goal_id': t.goalId,
@@ -274,6 +294,9 @@ class UnifiedSyncService with ChangeNotifier {
       'tags': t.tags,
       'reference': t.reference,
       'recipient': t.recipient,
+      // Optional: Add other fields that exist in backend
+      'is_recurring': t.isRecurring,
+      'payment_method': t.paymentMethod,
     };
   }
 
@@ -455,7 +478,7 @@ class UnifiedSyncService with ChangeNotifier {
     };
   }
 
-  /// ✅ NEW: Batch sync loans
+  /// ✅ UPDATED: Batch sync loans with proper data processing
   Future<EntitySyncResult> _syncLoansBatch(String profileId) async {
     final result = EntitySyncResult();
     
@@ -466,9 +489,21 @@ class UnifiedSyncService with ChangeNotifier {
       if (_apiClient.isAuthenticated) {
         final unsyncedLoans = localLoans.where((l) => l.remoteId == null).toList();
         
+        // Use the new prepareLoanData method from ApiClient
         for (final loan in unsyncedLoans) {
           try {
-            final payload = _prepareLoanForUpload(loan);
+            final payload = ApiClient.prepareLoanData(
+              profileId: loan.profileId,
+              name: loan.name,
+              principalAmount: loan.principalAmount,
+              interestRate: loan.interestRate,
+              interestModel: 'simple',  // Default
+              startDate: loan.startDate,
+              endDate: loan.endDate,
+              currency: loan.currency,
+              description: loan.description,
+            );
+            
             final created = await _apiClient.createLoan(loan: payload);
             
             if (created['id'] != null) {
@@ -515,18 +550,24 @@ class UnifiedSyncService with ChangeNotifier {
     return result;
   }
 
+  /// ✅ FIXED: Parse remote loan with correct field mapping
   Loan? _parseRemoteLoan(Map<String, dynamic> remote, String profileId) {
     try {
       return Loan(
+        id: remote['id']?.toString(),
+        remoteId: remote['id']?.toString(),
         name: remote['name']?.toString() ?? '',
-        principalMinor: _parseAmount(remote['principal_minor']),
+        principalAmount: remote['principal_amount'] != null ? _parseAmount(remote['principal_amount']) : 0,
         currency: remote['currency']?.toString() ?? 'KES',
-        interestRate: _parseAmount(remote['interest_rate']),
+        interestRate: remote['interest_rate'] != null ? _parseAmount(remote['interest_rate']) : 0,
+        interestModel: remote['interest_model']?.toString() ?? 'simple',
         startDate: _parseDate(remote['start_date']) ?? DateTime.now(),
         endDate: _parseDate(remote['end_date']) ?? DateTime.now(),
-        profileId: remote['profile_id']?.toString() ?? profileId,
-        remoteId: remote['id']?.toString(),
+        profileId: profileId,
         description: remote['description']?.toString(),
+        isSynced: remote['is_synced'] ?? false,
+        createdAt: _parseDate(remote['created_at']),
+        updatedAt: _parseDate(remote['updated_at']),
       );
     } catch (e) {
       _logger.warning('Failed to parse remote loan: $e');
@@ -534,17 +575,22 @@ class UnifiedSyncService with ChangeNotifier {
     }
   }
 
+  /// ✅ FIXED: Prepare loan for upload with correct field names
   Map<String, dynamic> _prepareLoanForUpload(Loan l) {
-    return {
-      'name': l.name,
-      'principal_minor': l.principalMinor,
-      'currency': l.currency,
-      'interest_rate': l.interestRate,
-      'start_date': l.startDate.toIso8601String(),
-      'end_date': l.endDate.toIso8601String(),
-      'profile_id': l.profileId,
-      'description': l.description,
-    };
+    // First, process the loan to match backend schema
+    final processedData = ApiClient.prepareLoanData(
+      profileId: l.profileId,
+      name: l.name,
+      principalAmount: l.principalAmount,  // Use helper method
+      interestRate: l.interestRate,
+      interestModel: 'reducingBalance',  // Default value
+      startDate: l.startDate,
+      endDate: l.endDate,
+      currency: l.currency,
+      description: l.description,
+    );
+    
+    return processedData;
   }
 
   Future<EntitySyncResult> _syncPendingTransactions(String profileId) async {

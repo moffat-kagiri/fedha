@@ -113,28 +113,54 @@ class Budget {
       currency: 'KES',
     );
   }
-  
+
+  // For local storage (simple)
+  Map<String, dynamic> toLocalJson() {
+    return _$BudgetToJson(this); // budgetAmount, spentAmount, etc.
+  }
+
+  // For Django API (snake_case)
   Map<String, dynamic> toJson() {
     final json = _$BudgetToJson(this);
     
-    // ✅ Ensure profile_id is included for backend
-    if (!json.containsKey('profile_id') && profileId.isNotEmpty) {
-      json['profile_id'] = profileId;
-    }
+    // Map to Django field names
+    json['budget_amount'] = budgetAmount;
+    json['spent_amount'] = spentAmount;
+    json['start_date'] = startDate.toIso8601String();
+    json['end_date'] = endDate.toIso8601String();
+    json['is_active'] = isActive;
+    json['is_synced'] = isSynced;
     
-    // ✅ Ensure required fields are present
-    json['name'] = name;
-    json['budgetAmount'] = budgetAmount;
-    json['spentAmount'] = spentAmount;
-    json['category'] = category;
-    json['startDate'] = startDate.toIso8601String();
-    json['endDate'] = endDate.toIso8601String();
-    json['period'] = period;
-    json['isActive'] = isActive;
-    json['isSynced'] = isSynced;
-    json['currency'] = currency;
+    // Remove Dart-specific fields
+    json.remove('budgetAmount');
+    json.remove('spentAmount');
+    json.remove('startDate');
+    json.remove('endDate');
+    json.remove('isActive');
+    json.remove('isSynced');
     
     return json;
+  }
+
+  // ADD fromJson for Django:
+  factory Budget.fromDjangoJson(Map<String, dynamic> json) {
+    return Budget(
+      id: json['id']?.toString() ?? '',
+      remoteId: json['id']?.toString(),
+      name: json['name'] ?? '',
+      description: json['description'],
+      budgetAmount: (json['budget_amount'] ?? 0).toDouble(),
+      spentAmount: (json['spent_amount'] ?? 0).toDouble(),
+      category: json['category'] ?? '',
+      profileId: json['profile']?.toString() ?? json['profile_id']?.toString() ?? '',
+      period: json['period'] ?? 'monthly',
+      startDate: DateTime.parse(json['start_date']),
+      endDate: DateTime.parse(json['end_date']),
+      isActive: json['is_active'] ?? true,
+      isSynced: json['is_synced'] ?? false,
+      createdAt: DateTime.parse(json['created_at']),
+      updatedAt: DateTime.parse(json['updated_at']),
+    );
   }
 
   bool isDateInRange(DateTime date) {

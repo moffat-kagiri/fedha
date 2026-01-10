@@ -25,6 +25,7 @@ class Budget(models.Model):
     
     name = models.CharField(max_length=255)
     description = models.TextField(null=True, blank=True)
+    currency = models.CharField(max_length=3, default='KES')
     
     budget_amount = models.DecimalField(max_digits=15, decimal_places=2)
     spent_amount = models.DecimalField(max_digits=15, decimal_places=2, default=0)
@@ -67,6 +68,10 @@ class Budget(models.Model):
                 condition=models.Q(end_date__gt=models.F('start_date')),
                 name='end_after_start'
             ),
+            models.CheckConstraint(
+                condition=models.Q(currency__in=['KES', 'USD', 'EUR', 'GBP']),
+                name='valid_currency'
+            )
         ]
     
     def __str__(self):

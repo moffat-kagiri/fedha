@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 import '../models/budget.dart';
 import '../models/enums.dart';
+import '../services/budget_service.dart';
 import '../services/offline_data_service.dart';
 import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
@@ -90,7 +91,7 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
     setState(() => _isCreating = true);
 
     try {
-      final dataService = Provider.of<OfflineDataService>(context, listen: false);
+      final budgetService = Provider.of<BudgetService>(context, listen: false); // ✅ ADD THIS
       final authService = Provider.of<AuthService>(context, listen: false);
       final profileId = authService.profileId ?? '';
 
@@ -99,30 +100,39 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
         throw Exception('No active profile. Please select a profile first.');
       }
 
+      // Ensure BudgetService has the current profile loaded
+      await budgetService.loadBudgetsForProfile(profileId);
+
       // Create individual budget for each category with an allocation
       int budgetsCreated = 0;
-      for (var categoryData in _budgetCategories) { // ✅ FIX: Renamed variable to avoid conflict
-        final category = categoryData['id'] as String; // ✅ FIX: Use different variable name
+      for (var categoryData in _budgetCategories) {
+        final category = categoryData['id'] as String;
         final amount = _categoryBudgets[category] ?? 0.0;
 
         if (amount > 0) {
           final budget = Budget(
-            id: const Uuid().v4(), // ✅ FIX: Use proper UUID instead of timestamp
-            remoteId: null, // ✅ FIX: Initialize as null, will be set on sync
+            id: const Uuid().v4(),
+            remoteId: null,
             name: '$_budgetName - ${categoryData['name']}',
             description: 'Budget for ${categoryData['name']}',
             budgetAmount: amount,
             spentAmount: 0.0,
-            category: category, // ✅ FIX: Use category (string), not categoryData (map)
+            category: category,
             profileId: profileId,
             startDate: _startDate,
             endDate: _endDate,
             isActive: true,
-            isSynced: false, // ✅ FIX: Mark as unsynced initially
+            isSynced: false,
+            currency: 'KES', // ✅ ADD THIS - REQUIRED FIELD
+            createdAt: DateTime.now(), // ✅ ADD THIS - required by model
+            updatedAt: DateTime.now(), // ✅ ADD THIS - required by model
           );
 
-          await dataService.saveBudget(budget);
-          budgetsCreated++;
+          // ✅ FIX: Use BudgetService instead of direct database call
+          final success = await budgetService.createBudget(budget);
+          if (success) {
+            budgetsCreated++;
+          }
         }
       }
 

@@ -69,18 +69,37 @@ class BudgetService with ChangeNotifier {
 
   /// Create a new budget
   Future<bool> createBudget(Budget budget) async {
-    if (_offlineDataService == null || _currentProfileId == null) {
-      _logger.warning('Cannot create budget: service not initialized');
+    if (_offlineDataService == null) {
+      _logger.warning('Cannot create budget: OfflineDataService not available');
+      return false;
+    }
+
+    if (!_validateBudget(budget)) {
+      _logger.warning('Cannot create budget: Validation failed');
+      return false;
+    }
+
+    if (_currentProfileId == null || _currentProfileId!.isEmpty) {
+      _logger.warning('Cannot create budget: No current profile loaded');
       return false;
     }
 
     try {
-      await _offlineDataService!.saveBudget(budget);
+      // Create budget with current profileId
+      final budgetWithProfile = budget.copyWith(
+        profileId: _currentProfileId!, // ✅ Use _currentProfileId
+        isSynced: false,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+
+      await _offlineDataService!.saveBudget(budgetWithProfile);
       
-      // Reload budgets to include the new one
-      await loadBudgetsForProfile(_currentProfileId!);
+      // Update cache
+      _cachedBudgets.add(budgetWithProfile);
+      notifyListeners();
       
-      _logger.info('Budget created: ${budget.name}');
+      _logger.info('Budget created: ${budget.name} for profile: $_currentProfileId');
       return true;
     } catch (e, stackTrace) {
       _logger.severe('Failed to create budget', e, stackTrace);
@@ -90,22 +109,45 @@ class BudgetService with ChangeNotifier {
 
   /// Update an existing budget
   Future<bool> updateBudget(Budget budget) async {
-    if (_offlineDataService == null || _currentProfileId == null) {
-      _logger.warning('Cannot update budget: service not initialized');
+    if (_offlineDataService == null) {
+      _logger.warning('Cannot update budget: OfflineDataService not available');
+      return false;
+    }
+
+    if (!_validateBudget(budget)) {
+      _logger.warning('Cannot update budget: Validation failed');
+      return false;
+    }
+
+    if (_currentProfileId == null || _currentProfileId!.isEmpty) {
+      _logger.warning('Cannot update budget: No current profile loaded');
+      return false;
+    }
+
+    if (budget.id.isEmpty) {
+      _logger.warning('Cannot update budget: Budget ID is empty');
       return false;
     }
 
     try {
-      await _offlineDataService!.updateBudget(budget);
+      // Ensure budget has the correct profileId (from current profile)
+      final updatedBudget = budget.copyWith(
+        profileId: _currentProfileId!, // ✅ Use _currentProfileId
+        isSynced: false,
+        updatedAt: DateTime.now(),
+      );
+      
+      // Update in database
+      await _offlineDataService!.updateBudget(updatedBudget);
       
       // Update cache
       final index = _cachedBudgets.indexWhere((b) => b.id == budget.id);
       if (index != -1) {
-        _cachedBudgets[index] = budget;
+        _cachedBudgets[index] = updatedBudget;
         notifyListeners();
       }
       
-      _logger.info('Budget updated: ${budget.name}');
+      _logger.info('Budget updated: ${budget.name} for profile: $_currentProfileId');
       return true;
     } catch (e, stackTrace) {
       _logger.severe('Failed to update budget', e, stackTrace);
@@ -113,10 +155,35 @@ class BudgetService with ChangeNotifier {
     }
   }
 
+  /// Validate budget data
+  bool _validateBudget(Budget budget) {
+    if (budget.budgetAmount <= 0) {
+      _logger.warning('Budget amount must be positive');
+      return false;
+    }
+    
+    if (budget.endDate.isBefore(budget.startDate)) {
+      _logger.warning('End date must be after start date');
+      return false;
+    }
+    
+    if (budget.spentAmount < 0) {
+      _logger.warning('Spent amount cannot be negative');
+      return false;
+    }
+    
+    return true;
+  }
+
   /// Delete a budget
   Future<bool> deleteBudget(String budgetId) async {
     if (_offlineDataService == null) {
-      _logger.warning('Cannot delete budget: service not initialized');
+      _logger.warning('Cannot delete budget: OfflineDataService not available');
+      return false;
+    }
+
+    if (_currentProfileId == null) {
+      _logger.warning('Cannot delete budget: No current profile loaded');
       return false;
     }
 
@@ -127,7 +194,7 @@ class BudgetService with ChangeNotifier {
       _cachedBudgets.removeWhere((b) => b.id == budgetId);
       notifyListeners();
       
-      _logger.info('Budget deleted: $budgetId');
+      _logger.info('Budget deleted: $budgetId for profile: $_currentProfileId');
       return true;
     } catch (e, stackTrace) {
       _logger.severe('Failed to delete budget', e, stackTrace);
@@ -146,22 +213,21 @@ class BudgetService with ChangeNotifier {
       return false;
     }
 
+    if (_currentProfileId == null) {
+      _logger.warning('Cannot record spending: No current profile loaded');
+      return false;
+    }
+
     try {
-      final budget = _cachedBudgets.firstWhere((b) => b.id == budgetId);
-      final updatedBudget = Budget(
-        id: budget.id,
-        name: budget.name,
-        profileId: budget.profileId,
-        description: budget.description,
-        budgetAmount: budget.budgetAmount,
+      final budget = getBudgetById(budgetId);
+      if (budget == null) {
+        _logger.warning('Budget not found: $budgetId');
+        return false;
+      }
+      
+      final updatedBudget = budget.copyWith(
         spentAmount: budget.spentAmount + amount,
-        category: budget.category,
-        period: budget.period,
-        startDate: budget.startDate,
-        endDate: budget.endDate,
-        isActive: budget.isActive,
-        isSynced: false, // Mark as needing sync
-        createdAt: budget.createdAt,
+        isSynced: false,
         updatedAt: DateTime.now(),
       );
 

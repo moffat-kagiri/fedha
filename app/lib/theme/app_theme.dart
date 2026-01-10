@@ -14,6 +14,36 @@ class FedhaColors {
   static const Color infoBlue = Color(0xFF1976D2);
 }
 
+extension NumberFormatting on double {
+  String toFormattedString({int decimalPlaces = 0}) {
+    final amount = toStringAsFixed(decimalPlaces);
+    final parts = amount.split('.');
+    final integerPart = parts[0];
+    final decimalPart = parts.length > 1 ? parts[1] : '';
+    
+    String formatted = '';
+    int count = 0;
+    
+    for (int i = integerPart.length - 1; i >= 0; i--) {
+      formatted = integerPart[i] + formatted;
+      count++;
+      if (count == 3 && i != 0) {
+        formatted = ',$formatted';
+        count = 0;
+      }
+    }
+    
+    return decimalPart.isNotEmpty ? '$formatted.$decimalPart' : formatted;
+  }
+}
+
+extension StringExtension on String {
+  String capitalize() {
+    if (isEmpty) return this;
+    return '${this[0].toUpperCase()}${substring(1)}';
+  }
+}
+
 /// Unified App Theme for Fedha (Material 3 Optimized)
 class AppTheme {
   // 🌞 LIGHT THEME

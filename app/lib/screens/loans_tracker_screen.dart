@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'dart:math' as math;
-
+import '../theme/app_theme.dart';
 import '../services/offline_data_service.dart';
 import '../services/auth_service.dart';
+import '../services/api_client.dart';
 import '../models/loan.dart' as domain_loan;
 
 class LoansTrackerScreen extends StatefulWidget {
@@ -50,7 +51,7 @@ class _LoansTrackerScreenState extends State<LoansTrackerScreen> with SingleTick
         controller: _tabController,
         children: [
           // Active tab renders the persistent LoansTrackerTab
-          LoansTrackerTab(),
+          const LoansTrackerTab(),
           _buildPaidLoansTab(),
         ],
       ),
@@ -64,9 +65,7 @@ class _LoansTrackerScreenState extends State<LoansTrackerScreen> with SingleTick
   }
 }
 
-/* -------------------------------------------------------------------------- */
-/* ------------------------------ Loans Tracker Tab ------------------------- */
-/* -------------------------------------------------------------------------- */
+// ========================= Loans Tracker Tab ================================
 
 class LoansTrackerTab extends StatefulWidget {
   const LoansTrackerTab({super.key});
@@ -103,8 +102,9 @@ class _LoansTrackerTabState extends State<LoansTrackerTab> {
       final svc = Provider.of<OfflineDataService>(context, listen: false);
       final domainLoans = await svc.getAllLoans(profileId);
 
-      final mapped = domainLoans.map((d) {
-        final principal = d.principalMinor / 100.0;
+      // ✅ Explicit type and fixed constructor
+      final List<Loan> mapped = domainLoans.map((d) {
+        final principal = d.principalAmount;
         final start = d.startDate;
         final end = d.endDate;
         final totalMonths = _monthsBetween(start, end).clamp(1, 1000);
@@ -112,15 +112,21 @@ class _LoansTrackerTabState extends State<LoansTrackerTab> {
         final monthlyPayment = _computeMonthlyPayment(principal, d.interestRate, totalMonths);
 
         return Loan(
-          id: int.tryParse(d.id!) ?? 0,
+          id: int.tryParse(d.id) ?? 0,
+          remoteId: d.remoteId,
           name: d.name,
           principal: principal,
           interestRate: d.interestRate,
+          interestModel: d.interestModel,
           totalMonths: totalMonths,
           remainingMonths: remainingMonths,
           monthlyPayment: monthlyPayment,
           startDate: start,
           endDate: end,
+          isSynced: d.isSynced,
+          description: d.description,
+          createdAt: d.createdAt,
+          updatedAt: d.updatedAt,
         );
       }).toList();
 
@@ -128,7 +134,7 @@ class _LoansTrackerTabState extends State<LoansTrackerTab> {
         setState(() {
           _loans
             ..clear()
-            ..addAll(mapped);
+            ..addAll(mapped);  // ✅ Now both are List<Loan>
           _isLoading = false;
         });
       }
@@ -286,10 +292,24 @@ class _LoansTrackerTabState extends State<LoansTrackerTab> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(
-                              loan.name,
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    loan.name,
+                                    style: theme.textTheme.titleMedium?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  // ✅ NEW: Show interest model
+                                  Text(
+                                    '${loan.interestModel.capitalize()} Interest',
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: theme.colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                             PopupMenuButton<String>(
@@ -351,14 +371,38 @@ class _LoansTrackerTabState extends State<LoansTrackerTab> {
                         LinearProgressIndicator(
                           value: (loan.totalMonths - loan.remainingMonths) / loan.totalMonths,
                           backgroundColor: theme.colorScheme.onSurface.withOpacity(0.12),
-                          valueColor: AlwaysStoppedAnimation<Color>(theme.colorScheme.primary),
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            loan.isActive ? theme.colorScheme.primary : Colors.green,
+                          ),
                         ),
                         const SizedBox(height: 8),
-                        Text(
-                          'Progress: ${((loan.totalMonths - loan.remainingMonths) / loan.totalMonths * 100).toStringAsFixed(1)}% completed',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Progress: ${((loan.totalMonths - loan.remainingMonths) / loan.totalMonths * 100).toStringAsFixed(1)}% completed',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                            // ✅ NEW: Show active/overdue status
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: loan.isActive 
+                                  ? (loan.isOverdue ? Colors.orange.withOpacity(0.2) : Colors.green.withOpacity(0.2))
+                                  : Colors.grey.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                loan.statusDisplay,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: loan.statusColor,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -400,8 +444,9 @@ class _LoansTrackerTabState extends State<LoansTrackerTab> {
     final nameController = TextEditingController(text: loan?.name ?? '');
     final principalController = TextEditingController(text: loan?.principal.toString() ?? '');
     final rateController = TextEditingController(text: loan?.interestRate.toString() ?? '');
-    final termController = TextEditingController(text: loan?.totalMonths.toString() ?? '');
-    final remainingController = TextEditingController(text: loan?.remainingMonths.toString() ?? '');
+    // ✅ NEW: Interest model dropdown value
+    String interestModel = loan?.interestModel ?? 'simple';
+    
     DateTime startDate = loan?.startDate ?? DateTime.now();
     DateTime endDate = loan?.endDate ?? DateTime.now().add(Duration(days: (loan?.totalMonths ?? 12) * 30));
 
@@ -409,184 +454,209 @@ class _LoansTrackerTabState extends State<LoansTrackerTab> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
-        title: Text(loan == null ? 'Add New Loan' : 'Edit Loan'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameController,
-                decoration: const InputDecoration(
-                  labelText: 'Loan Name',
-                  hintText: 'e.g., Car Loan, Mortgage',
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: principalController,
-                decoration: const InputDecoration(
-                  labelText: 'Principal Amount (KES)',
-                ),
-                keyboardType: TextInputType.number,
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: rateController,
-                decoration: const InputDecoration(
-                  labelText: 'Interest Rate (%)',
-                ),
-                keyboardType: TextInputType.number,
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: termController,
-                decoration: const InputDecoration(
-                  labelText: 'Total Term (months)',
-                ),
-                keyboardType: TextInputType.number,
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: remainingController,
-                decoration: const InputDecoration(
-                  labelText: 'Remaining Months',
-                ),
-                keyboardType: TextInputType.number,
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('Start Date'),
-                        TextButton(
-                          onPressed: () async {
-                            final picked = await showDatePicker(
-                              context: context,
-                              initialDate: startDate,
-                              firstDate: DateTime(2000),
-                              lastDate: DateTime(2100),
-                            );
-                            if (picked != null) {
-                              setState(() {
-                                startDate = DateTime(picked.year, picked.month, picked.day);
-                                if (endDate.isBefore(startDate)) {
-                                  endDate = startDate.add(const Duration(days: 30));
-                                }
-                              });
-                            }
-                          },
-                          child: Text('${startDate.toLocal().toIso8601String().split('T').first}'),
-                        ),
-                      ],
-                    ),
+          title: Text(loan == null ? 'Add New Loan' : 'Edit Loan'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Loan Name',
+                    hintText: 'e.g., Car Loan, Mortgage',
                   ),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('End Date'),
-                        TextButton(
-                          onPressed: () async {
-                            final picked = await showDatePicker(
-                              context: context,
-                              initialDate: endDate,
-                              firstDate: DateTime(2000),
-                              lastDate: DateTime(2100),
-                            );
-                            if (picked != null) {
-                              setState(() {
-                                endDate = DateTime(picked.year, picked.month, picked.day);
-                                if (endDate.isBefore(startDate)) {
-                                  startDate = endDate.subtract(const Duration(days: 30));
-                                }
-                              });
-                            }
-                          },
-                          child: Text('${endDate.toLocal().toIso8601String().split('T').first}'),
-                        ),
-                      ],
-                    ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: principalController,
+                  decoration: const InputDecoration(
+                    labelText: 'Principal Amount (KES)',
                   ),
-                ],
-              ),
-            ],
+                  keyboardType: TextInputType.number,
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: rateController,
+                  decoration: const InputDecoration(
+                    labelText: 'Interest Rate (%)',
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
+                const SizedBox(height: 16),
+                // ✅ NEW: Interest model dropdown
+                DropdownButtonFormField<String>(
+                  value: interestModel,
+                  decoration: const InputDecoration(
+                    labelText: 'Interest Model',
+                  ),
+                  items: const [
+                    DropdownMenuItem(
+                      value: 'simple',
+                      child: Text('Simple Interest'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'compound',
+                      child: Text('Compound Interest'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'reducingBalance',
+                      child: Text('Reducing Balance'),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() => interestModel = value);
+                    }
+                  },
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Start Date'),
+                          TextButton(
+                            onPressed: () async {
+                              final picked = await showDatePicker(
+                                context: context,
+                                initialDate: startDate,
+                                firstDate: DateTime(2000),
+                                lastDate: DateTime(2100),
+                              );
+                              if (picked != null) {
+                                setState(() {
+                                  startDate = DateTime(picked.year, picked.month, picked.day);
+                                  if (endDate.isBefore(startDate)) {
+                                    endDate = startDate.add(const Duration(days: 30));
+                                  }
+                                });
+                              }
+                            },
+                            child: Text('${startDate.toLocal().toIso8601String().split('T').first}'),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('End Date'),
+                          TextButton(
+                            onPressed: () async {
+                              final picked = await showDatePicker(
+                                context: context,
+                                initialDate: endDate,
+                                firstDate: DateTime(2000),
+                                lastDate: DateTime(2100),
+                              );
+                              if (picked != null) {
+                                setState(() {
+                                  endDate = DateTime(picked.year, picked.month, picked.day);
+                                  if (endDate.isBefore(startDate)) {
+                                    startDate = endDate.subtract(const Duration(days: 30));
+                                  }
+                                });
+                              }
+                            },
+                            child: Text('${endDate.toLocal().toIso8601String().split('T').first}'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              final name = nameController.text.trim();
-              final principal = double.tryParse(principalController.text) ?? 0;
-              final rate = double.tryParse(rateController.text) ?? 0;
-              final totalMonths = int.tryParse(termController.text) ?? 0;
-              final remainingMonths = int.tryParse(remainingController.text) ?? 0;
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final name = nameController.text.trim();
+                final principal = double.tryParse(principalController.text) ?? 0;
+                final rate = double.tryParse(rateController.text) ?? 0;
 
-              if (name.isEmpty || principal <= 0 || totalMonths <= 0) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Please enter valid loan details')),
-                );
-                return;
-              }
-
-              final profileId = AuthService.instance.profileId;
-              if (profileId == null || profileId.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Please sign in to save loans')),
-                );
-                return;
-              }
-
-              try {
-                final svc = Provider.of<OfflineDataService>(context, listen: false);
-
-                final chosenStart = startDate;
-                final chosenEnd = endDate;
-
-                final domainLoan = domain_loan.Loan(
-                  id: loan?.id.toString(),
-                  name: name,
-                  principalMinor: (principal * 100).roundToDouble(),
-                  currency: 'KES',
-                  interestRate: rate,
-                  startDate: chosenStart,
-                  endDate: chosenEnd,
-                  profileId: profileId,
-                );
-
-                if (loan?.id != null) {
-                  await svc.updateLoan(domainLoan);
-                } else {
-                  await svc.saveLoan(domainLoan);
+                if (name.isEmpty || principal <= 0) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Please enter valid loan details')),
+                  );
+                  return;
                 }
 
-                await _loadLoans();
+                final profileId = AuthService.instance.profileId;
+                if (profileId == null || profileId.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Please sign in to save loans')),
+                  );
+                  return;
+                }
 
-                if (mounted) Navigator.pop(context);
+                try {
+                  final svc = Provider.of<OfflineDataService>(context, listen: false);
 
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(loan == null ? 'Loan added successfully!' : 'Loan updated successfully!'),
-                    backgroundColor: Theme.of(context).colorScheme.primary,
-                  ),
-                );
-              } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Failed to save loan: $e')),
-                );
-              }
-            },
-            child: Text(loan == null ? 'Add' : 'Update'),
+                  // ✅ Use ApiClient helper method to prepare data
+                  final loanData = ApiClient.prepareLoanData(
+                    profileId: profileId,
+                    name: name,
+                    principalAmount: principal,
+                    interestRate: rate,
+                    interestModel: interestModel,
+                    startDate: startDate,
+                    endDate: endDate,
+                    currency: 'KES',
+                  );
+
+                  // Create domain loan from prepared data
+                  final domainLoan = domain_loan.Loan(
+                    id: loan?.id?.toString(),
+                    remoteId: loan?.remoteId,
+                    name: name,
+                    principalAmount: principal,
+                    currency: 'KES',
+                    interestRate: rate,
+                    interestModel: interestModel,
+                    startDate: startDate,
+                    endDate: endDate,
+                    profileId: profileId,
+                    description: null,
+                    isSynced: loan?.isSynced ?? false,
+                    createdAt: loan?.createdAt ?? DateTime.now(),
+                    updatedAt: DateTime.now(),
+                  );
+
+                  if (loan?.id != null) {
+                    await svc.updateLoan(domainLoan);
+                  } else {
+                    await svc.saveLoan(domainLoan);
+                  }
+
+                  await _loadLoans();
+
+                  if (mounted) Navigator.pop(context);
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(loan == null ? 'Loan added successfully!' : 'Loan updated successfully!'),
+                      backgroundColor: Theme.of(context).colorScheme.primary,
+                    ),
+                  );
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Failed to save loan: $e')),
+                  );
+                }
+              },
+              child: Text(loan == null ? 'Add' : 'Update'),
             ),
           ],
         ),
-      )
+      ),
     );
   }
 
@@ -605,13 +675,14 @@ class _LoansTrackerTabState extends State<LoansTrackerTab> {
             onPressed: () async {
               try {
                 final loan = _loans[index];
-                if (loan.id != null) {
+                if (loan.id != null && loan.id != 0) {
                   final svc = Provider.of<OfflineDataService>(context, listen: false);
                   await svc.deleteLoan(loan.id.toString());
-                  await _loadLoans();
                 } else {
+                  // If no database ID, just remove from local list
                   setState(() => _loans.removeAt(index));
                 }
+                await _loadLoans(); // Reload to refresh the list
                 if (mounted) Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
@@ -634,33 +705,62 @@ class _LoansTrackerTabState extends State<LoansTrackerTab> {
       ),
     );
   }
-
 }
 
-/* -------------------------------------------------------------------------- */
-/* --------------------------------- Models --------------------------------- */
-/* -------------------------------------------------------------------------- */
-
+// ================================= Models ===================================
 class Loan {
   final int? id;
+  final String? remoteId;
   final String name;
   final double principal;
   final double interestRate;
+  final String interestModel;
   final int totalMonths;
   final int remainingMonths;
   final double monthlyPayment;
   final DateTime? startDate;
   final DateTime? endDate;
+  final bool? isSynced;
+  final String? description;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
 
   Loan({
     this.id,
+    this.remoteId,
     required this.name,
     required this.principal,
     required this.interestRate,
+    required this.interestModel,
     required this.totalMonths,
     required this.remainingMonths,
     required this.monthlyPayment,
     this.startDate,
     this.endDate,
+    this.isSynced,
+    this.description,
+    this.createdAt,
+    this.updatedAt,
   });
+
+  // Getters (not constructor parameters)
+  bool get isActive {
+    if (startDate == null || endDate == null) return false;
+    final now = DateTime.now();
+    return startDate!.isBefore(now) && endDate!.isAfter(now);
+  }
+
+  bool get isOverdue => endDate?.isBefore(DateTime.now()) ?? false;
+  
+  String get statusDisplay {
+    if (isOverdue) return 'Overdue ⚠️';
+    if (isActive) return 'Active 📍';
+    return 'Completed ✅';
+  }
+  
+  Color get statusColor {
+    if (isOverdue) return Colors.orange;
+    if (isActive) return Colors.green;
+    return const Color(0xFF007A39);
+  }
 }
