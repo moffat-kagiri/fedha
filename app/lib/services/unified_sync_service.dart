@@ -378,14 +378,14 @@ class UnifiedSyncService with ChangeNotifier {
     }
   }
 
-  Map<String, dynamic> _prepareGoalForUpload(Goal g, String profileId) {
+  Map<String, dynamic> _prepareGoalForUpload(dom.Goal g, String profileId) {
     return {
       'profile_id': profileId,
       'name': g.name,
       'target_amount': g.targetAmount,
       'current_amount': g.currentAmount,
-      'goal_type': g.goalType ?? 'savings',
-      'status': g.status ?? 'active',
+      'goal_type': g.goalType.name,  // Use .name to get string value
+      'status': g.status.name,  // Use .name to get string value
       'description': g.description,
       'due_date': g.targetDate.toIso8601String(),
       'currency': g.currency ?? 'KES',
