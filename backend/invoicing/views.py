@@ -129,3 +129,51 @@ class LoanViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(active_loans, many=True)
         return Response(serializer.data)
 
+    @action(detail=False, methods=['post'])
+    def bulk_sync(self, request):
+        """Bulk sync loans from mobile app."""
+        loans_data = request.data if isinstance(request.data, list) else []
+        user_profile = request.user if isinstance(request.user, Profile) else request.user.profile
+        
+        created_count = 0
+        updated_count = 0
+        errors = []
+        
+        for loan_data in loans_data:
+            try:
+                loan_data['profile'] = str(user_profile.id)
+                loan_id = loan_data.get('id')
+                
+                if loan_id:
+                    try:
+                        loan = Loan.objects.get(id=loan_id, profile=user_profile)
+                        serializer = LoanSerializer(loan, data=loan_data, partial=True)
+                        if serializer.is_valid():
+                            serializer.save()
+                            updated_count += 1
+                        else:
+                            errors.append({'id': loan_id, 'errors': serializer.errors})
+                    except Loan.DoesNotExist:
+                        serializer = LoanSerializer(data=loan_data)
+                        if serializer.is_valid():
+                            serializer.save(profile=user_profile)
+                            created_count += 1
+                        else:
+                            errors.append({'id': loan_id, 'errors': serializer.errors})
+                else:
+                    serializer = LoanSerializer(data=loan_data)
+                    if serializer.is_valid():
+                        serializer.save(profile=user_profile)
+                        created_count += 1
+                    else:
+                        errors.append({'errors': serializer.errors})
+            except Exception as e:
+                errors.append({'id': loan_data.get('id'), 'error': str(e)})
+        
+        return Response({
+            'success': True,
+            'created': created_count,
+            'updated': updated_count,
+            'errors': errors
+        }, status=status.HTTP_200_OK)
+

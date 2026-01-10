@@ -319,39 +319,80 @@ class ApiClient {
     try {
       logger.info('POST ${url.toString()}');
       
-      // Ensure the transaction data matches serializer expectations
+      // Clone and validate transaction data
       final processedTransaction = Map<String, dynamic>.from(transaction);
       
-      // ✅ FIX: Add is_synced field with default true (as per serializer extra_kwargs)
+      // ✅ CRITICAL FIX: Ensure required fields exist
+      if (!processedTransaction.containsKey('profile_id')) {
+        return {
+          'success': false,
+          'error': 'profile_id is required'
+        };
+      }
+      
+      if (!processedTransaction.containsKey('amount')) {
+        return {
+          'success': false, 
+          'error': 'amount is required'
+        };
+      }
+      
+      if (!processedTransaction.containsKey('type')) {
+        return {
+          'success': false,
+          'error': 'type is required'
+        };
+      }
+      
+      // ✅ FIX: Convert amount to proper numeric type
+      if (processedTransaction.containsKey('amount')) {
+        final amount = processedTransaction['amount'];
+        if (amount is String) {
+          processedTransaction['amount'] = double.parse(amount);
+        } else if (amount is int) {
+          processedTransaction['amount'] = amount.toDouble();
+        }
+        
+        // Ensure amount is positive (matches database constraint)
+        if (processedTransaction['amount'] <= 0) {
+          return {
+            'success': false,
+            'error': 'amount must be greater than 0'
+          };
+        }
+      }
+      
+      // ✅ FIX: Remove amount_minor conversion (backend expects amount in major units)
+      // If you're sending amount_minor, convert to amount
+      if (processedTransaction.containsKey('amount_minor')) {
+        final amountMinor = processedTransaction['amount_minor'];
+        final amount = (amountMinor is int ? amountMinor : double.parse(amountMinor.toString())) / 100.0;
+        processedTransaction['amount'] = amount;
+        processedTransaction.remove('amount_minor');
+      }
+      
+      // ✅ FIX: Ensure date is in correct format
+      if (!processedTransaction.containsKey('date')) {
+        processedTransaction['date'] = DateTime.now().toIso8601String();
+      } else if (processedTransaction['date'] is DateTime) {
+        processedTransaction['date'] = (processedTransaction['date'] as DateTime).toIso8601String();
+      }
+      
+      // ✅ FIX: Ensure is_synced is set
       if (!processedTransaction.containsKey('is_synced')) {
         processedTransaction['is_synced'] = true;
       }
       
-      // ✅ FIX: Ensure date is in ISO 8601 format
-      if (processedTransaction.containsKey('date') && 
-          processedTransaction['date'] is! String) {
-        // Convert DateTime to ISO string if needed
-        processedTransaction['date'] = processedTransaction['date'].toString();
+      // ✅ FIX: Set default status if not provided
+      if (!processedTransaction.containsKey('status')) {
+        processedTransaction['status'] = 'completed';
       }
-      // ✅ FIX: Ensure amount is numeric and positive
-      if (processedTransaction.containsKey('amount') && 
-          processedTransaction['amount'] is String) {
-        processedTransaction['amount'] = double.parse(processedTransaction['amount']);
+      
+      // ✅ FIX: Set default currency if not provided
+      if (!processedTransaction.containsKey('currency')) {
+        processedTransaction['currency'] = 'KES';
       }
-      // ✅ FIX: If using amount_minor, convert to amount
-      if (processedTransaction.containsKey('amount_minor') && 
-          !processedTransaction.containsKey('amount')) {
-        final amountMinor = processedTransaction['amount_minor'];
-        processedTransaction['amount'] = (amountMinor is int ? amountMinor : double.parse(amountMinor.toString())) / 100.0;
-        processedTransaction.remove('amount_minor');
-      }
-      // ✅ FIX: Map 'transaction' to 'type' if needed
-      if (processedTransaction.containsKey('transaction') && 
-          !processedTransaction.containsKey('type')) {
-        processedTransaction['type'] = processedTransaction['transaction'];
-        processedTransaction.remove('transaction');
-      }
-
+      
       logger.info('Sending transaction data: $processedTransaction');
       
       final resp = await _http
@@ -528,23 +569,42 @@ class ApiClient {
     try {
       logger.info('POST ${url.toString()} - ${transactions.length} transactions');
       
-      if (!isAuthenticated) {
-        logger.warning('⚠️ No auth token for sync - request may fail');
-      }
-      
-      // Process each transaction to ensure it matches serializer expectations
+      // Process each transaction to match database schema
       final processedTransactions = transactions.map((transaction) {
         final processed = Map<String, dynamic>.from(transaction);
         
-        // Ensure each transaction has required fields
+        // Ensure profile_id is set
+        processed['profile_id'] = processed['profile_id'] ?? profileId;
+        
+        // Convert amount_minor to amount if present
+        if (processed.containsKey('amount_minor')) {
+          final amountMinor = processed['amount_minor'];
+          final amount = (amountMinor is int ? amountMinor : double.parse(amountMinor.toString())) / 100.0;
+          processed['amount'] = amount;
+          processed.remove('amount_minor');
+        }
+        
+        // Ensure amount is numeric
+        if (processed.containsKey('amount') && processed['amount'] is String) {
+          processed['amount'] = double.parse(processed['amount']);
+        }
+        
+        // Ensure date is in ISO format
+        if (processed.containsKey('date') && processed['date'] is DateTime) {
+          processed['date'] = (processed['date'] as DateTime).toIso8601String();
+        }
+        
+        // Ensure required fields have defaults
         if (!processed.containsKey('is_synced')) {
           processed['is_synced'] = true;
         }
         
-        // Ensure amount_minor is integer
-        if (processed.containsKey('amount_minor') && 
-            processed['amount_minor'] is double) {
-          processed['amount_minor'] = (processed['amount_minor'] as double).toInt();
+        if (!processed.containsKey('status')) {
+          processed['status'] = 'completed';
+        }
+        
+        if (!processed.containsKey('currency')) {
+          processed['currency'] = 'KES';
         }
         
         return processed;
@@ -1231,31 +1291,21 @@ class ApiClient {
     String profileId,
     List<dynamic> loans,
   ) async {
-    final url = Uri.parse(_config.getEndpoint('api/invoicing/loans/bulk_sync/'));
-
+    final url = Uri.parse(_config.getEndpoint('api/invoicing/loans/bulk_sync/'));  // ✅ Correct
+    
     try {
       logger.info('POST ${url.toString()} - ${loans.length} loans');
       
-      // Process each loan to match backend schema
       final processedLoans = loans.map((loan) {
         final processed = _processLoanData(loan);
         return processed;
       }).toList();
       
-      final body = {
-        'profile_id': profileId,
-        'loans': processedLoans,
-      };
-      
-      logger.info('Syncing loans with data: $body');
-      
-      final resp = await _http
-          .post(
-            url,
-            headers: _headers,
-            body: jsonEncode(body),
-          )
-          .timeout(Duration(seconds: _config.timeoutSeconds));
+      final resp = await _http.post(
+        url,
+        headers: _headers,
+        body: jsonEncode(processedLoans),  // ✅ Send as array directly, not wrapped
+      ).timeout(Duration(seconds: _config.timeoutSeconds));
       
       if (resp.statusCode == 200 || resp.statusCode == 201) {
         final data = jsonDecode(resp.body) as Map<String, dynamic>;
@@ -1263,12 +1313,6 @@ class ApiClient {
         return data;
       }
       
-      if (resp.statusCode == 401) {
-        logger.warning('Loans sync unauthorized - token may be expired');
-        clearAuthToken();
-      }
-      
-      logger.warning('Loans sync failed: ${resp.statusCode} - ${resp.body}');
       return {'success': false, 'status': resp.statusCode};
     } catch (e) {
       logger.severe('Sync loans error: $e');
@@ -1382,11 +1426,11 @@ class ApiClient {
   void dispose() => _http.close();
 
   // ==================== DATA PREPARATION HELPERS ====================
-  /// Prepares transaction data for API submission
+  /// Prepares transaction data for API submission - UPDATED TO MATCH DATABASE SCHEMA
   static Map<String, dynamic> prepareTransactionData({
     required String profileId,
-    required double amount,  // Not amount_minor
-    required String type,    // Not 'transaction'
+    required double amount,      // In major units (e.g., 100.50 for KES 100.50)
+    required String type,        // Must match transaction_type enum
     required String description,
     String? category,
     String? goalId,
@@ -1394,46 +1438,46 @@ class ApiClient {
     bool isExpense = false,
     String currency = 'KES',
     bool isSynced = true,
-    String status = 'completed',  // NEW
-    String? paymentMethod,        // NEW
-    String? reference,            // NEW
-    String? recipient,            // NEW
-    String? merchantName,         // NEW
-    String? merchantCategory,     // NEW
-    String? tags,                 // NEW
-    bool isRecurring = false,     // NEW
+    String status = 'completed',
+    String? paymentMethod,
+    String? reference,
+    String? recipient,
+    String? merchantName,
+    String? merchantCategory,
+    String? tags,
+    bool isRecurring = false,
+    bool isPending = false,
+    String? recurringPattern,
+    String? notes,
+    String? smsSource,
   }) {
     final data = <String, dynamic>{
       'profile_id': profileId,
-      'amount': amount,          // Changed from amount_minor
-      'type': type,              // Changed from 'transaction'
+      'amount': amount,          // In major units
+      'type': type,              // e.g., 'income', 'expense', 'transfer'
       'description': description,
-      'category': category ?? '',
+      'status': status,
       'currency': currency,
       'is_synced': isSynced,
       'is_expense': isExpense,
-      'status': status,          // Added
-      'is_recurring': isRecurring, // Added
+      'is_pending': isPending,
+      'is_recurring': isRecurring,
+      'date': date?.toIso8601String() ?? DateTime.now().toIso8601String(),
     };
-
-    if (goalId != null) {
-      data['goal_id'] = goalId;
-    }
-
-    if (date != null) {
-      data['date'] = date.toIso8601String();  // FIXED: Use ISO format
-    } else {
-      data['date'] = DateTime.now().toIso8601String();
-    }
-
+    
     // Optional fields
+    if (category != null && category.isNotEmpty) data['category'] = category;
+    if (goalId != null && goalId.isNotEmpty) data['goal_id'] = goalId;
     if (paymentMethod != null) data['payment_method'] = paymentMethod;
     if (reference != null) data['reference'] = reference;
     if (recipient != null) data['recipient'] = recipient;
     if (merchantName != null) data['merchant_name'] = merchantName;
     if (merchantCategory != null) data['merchant_category'] = merchantCategory;
     if (tags != null) data['tags'] = tags;
-
+    if (recurringPattern != null) data['recurring_pattern'] = recurringPattern;
+    if (notes != null) data['notes'] = notes;
+    if (smsSource != null) data['sms_source'] = smsSource;
+    
     return data;
   }
 

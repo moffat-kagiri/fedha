@@ -4,52 +4,27 @@ from .models import Transaction, PendingTransaction, TransactionType, Transactio
 import json
 
 class TransactionSerializer(serializers.ModelSerializer):
-    """Serializer for Transaction model - Updated for string storage."""
+    """Serializer for Transaction model - Simplified for database schema."""
     profile_id = serializers.UUIDField(write_only=True)
     
-    # ✅ Accept category as STRING name
-    category = serializers.CharField(
-        write_only=True, 
-        required=False, 
-        allow_null=True,
-        allow_blank=True,
-        max_length=255
-    )
-    category_readable = serializers.CharField(source='category', read_only=True)
-    
-    # ✅ Accept goal_id as STRING (name or ID string)
-    goal_id = serializers.CharField(
-        write_only=True, 
-        required=False, 
-        allow_null=True,
-        allow_blank=True,
-        max_length=255
-    )
-    
-    amount_minor = serializers.IntegerField(write_only=True)
-    date = serializers.DateTimeField(write_only=True)
-    transaction_type = serializers.ChoiceField(
-        choices=TransactionType.choices, 
-        write_only=True, 
-        source='type'
-    )
+    # ✅ REMOVE amount_minor, just use amount directly
+    # ✅ REMOVE transaction_type, just use type directly
     
     class Meta:
         model = Transaction
         fields = [
             'id', 'profile', 'profile_id', 
-            'category', 'category_readable',
-            'goal_id',
-            'amount', 'amount_minor', 'type', 'transaction_type',
+            'category', 'goal_id',
+            'amount', 'type',  # ✅ Direct field names
             'status', 'payment_method', 'description', 'notes',
             'date', 'created_at', 'updated_at', 'currency',
             'is_expense', 'is_pending', 'is_recurring', 'is_synced',
             'tags', 'merchant_name', 'merchant_category',
-            'location', 'latitude', 'longitude', 'budget_id', 'remote_id'
+            'location', 'latitude', 'longitude', 'budget_id', 'remote_id',
+            'reference', 'recipient', 'sms_source', 'recurring_pattern'
         ]
         read_only_fields = [
-            'id', 'profile', 'amount', 'type', 
-            'category_readable', 'created_at', 'updated_at'
+            'id', 'profile', 'created_at', 'updated_at'
         ]
         extra_kwargs = {
             'currency': {'default': 'KES'},
@@ -58,33 +33,8 @@ class TransactionSerializer(serializers.ModelSerializer):
         }
     
     def validate(self, attrs):
-        """Validate transaction data - handle frontend sending category_id."""
-        # Remove write-only fields
-        amount_minor = attrs.pop('amount_minor', None)
+        """Validate transaction data."""
         profile_id = attrs.pop('profile_id', None)
-        transaction_type = attrs.pop('type', None)
-        date = attrs.pop('date', None)
-        
-        # ✅ Handle frontend sending 'category_id' instead of 'category'
-        # Check if category_id was sent (frontend compatibility)
-        if 'category_id' in attrs and 'category' not in attrs:
-            attrs['category'] = attrs.pop('category_id')
-        
-        # Convert amount
-        if amount_minor is not None:
-            if amount_minor <= 0:
-                raise serializers.ValidationError({
-                    'amount_minor': 'Amount must be positive'
-                })
-            attrs['amount'] = amount_minor / 100.0
-        
-        # Add date
-        if date is not None:
-            attrs['date'] = date
-        
-        # Map transaction type
-        if transaction_type is not None:
-            attrs['type'] = transaction_type
         
         # Handle profile_id
         if profile_id:
@@ -97,12 +47,18 @@ class TransactionSerializer(serializers.ModelSerializer):
                     'profile_id': f'Profile {profile_id} does not exist'
                 })
         
-        # Auto-set is_expense
+        # Validate amount is positive
+        amount = attrs.get('amount')
+        if amount and amount <= 0:
+            raise serializers.ValidationError({
+                'amount': 'Amount must be positive'
+            })
+        
+        # Auto-set is_expense based on type
         if 'is_expense' not in attrs and 'type' in attrs:
             attrs['is_expense'] = (attrs['type'] == TransactionType.EXPENSE)
         
         return attrs
-
 
 class TransactionListSerializer(serializers.ModelSerializer):
     """Simplified serializer for listing transactions."""
