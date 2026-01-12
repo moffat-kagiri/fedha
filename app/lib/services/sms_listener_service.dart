@@ -44,6 +44,8 @@ class SmsListenerService extends ChangeNotifier {
   
   final _logger = AppLogger.getLogger('SmsListenerService');
   final inbox.SmsQuery _query = inbox.SmsQuery();
+  final _extractor = SmsTransactionExtractor();
+  
   Timer? _pollTimer;
   StreamController<SmsMessage>? _messageController;
   OfflineDataService? _offlineDataService;
@@ -239,9 +241,10 @@ class SmsListenerService extends ChangeNotifier {
         // Parse structured transaction data
         final parsedData = parseTransaction(message);
         if (parsedData != null) {
-          // Fallback: use extractor to find recipient if parser didn't
-          final extractor = SmsTransactionExtractor();
-          final recipient = parsedData.recipient ?? extractor.extractRecipient(message.body);
+          // ✅ Extract platform (recipient) and reference using enhanced extractor
+          final platform = _extractor.extractPlatform(message.body, sender: message.sender);
+          final reference = _extractor.extractReference(message.body);
+          final payee = _extractor.extractRecipient(message.body);
           
           final tx = Transaction(
             amount: parsedData.amount,
@@ -250,17 +253,18 @@ class SmsListenerService extends ChangeNotifier {
                   parsedData.type.toLowerCase().contains('deposit')
                 ? 'income'
                 : 'expense',
-            category: '',
+            category: '', // Will be set by user in review screen
             date: parsedData.timestamp,
             profileId: _currentProfileId!,
             smsSource: parsedData.rawMessage,
-            reference: parsedData.reference,
-            recipient: recipient,
+            reference: reference,
+            recipient: platform, // Platform name (M-PESA, KCB Bank, etc.)
+            merchantName: payee, // Actual person/merchant if found
           );
 
           // Persist pending transaction for review
           await _offlineDataService!.savePendingTransaction(tx);
-          _logger.info('💰 Saved pending transaction: ${tx.amount} from ${message.sender}');
+          _logger.info('💰 Saved pending transaction: ${tx.amount} from $platform');
           
           // Notify any listeners/UI
           _messageController?.add(message);
@@ -337,7 +341,7 @@ class SmsListenerService extends ChangeNotifier {
   }
 }
 
-// Transaction data models (unchanged)
+// Transaction data models
 class TransactionData {
   final String type;
   final double amount;

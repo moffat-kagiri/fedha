@@ -5,6 +5,7 @@ import 'package:permission_handler/permission_handler.dart';
 import '../data/app_database.dart';
 import '../services/offline_data_service.dart';
 import '../services/sms_listener_service.dart';
+import '../services/sms_transaction_extractor.dart';
 import '../models/transaction.dart' as model;
 import '../models/enums.dart';
 
@@ -92,6 +93,9 @@ class SmsBackgroundWorker {
       int newMessagesProcessed = 0;
       DateTime? latestTimestamp;
       
+      // Initialize extractor
+      final extractor = SmsTransactionExtractor();
+      
       for (var nativeMsg in rawMessages) {
         final DateTime msgTime = nativeMsg.date is DateTime
             ? nativeMsg.date as DateTime
@@ -120,6 +124,7 @@ class SmsBackgroundWorker {
             message: msg,
             offlineService: offlineService,
             profileId: profileId,
+            extractor: extractor,
           );
           newMessagesProcessed++;
         }
@@ -145,6 +150,7 @@ class SmsBackgroundWorker {
     required SmsMessage message,
     required OfflineDataService offlineService,
     required String profileId,
+    required SmsTransactionExtractor extractor,
   }) async {
     try {
       // Parse transaction data
@@ -153,6 +159,11 @@ class SmsBackgroundWorker {
         print('⚠️ Could not parse transaction from SMS');
         return;
       }
+      
+      // ✅ Extract platform and reference using enhanced extractor
+      final platform = extractor.extractPlatform(message.body, sender: message.sender);
+      final reference = extractor.extractReference(message.body);
+      final payee = extractor.extractRecipient(message.body);
       
       // Create transaction
       final tx = model.Transaction(
@@ -165,13 +176,14 @@ class SmsBackgroundWorker {
         date: parsedData.timestamp,
         profileId: profileId,
         smsSource: parsedData.rawMessage,
-        reference: parsedData.reference,
-        recipient: parsedData.recipient,
+        reference: reference,
+        recipient: platform,
+        merchantName: payee,
       );
       
       // Save to pending transactions
       await offlineService.savePendingTransaction(tx);
-      print('✅ Saved pending transaction: ${tx.amount} KES');
+      print('✅ Saved pending transaction: ${tx.amount} KES from $platform');
       
     } catch (e, stackTrace) {
       print('❌ Error saving transaction: $e');

@@ -52,6 +52,7 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
       final authService = Provider.of<AuthService>(context, listen: false);
       final profileId = authService.currentProfile?.id ?? '';
       final pendingTxList = await dataService.getPendingTransactions(profileId);
+      
       _pendingCandidates = pendingTxList.map((transaction) {
         final raw = transaction.smsSource ?? '';
         final lower = raw.toLowerCase();
@@ -60,6 +61,7 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
             : lower.contains('received')
                 ? Type.income
                 : ((transaction.isExpense ?? false) ? Type.expense : Type.income);
+        
         return TransactionCandidate(
           id: transaction.id!,
           rawText: raw.isNotEmpty ? raw : 'No SMS source available',
@@ -69,9 +71,10 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
           type: txType,
           confidence: 0.9,
           metadata: {
-            'recipient': transaction.recipient,
-            'reference': transaction.reference,
-            'category': transaction.category,
+            'recipient': transaction.recipient ?? 'Unknown',
+            'reference': transaction.reference ?? 'N/A',
+            'category': transaction.category ?? '',
+            'merchantName': transaction.merchantName,
           },
         );
       }).toList();
@@ -95,41 +98,6 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
     }
   }
 
-  List<TransactionCandidate> _createSampleCandidates() {
-    final now = DateTime.now();
-    return [
-      TransactionCandidate(
-        id: '1',
-        rawText: 'MPESA: Ksh 1,200.00 sent to John Doe on 15/1/25 at 2:30 PM. New M-PESA balance is Ksh 8,500.00. Transaction cost Ksh 5.00.',
-        amount: 1205.00,
-        description: 'MPESA to John Doe',
-        date: now.subtract(const Duration(hours: 2)),
-        type: Type.expense,
-        confidence: 0.95,
-        metadata: {
-          'recipient': 'John Doe',
-          'transaction_cost': 5.00,
-          'balance_after': 8500.00,
-          'platform': 'MPESA'
-        },
-      ),
-      TransactionCandidate(
-        id: '2',
-        rawText: 'You have received Ksh 5,000.00 from Jane Smith. Your new account balance is Ksh 13,500.00.',
-        amount: 5000.00,
-        description: 'Payment from Jane Smith',
-        date: now.subtract(const Duration(hours: 5)),
-        type: Type.income,
-        confidence: 0.88,
-        metadata: {
-          'sender': 'Jane Smith',
-          'balance_after': 13500.00,
-          'platform': 'Bank Transfer'
-        },
-      ),
-    ];
-  }
-
   Future<void> _approveCandidate(TransactionCandidate candidate) async {
     try {
       final dataService = Provider.of<OfflineDataService>(context, listen: false);
@@ -138,38 +106,30 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
       final profileId = authService.currentProfile?.id ?? '';
       
       // Determine category from metadata or use default
-      TransactionCategory? category;
-      if (candidate.category != null && candidate.category!.isNotEmpty) {
-        try {
-          // Try to find matching category enum
-          category = TransactionCategory.values.firstWhere(
-            (c) => c.name.toLowerCase() == candidate.category!.toLowerCase(),
-            orElse: () => TransactionCategory.otherExpense,
-          );
-        } catch (e) {
-          category = TransactionCategory.otherExpense;
-        }
-      } else {
-        // Default based on transaction type
+      String category = candidate.category ?? '';
+      if (category.isEmpty) {
         category = candidate.type == Type.income 
-            ? TransactionCategory.otherIncome
-            : TransactionCategory.otherExpense;
+            ? 'other_income'
+            : 'other_expense';
       }
       
-      // Create transaction with all required fields
+      // Create transaction with all extracted fields
       final tx = Transaction(
         id: candidate.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
         amount: candidate.amount,
         description: candidate.description ?? 'SMS Transaction',
         date: candidate.date,
         smsSource: candidate.rawText,
-        category: category.toString().split('.').last,  // ✅ Fixed: Convert enum to string
+        category: category,
         type: candidate.type == Type.expense ? 'expense' : 'income',
         isExpense: candidate.type == Type.expense,
         profileId: profileId,
         paymentMethod: 'cash',
-        // goalId: null,
+        recipient: candidate.metadata?['recipient'] as String?,
+        reference: candidate.metadata?['reference'] as String?,
+        merchantName: candidate.metadata?['merchantName'] as String?,
       );
+      
       // USE TRANSACTION OPERATIONS HELPER FOR APPROVAL
       final success = await TransactionOperations.approvePendingTransaction(
         pendingTransaction: tx,
@@ -180,7 +140,8 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
         await dataService.saveTransaction(tx);
         await eventService.onTransactionApproved(tx);
         await eventService.onTransactionCreated(tx);
-        // Also delete from pending if needed
+        
+        // Delete from pending
         if (candidate.id != null) {
           await dataService.deletePendingTransaction(candidate.id!);
         }
@@ -202,7 +163,7 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
                 const Icon(Icons.check_circle, color: Colors.white),
                 const SizedBox(width: 8),
                 Text(
-                  'Transaction approved • ${tx.type == Type.expense ? "Budget" : "Goal"} updated',
+                  'Transaction approved • ${tx.type == "expense" ? "Budget" : "Goal"} updated',
                 ),
               ],
             ),
@@ -223,7 +184,6 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
     }
   }
 
-  // ADDED: Bulk approval method
   Future<void> _approveAllPendingTransactions() async {
     if (_pendingCandidates.isEmpty) return;
     
@@ -259,20 +219,11 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
                 
                 // Convert candidates to transactions
                 final List<Transaction> pendingTransactions = _pendingCandidates.map((candidate) {
-                  TransactionCategory? category;
-                  if (candidate.category != null && candidate.category!.isNotEmpty) {
-                    try {
-                      category = TransactionCategory.values.firstWhere(
-                        (c) => c.name.toLowerCase() == candidate.category!.toLowerCase(),
-                        orElse: () => TransactionCategory.otherExpense,
-                      );
-                    } catch (e) {
-                      category = TransactionCategory.otherExpense;
-                    }
-                  } else {
+                  String category = candidate.category ?? '';
+                  if (category.isEmpty) {
                     category = candidate.type == Type.income 
-                        ? TransactionCategory.otherIncome
-                        : TransactionCategory.otherExpense;
+                        ? 'other_income'
+                        : 'other_expense';
                   }
                   
                   return Transaction(
@@ -281,11 +232,14 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
                     description: candidate.description ?? 'SMS Transaction',
                     date: candidate.date,
                     smsSource: candidate.rawText,
-                    category: category.name,
+                    category: category,
                     type: candidate.type.toString().split('.').last,
                     isExpense: candidate.type == Type.expense,
                     profileId: profileId,
                     paymentMethod: 'cash',
+                    recipient: candidate.metadata?['recipient'] as String?,
+                    reference: candidate.metadata?['reference'] as String?,
+                    merchantName: candidate.metadata?['merchantName'] as String?,
                   );
                 }).toList();
                 
@@ -444,7 +398,6 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
           ],
         ),
         actions: [
-          // ADDED: Approve All button
           if (_pendingCandidates.isNotEmpty)
             TextButton.icon(
               onPressed: _approveAllPendingTransactions,
@@ -683,7 +636,12 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
                   Wrap(
                     spacing: 8,
                     runSpacing: 4,
-                    children: candidate.metadata!.entries.map((entry) {
+                    children: candidate.metadata!.entries.where((entry) {
+                      // Filter out empty or null values
+                      return entry.value != null && 
+                             entry.value.toString().isNotEmpty &&
+                             entry.value.toString() != 'N/A';
+                    }).map((entry) {
                       return Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
@@ -691,7 +649,7 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
-                          '${entry.key}: ${entry.value}',
+                          '${_formatKey(entry.key)}: ${entry.value}',
                           style: textTheme.bodySmall?.copyWith(
                             color: colorScheme.onPrimaryContainer,
                           ),
@@ -774,6 +732,22 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
     );
   }
 
+  String _formatKey(String key) {
+    // Format keys to be more readable
+    switch (key) {
+      case 'recipient':
+        return 'Platform';
+      case 'reference':
+        return 'Ref';
+      case 'merchantName':
+        return 'Merchant';
+      case 'category':
+        return 'Category';
+      default:
+        return key[0].toUpperCase() + key.substring(1);
+    }
+  }
+
   Color _getConfidenceColor(double confidence) {
     if (confidence >= 0.8) return FedhaColors.successGreen;
     if (confidence >= 0.6) return FedhaColors.warningOrange;
@@ -795,6 +769,24 @@ class _EditCandidateDialogState extends State<_EditCandidateDialog> {
   late TextEditingController _descriptionController;
   late String _selectedType;
   late DateTime _selectedDate;
+  late String _selectedCategory;
+
+  // Available categories
+  final List<Map<String, dynamic>> _categories = [
+    {'value': 'food', 'label': '🍽️ Food & Dining', 'isExpense': true},
+    {'value': 'transport', 'label': '🚗 Transport', 'isExpense': true},
+    {'value': 'utilities', 'label': '💡 Utilities', 'isExpense': true},
+    {'value': 'shopping', 'label': '🛍️ Shopping', 'isExpense': true},
+    {'value': 'entertainment', 'label': '🎬 Entertainment', 'isExpense': true},
+    {'value': 'healthcare', 'label': '🏥 Healthcare', 'isExpense': true},
+    {'value': 'education', 'label': '📚 Education', 'isExpense': true},
+    {'value': 'savings', 'label': '💰 Savings', 'isExpense': false},
+    {'value': 'salary', 'label': '💼 Salary', 'isExpense': false},
+    {'value': 'business', 'label': '💼 Business Income', 'isExpense': false},
+    {'value': 'investment', 'label': '📈 Investment', 'isExpense': false},
+    {'value': 'other_expense', 'label': '📝 Other Expense', 'isExpense': true},
+    {'value': 'other_income', 'label': '💵 Other Income', 'isExpense': false},
+  ];
 
   @override
   void initState() {
@@ -807,6 +799,8 @@ class _EditCandidateDialogState extends State<_EditCandidateDialog> {
     );
     _selectedType = widget.candidate.type == Type.income ? 'income' : 'expense';
     _selectedDate = widget.candidate.date;
+    _selectedCategory = widget.candidate.category ?? 
+        (_selectedType == 'income' ? 'other_income' : 'other_expense');
   }
 
   @override
@@ -814,6 +808,13 @@ class _EditCandidateDialogState extends State<_EditCandidateDialog> {
     _amountController.dispose();
     _descriptionController.dispose();
     super.dispose();
+  }
+
+  List<Map<String, dynamic>> get _filteredCategories {
+    return _categories.where((cat) {
+      return (_selectedType == 'expense' && cat['isExpense']) ||
+             (_selectedType == 'income' && !cat['isExpense']);
+    }).toList();
   }
 
   @override
@@ -854,6 +855,26 @@ class _EditCandidateDialogState extends State<_EditCandidateDialog> {
               onChanged: (value) {
                 setState(() {
                   _selectedType = value == Type.income ? 'income' : 'expense';
+                  // Reset category when type changes
+                  _selectedCategory = _selectedType == 'income' ? 'other_income' : 'other_expense';
+                });
+              },
+            ),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<String>(
+              value: _selectedCategory,
+              decoration: const InputDecoration(
+                labelText: 'Category',
+              ),
+              items: _filteredCategories.map((cat) {
+                return DropdownMenuItem<String>(
+                  value: cat['value'] as String,
+                  child: Text(cat['label'] as String),
+                );
+              }).toList(),
+              onChanged: (value) {
+                setState(() {
+                  _selectedCategory = value ?? _selectedCategory;
                 });
               },
             ),
@@ -896,6 +917,7 @@ class _EditCandidateDialogState extends State<_EditCandidateDialog> {
               description: _descriptionController.text.trim(),
               type: _selectedType == 'income' ? Type.income : Type.expense,
               date: _selectedDate,
+              category: _selectedCategory,
             );
             Navigator.pop(context, updatedCandidate);
           },
