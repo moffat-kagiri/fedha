@@ -42,12 +42,17 @@ class _BudgetReviewScreenState extends State<BudgetReviewScreen> {
       
       // Get all transactions in budget period
       final allTransactions = await offlineService.getAllTransactions(widget.budget.profileId);
-      
-      _transactions = allTransactions.where((tx) =>
-        tx.date.isAfter(widget.budget.startDate.subtract(const Duration(days: 1))) &&
-        tx.date.isBefore(widget.budget.endDate.add(const Duration(days: 1))) &&
-        tx.type == Type.expense
-      ).toList();
+
+      _transactions = allTransactions.where((tx) {
+        final isInPeriod = tx.date.isAfter(widget.budget.startDate.subtract(const Duration(days: 1))) &&
+                          tx.date.isBefore(widget.budget.endDate.add(const Duration(days: 1)));
+        
+        // Handle type comparison safely
+        final txType = tx.type?.toString().toLowerCase() ?? '';
+        final isExpense = txType == 'expense' || txType.contains('expense');
+        
+        return isInPeriod && isExpense;
+      }).toList();
 
       // Analyze the data
       _analysis = _analyzeBudget(_transactions);

@@ -132,7 +132,7 @@ class Transaction(models.Model):
     )
     budget_period = models.CharField(max_length=50, blank=True, null=True)
     budget_id = models.UUIDField(null=True, blank=True)
-    budget_category_id = models.CharField(max_length=255, blank=True, null=True)
+    budget_category = models.CharField(max_length=255, blank=True, null=True)
     remote_id = models.CharField(max_length=255, blank=True, null=True)
     is_pending = models.BooleanField(default=False)
     is_expense = models.BooleanField(null=True)

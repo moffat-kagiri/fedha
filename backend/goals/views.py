@@ -132,87 +132,117 @@ class GoalViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['post'])
     def bulk_sync(self, request):
         """Bulk sync goals from mobile app."""
-        # Expect array of goals directly
-        goals_data = request.data if isinstance(request.data, list) else []
+        import logging
+        import json
+        logger = logging.getLogger('goals')
         
-        # Get user's profile
+        # logger.info(f"========== GOALS BULK_SYNC DEBUG ==========")
+        # logger.info(f"Content-Type: {request.content_type}")
+        # logger.info(f"Request body type: {type(request.data)}")
+        # logger.info(f"Request body: {json.dumps(request.data, indent=2, default=str)}")
+        
         try:
-            user_profile = request.user.profile
-        except (Profile.DoesNotExist, AttributeError):
-            return Response(
-                {'error': 'User profile not found'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        created_count = 0
-        updated_count = 0
-        errors = []
-        
-        for goal_data in goals_data:
-            try:
-                # Ensure profile_id is set
-                goal_data['profile_id'] = str(user_profile.id)
-                
-                goal_id = goal_data.get('id')
-                
-                if goal_id:
-                    # Try to update existing goal
-                    try:
-                        goal = Goal.objects.get(id=goal_id, profile=user_profile)
-                        serializer = GoalSerializer(
-                            goal, 
-                            data=goal_data, 
-                            partial=True,
-                            context={'request': request}
-                        )
-                        if serializer.is_valid():
-                            serializer.save()
-                            updated_count += 1
-                        else:
-                            errors.append({
-                                'id': goal_id,
-                                'errors': serializer.errors
-                            })
-                    except Goal.DoesNotExist:
-                        # Create new goal with specified ID
-                        serializer = GoalSerializer(
-                            data=goal_data,
-                            context={'request': request}
-                        )
-                        if serializer.is_valid():
-                            serializer.save()
-                            created_count += 1
-                        else:
-                            errors.append({
-                                'id': goal_id,
-                                'errors': serializer.errors
-                            })
-                else:
-                    # Create new goal
-                    serializer = GoalSerializer(
-                        data=goal_data,
-                        context={'request': request}
-                    )
-                    if serializer.is_valid():
-                        serializer.save()
-                        created_count += 1
+            goals_data = request.data if isinstance(request.data, list) else []
+            # logger.info(f"Parsed goals_data: {len(goals_data)} items")
+            
+            if not goals_data:
+                # logger.warning("No goals data received")
+                return Response({
+                    'success': False,
+                    'error': 'No goals data provided',
+                    'received_type': str(type(request.data)),
+                    'received_data': request.data
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            user_profile = request.user if isinstance(request.user, Profile) else request.user.profile
+            # logger.info(f"User profile: {user_profile.id}")
+            
+            created_count = 0
+            updated_count = 0
+            errors = []
+            
+            for idx, goal_data in enumerate(goals_data):
+                try:
+                    # logger.info(f"Processing goal {idx + 1}: {json.dumps(goal_data, indent=2, default=str)}")
+                    
+                    goal_data['profile'] = str(user_profile.id)
+                    goal_id = goal_data.get('id')
+                    
+                    if goal_id:
+                        try:
+                            goal = Goal.objects.get(id=goal_id, profile=user_profile)
+                            serializer = GoalSerializer(goal, data=goal_data, partial=True)
+                            
+                            if serializer.is_valid():
+                                serializer.save()
+                                updated_count += 1
+                                # logger.info(f"✅ Updated goal {goal_id}")
+                            else:
+                                # logger.error(f"❌ Validation errors for goal {goal_id}: {serializer.errors}")
+                                errors.append({
+                                    'id': goal_id,
+                                    'errors': serializer.errors,
+                                    'data_sent': goal_data
+                                })
+                        except Goal.DoesNotExist:
+                            # logger.info(f"Goal {goal_id} not found, creating new...")
+                            serializer = GoalSerializer(data=goal_data)
+                            
+                            if serializer.is_valid():
+                                serializer.save(profile=user_profile)
+                                created_count += 1
+                                # logger.info(f"✅ Created goal {goal_id}")
+                            else:
+                                # logger.error(f"❌ Validation errors for new goal: {serializer.errors}")
+                                errors.append({
+                                    'id': goal_id,
+                                    'errors': serializer.errors,
+                                    'data_sent': goal_data
+                                })
                     else:
-                        errors.append({
-                            'errors': serializer.errors
-                        })
-            except Exception as e:
-                errors.append({
-                    'id': goal_data.get('id'),
-                    'error': str(e)
-                })
-        
-        return Response({
-            'success': True,
-            'created': created_count,
-            'updated': updated_count,
-            'errors': errors
-        }, status=status.HTTP_200_OK)
-    
+                        # logger.info(f"Creating goal without ID...")
+                        serializer = GoalSerializer(data=goal_data)
+                        
+                        if serializer.is_valid():
+                            serializer.save(profile=user_profile)
+                            created_count += 1
+                            # logger.info(f"✅ Created new goal")
+                        else:
+                            # logger.error(f"❌ Validation errors: {serializer.errors}")
+                            errors.append({
+                                'errors': serializer.errors,
+                                'data_sent': goal_data
+                            })
+                            
+                except Exception as e:
+                    # logger.exception(f"❌ Exception processing goal {idx + 1}: {str(e)}")
+                    errors.append({
+                        'id': goal_data.get('id'),
+                        'error': str(e),
+                        'data_sent': goal_data
+                    })
+            
+            response_data = {
+                'success': True,
+                'created': created_count,
+                'updated': updated_count,
+                'errors': errors
+            }
+            
+            # logger.info(f"========== SYNC COMPLETE ==========")
+            # logger.info(f"Response: {json.dumps(response_data, indent=2, default=str)}")
+            
+            return Response(response_data, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            # logger.exception(f"❌ Fatal error in bulk_sync: {str(e)}")
+            return Response({
+                'success': False,
+                'error': str(e),
+                'traceback': traceback.format_exc()
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
     @action(detail=False, methods=['get'])
     def summary(self, request):
         """Get summary of all goals."""

@@ -157,89 +157,118 @@ class TransactionViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['post'])
     def bulk_sync(self, request):
         """Bulk sync transactions from mobile app."""
-        transactions_data = request.data if isinstance(request.data, list) else []
+        import logging
+        import json
+        logger = logging.getLogger('transactions')
         
-        # Get user's profile
+        # Log the incoming request
+        #logger.info(f"========== TRANSACTION BULK_SYNC DEBUG ==========")
+        #logger.info(f"Content-Type: {request.content_type}")
+        #logger.info(f"Request body type: {type(request.data)}")
+        #logger.info(f"Request body: {json.dumps(request.data, indent=2, default=str)}")
+        
         try:
-            user_profile = request.user.profile
-        except (Profile.DoesNotExist, AttributeError):
-            return Response(
-                {'error': 'User profile not found'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        created_count = 0
-        updated_count = 0
-        errors = []
-        
-        for transaction_data in transactions_data:
-            try:
-                # Ensure profile_id is set
-                transaction_data['profile_id'] = str(user_profile.id)
-                
-                transaction_id = transaction_data.get('id')
-                
-                if transaction_id:
-                    # Try to update existing transaction
-                    try:
-                        transaction = Transaction.objects.get(
-                            id=transaction_id,
-                            profile=user_profile
-                        )
-                        serializer = TransactionSerializer(
-                            transaction,
-                            data=transaction_data,
-                            partial=True,
-                            context={'request': request}
-                        )
-                        if serializer.is_valid():
-                            serializer.save()
-                            updated_count += 1
-                        else:
-                            errors.append({
-                                'id': transaction_id,
-                                'errors': serializer.errors
-                            })
-                    except Transaction.DoesNotExist:
-                        # Create new transaction with specified ID
-                        serializer = TransactionSerializer(
-                            data=transaction_data,
-                            context={'request': request}
-                        )
-                        if serializer.is_valid():
-                            serializer.save()
-                            created_count += 1
-                        else:
-                            errors.append({
-                                'id': transaction_id,
-                                'errors': serializer.errors
-                            })
-                else:
-                    # Create new transaction
-                    serializer = TransactionSerializer(
-                        data=transaction_data,
-                        context={'request': request}
-                    )
-                    if serializer.is_valid():
-                        serializer.save()
-                        created_count += 1
+            transactions_data = request.data if isinstance(request.data, list) else []
+            logger.info(f"Parsed transactions_data: {len(transactions_data)} items")
+            
+            if not transactions_data:
+                logger.warning("No transactions data received")
+                return Response({
+                    'success': False,
+                    'error': 'No transactions data provided',
+                    'received_type': str(type(request.data)),
+                    'received_data': request.data
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            user_profile = request.user if isinstance(request.user, Profile) else request.user.profile
+            # logger.info(f"User profile: {user_profile.id}")
+            
+            created_count = 0
+            updated_count = 0
+            errors = []
+            
+            for idx, transaction_data in enumerate(transactions_data):
+                try:
+                    #logger.info(f"Processing transaction {idx + 1}: {json.dumps(transaction_data, indent=2, default=str)}")
+                    
+                    # Add profile to data
+                    transaction_data['profile'] = str(user_profile.id)
+                    transaction_id = transaction_data.get('id')
+                    
+                    if transaction_id:
+                        try:
+                            transaction = Transaction.objects.get(id=transaction_id, profile=user_profile)
+                            serializer = TransactionSerializer(transaction, data=transaction_data, partial=True)
+                            
+                            if serializer.is_valid():
+                                serializer.save()
+                                updated_count += 1
+                                logger.info(f"✅ Updated transaction {transaction_id}")
+                            else:
+                                # logger.error(f"❌ Validation errors for transaction {transaction_id}: {serializer.errors}")
+                                errors.append({
+                                    'id': transaction_id,
+                                    'errors': serializer.errors,
+                                    'data_sent': transaction_data
+                                })
+                        except Transaction.DoesNotExist:
+                            # logger.info(f"Transaction {transaction_id} not found, creating new...")
+                            serializer = TransactionSerializer(data=transaction_data)
+                            
+                            if serializer.is_valid():
+                                serializer.save(profile=user_profile)
+                                created_count += 1
+                                # logger.info(f"✅ Created transaction {transaction_id}")
+                            else:
+                                # logger.error(f"❌ Validation errors for new transaction: {serializer.errors}")
+                                errors.append({
+                                    'id': transaction_id,
+                                    'errors': serializer.errors,
+                                    'data_sent': transaction_data
+                                })
                     else:
-                        errors.append({
-                            'errors': serializer.errors
-                        })
-            except Exception as e:
-                errors.append({
-                    'id': transaction_data.get('id'),
-                    'error': str(e)
-                })
-        
-        return Response({
-            'success': True,
-            'created': created_count,
-            'updated': updated_count,
-            'errors': errors
-        }, status=status.HTTP_200_OK)
-    
+                        # logger.info(f"Creating transaction without ID...")
+                        serializer = TransactionSerializer(data=transaction_data)
+                        
+                        if serializer.is_valid():
+                            serializer.save(profile=user_profile)
+                            created_count += 1
+                            # logger.info(f"✅ Created new transaction")
+                        else:
+                            # logger.error(f"❌ Validation errors: {serializer.errors}")
+                            errors.append({
+                                'errors': serializer.errors,
+                                'data_sent': transaction_data
+                            })
+                            
+                except Exception as e:
+                    # logger.exception(f"❌ Exception processing transaction {idx + 1}: {str(e)}")
+                    errors.append({
+                        'id': transaction_data.get('id'),
+                        'error': str(e),
+                        'data_sent': transaction_data
+                    })
+            
+            response_data = {
+                'success': True,
+                'created': created_count,
+                'updated': updated_count,
+                'errors': errors
+            }
+            
+            # logger.info(f"========== SYNC COMPLETE ==========")
+            # logger.info(f"Response: {json.dumps(response_data, indent=2, default=str)}")
+            
+            return Response(response_data, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            # logger.exception(f"❌ Fatal error in bulk_sync: {str(e)}")
+            return Response({
+                'success': False,
+                'error': str(e),
+                'traceback': traceback.format_exc()
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
     @action(detail=False, methods=['get'])
     def summary(self, request):
         """Get transaction summary."""
