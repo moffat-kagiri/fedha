@@ -1,5 +1,5 @@
 // auth_service.dart - PostgreSQL Backend Compatible (Simplified & Fixed)
-import 'dart:async';
+import 'dart:async'show unawaited;
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import 'dart:math';
@@ -293,8 +293,8 @@ class AuthService with ChangeNotifier {
       // Extract user data
       final userId = serverProfile['id']?.toString() ?? _uuid.v4();
       final firstName = userData?['first_name']?.toString() ?? 
-                       serverProfile['first_name']?.toString() ?? 
-                       email.split('@')[0];
+                      serverProfile['first_name']?.toString() ?? 
+                      email.split('@')[0];
       final lastName = userData?['last_name']?.toString() ?? 
                       serverProfile['last_name']?.toString() ?? 
                       '';
@@ -323,8 +323,16 @@ class AuthService with ChangeNotifier {
       await setCurrentProfile(profile.id);
       await _biometricService?.registerSuccessfulPasswordLogin();
       
-      // CRITICAL: Fetch and save ALL data from server
-      await _fetchAndSaveAllUserData(profile.id, authToken);
+      // ✅ NEW: Trigger initial sync via UnifiedSyncService
+      if (_syncService != null) {
+        _logger.info('🔄 Triggering initial data sync...');
+        _syncService!.setCurrentProfile(profile.id);
+        
+        // Perform initial sync in background (don't block login)
+        unawaited(_syncService!.performInitialSync(profile.id, authToken));
+      } else {
+        _logger.warning('⚠️ SyncService not available - data will sync on next app launch');
+      }
       
       _logger.info('✅ Login successful: $email');
       return LoginResult.success(
@@ -400,51 +408,7 @@ class AuthService with ChangeNotifier {
     return null;
   }
 
-  /// Fetch and save all user data from server (Critical for persistence)
-  Future<void> _fetchAndSaveAllUserData(String profileId, String sessionToken) async {
-    try {
-      _logger.info('📥 Fetching all user data from server...');
-      
-      final prefs = await SharedPreferences.getInstance();
-      
-      // 1. Fetch transactions
-      try {
-        final transactions = await _apiClient.getTransactions(
-          profileId: profileId,
-          sessionToken: sessionToken,
-        );
-        
-        if (transactions.isNotEmpty) {
-          await prefs.setString('transactions', jsonEncode(transactions));
-          _logger.info('✅ Saved ${transactions.length} transactions');
-        }
-      } catch (e) {
-        _logger.warning('Failed to fetch transactions: $e');
-      }
-      
-      // 2. Fetch loans (if needed)
-      try {
-        final loans = await _apiClient.getLoans(
-          profileId: profileId,
-          sessionToken: sessionToken,
-        );
-        
-        if (loans.isNotEmpty) {
-          await prefs.setString('loans', jsonEncode(loans));
-          _logger.info('✅ Saved ${loans.length} loans');
-        }
-      } catch (e) {
-        _logger.warning('Failed to fetch loans: $e');
-      }
-      
-      _logger.info('✅ Initial user data fetched and saved locally');
-    } catch (e, stackTrace) {
-      _logger.severe('Failed to fetch user data', e, stackTrace);
-      // Don't throw - login should still succeed
-    }
-  }
-
-  /// Signup method
+  /// Signup method 
   Future<bool> signup({
     required String firstName,
     required String lastName,
@@ -541,9 +505,13 @@ class AuthService with ChangeNotifier {
       await _storeProfile(newProfile);
       await setCurrentProfile(newProfile.id);
       
-      // Fetch and save initial data
-      if (authToken != null) {
-        await _fetchAndSaveAllUserData(newProfile.id, authToken);
+      // ✅ NEW: Trigger initial sync via UnifiedSyncService
+      if (_syncService != null && authToken != null) {
+        _logger.info('🔄 Triggering initial data sync...');
+        _syncService!.setCurrentProfile(newProfile.id);
+        
+        // Perform initial sync in background
+        unawaited(_syncService!.performInitialSync(newProfile.id, authToken));
       }
       
       final prefs = await SharedPreferences.getInstance();

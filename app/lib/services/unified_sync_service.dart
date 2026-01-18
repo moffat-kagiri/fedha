@@ -1,4 +1,4 @@
-// lib/services/unified_sync_service.dart - IMPROVED VERSION
+// lib/services/unified_sync_service.dart 
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 import '../models/transaction.dart';
@@ -650,6 +650,276 @@ class UnifiedSyncService with ChangeNotifier {
     _isSyncing = false;
     notifyListeners();
     _logger.info('Sync cache cleared');
+  }
+
+  /// ✅ NEW: Perform initial sync after login/signup
+  /// Downloads all user data from server and saves to local database
+  Future<SyncResult> performInitialSync(String profileId, String authToken) async {
+    if (_isSyncing) {
+      _logger.warning('Sync already in progress, skipping initial sync');
+      return SyncResult(
+        success: false,
+        error: 'Sync already in progress',
+        timestamp: DateTime.now(),
+      );
+    }
+
+    _isSyncing = true;
+    _currentProfileId = profileId;
+    notifyListeners();
+
+    final result = SyncResult(timestamp: DateTime.now());
+
+    try {
+      _logger.info('📥 Starting initial sync for profile: $profileId');
+
+      final isOnline = await _apiClient.checkServerHealth();
+      result.serverAvailable = isOnline;
+
+      if (!isOnline) {
+        _logger.warning('Server unavailable - cannot perform initial sync');
+        result.success = false;
+        result.error = 'Server unavailable';
+        return result;
+      }
+
+      // ==================== DOWNLOAD ALL DATA FROM SERVER ====================
+      
+      // 1. Fetch and save transactions
+      result.transactions = await _downloadAndSaveTransactions(profileId, authToken);
+      
+      // 2. Fetch and save goals
+      result.goals = await _downloadAndSaveGoals(profileId, authToken);
+      
+      // 3. Fetch and save budgets
+      result.budgets = await _downloadAndSaveBudgets(profileId, authToken);
+      
+      // 4. Fetch and save loans
+      result.loans = await _downloadAndSaveLoans(profileId, authToken);
+      
+      result.success = true;
+      _lastSyncTime = DateTime.now();
+      
+      _logger.info('✅ Initial sync complete. Downloaded: ${result.totalDownloaded} items');
+      
+    } catch (e, stackTrace) {
+      _logger.severe('Initial sync failed', e, stackTrace);
+      result.success = false;
+      result.error = e.toString();
+    } finally {
+      _isSyncing = false;
+      notifyListeners();
+    }
+
+    return result;
+  }
+
+  /// ✅ NEW: Download and save transactions
+  Future<EntitySyncResult> _downloadAndSaveTransactions(String profileId, String authToken) async {
+    final result = EntitySyncResult();
+    
+    try {
+      _logger.info('📥 Downloading transactions...');
+      
+      final transactionsJson = await _apiClient.getTransactions(
+        profileId: profileId,
+        sessionToken: authToken,
+      );
+      
+      _logger.info('Received ${transactionsJson.length} transactions from server');
+      
+      // Convert and save each transaction
+      for (final txJson in transactionsJson) {
+        try {
+          final transaction = _parseRemoteTransaction(txJson, profileId);
+          
+          if (transaction != null) {
+            // Check if already exists locally
+            final localTransactions = await _offlineDataService.getAllTransactions(profileId);
+            final remoteId = txJson['id']?.toString();
+            
+            final existsLocally = localTransactions.any((t) => 
+              t.remoteId == remoteId || t.id == remoteId
+            );
+            
+            if (!existsLocally) {
+              await _offlineDataService.saveTransaction(transaction);
+              result.downloaded++;
+            } else {
+              _logger.info('Transaction already exists locally: $remoteId');
+            }
+          }
+        } catch (e) {
+          _logger.warning('Failed to parse transaction: $e');
+        }
+      }
+      
+      result.success = true;
+      _logger.info('✅ Saved ${result.downloaded} new transactions');
+      
+    } catch (e, stackTrace) {
+      _logger.severe('Failed to download transactions', e, stackTrace);
+      result.success = false;
+      result.error = e.toString();
+    }
+    
+    return result;
+  }
+
+  /// ✅ NEW: Download and save goals
+  Future<EntitySyncResult> _downloadAndSaveGoals(String profileId, String authToken) async {
+    final result = EntitySyncResult();
+    
+    try {
+      _logger.info('📥 Downloading goals...');
+      
+      final goalsJson = await _apiClient.getGoals(
+        profileId: profileId,
+        sessionToken: authToken,
+      );
+      
+      _logger.info('Received ${goalsJson.length} goals from server');
+      
+      // Convert and save each goal
+      for (final goalJson in goalsJson) {
+        try {
+          final goal = _parseRemoteGoal(goalJson, profileId);
+          
+          if (goal != null) {
+            // Check if already exists locally
+            final localGoals = await _offlineDataService.getAllGoals(profileId);
+            final remoteId = goalJson['id']?.toString();
+            
+            final existsLocally = localGoals.any((g) => 
+              g.remoteId == remoteId || g.id == remoteId
+            );
+            
+            if (!existsLocally) {
+              await _offlineDataService.saveGoal(goal);
+              result.downloaded++;
+            } else {
+              _logger.info('Goal already exists locally: $remoteId');
+            }
+          }
+        } catch (e) {
+          _logger.warning('Failed to parse goal: $e');
+        }
+      }
+      
+      result.success = true;
+      _logger.info('✅ Saved ${result.downloaded} new goals');
+      
+    } catch (e, stackTrace) {
+      _logger.severe('Failed to download goals', e, stackTrace);
+      result.success = false;
+      result.error = e.toString();
+    }
+    
+    return result;
+  }
+
+  /// ✅ NEW: Download and save budgets
+  Future<EntitySyncResult> _downloadAndSaveBudgets(String profileId, String authToken) async {
+    final result = EntitySyncResult();
+    
+    try {
+      _logger.info('📥 Downloading budgets...');
+      
+      final budgetsJson = await _apiClient.getBudgets(
+        profileId: profileId,
+        sessionToken: authToken,
+      );
+      
+      _logger.info('Received ${budgetsJson.length} budgets from server');
+      
+      // Convert and save each budget
+      for (final budgetJson in budgetsJson) {
+        try {
+          final budget = _parseRemoteBudget(budgetJson, profileId);
+          
+          if (budget != null) {
+            // Check if already exists locally
+            final localBudgets = await _offlineDataService.getAllBudgets(profileId);
+            final remoteId = budgetJson['id']?.toString();
+            
+            final existsLocally = localBudgets.any((b) => 
+              b.remoteId == remoteId || b.id == remoteId
+            );
+            
+            if (!existsLocally) {
+              await _offlineDataService.saveBudget(budget);
+              result.downloaded++;
+            } else {
+              _logger.info('Budget already exists locally: $remoteId');
+            }
+          }
+        } catch (e) {
+          _logger.warning('Failed to parse budget: $e');
+        }
+      }
+      
+      result.success = true;
+      _logger.info('✅ Saved ${result.downloaded} new budgets');
+      
+    } catch (e, stackTrace) {
+      _logger.severe('Failed to download budgets', e, stackTrace);
+      result.success = false;
+      result.error = e.toString();
+    }
+    
+    return result;
+  }
+
+  /// ✅ NEW: Download and save loans
+  Future<EntitySyncResult> _downloadAndSaveLoans(String profileId, String authToken) async {
+    final result = EntitySyncResult();
+    
+    try {
+      _logger.info('📥 Downloading loans...');
+      
+      final loansJson = await _apiClient.getLoans(
+        profileId: profileId,
+        sessionToken: authToken,
+      );
+      
+      _logger.info('Received ${loansJson.length} loans from server');
+      
+      // Convert and save each loan
+      for (final loanJson in loansJson) {
+        try {
+          final loan = _parseRemoteLoan(loanJson, profileId);
+          
+          if (loan != null) {
+            // Check if already exists locally
+            final localLoans = await _offlineDataService.getAllLoans(profileId);
+            final remoteId = loanJson['id']?.toString();
+            
+            final existsLocally = localLoans.any((l) => 
+              l.remoteId == remoteId || l.id == remoteId
+            );
+            
+            if (!existsLocally) {
+              await _offlineDataService.saveLoan(loan);
+              result.downloaded++;
+            } else {
+              _logger.info('Loan already exists locally: $remoteId');
+            }
+          }
+        } catch (e) {
+          _logger.warning('Failed to parse loan: $e');
+        }
+      }
+      
+      result.success = true;
+      _logger.info('✅ Saved ${result.downloaded} new loans');
+      
+    } catch (e, stackTrace) {
+      _logger.severe('Failed to download loans', e, stackTrace);
+      result.success = false;
+      result.error = e.toString();
+    }
+    
+    return result;
   }
 }
 
