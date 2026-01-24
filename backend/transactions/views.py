@@ -158,30 +158,25 @@ class TransactionViewSet(viewsets.ModelViewSet):
     def bulk_sync(self, request):
         """Bulk sync transactions from mobile app."""
         import logging
-        import json
         logger = logging.getLogger('transactions')
         
-        # Log the incoming request
-        #logger.info(f"========== TRANSACTION BULK_SYNC DEBUG ==========")
-        #logger.info(f"Content-Type: {request.content_type}")
-        #logger.info(f"Request body type: {type(request.data)}")
-        #logger.info(f"Request body: {json.dumps(request.data, indent=2, default=str)}")
+        # ✅ ENABLE ALL LOGGING
+        logger.info(f"========== TRANSACTION BULK_SYNC DEBUG ==========")
+        logger.info(f"Content-Type: {request.content_type}")
+        logger.info(f"Request body: {request.data}")
         
         try:
             transactions_data = request.data if isinstance(request.data, list) else []
-            logger.info(f"Parsed transactions_data: {len(transactions_data)} items")
+            logger.info(f"Parsed {len(transactions_data)} transactions")
             
             if not transactions_data:
-                logger.warning("No transactions data received")
+                logger.warning("❌ No transactions data received")
                 return Response({
                     'success': False,
                     'error': 'No transactions data provided',
-                    'received_type': str(type(request.data)),
-                    'received_data': request.data
                 }, status=status.HTTP_400_BAD_REQUEST)
             
             user_profile = request.user if isinstance(request.user, Profile) else request.user.profile
-            # logger.info(f"User profile: {user_profile.id}")
             
             created_count = 0
             updated_count = 0
@@ -189,9 +184,9 @@ class TransactionViewSet(viewsets.ModelViewSet):
             
             for idx, transaction_data in enumerate(transactions_data):
                 try:
-                    #logger.info(f"Processing transaction {idx + 1}: {json.dumps(transaction_data, indent=2, default=str)}")
+                    logger.info(f"Processing transaction {idx + 1}/{len(transactions_data)}")
+                    logger.info(f"Data: {transaction_data}")
                     
-                    # Add profile to data
                     transaction_data['profile'] = str(user_profile.id)
                     transaction_id = transaction_data.get('id')
                     
@@ -205,48 +200,42 @@ class TransactionViewSet(viewsets.ModelViewSet):
                                 updated_count += 1
                                 logger.info(f"✅ Updated transaction {transaction_id}")
                             else:
-                                # logger.error(f"❌ Validation errors for transaction {transaction_id}: {serializer.errors}")
+                                logger.error(f"❌ Validation errors: {serializer.errors}")
                                 errors.append({
                                     'id': transaction_id,
                                     'errors': serializer.errors,
-                                    'data_sent': transaction_data
                                 })
                         except Transaction.DoesNotExist:
-                            # logger.info(f"Transaction {transaction_id} not found, creating new...")
                             serializer = TransactionSerializer(data=transaction_data)
                             
                             if serializer.is_valid():
                                 serializer.save(profile=user_profile)
                                 created_count += 1
-                                # logger.info(f"✅ Created transaction {transaction_id}")
+                                logger.info(f"✅ Created transaction {transaction_id}")
                             else:
-                                # logger.error(f"❌ Validation errors for new transaction: {serializer.errors}")
+                                logger.error(f"❌ Validation errors: {serializer.errors}")
                                 errors.append({
                                     'id': transaction_id,
                                     'errors': serializer.errors,
-                                    'data_sent': transaction_data
                                 })
                     else:
-                        # logger.info(f"Creating transaction without ID...")
                         serializer = TransactionSerializer(data=transaction_data)
                         
                         if serializer.is_valid():
                             serializer.save(profile=user_profile)
                             created_count += 1
-                            # logger.info(f"✅ Created new transaction")
+                            logger.info(f"✅ Created new transaction")
                         else:
-                            # logger.error(f"❌ Validation errors: {serializer.errors}")
+                            logger.error(f"❌ Validation errors: {serializer.errors}")
                             errors.append({
                                 'errors': serializer.errors,
-                                'data_sent': transaction_data
                             })
                             
                 except Exception as e:
-                    # logger.exception(f"❌ Exception processing transaction {idx + 1}: {str(e)}")
+                    logger.exception(f"❌ Exception: {str(e)}")
                     errors.append({
                         'id': transaction_data.get('id'),
                         'error': str(e),
-                        'data_sent': transaction_data
                     })
             
             response_data = {
@@ -256,17 +245,14 @@ class TransactionViewSet(viewsets.ModelViewSet):
                 'errors': errors
             }
             
-            # logger.info(f"========== SYNC COMPLETE ==========")
-            # logger.info(f"Response: {json.dumps(response_data, indent=2, default=str)}")
-            
+            logger.info(f"✅ Sync complete: {created_count} created, {updated_count} updated, {len(errors)} errors")
             return Response(response_data, status=status.HTTP_200_OK)
             
         except Exception as e:
-            # logger.exception(f"❌ Fatal error in bulk_sync: {str(e)}")
+            logger.exception(f"❌ Fatal error: {str(e)}")
             return Response({
                 'success': False,
                 'error': str(e),
-                'traceback': traceback.format_exc()
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @action(detail=False, methods=['get'])

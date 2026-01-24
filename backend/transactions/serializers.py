@@ -31,12 +31,12 @@ class TransactionSerializer(serializers.ModelSerializer):
             'status': {'default': 'completed'},
             'is_synced': {'default': True, 'required': False},
         }
-    
+
     def validate(self, attrs):
         """Validate transaction data."""
         profile_id = attrs.pop('profile_id', None)
         
-        # Handle profile_id
+        # ✅ Handle profile_id properly
         if profile_id:
             from accounts.models import Profile
             try:
@@ -47,14 +47,27 @@ class TransactionSerializer(serializers.ModelSerializer):
                     'profile_id': f'Profile {profile_id} does not exist'
                 })
         
-        # Validate amount is positive
+        # ✅ Ensure profile exists
+        if 'profile' not in attrs:
+            raise serializers.ValidationError({
+                'profile': 'Profile is required'
+            })
+        
+        # ✅ Validate amount
         amount = attrs.get('amount')
-        if amount and amount <= 0:
+        if amount is not None and amount <= 0:
             raise serializers.ValidationError({
                 'amount': 'Amount must be positive'
             })
         
-        # Auto-set is_expense based on type
+        # ✅ Set defaults
+        if 'currency' not in attrs:
+            attrs['currency'] = 'KES'
+        
+        if 'status' not in attrs:
+            attrs['status'] = 'completed'
+        
+        # ✅ Auto-set is_expense
         if 'is_expense' not in attrs and 'type' in attrs:
             attrs['is_expense'] = (attrs['type'] == TransactionType.EXPENSE)
         

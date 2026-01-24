@@ -159,43 +159,71 @@ class UnifiedSyncService with ChangeNotifier {
             .toList();
         
         if (unsyncedTransactions.isNotEmpty) {
-          _logger.info('Uploading ${unsyncedTransactions.length} transactions');
+          _logger.info('📤 Uploading ${unsyncedTransactions.length} transactions');
           
-          // Use the new prepareTransactionData method
-          for (int i = 0; i < unsyncedTransactions.length; i += _batchSize) {
-            final batch = unsyncedTransactions.skip(i).take(_batchSize).toList();
-            final batchData = batch.map((t) {
-              return ApiClient.prepareTransactionData(
-                profileId: profileId,
-                amount: t.amount,  // Use major units
-                type: t.type,
-                description: t.description ?? '',
-                category: t.category,
-                goalId: t.goalId,
-                date: t.date,
-                isExpense: t.isExpense ?? (t.type == 'expense'),
-                currency: t.currency ?? 'KES',
-                status: t.status ?? 'completed',
-                paymentMethod: t.paymentMethod,
-                merchantName: t.merchantName,
-                merchantCategory: t.merchantCategory,
-                tags: t.tags,
-                isRecurring: t.isRecurring,
-              );
-            }).toList();
-            
-            final response = await _apiClient.syncTransactions(profileId, batchData);
-            
-            if (response['success'] == true) {
-              result.uploaded += response['created'] as int? ?? 0;
-              result.uploaded += response['updated'] as int? ?? 0;
+          // ✅ Validate and prepare data
+          final batchData = unsyncedTransactions.map((t) {
+            // Validate required fields
+            if (t.amount <= 0) {
+              _logger.warning('Skipping transaction with invalid amount: ${t.amount}');
+              return null;
             }
+            
+            if (t.type.isEmpty) {
+              _logger.warning('Skipping transaction with empty type');
+              return null;
+            }
+            
+            return ApiClient.prepareTransactionData(
+              profileId: profileId,
+              amount: t.amount,
+              type: t.type,
+              description: t.description ?? '',
+              category: t.category,
+              goalId: t.goalId,
+              date: t.date,
+              isExpense: t.isExpense ?? (t.type == 'expense'),
+              currency: t.currency ?? 'KES',
+              status: t.status ?? 'completed',
+              paymentMethod: t.paymentMethod,
+              merchantName: t.merchantName,
+              merchantCategory: t.merchantCategory,
+              tags: t.tags,
+              isRecurring: t.isRecurring,
+            );
+          }).where((data) => data != null).cast<Map<String, dynamic>>().toList();
+          
+          _logger.info('📤 Prepared ${batchData.length} valid transactions');
+          _logger.info('📤 Sample data: ${batchData.isNotEmpty ? batchData.first : "none"}');
+          
+          if (batchData.isNotEmpty) {
+            // Process in batches for better performance
+            for (int i = 0; i < batchData.length; i += _batchSize) {
+              final batch = batchData.skip(i).take(_batchSize).toList();
+              final response = await _apiClient.syncTransactions(profileId, batch);
+              
+              _logger.info('📥 Sync response: $response');
+              
+              if (response['success'] == true) {
+                result.uploaded += response['created'] as int? ?? 0;
+                result.uploaded += response['updated'] as int? ?? 0;
+                
+                // ✅ Log any errors
+                if (response['errors'] != null && (response['errors'] as List).isNotEmpty) {
+                  _logger.warning('⚠️ Sync errors: ${response['errors']}');
+                }
+              } else {
+                _logger.severe('❌ Sync failed: ${response['error'] ?? response['body']}');
+              }
+            }
+          } else {
+            _logger.info('No valid transactions to upload after validation');
           }
         }
 
         // STEP 2: Download from server
         final remoteTransactions = await _apiClient.getTransactions(profileId: profileId);
-        _logger.info('Downloaded ${remoteTransactions.length} transactions');
+        _logger.info('📥 Downloaded ${remoteTransactions.length} transactions from server');
 
         // STEP 3: Merge only new transactions
         for (final remote in remoteTransactions) {
