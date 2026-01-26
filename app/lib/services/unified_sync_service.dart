@@ -144,7 +144,7 @@ class UnifiedSyncService with ChangeNotifier {
     return result;
   }
 
-  /// ✅ UPDATED: Use the new prepareTransactionData from ApiClient
+  // ✅ Also update the batch upload section to use this helper
   Future<EntitySyncResult> _syncTransactionsBatch(String profileId) async {
     final result = EntitySyncResult();
     
@@ -161,7 +161,7 @@ class UnifiedSyncService with ChangeNotifier {
         if (unsyncedTransactions.isNotEmpty) {
           _logger.info('📤 Uploading ${unsyncedTransactions.length} transactions');
           
-          // ✅ Validate and prepare data
+          // ✅ FIXED: Use the helper method that includes profile_id
           final batchData = unsyncedTransactions.map((t) {
             // Validate required fields
             if (t.amount <= 0) {
@@ -174,27 +174,16 @@ class UnifiedSyncService with ChangeNotifier {
               return null;
             }
             
-            return ApiClient.prepareTransactionData(
-              profileId: profileId,
-              amount: t.amount,
-              type: t.type,
-              description: t.description ?? '',
-              category: t.category,
-              goalId: t.goalId,
-              date: t.date,
-              isExpense: t.isExpense ?? (t.type == 'expense'),
-              currency: t.currency ?? 'KES',
-              status: t.status ?? 'completed',
-              paymentMethod: t.paymentMethod,
-              merchantName: t.merchantName,
-              merchantCategory: t.merchantCategory,
-              tags: t.tags,
-              isRecurring: t.isRecurring,
-            );
+            // ✅ Use the fixed helper method
+            return _prepareTransactionForUpload(t, profileId);
           }).where((data) => data != null).cast<Map<String, dynamic>>().toList();
           
           _logger.info('📤 Prepared ${batchData.length} valid transactions');
-          _logger.info('📤 Sample data: ${batchData.isNotEmpty ? batchData.first : "none"}');
+          
+          // ✅ Log first transaction for debugging
+          if (batchData.isNotEmpty) {
+            _logger.info('📤 Sample transaction data: ${batchData.first}');
+          }
           
           if (batchData.isNotEmpty) {
             // Process in batches for better performance
@@ -216,12 +205,10 @@ class UnifiedSyncService with ChangeNotifier {
                 _logger.severe('❌ Sync failed: ${response['error'] ?? response['body']}');
               }
             }
-          } else {
-            _logger.info('No valid transactions to upload after validation');
           }
         }
 
-        // STEP 2: Download from server
+        // STEP 2: Download from server (unchanged)
         final remoteTransactions = await _apiClient.getTransactions(profileId: profileId);
         _logger.info('📥 Downloaded ${remoteTransactions.length} transactions from server');
 
@@ -303,30 +290,72 @@ class UnifiedSyncService with ChangeNotifier {
 
   /// ✅ FIXED: Prepare transaction for upload with correct field names
   Map<String, dynamic> _prepareTransactionForUpload(Transaction t, String profileId) {
-    return {
+    final data = <String, dynamic>{
+      // ✅ CRITICAL: Must include profile_id for backend validation
       'profile_id': profileId,
-      'amount': t.amount,  // CHANGED: Major units, not minor
-      'type': t.type,      // CHANGED: Field name fixed (should match backend)
+      
+      // Core transaction fields
+      'amount': t.amount,
+      'type': t.type,
       'description': t.description ?? '',
-      'category': t.category,
-      'goal_id': t.goalId,
       'date': t.date.toIso8601String(),
+      
+      // Required fields with defaults
       'is_expense': t.isExpense ?? (t.type == 'expense'),
       'currency': t.currency ?? 'KES',
-      'is_synced': true,
       'status': t.status ?? 'completed',
-      'budget_category': t.budgetCategory,
-      'payment_method': t.paymentMethod,
-      'merchant_name': t.merchantName,
-      'merchant_category': t.merchantCategory,
-      'tags': t.tags,
-      'reference': t.reference,
-      'recipient': t.recipient,
-      // Optional: Add other fields that exist in backend
+      'is_synced': true,
       'is_recurring': t.isRecurring,
-      'payment_method': t.paymentMethod,
+      'is_pending': t.isPending,
     };
+    
+    // ✅ CRITICAL FIX: Only add optional fields if they have non-null values
+    // This prevents "field may not be null" errors
+    
+    if (t.category != null && t.category!.isNotEmpty) {
+      data['category'] = t.category;
+    }
+    
+    if (t.goalId != null && t.goalId!.isNotEmpty) {
+      data['goal_id'] = t.goalId;
+    }
+    
+    if (t.budgetCategory != null && t.budgetCategory!.isNotEmpty) {
+      data['budget_category'] = t.budgetCategory;
+    }
+    
+    if (t.paymentMethod != null && t.paymentMethod!.isNotEmpty) {
+      data['payment_method'] = t.paymentMethod;
+    }
+    
+    if (t.merchantName != null && t.merchantName!.isNotEmpty) {
+      data['merchant_name'] = t.merchantName;
+    }
+    
+    if (t.merchantCategory != null && t.merchantCategory!.isNotEmpty) {
+      data['merchant_category'] = t.merchantCategory;
+    }
+    
+    if (t.tags != null && t.tags!.isNotEmpty) {
+      data['tags'] = t.tags;
+    }
+    
+    if (t.reference != null && t.reference!.isNotEmpty) {
+      data['reference'] = t.reference;
+    }
+    
+    if (t.recipient != null && t.recipient!.isNotEmpty) {
+      data['recipient'] = t.recipient;
+    }
+    
+    if (t.smsSource != null && t.smsSource!.isNotEmpty) {
+      data['sms_source'] = t.smsSource;
+    }
+    
+    return data;
   }
+
+
 
   /// ✅ NEW: Batch sync goals
   Future<EntitySyncResult> _syncGoalsBatch(String profileId) async {

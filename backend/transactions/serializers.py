@@ -1,21 +1,22 @@
-# transactions/serializers.py
+# backend/transactions/serializers.py
 from rest_framework import serializers
 from .models import Transaction, PendingTransaction, TransactionType, TransactionStatus
-import json
+from django.utils.dateparse import parse_datetime
+from datetime import datetime
+import pytz
 
 class TransactionSerializer(serializers.ModelSerializer):
-    """Serializer for Transaction model - Simplified for database schema."""
-    profile_id = serializers.UUIDField(write_only=True)
+    """Serializer for Transaction model - Fixed for bulk_sync."""
     
-    # ✅ REMOVE amount_minor, just use amount directly
-    # ✅ REMOVE transaction_type, just use type directly
+    # ✅ FIX: Accept EITHER profile OR profile_id
+    profile_id = serializers.UUIDField(write_only=True, required=False)
     
     class Meta:
         model = Transaction
         fields = [
             'id', 'profile', 'profile_id', 
             'category', 'goal_id',
-            'amount', 'type',  # ✅ Direct field names
+            'amount', 'type',
             'status', 'payment_method', 'description', 'notes',
             'date', 'created_at', 'updated_at', 'currency',
             'is_expense', 'is_pending', 'is_recurring', 'is_synced',
@@ -24,41 +25,94 @@ class TransactionSerializer(serializers.ModelSerializer):
             'reference', 'recipient', 'sms_source', 'recurring_pattern'
         ]
         read_only_fields = [
-            'id', 'profile', 'created_at', 'updated_at'
+            'id', 'created_at', 'updated_at'
         ]
         extra_kwargs = {
+            'profile': {'required': False},  # ✅ Make optional for bulk_sync
             'currency': {'default': 'KES'},
             'status': {'default': 'completed'},
             'is_synced': {'default': True, 'required': False},
         }
 
     def validate(self, attrs):
-        """Validate transaction data."""
+        """Validate transaction data - FIXED for bulk_sync."""
+        from accounts.models import Profile
+        import uuid
+        
+        # ✅ CRITICAL FIX: Handle profile in multiple formats
+        profile = attrs.get('profile')
         profile_id = attrs.pop('profile_id', None)
         
-        # ✅ Handle profile_id properly
+        # Priority 1: Check if profile_id was provided (write-only field)
         if profile_id:
-            from accounts.models import Profile
             try:
-                profile = Profile.objects.get(id=profile_id)
-                attrs['profile'] = profile
+                profile_obj = Profile.objects.get(id=profile_id)
+                attrs['profile'] = profile_obj
             except Profile.DoesNotExist:
                 raise serializers.ValidationError({
                     'profile_id': f'Profile {profile_id} does not exist'
                 })
-        
-        # ✅ Ensure profile exists
-        if 'profile' not in attrs:
+        # Priority 2: Check if profile is a UUID string (from bulk_sync view)
+        elif profile and isinstance(profile, str):
+            try:
+                # Try to parse as UUID
+                profile_uuid = uuid.UUID(profile)
+                profile_obj = Profile.objects.get(id=profile_uuid)
+                attrs['profile'] = profile_obj
+            except (ValueError, Profile.DoesNotExist) as e:
+                raise serializers.ValidationError({
+                    'profile': f'Invalid profile: {profile} - {str(e)}'
+                })
+        # Priority 3: Check if profile is already a Profile instance
+        elif isinstance(profile, Profile):
+            # Already good, do nothing
+            pass
+        else:
+            # No valid profile provided
             raise serializers.ValidationError({
-                'profile': 'Profile is required'
+                'profile': 'Profile is required. Provide either profile_id or profile.'
             })
+        
+        # ✅ FIX #2: Handle date format
+        date_value = attrs.get('date')
+        if date_value:
+            if isinstance(date_value, str):
+                # Try to parse the date
+                try:
+                    # Handle missing timezone
+                    if not date_value.endswith('Z') and '+' not in date_value:
+                        # Assume UTC if no timezone
+                        date_value = date_value.replace('.000', '.000Z')
+                    
+                    parsed_date = parse_datetime(date_value)
+                    if parsed_date:
+                        # Ensure timezone aware
+                        if parsed_date.tzinfo is None:
+                            parsed_date = pytz.UTC.localize(parsed_date)
+                        attrs['date'] = parsed_date
+                    else:
+                        raise ValueError("Invalid date format")
+                except Exception as e:
+                    raise serializers.ValidationError({
+                        'date': f'Invalid date format: {date_value}. Expected ISO 8601 format.'
+                    })
         
         # ✅ Validate amount
         amount = attrs.get('amount')
-        if amount is not None and amount <= 0:
-            raise serializers.ValidationError({
-                'amount': 'Amount must be positive'
-            })
+        if amount is not None:
+            if isinstance(amount, str):
+                try:
+                    amount = float(amount)
+                    attrs['amount'] = amount
+                except ValueError:
+                    raise serializers.ValidationError({
+                        'amount': 'Amount must be a number'
+                    })
+            
+            if amount <= 0:
+                raise serializers.ValidationError({
+                    'amount': 'Amount must be positive'
+                })
         
         # ✅ Set defaults
         if 'currency' not in attrs:
@@ -71,11 +125,21 @@ class TransactionSerializer(serializers.ModelSerializer):
         if 'is_expense' not in attrs and 'type' in attrs:
             attrs['is_expense'] = (attrs['type'] == TransactionType.EXPENSE)
         
+        # ✅ FIX #3: Handle null values for string fields
+        # Convert null to empty string for fields that don't accept null
+        string_fields = ['tags', 'description', 'notes', 'reference', 'recipient', 
+                        'merchant_name', 'merchant_category', 'sms_source', 
+                        'recurring_pattern', 'location']
+        
+        for field in string_fields:
+            if field in attrs and attrs[field] is None:
+                attrs[field] = ''
+        
         return attrs
+
 
 class TransactionListSerializer(serializers.ModelSerializer):
     """Simplified serializer for listing transactions."""
-    # ✅ Directly read the category string from the database
     category_name = serializers.CharField(source='category', read_only=True)
     
     tags_list = serializers.ListField(
@@ -95,7 +159,6 @@ class TransactionListSerializer(serializers.ModelSerializer):
 
 class PendingTransactionSerializer(serializers.ModelSerializer):
     """Serializer for PendingTransaction model."""
-    # ✅ Updated: Read category as string (not ForeignKey)
     category_name = serializers.CharField(source='category', read_only=True)
     
     class Meta:
@@ -126,7 +189,6 @@ class TransactionSummarySerializer(serializers.Serializer):
 
 class TransactionExportSerializer(serializers.ModelSerializer):
     """Serializer for exporting transactions."""
-    # ✅ Updated: Read category as string (not ForeignKey)
     category_name = serializers.CharField(source='category', read_only=True)
     tags_csv = serializers.CharField(source='tags', read_only=True)
     
