@@ -312,6 +312,142 @@ class TransactionViewSet(viewsets.ModelViewSet):
                 'traceback': traceback.format_exc()
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+    @action(detail=False, methods=['post'])
+    def batch_update(self, request):
+        """Batch update transactions from mobile app."""
+        import logging
+        import json
+        import traceback
+        
+        logger = logging.getLogger('transactions')
+        logger.info("========== TRANSACTION BATCH_UPDATE DEBUG ==========")
+        
+        try:
+            transactions_data = request.data if isinstance(request.data, list) else []
+            logger.info(f"Received {len(transactions_data)} transactions to update")
+            
+            if not transactions_data:
+                return Response({
+                    'success': False,
+                    'error': 'No transactions data provided',
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            user_profile = request.user if isinstance(request.user, Profile) else request.user.profile
+            updated_count = 0
+            errors = []
+            
+            for idx, transaction_data in enumerate(transactions_data):
+                try:
+                    transaction_id = transaction_data.get('id')
+                    if not transaction_id:
+                        errors.append({'error': 'Transaction ID required for update'})
+                        continue
+                    
+                    try:
+                        transaction = Transaction.objects.get(id=transaction_id, profile=user_profile)
+                        
+                        serializer = TransactionSerializer(
+                            transaction,
+                            data=transaction_data,
+                            partial=True,
+                            context={'request': request}
+                        )
+                        
+                        if serializer.is_valid():
+                            serializer.save(profile=user_profile)
+                            updated_count += 1
+                            logger.info(f"✅ Updated transaction {transaction_id}")
+                        else:
+                            logger.error(f"Validation failed: {serializer.errors}")
+                            errors.append({
+                                'id': transaction_id,
+                                'errors': serializer.errors
+                            })
+                    except Transaction.DoesNotExist:
+                        logger.error(f"Transaction {transaction_id} not found")
+                        errors.append({
+                            'id': transaction_id,
+                            'error': 'Transaction not found'
+                        })
+                        
+                except Exception as e:
+                    logger.exception(f"Error updating transaction: {str(e)}")
+                    errors.append({
+                        'id': transaction_data.get('id'),
+                        'error': str(e)
+                    })
+            
+            logger.info(f"✅ BATCH_UPDATE COMPLETE: {updated_count} updated, {len(errors)} errors")
+            
+            return Response({
+                'success': True,
+                'updated': updated_count,
+                'errors': errors
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            logger.exception(f"Fatal error in batch_update: {str(e)}")
+            return Response({
+                'success': False,
+                'error': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['post'])
+    def batch_delete(self, request):
+        """Batch delete transactions from mobile app."""
+        import logging
+        
+        logger = logging.getLogger('transactions')
+        logger.info("========== TRANSACTION BATCH_DELETE DEBUG ==========")
+        
+        try:
+            transaction_ids = request.data.get('ids', [])
+            logger.info(f"Received request to delete {len(transaction_ids)} transactions")
+            
+            if not transaction_ids:
+                return Response({
+                    'success': False,
+                    'error': 'No transaction IDs provided',
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            user_profile = request.user if isinstance(request.user, Profile) else request.user.profile
+            deleted_count = 0
+            errors = []
+            
+            for tx_id in transaction_ids:
+                try:
+                    transaction = Transaction.objects.get(id=tx_id, profile=user_profile)
+                    transaction.delete()
+                    deleted_count += 1
+                    logger.info(f"✅ Deleted transaction {tx_id}")
+                except Transaction.DoesNotExist:
+                    logger.error(f"Transaction {tx_id} not found")
+                    errors.append({
+                        'id': tx_id,
+                        'error': 'Transaction not found'
+                    })
+                except Exception as e:
+                    logger.exception(f"Error deleting transaction {tx_id}: {str(e)}")
+                    errors.append({
+                        'id': tx_id,
+                        'error': str(e)
+                    })
+            
+            logger.info(f"✅ BATCH_DELETE COMPLETE: {deleted_count} deleted, {len(errors)} errors")
+            
+            return Response({
+                'success': True,
+                'deleted': deleted_count,
+                'errors': errors
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            logger.exception(f"Fatal error in batch_delete: {str(e)}")
+            return Response({
+                'success': False,
+                'error': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
     @action(detail=False, methods=['get'])
     def summary(self, request):
         """Get transaction summary."""

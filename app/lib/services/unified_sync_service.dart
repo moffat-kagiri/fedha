@@ -153,17 +153,19 @@ class UnifiedSyncService with ChangeNotifier {
       result.localCount = localTransactions.length;
 
       if (_apiClient.isAuthenticated) {
-        // STEP 1: Upload unsynced transactions in batches
+        // STEP 1a: Upload NEW transactions in batches
         final unsyncedTransactions = localTransactions
             .where((t) => t.remoteId == null || t.remoteId!.isEmpty)
             .toList();
         
         if (unsyncedTransactions.isNotEmpty) {
-          _logger.info('📤 Uploading ${unsyncedTransactions.length} transactions');
+          _logger.info('📤 Uploading ${unsyncedTransactions.length} NEW transactions');
           
           // ✅ FIXED: Validate and prepare data with profile_id
           final batchData = <Map<String, dynamic>>[];
+          final batchTransactionMap = <int, Transaction>{}; // ✅ Map batch index to transaction
           
+          int batchIndex = 0;
           for (final t in unsyncedTransactions) {
             // ✅ Validate required fields before upload
             if (t.amount <= 0) {
@@ -185,6 +187,8 @@ class UnifiedSyncService with ChangeNotifier {
             // ✅ Use the fixed helper method
             final txData = _prepareTransactionForUpload(t, profileId);
             batchData.add(txData);
+            batchTransactionMap[batchIndex] = t; // ✅ Track original transaction
+            batchIndex++;
           }
           
           _logger.info('📤 Prepared ${batchData.length} valid transactions for upload');
@@ -198,6 +202,7 @@ class UnifiedSyncService with ChangeNotifier {
             // Process in batches for better performance
             for (int i = 0; i < batchData.length; i += _batchSize) {
               final batch = batchData.skip(i).take(_batchSize).toList();
+              final batchStartIndex = i;
               
               _logger.info('📤 Uploading batch ${(i ~/ _batchSize) + 1}/${(batchData.length / _batchSize).ceil()}');
               
@@ -212,27 +217,33 @@ class UnifiedSyncService with ChangeNotifier {
                 
                 _logger.info('✅ Batch uploaded: $created created, $updated updated');
                 
-                // ✅ NEW: Set remoteId on uploaded transactions
+                // ✅ CRITICAL: Set remoteId on uploaded transactions to prevent re-uploads
                 final createdIds = response['created_ids'] as List? ?? [];
                 if (createdIds.isNotEmpty) {
-                  _logger.info('📌 Tracking ${createdIds.length} created transaction IDs');
+                  _logger.info('📌 Setting remoteIds for ${createdIds.length} transactions to prevent re-upload');
                   for (int j = 0; j < batch.length && j < createdIds.length; j++) {
-                    final batchItem = batch[j];
                     final remoteId = createdIds[j]?.toString();
-                    if (remoteId != null && batchItem['amount'] != null) {
-                      // Find local transaction by amount and date to set remoteId
-                      final txDate = batchItem['date'];
-                      final txAmount = (batchItem['amount'] as num?)?.toInt();
-                      if (txDate != null && txAmount != null) {
-                        await _offlineDataService.updateTransactionRemoteId(
-                          amount: txAmount,
-                          date: txDate,
-                          profileId: profileId,
-                          remoteId: remoteId,
-                        );
+                    if (remoteId != null && remoteId.isNotEmpty) {
+                      // ✅ Use the original Transaction object directly
+                      final transactionIndex = batchStartIndex + j;
+                      final originalTransaction = batchTransactionMap[transactionIndex];
+                      
+                      if (originalTransaction != null) {
+                        try {
+                          // Update the transaction directly with the remote ID
+                          final updatedTransaction = originalTransaction.copyWith(
+                            remoteId: remoteId,
+                            isSynced: true,
+                          );
+                          await _offlineDataService.updateTransaction(updatedTransaction);
+                          _logger.info('✅ Set remoteId $remoteId for local transaction ${originalTransaction.id}');
+                        } catch (e) {
+                          _logger.warning('Failed to set remoteId for transaction: $e');
+                        }
                       }
                     }
                   }
+                  _logger.info('✅ All remoteIds updated - transactions marked as synced');
                 }
                 
                 // ✅ Log any errors
@@ -253,6 +264,43 @@ class UnifiedSyncService with ChangeNotifier {
           _logger.info('No unsynced transactions to upload');
         }
 
+        // STEP 1b: Upload UPDATED transactions (those with remoteId but isSynced=False after edit)
+        final updatedTransactions = localTransactions
+            .where((t) => t.remoteId != null && t.remoteId!.isNotEmpty && !t.isSynced)
+            .toList();
+        
+        if (updatedTransactions.isNotEmpty) {
+          _logger.info('📝 Uploading ${updatedTransactions.length} UPDATED transactions');
+          
+          final updateBatch = <Map<String, dynamic>>[];
+          for (final t in updatedTransactions) {
+            final txData = _prepareTransactionForUpload(t, profileId);
+            updateBatch.add(txData);
+          }
+          
+          if (updateBatch.isNotEmpty) {
+            final response = await _apiClient.updateTransactions(profileId, updateBatch);
+            if (response['success'] == true) {
+              result.uploaded += response['updated'] as int? ?? 0;
+              _logger.info('✅ Updated transactions synced: ${response['updated']} updated');
+              
+              // Mark as synced
+              for (final t in updatedTransactions) {
+                await _offlineDataService.updateTransaction(
+                  t.copyWith(isSynced: true),
+                );
+              }
+            }
+          }
+        }
+
+        // STEP 1c: Upload DELETED transactions 
+        // NOTE: For now, deletes are handled through a separate deletion tracking mechanism.
+        // When a transaction is deleted locally, we track its remoteId and sync the deletion.
+        // This is a placeholder for future enhancement where we implement a proper delete queue.
+        // Current deletion flow: Transaction.isDeleted flag (if added) → collect → POST /batch_delete/
+        // TODO: Add isDeleted flag to Transaction model and delete tracking
+        
         // STEP 2: Download from server
         final remoteTransactions = await _apiClient.getTransactions(profileId: profileId);
         _logger.info('📥 Downloaded ${remoteTransactions.length} transactions from server');

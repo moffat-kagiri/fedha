@@ -754,25 +754,29 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
 
   Widget _buildCategorySelector() {
     final categories = _categories[_selectedType] ?? [];
+    final uniqueCategories = categories.toSet().toList();
     
+    // ✅ Ensure selected category exists in the list
+    if (_selectedCategory != null && !uniqueCategories.contains(_selectedCategory)) {
+      uniqueCategories.add(_selectedCategory!);
+    }
+
     return DropdownButtonFormField<String>(
       value: _selectedCategory,
       decoration: InputDecoration(
         labelText: _selectedType == 'savings' ? 'Goal' : 'Category',
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       ),
-      items: categories.map((String category) {
-        return DropdownMenuItem<String>(
+      items: uniqueCategories.map((category) {
+        return DropdownMenuItem(
           value: category,
-          child: Text(_categoryToDisplayName(category)),
+          child: Text(category),
         );
       }).toList(),
-      onChanged: (String? value) {
-        if (value != null) {
-          setState(() {
-            _selectedCategory = value;
-          });
-        }
+      onChanged: (value) {
+        setState(() {
+          _selectedCategory = value;
+        });
       },
       validator: (value) {
         if (value == null) {

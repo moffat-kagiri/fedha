@@ -1,0 +1,679 @@
+(base) PS C:\GitHub\fedha\app> flutter clean; flutter pub get; flutter run
+Deleting build...                                                1,725ms
+Deleting .dart_tool...                                              29ms
+Deleting ephemeral...                                                2ms
+Deleting Generated.xcconfig...                                       1ms
+Deleting flutter_export_environment.sh...                            1ms
+Deleting .flutter-plugins-dependencies...                            1ms
+Resolving dependencies... 
+Downloading packages...
+  _fe_analyzer_shared 92.0.0 (94.0.0 available)
+  analyzer 9.0.0 (10.0.2 available)                                                                                                                                                 
+  build 4.0.3 (4.0.4 available)                                                                                                                                                     
+  build_runner 2.10.4 (2.10.5 available)                                                                                                                                            
+  built_value 8.12.1 (8.12.3 available)                                                                                                                                             
+  characters 1.4.0 (1.4.1 available)                                                                                                                                                
+  code_builder 4.11.0 (4.11.1 available)                                                                                                                                            
+  cross_file 0.3.5+1 (0.3.5+2 available)                                                                                                                                            
+  dart_style 3.1.3 (3.1.5 available)                                                                                                                                                
+  drift 2.30.0 (2.30.1 available)                                                                                                                                                   
+  drift_dev 2.30.0 (2.30.1 available)                                                                                                                                               
+  equatable 2.0.7 (2.0.8 available)                                                                                                                                                 
+  ffi 2.1.4 (2.1.5 available)                                                                                                                                                       
+  file_picker 10.3.8 (10.3.10 available)                                                                                                                                            
+  fl_chart 0.69.2 (1.1.1 available)                                                                                                                                                 
+  google_sign_in_ios 6.2.4 (6.2.5 available)                                                                                                                                        
+  image_picker_android 0.8.13+10 (0.8.13+13 available)                                                                                                                              
+  image_picker_ios 0.8.13+3 (0.8.13+6 available)                                                                                                                                    
+  json_annotation 4.9.0 (4.10.0 available)                                                                                                                                          
+  json_serializable 6.11.3 (6.12.0 available)                                                                                                                                       
+  lints 6.0.0 (6.1.0 available)                                                                                                                                                     
+  local_auth 2.3.0 (3.0.0 available)                                                                                                                                                
+  local_auth_android 1.0.56 (2.0.4 available)                                                                                                                                       
+  local_auth_darwin 1.6.1 (2.0.1 available)                                                                                                                                         
+  local_auth_windows 1.0.11 (2.0.1 available)                                                                                                                                       
+  matcher 0.12.17 (0.12.18 available)                                                                                                                                               
+  material_color_utilities 0.11.1 (0.13.0 available)                                                                                                                                
+  meta 1.17.0 (1.18.1 available)                                                                                                                                                    
+  path_provider_foundation 2.5.1 (2.6.0 available)                                                                                                                                  
+  shared_preferences_android 2.4.18 (2.4.20 available)                                                                                                                              
+  source_gen 4.1.1 (4.2.0 available)                                                                                                                                                
+  source_helper 1.3.9 (1.3.10 available)                                                                                                                                            
+  sqlite3 2.9.4 (3.1.4 available)                                                                                                                                                   
+  sqlparser 0.42.1 (0.43.0 available)                                                                                                                                               
+  syncfusion_flutter_charts 32.1.20 (32.1.25 available)                                                                                                                             
+  syncfusion_flutter_core 32.1.20 (32.1.25 available)                                                                                                                               
+  test_api 0.7.7 (0.7.9 available)                                                                                                                                                  
+  vector_graphics_compiler 1.1.19 (1.1.20 available)                                                                                                                                
+  watcher 1.2.0 (1.2.1 available)                                                                                                                                                   
+Got dependencies!
+39 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+Launching lib\main.dart on SM A145F (wireless) in debug mode...
+warning: [options] source value 8 is obsolete and will be removed in a future release                                                                                               
+warning: [options] target value 8 is obsolete and will be removed in a future release
+warning: [options] To suppress warnings about obsolete options, use -Xlint:-options.                                                                                                
+warning: [options] source value 8 is obsolete and will be removed in a future release
+warning: [options] target value 8 is obsolete and will be removed in a future release
+warning: [options] To suppress warnings about obsolete options, use -Xlint:-options.
+3 warnings
+3 warnings                                                                                                                                                                          
+Running Gradle task 'assembleDebug'...                            106.8s
+√ Built build\app\outputs\flutter-apk\app-debug.apk
+Installing build\app\outputs\flutter-apk\app-debug.apk...         110.8s
+D/FlutterJNI( 6454): Beginning load of flutter...
+D/FlutterJNI( 6454): flutter (null) was loaded normally!
+I/flutter ( 6454): [IMPORTANT:flutter/shell/platform/android/android_context_vk_impeller.cc(62)] Using the Impeller rendering backend (Vulkan).
+I/flutter ( 6454): [15:37:55.023] INFO    Main                : 🚀 Starting Fedha app...                                                                                            
+I/IDS_TAG ( 6454): Closing IDS observe window
+I/IDS_TAG ( 6454): Getting Shared Preference for android.app.Application@851127c uid = 10469
+I/IDS_TAG ( 6454): IDS count updated to 1 for android.app.Application@851127c
+I/Choreographer( 6454): Skipped 135 frames!  The application may be doing too much work on its main thread.
+I/WindowExtensionsImpl( 6454): Initializing Window Extensions, vendor API level=6, activity embedding enabled=true
+I/SurfaceView@f7dd648( 6454): onWindowVisibilityChanged(0) true io.flutter.embedding.android.FlutterSurfaceView{f7dd648 V.E...... ......I. 0,0-0,0} of VRI[MainActivity]@d05a0af    
+D/SurfaceView( 6454): 259905096 updateSurface: has no frame
+I/BLASTBufferQueue_Java( 6454): new BLASTBufferQueue, mName= VRI[MainActivity]@d05a0af mNativeObject= 0xb400007e5d0d5400 sc.mNativeObject= 0xb400007e5d0882c0 caller= android.view.V
+iewRootImpl.updateBlastSurfaceIfNeeded:3397 android.view.ViewRootImpl.relayoutWindow:11348 android.view.ViewRootImpl.performTraversals:4544 android.view.ViewRootImpl.doTraversal:37
+08 android.view.ViewRootImpl$TraversalRunnable.run:12529 android.view.Choreographer$CallbackRecord.run:1751 android.view.Choreographer$CallbackRecord.run:1760 android.view.Choreographer.doCallbacks:1216 android.view.Choreographer.doFrame:1142 android.view.Choreographer$FrameDisplayEventReceiver.run:1707
+I/BLASTBufferQueue_Java( 6454): update, w= 1080 h= 2408 mName = VRI[MainActivity]@d05a0af mNativeObject= 0xb400007e5d0d5400 sc.mNativeObject= 0xb400007e5d0882c0 format= -3 caller= 
+android.graphics.BLASTBufferQueue.<init>:88 android.view.ViewRootImpl.updateBlastSurfaceIfNeeded:3397 android.view.ViewRootImpl.relayoutWindow:11348 android.view.ViewRootImpl.performTraversals:4544 android.view.ViewRootImpl.doTraversal:3708 android.view.ViewRootImpl$TraversalRunnable.run:12529
+I/VRI[MainActivity]@d05a0af( 6454): Relayout returned: old=(0,0,1080,2408) new=(0,0,1080,2408) relayoutAsync=false req=(1080,2408)0 dur=317 res=0x3 s={true 0xb400007e5d142000} ch=true seqId=0
+D/VRI[MainActivity]@d05a0af( 6454): mThreadedRenderer.initialize() mSurface={isValid=true 0xb400007e5d142000} hwInitialized=true
+Syncing files to device SM A145F (wireless)...                     717ms
+D/SurfaceView( 6454): 259905096 updateSurface: has no frame
+I/SurfaceView@f7dd648( 6454): windowStopped(false) true io.flutter.embedding.android.FlutterSurfaceView{f7dd648 V.E...... ......ID 0,0-1080,2408} of VRI[MainActivity]@d05a0af      
+D/SurfaceView( 6454): 259905096 updateSurface: has no frame
+D/VRI[MainActivity]@d05a0af( 6454): reportNextDraw android.view.ViewRootImpl.performTraversals:5193 android.view.ViewRootImpl.doTraversal:3708 android.view.ViewRootImpl$TraversalRunnable.run:12529 android.view.Choreographer$CallbackRecord.run:1751 android.view.Choreographer$CallbackRecord.run:1760
+I/SurfaceView( 6454): 259905096 Changes: creating=true format=true size=true visible=true alpha=false hint=false visible=true left=true top=true z=false attached=true lifecycleStrategy=false
+I/BLASTBufferQueue_Java( 6454): update, w= 1080 h= 2408 mName = null mNativeObject= 0xb400007e5d0d5700 sc.mNativeObject= 0xb400007e5d088b00 format= 4 caller= android.view.SurfaceVi
+ew.createBlastSurfaceControls:1642 android.view.SurfaceView.updateSurface:1318 android.view.SurfaceView.lambda$new$0:268 android.view.SurfaceView.$r8$lambda$NfZyM_TG8F8lqzaOVZ7noREFjzU:0 android.view.SurfaceView$$ExternalSyntheticLambda1.onPreDraw:0 android.view.ViewTreeObserver.dispatchOnPreDraw:1226
+I/SurfaceView( 6454): 259905096 Cur surface: Surface(name=null mNativeObject=0)/@0xa2554c0
+I/SurfaceView@f7dd648( 6454): pST: sr = Rect(0, 0 - 1080, 2408) sw = 1080 sh = 2408
+D/SurfaceView( 6454): 259905096 performSurfaceTransaction RenderWorker position = [0, 0, 1080, 2408] surfaceSize = 1080x2408
+I/SurfaceView@f7dd648( 6454): updateSurface: mVisible = true mSurface.isValid() = true
+I/SurfaceView@f7dd648( 6454): updateSurface: mSurfaceCreated = false surfaceChanged = true visibleChanged = true
+I/SurfaceView( 6454): 259905096 visibleChanged -- surfaceCreated
+I/SurfaceView@f7dd648( 6454): surfaceCreated 1 #8 io.flutter.embedding.android.FlutterSurfaceView{f7dd648 V.E...... ......ID 0,0-1080,2408}
+E/gralloc4( 6454): ERROR: Format allocation info not found for format: 3b
+E/gralloc4( 6454): ERROR: Format allocation info not found for format: 0
+E/gralloc4( 6454): Invalid base format! req_base_format = 0x0, req_format = 0x3b, type = 0x0
+E/gralloc4( 6454): ERROR: Unrecognized and/or unsupported format 0x3b and usage 0xb00
+
+Flutter run key commands.
+r Hot reload.
+R Hot restart.
+h List all available interactive commands.
+d Detach (terminate "flutter run" but leave application running).
+c Clear the screen
+q Quit (terminate the application on the device).
+
+A Dart VM Service on SM A145F is available at: http://127.0.0.1:64162/t27x1Iu7_5U=/
+The Flutter DevTools debugger and profiler on SM A145F is available at: http://127.0.0.1:64162/t27x1Iu7_5U=/devtools/?uri=ws://127.0.0.1:64162/t27x1Iu7_5U=/ws
+E/Gralloc4( 6454): isSupported(1, 1, 59, 1, ...) failed with 5
+E/GraphicBufferAllocator( 6454): Failed to allocate (4 x 4) layerCount 1 format 59 usage b00: 5
+E/AHardwareBuffer( 6454): GraphicBuffer(w=4, h=4, lc=1) failed (Unknown error -5), handle=0x0
+E/gralloc4( 6454): ERROR: Format allocation info not found for format: 3b
+E/gralloc4( 6454): ERROR: Format allocation info not found for format: 0
+E/gralloc4( 6454): Invalid base format! req_base_format = 0x0, req_format = 0x3b, type = 0x0
+E/gralloc4( 6454): ERROR: Unrecognized and/or unsupported format 0x3b and usage 0xb00
+E/Gralloc4( 6454): isSupported(1, 1, 59, 1, ...) failed with 5
+E/GraphicBufferAllocator( 6454): Failed to allocate (4 x 4) layerCount 1 format 59 usage b00: 5
+E/AHardwareBuffer( 6454): GraphicBuffer(w=4, h=4, lc=1) failed (Unknown error -5), handle=0x0
+I/SurfaceView( 6454): 259905096 surfaceChanged -- format=4 w=1080 h=2408
+I/SurfaceView@f7dd648( 6454): surfaceChanged (1080,2408) 1 #8 io.flutter.embedding.android.FlutterSurfaceView{f7dd648 V.E...... ......ID 0,0-1080,2408}
+I/SurfaceView( 6454): 259905096 surfaceRedrawNeeded
+V/SurfaceView( 6454): Layout: x=0 y=0 w=1080 h=2408, frame=Rect(0, 0 - 1080, 2408)
+D/VRI[MainActivity]@d05a0af( 6454): Canceling draw. cancelDueToPreDrawListener=true cancelDueToSync=false
+D/HWUI    ( 6454): HWUI - treat SMPTE_170M as sRGB
+I/Choreographer( 6454): Skipped 113 frames!  The application may be doing too much work on its main thread.
+I/flutter ( 6454): [15:37:58.119] INFO    Main                : ✅ WorkManager initialized
+I/flutter ( 6454): [15:37:58.241] INFO    ServiceInit         : Initializing core services...
+I/flutter ( 6454): [15:37:58.244] INFO    ServiceInit         : ✅ Offline data service initialized                                                                                  
+I/flutter ( 6454): [15:37:58.255] INFO    BiometricAuthService: BiometricAuthService initialized
+I/flutter ( 6454): [15:37:58.267] INFO    ServiceInit         : ✅ Biometric auth service initialized
+I/Choreographer( 6454): Skipped 51 frames!  The application may be doing too much work on its main thread.
+I/InsetsSourceConsumer( 6454): applyRequestedVisibilityToControl: visible=true, type=statusBars, host=com.example.fedha/com.example.fedha.MainActivity
+I/InsetsSourceConsumer( 6454): applyRequestedVisibilityToControl: visible=true, type=navigationBars, host=com.example.fedha/com.example.fedha.MainActivity
+I/m.example.fedha( 6454): Compiler allocated 7379KB to compile void android.view.ViewRootImpl.performTraversals()
+I/flutter ( 6454): [15:37:59.000] INFO    PermissionsService  : PermissionsService initialized
+I/flutter ( 6454): [15:37:59.011] INFO    ServiceInit         : ✅ Permissions service initialized                                                                                   
+I/flutter ( 6454): [15:37:59.026] INFO    ServiceInit         : ✅ Theme service initialized                                                                                         
+I/flutter ( 6454): [15:37:59.134] INFO    NetworkInit         : API client initialized with development config
+I/flutter ( 6454): [15:37:59.155] INFO    ConnectivityService : Initializing connectivity monitoring                                                                                
+I/flutter ( 6454): [15:37:59.194] INFO    ConnectivityService : Checking connectivity...                                                                                            
+I/flutter ( 6454): [15:37:59.279] INFO    ConnectivityService : Checking connectivity...
+I/flutter ( 6454): [15:37:59.804] INFO    ConnectivityService : Checking server reachability...
+I/flutter ( 6454): [15:37:59.816] INFO    ApiClient           : Checking server health: http://192.168.100.6:8000/api/health/                                                       
+I/flutter ( 6454): [15:38:00.063] INFO    ConnectivityService : Started periodic connectivity checks: 30s
+I/flutter ( 6454): [15:38:00.196] INFO    ConnectivityService : Checking server reachability...
+I/flutter ( 6454): [15:38:00.197] INFO    ApiClient           : Checking server health: http://192.168.100.6:8000/api/health/                                                       
+I/flutter ( 6454): [15:38:00.200] INFO    ConnectivityService : Started periodic connectivity checks: 30s                                                                           
+I/flutter ( 6454): [15:38:00.202] INFO    ConnectivityService : Setting up connectivity listener                                                                                    
+I/Choreographer( 6454): Skipped 59 frames!  The application may be doing too much work on its main thread.
+D/ConnectivityManager( 6454): StackLog: [android.net.ConnectivityManager.sendRequestForNetwork(ConnectivityManager.java:4738)] [android.net.ConnectivityManager.registerDefaultNetwo
+rkCallbackForUid(ConnectivityManager.java:5463)] [android.net.ConnectivityManager.registerDefaultNetworkCallback(ConnectivityManager.java:5430)] [android.net.ConnectivityManager.re
+gisterDefaultNetworkCallback(ConnectivityManager.java:5404)] [dev.fluttercommunity.plus.connectivity.ConnectivityBroadcastReceiver.onListen(ConnectivityBroadcastReceiver.java:77)] 
+[io.flutter.plugin.common.EventChannel$IncomingStreamRequestHandler.onListen(EventChannel.java:218)] [io.flutter.plugin.common.EventChannel$IncomingStreamRequestHandler.onMessage(E
+ventChannel.java:197)] [io.flutter.embedding.engine.dart.DartMessenger.invokeHandler(DartMessenger.java:292)] [io.flutter.embedding.engine.dart.DartMessenger.lambda$dispatchMessage
+ToQueue$0$io-flutter-embedding-engine-dart-DartMessenger(DartMessenger.java:319)] [io.flutter.embedding.engine.dart.DartMessenger$$ExternalSyntheticLambda0.run(D8$$SyntheticClass:0)]
+I/flutter ( 6454): [15:38:01.087] INFO    ApiClient           : Server health: ✅ OK (200)
+I/flutter ( 6454): [15:38:01.090] INFO    ConnectivityService : Server reachable: true                                                                                              
+I/flutter ( 6454): [15:38:01.104] INFO    ApiClient           : Server health: ✅ OK (200)                                                                                           
+I/flutter ( 6454): [15:38:01.106] INFO    ConnectivityService : Server reachable: true                                                                                              
+I/flutter ( 6454): [15:38:01.111] INFO    NetworkInit         : Internet connectivity: ✅ Available                                                                                  
+I/flutter ( 6454): [15:38:01.112] INFO    NetworkInit         : Development mode: Searching for best connection...                                                                  
+I/flutter ( 6454): [15:38:01.122] INFO    ConnectionManager   : Testing connection options...                                                                                       
+I/flutter ( 6454): [15:38:01.136] INFO    ConnectionManager   : Connection options for android: http://10.0.2.2:8000, http://127.0.0.1:8000, http://192.168.100.6:8000, https://lake-consistently-affects-applications.trycloudflare.com
+I/flutter ( 6454): [15:38:01.138] INFO    ConnectionManager   : Trying http://10.0.2.2:8000...                                                                                      
+D/ProfileInstaller( 6454): Installing profile for com.example.fedha
+I/flutter ( 6454): [15:38:01.187] INFO    ConnectivityService : Connectivity changed: [ConnectivityResult.wifi, ConnectivityResult.vpn]                                             
+I/flutter ( 6454): [15:38:01.188] INFO    ConnectivityService : Checking connectivity...                                                                                            
+I/flutter ( 6454): [15:38:01.234] INFO    ConnectivityService : Checking server reachability...
+I/flutter ( 6454): [15:38:01.235] INFO    ApiClient           : Checking server health: http://192.168.100.6:8000/api/health/
+I/flutter ( 6454): [15:38:01.242] INFO    ConnectivityService : Started periodic connectivity checks: 30s
+I/flutter ( 6454): [15:38:01.339] INFO    ApiClient           : Server health: ✅ OK (200)
+I/flutter ( 6454): [15:38:01.345] INFO    ConnectivityService : Server reachable: true                                                                                              
+I/flutter ( 6454): [15:38:04.178] WARNING ConnectionManager   : ❌ Connection timeout: http://10.0.2.2:8000
+I/flutter ( 6454): [15:38:04.215] INFO    ConnectionManager   : Trying http://127.0.0.1:8000...
+I/flutter ( 6454): [15:38:04.364] WARNING ConnectionManager   : ❌ Connection refused: http://127.0.0.1:8000 - Connection refused
+I/flutter ( 6454): [15:38:04.368] INFO    ConnectionManager   : Trying http://192.168.100.6:8000...                                                                                 
+I/flutter ( 6454): [15:38:04.525] INFO    ConnectionManager   : ✅ Connection successful: http://192.168.100.6:8000 (200)
+I/flutter ( 6454): [15:38:04.595] INFO    ConnectionManager   : √ Valid API response received
+I/flutter ( 6454): [15:38:04.596] INFO    NetworkInit         : ✅ Found working connection: http://192.168.100.6:8000                                                               
+I/flutter ( 6454): [15:38:04.597] INFO    NetworkInit         : Using local network configuration                                                                                   
+I/flutter ( 6454): [15:38:04.603] INFO    NetworkInit         : API client reconfigured with optimal connection
+I/flutter ( 6454): [15:38:04.605] INFO    ApiClient           : Checking server health: http://192.168.100.6:8000/api/health/                                                       
+I/flutter ( 6454): [15:38:04.705] INFO    ApiClient           : Server health: ✅ OK (200)
+I/flutter ( 6454): [15:38:04.707] INFO    NetworkInit         : ✅ Server health check passed                                                                                        
+I/flutter ( 6454): [15:38:04.813] INFO    UnifiedSyncService  : UnifiedSyncService initialized
+I/flutter ( 6454): [15:38:04.816] INFO    ServiceInit         : ✅ Sync service initialized                                                                                          
+I/flutter ( 6454): [15:38:04.838] INFO    BudgetService       : BudgetService initialized
+I/flutter ( 6454): [15:38:04.840] INFO    ServiceInit         : ✅ Budget service initialized                                                                                        
+I/flutter ( 6454): [15:38:04.870] INFO    TransactionEventService: TransactionEventService initialized
+I/flutter ( 6454): [15:38:04.872] INFO    ServiceInit         : ✅ Transaction event service initialized                                                                             
+I/flutter ( 6454): [15:38:04.874] INFO    OfflineDataService  : TransactionEventService linked to OfflineDataService
+I/flutter ( 6454): [15:38:04.891] INFO    AuthService         : Initializing AuthService with all dependencies...
+I/flutter ( 6454): [15:38:04.904] INFO    AuthService         : Restoring session - logged in: false, profile ID: null                                                              
+I/flutter ( 6454): [15:38:04.905] INFO    AuthService         : No active session to restore
+I/flutter ( 6454): [15:38:04.907] INFO    AuthService         : AuthService initialized - Active profile: None
+I/flutter ( 6454): [15:38:04.908] INFO    ServiceInit         : ✅ Auth service initialized with all dependencies                                                                    
+I/flutter ( 6454): [15:38:04.923] INFO    Main                : ✅ All services initialized successfully                                                                             
+I/flutter ( 6454): [15:38:04.924] INFO    Main                : 🎉 Launching app...                                                                                                 
+I/flutter ( 6454): [15:38:04.984] INFO    ConnectivityService : Initializing connectivity monitoring                                                                                
+I/flutter ( 6454): [15:38:04.993] INFO    ConnectivityService : Checking connectivity...                                                                                            
+I/flutter ( 6454): [15:38:06.187] INFO    MyApp               : MyApp initializing...
+I/flutter ( 6454): [15:38:06.191] INFO    MyApp               : MyApp ready - Biometric overlay: false                                                                              
+I/BLASTBufferQueue( 6454): [SurfaceView[com.example.fedha/com.example.fedha.MainActivity]@0#1](f:0,a:0,s:0) onFrameAvailable the first frame is available
+I/Choreographer( 6454): Skipped 621 frames!  The application may be doing too much work on its main thread.
+I/SurfaceView( 6454): 259905096 finishedDrawing
+I/flutter ( 6454): [15:38:15.209] INFO    ConnectivityService : Checking server reachability...
+I/flutter ( 6454): [15:38:15.212] INFO    ApiClient           : Checking server health: http://192.168.100.6:8000/api/health/                                                       
+I/flutter ( 6454): [15:38:15.214] INFO    ConnectivityService : Started periodic connectivity checks: 30s                                                                           
+D/VRI[MainActivity]@d05a0af( 6454): Setup new sync=wmsSync-VRI[MainActivity]@d05a0af#1
+I/VRI[MainActivity]@d05a0af( 6454): Creating new active sync group VRI[MainActivity]@d05a0af#2
+D/VRI[MainActivity]@d05a0af( 6454): Draw frame after cancel
+D/VRI[MainActivity]@d05a0af( 6454): registerCallbacksForSync syncBuffer=false
+D/SurfaceView( 6454): 259905096 updateSurfacePosition RenderWorker, frameNr = 1, position = [0, 0, 1080, 2408] surfaceSize = 1080x2408
+I/SurfaceView@f7dd648( 6454): uSP: rtp = Rect(0, 0 - 1080, 2408) rtsw = 1080 rtsh = 2408
+I/SurfaceView@f7dd648( 6454): onSSPAndSRT: pl = 0 pt = 0 sx = 1.0 sy = 1.0
+I/SurfaceView@f7dd648( 6454): aOrMT: VRI[MainActivity]@d05a0af t = android.view.SurfaceControl$Transaction@5970b08 fN = 1 android.view.SurfaceView.-$$Nest$mapplyOrMergeTransaction:0 android.view.SurfaceView$SurfaceViewPositionUpdateListener.positionChanged:1792 android.graphics.RenderNode$CompositePositionUpdateListener.positionChanged:398
+I/VRI[MainActivity]@d05a0af( 6454): mWNT: t=0xb400007e5d740780 mBlastBufferQueue=0xb400007e5d0d5400 fn= 1 HdrRenderState mRenderHdrSdrRatio=1.0 caller= android.view.SurfaceView.applyOrMergeTransaction:1723 android.view.SurfaceView.-$$Nest$mapplyOrMergeTransaction:0 android.view.SurfaceView$SurfaceViewPositionUpdateListener.positionChanged:1792
+D/VRI[MainActivity]@d05a0af( 6454): Received frameDrawingCallback syncResult=0 frameNum=1.
+I/VRI[MainActivity]@d05a0af( 6454): mWNT: t=0xb400007e5d6edb80 mBlastBufferQueue=0xb400007e5d0d5400 fn= 1 HdrRenderState mRenderHdrSdrRatio=1.0 caller= android.view.ViewRootImpl$11.onFrameDraw:15003 android.view.ThreadedRenderer$1.onFrameDraw:761 <bottom of call stack>
+I/VRI[MainActivity]@d05a0af( 6454): Setting up sync and frameCommitCallback
+I/BLASTBufferQueue( 6454): [VRI[MainActivity]@d05a0af#0](f:0,a:0,s:0) onFrameAvailable the first frame is available
+I/VRI[MainActivity]@d05a0af( 6454): Received frameCommittedCallback lastAttemptedDrawFrameNum=1 didProduceBuffer=true
+D/HWUI    ( 6454): CFMS:: SetUp Pid : 6454    Tid : 6634
+D/VRI[MainActivity]@d05a0af( 6454): reportDrawFinished seqId=0
+I/HWUI    ( 6454): Davey! duration=873ms; Flags=1, FrameTimelineVsyncId=5823474, IntendedVsync=24256792622030, Vsync=24256942941848, InputEventId=0, HandleInputStart=24256949536265
+, AnimationStart=24256949542919, PerformTraversalsStart=24256949545534, DrawStart=24257008987303, FrameDeadline=24256809288696, FrameInterval=24256948789649, FrameStartTime=1670220
+2, SyncQueued=24257038951765, SyncStart=24257039504303, IssueDrawCommandsStart=24257097450688, SwapBuffers=24257652983687, FrameCompleted=24257666559533, DequeueBufferDuration=6365961, QueueBufferDuration=7906115, GpuCompleted=24257661899187, SwapBuffersCompleted=24257666559533, DisplayPresentTime=0, CommandSubmissionCompleted=24257652983687,
+I/flutter ( 6454): [15:38:16.121] INFO    ApiClient           : Server health: ✅ OK (200)
+I/flutter ( 6454): [15:38:16.122] INFO    ConnectivityService : Server reachable: true                                                                                              
+D/VRI[MainActivity]@d05a0af( 6454): mThreadedRenderer.initializeIfNeeded()#2 mSurface={isValid=true 0xb400007e5d142000}
+D/InputMethodManagerUtils( 6454): startInputInner - Id : 0
+I/InputMethodManager( 6454): startInputInner - IInputMethodManagerGlobalInvoker.startInputOrWindowGainedFocus
+D/InputTransport( 6454): Input channel constructed: 'ClientS', fd=183
+I/InsetsController( 6454): onStateChanged: host=com.example.fedha/com.example.fedha.MainActivity, from=android.view.ViewRootImpl.handleInsetsControlChanged:2888, state=InsetsState:
+ {mDisplayFrame=Rect(0, 0 - 1080, 2408), mDisplayCutout=DisplayCutout{insets=Rect(0, 64 - 0, 0) waterfall=Insets{left=0, top=0, right=0, bottom=0} boundingRect={Bounds=[Rect(0, 0 -
+ 0, 0), Rect(468, 0 - 612, 64), Rect(0, 0 - 0, 0), Rect(0, 0 - 0, 0)]} cutoutPathParserInfo={CutoutPathParserInfo{displayWidth=1080 displayHeight=2408 physicalDisplayWidth=1080 phy
+sicalDisplayHeight=2408 density={2.8125} cutoutSpec={M 0,0 H -25.6‬ V 22.75555555555556 H 25.6‬ V 0 H 0 Z @dp} rotation={0} scale={1.0} physicalPixelDisplaySizeRatio={1.0}}} sideOv
+errides={}}, mRoundedCorners=RoundedCorners{[RoundedCorner{position=TopLeft, radius=101, center=Point(101, 101)}, RoundedCorner{position=TopRight, radius=101, center=Point(979, 101
+)}, RoundedCorner{position=BottomRight, radius=101, center=Point(979, 2307)}, RoundedCorner{position=BottomLeft, radius=101, center=Point(101, 2307)}]}  mRoundedCornerFrame=Rect(0,
+ 0 - 1080, 2408), mPrivacyIndicatorBounds=PrivacyIndicatorBounds {static bounds=Rect(956, 0 - 1080, 65) rotation=0}, mDisplayShape=DisplayShape{ spec=-311912193 displayWidth=1080 d
+isplayHeight=2408 physicalPixelDisplaySizeRatio=1.0 rotation=0 offsetX=0 offsetY=0 scale=1.0}, mSources= { InsetsSource: {3 mType=ime mFrame=[0,0][0,0] mVisible=false mFlags= mSide
+Hint=NONE mBoundingRects=null}, InsetsSource: {27 mType=displayCutout mFrame=[0,0][1080,64] mVisible=true mFlags= mSideHint=TOP mBoundingRects=null}, InsetsSource: {75e10001 mType=
+navigationBars mFrame=[0,2273][1080,2408] mVisible=true mFlags= mSideHint=BOTTOM mBoundingRects=null}, InsetsSource: {75e10004 mType=systemGestures mFrame=[0,0][0,0] mVisible=true 
+mFlags= mSideHint=NONE mBoundingRects=null}, InsetsSource: {75e10005 mType=mandatorySystemGestures mFrame=[0,2273][1080,2408] mVisible=true mFlags= mSideHint=BOTTOM mBoundingRects=
+null}, InsetsSource: {75e10006 mType=tappableElement mFrame=[0,2273][1080,2408] mVisible=true mFlags= mSideHint=BOTTOM mBoundingRects=null}, InsetsSource: {75e10024 mType=systemGes
+tures mFrame=[0,0][0,0] mVisible=true mFlags= mSideHint=NONE mBoundingRects=null}, InsetsSource: {78760000 mType=statusBars mFrame=[0,0][1080,65] mVisible=true mFlags= mSideHint=TO
+P mBoundingRects=null}, InsetsSource: {78760005 mType=mandatorySystemGestures mFrame=[0,0][1080,98] mVisible=true mFlags= mSideHint=TOP mBoundingRects=null}, InsetsSource: {78760006 mType=tappableElement mFrame=[0,0][1080,65] mVisible=true mFlags= mSideHint=TOP mBoundingRects=null} }
+I/InsetsSourceConsumer( 6454): applyRequestedVisibilityToControl: visible=false, type=ime, host=com.example.fedha/com.example.fedha.MainActivity
+I/m.example.fedha( 6454): NativeAlloc concurrent mark compact GC freed 2030KB AllocSpace bytes, 5(228KB) LOS objects, 62% free, 3619KB/9763KB, paused 572us,59.049ms total 245.465ms
+I/VRI[MainActivity]@d05a0af( 6454): call setFrameRateCategory for touch hint category=high hint, reason=touch, vri=VRI[MainActivity]@d05a0af
+I/VRI[MainActivity]@d05a0af( 6454): call setFrameRateCategory for touch hint category=no preference, reason=boost timeout, vri=VRI[MainActivity]@d05a0af
+I/VRI[MainActivity]@d05a0af( 6454): call setFrameRateCategory for touch hint category=high hint, reason=touch, vri=VRI[MainActivity]@d05a0af
+I/Choreographer( 6454): Skipped 45 frames!  The application may be doing too much work on its main thread.
+I/VRI[MainActivity]@d05a0af( 6454): call setFrameRateCategory for touch hint category=no preference, reason=boost timeout, vri=VRI[MainActivity]@d05a0af
+I/VRI[MainActivity]@d05a0af( 6454): call setFrameRateCategory for touch hint category=high hint, reason=touch, vri=VRI[MainActivity]@d05a0af
+I/VRI[MainActivity]@d05a0af( 6454): call setFrameRateCategory for touch hint category=no preference, reason=boost timeout, vri=VRI[MainActivity]@d05a0af
+I/VRI[MainActivity]@d05a0af( 6454): call setFrameRateCategory for touch hint category=high hint, reason=touch, vri=VRI[MainActivity]@d05a0af
+W/WindowOnBackDispatcher( 6454): OnBackInvokedCallback is not enabled for the application.
+W/WindowOnBackDispatcher( 6454): Set 'android:enableOnBackInvokedCallback="true"' in the application manifest.
+W/WindowOnBackDispatcher( 6454): OnBackInvokedCallback is not enabled for the application.
+W/WindowOnBackDispatcher( 6454): Set 'android:enableOnBackInvokedCallback="true"' in the application manifest.
+I/VRI[MainActivity]@d05a0af( 6454): call setFrameRateCategory for touch hint category=no preference, reason=boost timeout, vri=VRI[MainActivity]@d05a0af
+I/VRI[MainActivity]@d05a0af( 6454): call setFrameRateCategory for touch hint category=high hint, reason=touch, vri=VRI[MainActivity]@d05a0af
+I/flutter ( 6454): [15:41:13.092] INFO    MyApp               : App lifecycle state: AppLifecycleState.inactive
+I/flutter ( 6454): [15:41:13.143] INFO    BiometricAuthService: Biometric session invalidated
+I/flutter ( 6454): [15:41:13.146] INFO    MyApp               : Biometric session invalidated
+I/flutter ( 6454): [15:41:13.152] INFO    MyApp               : Background SMS processing will continue
+I/ImeFocusController( 6454): onPreWindowFocus: skipped hasWindowFocus=false mHasImeFocus=true
+I/ImeFocusController( 6454): onPostWindowFocus: skipped hasWindowFocus=false mHasImeFocus=true
+D/InputTransport( 6454): Input channel destroyed: 'ClientS', fd=183
+I/VRI[MainActivity]@d05a0af( 6454): call setFrameRateCategory for touch hint category=no preference, reason=boost timeout, vri=VRI[MainActivity]@d05a0af
+I/InsetsSourceConsumer( 6454): applyRequestedVisibilityToControl: visible=true, type=statusBars, host=com.example.fedha/com.example.fedha.MainActivity
+I/InsetsSourceConsumer( 6454): applyRequestedVisibilityToControl: visible=true, type=navigationBars, host=com.example.fedha/com.example.fedha.MainActivity
+D/VRI[MainActivity]@d05a0af( 6454): mThreadedRenderer.initializeIfNeeded()#2 mSurface={isValid=true 0xb400007e5d142000}
+I/flutter ( 6454): [15:41:21.547] INFO    MyApp               : App lifecycle state: AppLifecycleState.resumed                                                                      
+D/InputMethodManagerUtils( 6454): startInputInner - Id : 0
+I/InputMethodManager( 6454): startInputInner - IInputMethodManagerGlobalInvoker.startInputOrWindowGainedFocus
+I/flutter ( 6454): [15:41:21.576] INFO    MyApp               : App lifecycle state: AppLifecycleState.inactive
+D/InputTransport( 6454): Input channel constructed: 'ClientS', fd=183
+I/flutter ( 6454): [15:41:21.623] INFO    BiometricAuthService: Biometric session invalidated
+I/flutter ( 6454): [15:41:21.624] INFO    MyApp               : Biometric session invalidated
+I/flutter ( 6454): [15:41:21.625] INFO    MyApp               : Background SMS processing will continue                                                                             
+I/ImeFocusController( 6454): onPreWindowFocus: skipped hasWindowFocus=false mHasImeFocus=true
+I/ImeFocusController( 6454): onPostWindowFocus: skipped hasWindowFocus=false mHasImeFocus=true
+I/InsetsSourceConsumer( 6454): applyRequestedVisibilityToControl: visible=false, type=ime, host=com.example.fedha/com.example.fedha.MainActivity
+D/InputTransport( 6454): Input channel destroyed: 'ClientS', fd=183
+I/InsetsSourceConsumer( 6454): applyRequestedVisibilityToControl: visible=true, type=statusBars, host=com.example.fedha/com.example.fedha.MainActivity
+I/InsetsSourceConsumer( 6454): applyRequestedVisibilityToControl: visible=true, type=navigationBars, host=com.example.fedha/com.example.fedha.MainActivity
+D/VRI[MainActivity]@d05a0af( 6454): mThreadedRenderer.initializeIfNeeded()#2 mSurface={isValid=true 0xb400007e5d142000}
+D/InputMethodManagerUtils( 6454): startInputInner - Id : 0
+I/InputMethodManager( 6454): startInputInner - IInputMethodManagerGlobalInvoker.startInputOrWindowGainedFocus
+I/ImeFocusController( 6454): onPreWindowFocus: skipped hasWindowFocus=false mHasImeFocus=true
+I/ImeFocusController( 6454): onPostWindowFocus: skipped hasWindowFocus=false mHasImeFocus=true
+D/InputTransport( 6454): Input channel constructed: 'ClientS', fd=183
+I/InsetsSourceConsumer( 6454): applyRequestedVisibilityToControl: visible=false, type=ime, host=com.example.fedha/com.example.fedha.MainActivity
+D/InputTransport( 6454): Input channel destroyed: 'ClientS', fd=183
+I/InsetsSourceConsumer( 6454): applyRequestedVisibilityToControl: visible=true, type=statusBars, host=com.example.fedha/com.example.fedha.MainActivity
+I/InsetsSourceConsumer( 6454): applyRequestedVisibilityToControl: visible=true, type=navigationBars, host=com.example.fedha/com.example.fedha.MainActivity
+D/VRI[MainActivity]@d05a0af( 6454): mThreadedRenderer.initializeIfNeeded()#2 mSurface={isValid=true 0xb400007e5d142000}
+D/InputMethodManagerUtils( 6454): startInputInner - Id : 0
+I/InputMethodManager( 6454): startInputInner - IInputMethodManagerGlobalInvoker.startInputOrWindowGainedFocus
+D/InputTransport( 6454): Input channel constructed: 'ClientS', fd=183
+I/ImeFocusController( 6454): onPreWindowFocus: skipped hasWindowFocus=false mHasImeFocus=true
+I/ImeFocusController( 6454): onPostWindowFocus: skipped hasWindowFocus=false mHasImeFocus=true
+I/InsetsSourceConsumer( 6454): applyRequestedVisibilityToControl: visible=false, type=ime, host=com.example.fedha/com.example.fedha.MainActivity
+I/InsetsSourceConsumer( 6454): applyRequestedVisibilityToControl: visible=true, type=statusBars, host=com.example.fedha/com.example.fedha.MainActivity
+I/InsetsSourceConsumer( 6454): applyRequestedVisibilityToControl: visible=true, type=navigationBars, host=com.example.fedha/com.example.fedha.MainActivity
+D/VRI[MainActivity]@d05a0af( 6454): mThreadedRenderer.initializeIfNeeded()#2 mSurface={isValid=true 0xb400007e5d142000}
+D/InputMethodManagerUtils( 6454): startInputInner - Id : 0
+I/InputMethodManager( 6454): startInputInner - IInputMethodManagerGlobalInvoker.startInputOrWindowGainedFocus
+D/InputTransport( 6454): Input channel constructed: 'ClientS', fd=185
+I/ImeFocusController( 6454): onPreWindowFocus: skipped hasWindowFocus=false mHasImeFocus=true
+I/ImeFocusController( 6454): onPostWindowFocus: skipped hasWindowFocus=false mHasImeFocus=true
+D/InputTransport( 6454): Input channel destroyed: 'ClientS', fd=183
+I/InsetsSourceConsumer( 6454): applyRequestedVisibilityToControl: visible=true, type=statusBars, host=com.example.fedha/com.example.fedha.MainActivity
+I/InsetsSourceConsumer( 6454): applyRequestedVisibilityToControl: visible=true, type=navigationBars, host=com.example.fedha/com.example.fedha.MainActivity
+D/VRI[MainActivity]@d05a0af( 6454): mThreadedRenderer.initializeIfNeeded()#2 mSurface={isValid=true 0xb400007e5d142000}
+I/flutter ( 6454): [15:41:30.026] INFO    MyApp               : App lifecycle state: AppLifecycleState.resumed                                                                      
+D/InputMethodManagerUtils( 6454): startInputInner - Id : 0
+I/InputMethodManager( 6454): startInputInner - IInputMethodManagerGlobalInvoker.startInputOrWindowGainedFocus
+D/InputTransport( 6454): Input channel constructed: 'ClientS', fd=183
+I/InsetsSourceConsumer( 6454): applyRequestedVisibilityToControl: visible=false, type=ime, host=com.example.fedha/com.example.fedha.MainActivity
+W/WindowOnBackDispatcher( 6454): OnBackInvokedCallback is not enabled for the application.
+W/WindowOnBackDispatcher( 6454): Set 'android:enableOnBackInvokedCallback="true"' in the application manifest.
+I/VRI[MainActivity]@d05a0af( 6454): call setFrameRateCategory for touch hint category=high hint, reason=touch, vri=VRI[MainActivity]@d05a0af
+I/InputMethodManager_LC( 6454): showSoftInput(View,I)
+I/ImeTracker( 6454): com.example.fedha:b35ed96a: onRequestShow at ORIGIN_CLIENT reason SHOW_SOFT_INPUT fromUser false
+I/InputMethodManager_LC( 6454): ssi(): flags=0 view=com.example.fedha reason=SHOW_SOFT_INPUT
+I/InputMethodManager_LC( 6454): ssi() view is not EditText
+D/InputMethodManagerUtils( 6454): startInputInner - Id : 0
+I/InputMethodManager( 6454): startInputInner - IInputMethodManagerGlobalInvoker.startInputOrWindowGainedFocus
+D/InputMethodManager( 6454): showSoftInput() view=io.flutter.embedding.android.FlutterView{fa239e3 VFE...... .F....ID 0,0-1080,2408 #2 aid=1073741824} flags=0 reason=SHOW_SOFT_INPUT
+D/InputTransport( 6454): Input channel constructed: 'ClientS', fd=199
+D/InputConnectionAdaptor( 6454): The input method toggled cursor monitoring on
+I/InsetsController( 6454): onStateChanged: host=com.example.fedha/com.example.fedha.MainActivity, from=android.view.ViewRootImpl.handleResized:2789, state=InsetsState: {mDisplayFra
+me=Rect(0, 0 - 1080, 2408), mDisplayCutout=DisplayCutout{insets=Rect(0, 64 - 0, 0) waterfall=Insets{left=0, top=0, right=0, bottom=0} boundingRect={Bounds=[Rect(0, 0 - 0, 0), Rect(
+468, 0 - 612, 64), Rect(0, 0 - 0, 0), Rect(0, 0 - 0, 0)]} cutoutPathParserInfo={CutoutPathParserInfo{displayWidth=1080 displayHeight=2408 physicalDisplayWidth=1080 physicalDisplayH
+eight=2408 density={2.8125} cutoutSpec={M 0,0 H -25.6‬ V 22.75555555555556 H 25.6‬ V 0 H 0 Z @dp} rotation={0} scale={1.0} physicalPixelDisplaySizeRatio={1.0}}} sideOverrides={}}, 
+mRoundedCorners=RoundedCorners{[RoundedCorner{position=TopLeft, radius=101, center=Point(101, 101)}, RoundedCorner{position=TopRight, radius=101, center=Point(979, 101)}, RoundedCo
+rner{position=BottomRight, radius=101, center=Point(979, 2307)}, RoundedCorner{position=BottomLeft, radius=101, center=Point(101, 2307)}]}  mRoundedCornerFrame=Rect(0, 0 - 1080, 24
+08), mPrivacyIndicatorBounds=PrivacyIndicatorBounds {static bounds=Rect(956, 0 - 1080, 65) rotation=0}, mDisplayShape=DisplayShape{ spec=-311912193 displayWidth=1080 displayHeight=
+2408 physicalPixelDisplaySizeRatio=1.0 rotation=0 offsetX=0 offsetY=0 scale=1.0}, mSources= { InsetsSource: {3 mType=ime mFrame=[0,1400][1080,2408] mVisible=false mFlags= mSideHint
+=BOTTOM mBoundingRects=null}, InsetsSource: {27 mType=displayCutout mFrame=[0,0][1080,64] mVisible=true mFlags= mSideHint=TOP mBoundingRects=null}, InsetsSource: {75e10001 mType=na
+vigationBars mFrame=[0,2273][1080,2408] mVisible=true mFlags= mSideHint=BOTTOM mBoundingRects=null}, InsetsSource: {75e10004 mType=systemGestures mFrame=[0,0][0,0] mVisible=true mF
+lags= mSideHint=NONE mBoundingRects=null}, InsetsSource: {75e10005 mType=mandatorySystemGestures mFrame=[0,2273][1080,2408] mVisible=true mFlags= mSideHint=BOTTOM mBoundingRects=nu
+ll}, InsetsSource: {75e10006 mType=tappableElement mFrame=[0,2273][1080,2408] mVisible=true mFlags= mSideHint=BOTTOM mBoundingRects=null}, InsetsSource: {75e10024 mType=systemGestu
+res mFrame=[0,0][0,0] mVisible=true mFlags= mSideHint=NONE mBoundingRects=null}, InsetsSource: {78760000 mType=statusBars mFrame=[0,0][1080,65] mVisible=true mFlags= mSideHint=TOP 
+mBoundingRects=null}, InsetsSource: {78760005 mType=mandatorySystemGestures mFrame=[0,0][1080,98] mVisible=true mFlags= mSideHint=TOP mBoundingRects=null}, InsetsSource: {78760006 mType=tappableElement mFrame=[0,0][1080,65] mVisible=true mFlags= mSideHint=TOP mBoundingRects=null} }
+I/VRI[MainActivity]@d05a0af( 6454): handleResized, frames=ClientWindowFrames{frame=[0,0][1080,2408] display=[0,0][1080,2408] parentFrame=[0,0][0,0]} displayId=0 dragResizing=false compatScale=1.0 frameChanged=false attachedFrameChanged=false configChanged=false displayChanged=false compatScaleChanged=false dragResizingChanged=false
+D/InsetsController( 6454): show(ime(), fromIme=true)
+I/InsetsController( 6454): setRequestedVisibleTypes: visible=true, mask=ime, host=com.example.fedha/com.example.fedha.MainActivity, from=android.view.InsetsController.controlAnimat
+ionUnchecked:1498 android.view.InsetsController.applyAnimation:2228 android.view.InsetsController.applyAnimation:2159 android.view.InsetsController.show:1340 android.view.ViewRootI
+mpl$ViewRootHandler.handleMessageImpl:8056 android.view.ViewRootImpl$ViewRootHandler.handleMessage:7991 android.os.Handler.dispatchMessage:107 android.os.Looper.loopOnce:257 android.os.Looper.loop:342 android.app.ActivityThread.main:9638
+I/InsetsController( 6454): controlAnimationUncheckedInner: Added types=ime, animType=0, host=com.example.fedha/com.example.fedha.MainActivity, from=android.view.InsetsController.controlAnimationUnchecked:1502 android.view.InsetsController.applyAnimation:2228 android.view.InsetsController.applyAnimation:2159
+W/InteractionJankMonitor( 6454): Initializing without READ_DEVICE_CONFIG permission. enabled=false, interval=1, missedFrameThreshold=3, frameTimeThreshold=64, package=com.example.fedha
+I/VRI[MainActivity]@d05a0af( 6454): mWNT: t=0xb400007da9fa2d00 mBlastBufferQueue=0xb400007e5d0d5400 fn= 3 HdrRenderState mRenderHdrSdrRatio=1.0 caller= android.view.SyncRtSurfaceTr
+ansactionApplier.applyTransaction:96 android.view.SyncRtSurfaceTransactionApplier.lambda$scheduleApply$0:69 android.view.SyncRtSurfaceTransactionApplier.$r8$lambda$afI4fXg3U3-nBZQEDQMiNy-B06s:0
+I/InsetsController( 6454): onStateChanged: host=com.example.fedha/com.example.fedha.MainActivity, from=android.view.ViewRootImpl.handleResized:2789, state=InsetsState: {mDisplayFra
+me=Rect(0, 0 - 1080, 2408), mDisplayCutout=DisplayCutout{insets=Rect(0, 64 - 0, 0) waterfall=Insets{left=0, top=0, right=0, bottom=0} boundingRect={Bounds=[Rect(0, 0 - 0, 0), Rect(
+468, 0 - 612, 64), Rect(0, 0 - 0, 0), Rect(0, 0 - 0, 0)]} cutoutPathParserInfo={CutoutPathParserInfo{displayWidth=1080 displayHeight=2408 physicalDisplayWidth=1080 physicalDisplayH
+eight=2408 density={2.8125} cutoutSpec={M 0,0 H -25.6‬ V 22.75555555555556 H 25.6‬ V 0 H 0 Z @dp} rotation={0} scale={1.0} physicalPixelDisplaySizeRatio={1.0}}} sideOverrides={}}, 
+mRoundedCorners=RoundedCorners{[RoundedCorner{position=TopLeft, radius=101, center=Point(101, 101)}, RoundedCorner{position=TopRight, radius=101, center=Point(979, 101)}, RoundedCo
+rner{position=BottomRight, radius=101, center=Point(979, 2307)}, RoundedCorner{position=BottomLeft, radius=101, center=Point(101, 2307)}]}  mRoundedCornerFrame=Rect(0, 0 - 1080, 24
+08), mPrivacyIndicatorBounds=PrivacyIndicatorBounds {static bounds=Rect(956, 0 - 1080, 65) rotation=0}, mDisplayShape=DisplayShape{ spec=-311912193 displayWidth=1080 displayHeight=
+2408 physicalPixelDisplaySizeRatio=1.0 rotation=0 offsetX=0 offsetY=0 scale=1.0}, mSources= { InsetsSource: {3 mType=ime mFrame=[0,1400][1080,2408] mVisible=true mFlags= mSideHint=
+BOTTOM mBoundingRects=null}, InsetsSource: {27 mType=displayCutout mFrame=[0,0][1080,64] mVisible=true mFlags= mSideHint=TOP mBoundingRects=null}, InsetsSource: {75e10001 mType=nav
+igationBars mFrame=[0,2273][1080,2408] mVisible=true mFlags= mSideHint=BOTTOM mBoundingRects=null}, InsetsSource: {75e10004 mType=systemGestures mFrame=[0,0][0,0] mVisible=true mFl
+ags= mSideHint=NONE mBoundingRects=null}, InsetsSource: {75e10005 mType=mandatorySystemGestures mFrame=[0,2273][1080,2408] mVisible=true mFlags= mSideHint=BOTTOM mBoundingRects=nul
+l}, InsetsSource: {75e10006 mType=tappableElement mFrame=[0,2273][1080,2408] mVisible=true mFlags= mSideHint=BOTTOM mBoundingRects=null}, InsetsSource: {75e10024 mType=systemGestur
+es mFrame=[0,0][0,0] mVisible=true mFlags= mSideHint=NONE mBoundingRects=null}, InsetsSource: {78760000 mType=statusBars mFrame=[0,0][1080,65] mVisible=true mFlags= mSideHint=TOP m
+BoundingRects=null}, InsetsSource: {78760005 mType=mandatorySystemGestures mFrame=[0,0][1080,98] mVisible=true mFlags= mSideHint=TOP mBoundingRects=null}, InsetsSource: {78760006 mType=tappableElement mFrame=[0,0][1080,65] mVisible=true mFlags= mSideHint=TOP mBoundingRects=null} }
+I/VRI[MainActivity]@d05a0af( 6454): handleResized, frames=ClientWindowFrames{frame=[0,0][1080,2408] display=[0,0][1080,2408] parentFrame=[0,0][0,0]} displayId=0 dragResizing=false compatScale=1.0 frameChanged=false attachedFrameChanged=false configChanged=false displayChanged=false compatScaleChanged=false dragResizingChanged=false
+I/VRI[MainActivity]@d05a0af( 6454): mWNT: t=0xb400007e5d8ebd00 mBlastBufferQueue=0xb400007e5d0d5400 fn= 4 HdrRenderState mRenderHdrSdrRatio=1.0 caller= android.view.SyncRtSurfaceTr
+ansactionApplier.applyTransaction:96 android.view.SyncRtSurfaceTransactionApplier.lambda$scheduleApply$0:69 android.view.SyncRtSurfaceTransactionApplier.$r8$lambda$afI4fXg3U3-nBZQEDQMiNy-B06s:0
+I/VRI[MainActivity]@d05a0af( 6454): mWNT: t=0xb400007da9fa0000 mBlastBufferQueue=0xb400007e5d0d5400 fn= 5 HdrRenderState mRenderHdrSdrRatio=1.0 caller= android.view.SyncRtSurfaceTr
+ansactionApplier.applyTransaction:96 android.view.SyncRtSurfaceTransactionApplier.lambda$scheduleApply$0:69 android.view.SyncRtSurfaceTransactionApplier.$r8$lambda$afI4fXg3U3-nBZQEDQMiNy-B06s:0
+I/VRI[MainActivity]@d05a0af( 6454): mWNT: t=0xb400007da9fa1800 mBlastBufferQueue=0xb400007e5d0d5400 fn= 6 HdrRenderState mRenderHdrSdrRatio=1.0 caller= android.view.SyncRtSurfaceTr
+ansactionApplier.applyTransaction:96 android.view.SyncRtSurfaceTransactionApplier.lambda$scheduleApply$0:69 android.view.SyncRtSurfaceTransactionApplier.$r8$lambda$afI4fXg3U3-nBZQEDQMiNy-B06s:0
+I/VRI[MainActivity]@d05a0af( 6454): mWNT: t=0xb400007e5d6eed80 mBlastBufferQueue=0xb400007e5d0d5400 fn= 7 HdrRenderState mRenderHdrSdrRatio=1.0 caller= android.view.SyncRtSurfaceTr
+ansactionApplier.applyTransaction:96 android.view.SyncRtSurfaceTransactionApplier.lambda$scheduleApply$0:69 android.view.SyncRtSurfaceTransactionApplier.$r8$lambda$afI4fXg3U3-nBZQEDQMiNy-B06s:0
+I/InsetsController( 6454): cancelAnimation: types=ime, animType=0, host=com.example.fedha/com.example.fedha.MainActivity, from=android.view.InsetsController.notifyFinished:1890 android.view.InsetsAnimationControlImpl.applyChangeInsets:307 android.view.InsetsController.lambda$new$3:932
+I/ImeTracker( 6454): com.example.fedha:b35ed96a: onShown
+I/VRI[MainActivity]@d05a0af( 6454): mWNT: t=0xb400007e5d8ebb80 mBlastBufferQueue=0xb400007e5d0d5400 fn= 8 HdrRenderState mRenderHdrSdrRatio=1.0 caller= android.view.SyncRtSurfaceTr
+ansactionApplier.applyTransaction:96 android.view.SyncRtSurfaceTransactionApplier.lambda$scheduleApply$0:69 android.view.SyncRtSurfaceTransactionApplier.$r8$lambda$afI4fXg3U3-nBZQEDQMiNy-B06s:0
+I/VRI[MainActivity]@d05a0af( 6454): call setFrameRateCategory for touch hint category=no preference, reason=boost timeout, vri=VRI[MainActivity]@d05a0af
+D/InputConnectionAdaptor( 6454): The input method toggled text monitoring on
+I/VRI[MainActivity]@d05a0af( 6454): call setFrameRateCategory for touch hint category=high hint, reason=touch, vri=VRI[MainActivity]@d05a0af
+D/InputMethodManagerUtils( 6454): startInputInner - Id : 0
+I/InputMethodManager( 6454): startInputInner - IInputMethodManagerGlobalInvoker.startInputOrWindowGainedFocus
+I/InputMethodManager_LC( 6454): showSoftInput(View,I)
+I/ImeTracker( 6454): com.example.fedha:bade9b7: onRequestShow at ORIGIN_CLIENT reason SHOW_SOFT_INPUT fromUser false
+I/InputMethodManager_LC( 6454): ssi(): flags=0 view=com.example.fedha reason=SHOW_SOFT_INPUT
+I/InputMethodManager_LC( 6454): ssi() view is not EditText
+D/InputTransport( 6454): Input channel constructed: 'ClientS', fd=191
+D/InputMethodManager( 6454): showSoftInput() view=io.flutter.embedding.android.FlutterView{fa239e3 VFE...... .F...... 0,0-1080,2408 #2 aid=1073741824} flags=0 reason=SHOW_SOFT_INPUT
+D/InputConnectionAdaptor( 6454): The input method toggled cursor monitoring on
+D/InsetsController( 6454): show(ime(), fromIme=true)
+I/ImeTracker( 6454): com.example.fedha:bade9b7: onCancelled at PHASE_CLIENT_APPLY_ANIMATION
+I/VRI[MainActivity]@d05a0af( 6454): call setFrameRateCategory for touch hint category=no preference, reason=boost timeout, vri=VRI[MainActivity]@d05a0af
+I/VRI[MainActivity]@d05a0af( 6454): call setFrameRateCategory for touch hint category=high hint, reason=touch, vri=VRI[MainActivity]@d05a0af
+I/flutter ( 6454): [15:42:07.993] INFO    ApiClient           : Checking server health: http://192.168.100.6:8000/api/health/
+I/flutter ( 6454): [15:42:08.511] INFO    ApiClient           : Server health: ✅ OK (200)
+I/flutter ( 6454): [15:42:08.565] INFO    AuthService         : Attempting login for: kagirimoffat@yahoo.com                                                                        
+I/flutter ( 6454): [15:42:08.574] INFO    ApiClient           : POST http://192.168.100.6:8000/api/auth/login/                                                                      
+I/flutter ( 6454): [15:42:09.989] INFO    ApiClient           : Login response: 200
+I/flutter ( 6454): [15:42:09.997] INFO    ApiClient           : ✅ Auth token set (277 chars)                                                                                        
+I/flutter ( 6454): [15:42:09.998] INFO    ApiClient           : ✅ Login successful, token received                                                                                  
+I/flutter ( 6454): [15:42:09.999] INFO    AuthService         : ✅ Server authentication successful                                                                                  
+I/flutter ( 6454): [15:42:10.000] INFO    ApiClient           : ✅ Auth token set (277 chars)                                                                                        
+I/flutter ( 6454): [15:42:10.003] INFO    ApiClient           : GET http://192.168.100.6:8000/api/profile/
+I/flutter ( 6454): [15:42:10.155] INFO    ApiClient           : Get profile response: 200
+D/FlutterSecureStorage( 6454): No data found in EncryptedSharedPreferences.
+W/FlutterSecureStorage( 6454): Algorithm changed detected.
+E/FlutterSecureStorage( 6454): Key mismatch detected during cipher initialization: Algorithm changed detected
+E/FlutterSecureStorage( 6454): This typically occurs after an algorithm change.
+E/FlutterSecureStorage( 6454): Stored key cannot be decrypted with current algorithm.
+I/FlutterSecureStorage( 6454): migrateOnAlgorithmChange is enabled. Attempting data migration...
+I/FlutterSecureStorage( 6454): Starting data migration from saved to current cipher algorithms...
+I/VRI[MainActivity]@d05a0af( 6454): call setFrameRateCategory for touch hint category=no preference, reason=boost timeout, vri=VRI[MainActivity]@d05a0af
+I/FlutterSecureStorage( 6454): Detected non-biometric migration: FROM=com.it_nomads.fluttersecurestorage.ciphers.KeyCipherImplementationRSA18@f63419b, TO=AES_GCM_NoPadding
+I/FlutterSecureStorage( 6454): Starting non-biometric migration (no authentication required)...
+D/FlutterSecureStorage( 6454): Step 1/6: Initializing saved cipher...
+D/FlutterSecureStorage( 6454): Step 2/6: Decrypting all data with saved cipher...
+D/FlutterSecureStorage( 6454): Successfully decrypted 0 items with saved cipher
+D/FlutterSecureStorage( 6454): Step 3/6: Deleting old RSA key from Android KeyStore...
+D/FlutterSecureStorage( 6454): Old key deleted from KeyStore
+D/FlutterSecureStorage( 6454): Step 4/6: Updating algorithm markers to current...
+D/FlutterSecureStorage( 6454): Algorithm markers updated to current
+D/FlutterSecureStorage( 6454): Step 5/6: Initializing current cipher with fresh AES key...
+I/FlutterSecureStorage( 6454): Step 6/6: No data to migrate, continuing...
+I/FlutterSecureStorage( 6454): Non-biometric migration completed successfully! Migrated 0 items.
+I/FlutterSecureStorage( 6454): Data migration completed successfully!
+I/flutter ( 6454): [15:42:12.836] INFO    AuthService         : ✅ Auth token stored securely                                                                                        
+I/flutter ( 6454): [15:42:12.837] INFO    AuthService         : ✅ Profile stored: Moffat Kagiri (51f02462-1860-475e-bbe2-80bd129ea7a5)                                              
+I/flutter ( 6454): [15:42:12.840] INFO    AuthService         : Setting current profile: 51f02462-1860-475e-bbe2-80bd129ea7a5                                                       
+I/flutter ( 6454): [15:42:12.916] INFO    ApiClient           : ✅ Auth token set (277 chars)                                                                                        
+I/flutter ( 6454): [15:42:12.976] INFO    SmsListenerService  : Initializing SMS listener for profile: 51f02462-1860-475e-bbe2-80bd129ea7a5
+I/flutter ( 6454): [15:42:12.995] INFO    SmsListenerService  : SMS permission status: granted
+I/flutter ( 6454): [15:42:12.998] INFO    SmsListenerService  : Starting foreground SMS polling...                                                                                  
+I/flutter ( 6454): [15:42:13.006] INFO    SmsListenerService  : Processing SMS messages since: 1970-01-01 03:00:00.000
+I/m.example.fedha( 6454): Background young concurrent mark compact GC freed 3334KB AllocSpace bytes, 47(2424KB) LOS objects, 58% free, 4040KB/9763KB, paused 411us,6.769ms total 83.140ms
+D/InputTransport( 6454): Input channel destroyed: 'ClientS', fd=185
+D/InputTransport( 6454): Input channel destroyed: 'ClientS', fd=199
+D/InputTransport( 6454): Input channel destroyed: 'ClientS', fd=191
+I/flutter ( 6454): [15:42:16.331] INFO    OfflineDataService  : ✅ Pending transaction saved
+I/flutter ( 6454): [15:42:16.332] INFO    SmsListenerService  : 💰 Saved pending transaction: 462.49 from M-PESA                                                                    
+I/flutter ( 6454): [15:42:16.358] INFO    OfflineDataService  : ✅ Pending transaction saved
+I/flutter ( 6454): [15:42:16.359] INFO    SmsListenerService  : 💰 Saved pending transaction: 20.0 from M-PESA                                                                      
+I/flutter ( 6454): [15:42:16.374] INFO    OfflineDataService  : ✅ Pending transaction saved
+I/flutter ( 6454): [15:42:16.375] INFO    SmsListenerService  : 💰 Saved pending transaction: 442.29 from M-PESA                                                                    
+I/flutter ( 6454): [15:42:16.391] INFO    OfflineDataService  : ✅ Pending transaction saved
+I/flutter ( 6454): [15:42:16.392] INFO    SmsListenerService  : 💰 Saved pending transaction: 20.0 from M-PESA
+I/flutter ( 6454): [15:42:16.408] INFO    OfflineDataService  : ✅ Pending transaction saved                                                                                         
+I/flutter ( 6454): [15:42:16.409] INFO    SmsListenerService  : 💰 Saved pending transaction: 422.09 from M-PESA
+I/flutter ( 6454): [15:42:16.430] INFO    OfflineDataService  : ✅ Pending transaction saved
+I/flutter ( 6454): [15:42:16.431] INFO    SmsListenerService  : 💰 Saved pending transaction: 90.0 from M-PESA                                                                      
+I/flutter ( 6454): [15:42:16.447] INFO    OfflineDataService  : ✅ Pending transaction saved
+I/flutter ( 6454): [15:42:16.448] INFO    SmsListenerService  : 💰 Saved pending transaction: 331.19 from M-PESA                                                                    
+I/flutter ( 6454): [15:42:16.464] INFO    OfflineDataService  : ✅ Pending transaction saved
+I/flutter ( 6454): [15:42:16.465] INFO    SmsListenerService  : 💰 Saved pending transaction: 50.0 from M-PESA                                                                      
+I/flutter ( 6454): [15:42:16.482] INFO    OfflineDataService  : ✅ Pending transaction saved
+I/flutter ( 6454): [15:42:16.483] INFO    SmsListenerService  : 💰 Saved pending transaction: 280.69 from M-PESA                                                                    
+I/flutter ( 6454): [15:42:16.500] INFO    OfflineDataService  : ✅ Pending transaction saved
+I/flutter ( 6454): [15:42:16.500] INFO    SmsListenerService  : 💰 Saved pending transaction: 180.0 from M-PESA                                                                     
+I/flutter ( 6454): [15:42:16.546] INFO    OfflineDataService  : ✅ Pending transaction saved
+I/flutter ( 6454): [15:42:16.547] INFO    SmsListenerService  : 💰 Saved pending transaction: 98.89 from M-PESA                                                                     
+I/flutter ( 6454): [15:42:16.567] INFO    OfflineDataService  : ✅ Pending transaction saved
+I/flutter ( 6454): [15:42:16.568] INFO    SmsListenerService  : 💰 Saved pending transaction: 120.0 from M-PESA                                                                     
+I/flutter ( 6454): [15:42:16.584] INFO    OfflineDataService  : ✅ Pending transaction saved                                                                                         
+I/flutter ( 6454): [15:42:16.585] INFO    SmsListenerService  : 💰 Saved pending transaction: 70.0 from M-PESA
+I/flutter ( 6454): [15:42:16.601] INFO    OfflineDataService  : ✅ Pending transaction saved
+I/flutter ( 6454): [15:42:16.602] INFO    SmsListenerService  : 💰 Saved pending transaction: 50.0 from M-PESA                                                                      
+I/flutter ( 6454): [15:42:16.617] INFO    OfflineDataService  : ✅ Pending transaction saved                                                                                         
+I/flutter ( 6454): [15:42:16.618] INFO    SmsListenerService  : 💰 Saved pending transaction: 50.0 from M-PESA
+I/flutter ( 6454): [15:42:16.632] INFO    OfflineDataService  : ✅ Pending transaction saved
+I/flutter ( 6454): [15:42:16.633] INFO    SmsListenerService  : 💰 Saved pending transaction: 199.09 from M-PESA                                                                    
+I/flutter ( 6454): [15:42:16.655] INFO    OfflineDataService  : ✅ Pending transaction saved
+I/flutter ( 6454): [15:42:16.656] INFO    SmsListenerService  : 💰 Saved pending transaction: 2000.0 from M-PESA                                                                    
+I/flutter ( 6454): [15:42:16.681] INFO    SmsListenerService  : ✅ Processed 17 new SMS messages
+I/flutter ( 6454): [15:42:16.683] INFO    SmsListenerService  : ✅ SMS listener initialized successfully                                                                             
+I/flutter ( 6454): [15:42:16.684] INFO    AuthService         : ✅ Profile services initialized for: 51f02462-1860-475e-bbe2-80bd129ea7a5                                            
+I/flutter ( 6454): [15:42:16.698] INFO    UnifiedSyncService  : Current profile set for sync: 51f02462-1860-475e-bbe2-80bd129ea7a5
+I/flutter ( 6454): [15:42:16.710] INFO    AuthService         : ✅ Current profile set: Moffat Kagiri                                                                                
+I/flutter ( 6454): [15:42:16.729] INFO    BiometricAuthService: Biometric session registered and saved
+I/flutter ( 6454): [15:42:16.731] INFO    AuthService         : 🔄 Triggering initial data sync...                                                                                  
+I/flutter ( 6454): [15:42:16.739] INFO    UnifiedSyncService  : 📥 Starting initial sync for profile: 51f02462-1860-475e-bbe2-80bd129ea7a5
+I/flutter ( 6454): [15:42:16.743] INFO    ApiClient           : Checking server health: http://192.168.100.6:8000/api/health/                                                       
+I/flutter ( 6454): [15:42:16.745] INFO    AuthService         : ✅ Login successful: kagirimoffat@yahoo.com                                                                          
+I/flutter ( 6454): [15:42:16.840] INFO    ApiClient           : Server health: ✅ OK (200)
+I/flutter ( 6454): [15:42:16.843] INFO    UnifiedSyncService  : 📥 Downloading transactions...                                                                                      
+I/flutter ( 6454): [15:42:16.846] INFO    ApiClient           : GET http://192.168.100.6:8000/api/transactions/?profile_id=51f02462-1860-475e-bbe2-80bd129ea7a5                     
+I/flutter ( 6454): [15:42:17.188] INFO    ApiClient           : Get transactions response: 200
+I/flutter ( 6454): [15:42:17.199] INFO    UnifiedSyncService  : Received 0 transactions from server                                                                                 
+I/flutter ( 6454): [15:42:17.201] INFO    UnifiedSyncService  : ✅ Saved 0 new transactions
+I/flutter ( 6454): [15:42:17.206] INFO    UnifiedSyncService  : 📥 Downloading goals...
+I/flutter ( 6454): [15:42:17.212] INFO    ApiClient           : GET http://192.168.100.6:8000/api/goals/?profile_id=51f02462-1860-475e-bbe2-80bd129ea7a5                            
+W/WindowOnBackDispatcher( 6454): OnBackInvokedCallback is not enabled for the application.
+W/WindowOnBackDispatcher( 6454): Set 'android:enableOnBackInvokedCallback="true"' in the application manifest.
+I/ImeTracker( 6454): com.example.fedha:61cffd42: onRequestHide at ORIGIN_CLIENT reason HIDE_SOFT_INPUT fromUser false
+I/InputMethodManager_LC( 6454): hsifw() - flag : 0
+I/InputMethodManager_LC( 6454): hsifw() - mService.hideSoftInput
+I/flutter ( 6454): [15:42:17.316] INFO    ApiClient           : Get goals response: 200
+I/flutter ( 6454): [15:42:17.318] INFO    UnifiedSyncService  : Received 0 goals from server                                                                                        
+I/flutter ( 6454): [15:42:17.319] INFO    UnifiedSyncService  : ✅ Saved 0 new goals                                                                                                 
+I/flutter ( 6454): [15:42:17.323] INFO    UnifiedSyncService  : 📥 Downloading budgets...                                                                                           
+I/flutter ( 6454): [15:42:17.327] INFO    ApiClient           : GET http://192.168.100.6:8000/api/budgets/?profile_id=51f02462-1860-475e-bbe2-80bd129ea7a5
+D/InsetsController( 6454): hide(ime(), fromIme=true)
+I/InsetsController( 6454): setRequestedVisibleTypes: visible=false, mask=ime, host=com.example.fedha/com.example.fedha.MainActivity, from=android.view.InsetsController.controlAnima
+tionUnchecked:1498 android.view.InsetsController.applyAnimation:2228 android.view.InsetsController.applyAnimation:2159 android.view.InsetsController.hide:1452 android.view.ViewRoot
+Impl$ViewRootHandler.handleMessageImpl:8063 android.view.ViewRootImpl$ViewRootHandler.handleMessage:7991 android.os.Handler.dispatchMessage:107 android.os.Looper.loopOnce:257 android.os.Looper.loop:342 android.app.ActivityThread.main:9638
+I/InsetsController( 6454): controlAnimationUncheckedInner: Added types=ime, animType=1, host=com.example.fedha/com.example.fedha.MainActivity, from=android.view.InsetsController.controlAnimationUnchecked:1502 android.view.InsetsController.applyAnimation:2228 android.view.InsetsController.applyAnimation:2159
+D/InputConnectionAdaptor( 6454): The input method toggled cursor monitoring off
+I/VRI[MainActivity]@d05a0af( 6454): mWNT: t=0xb400007e5d8e9600 mBlastBufferQueue=0xb400007e5d0d5400 fn= 9 HdrRenderState mRenderHdrSdrRatio=1.0 caller= android.view.SyncRtSurfaceTr
+ansactionApplier.applyTransaction:96 android.view.SyncRtSurfaceTransactionApplier.lambda$scheduleApply$0:69 android.view.SyncRtSurfaceTransactionApplier.$r8$lambda$afI4fXg3U3-nBZQEDQMiNy-B06s:0
+I/InsetsController( 6454): onStateChanged: host=com.example.fedha/com.example.fedha.MainActivity, from=android.view.ViewRootImpl.handleResized:2789, state=InsetsState: {mDisplayFra
+me=Rect(0, 0 - 1080, 2408), mDisplayCutout=DisplayCutout{insets=Rect(0, 64 - 0, 0) waterfall=Insets{left=0, top=0, right=0, bottom=0} boundingRect={Bounds=[Rect(0, 0 - 0, 0), Rect(
+468, 0 - 612, 64), Rect(0, 0 - 0, 0), Rect(0, 0 - 0, 0)]} cutoutPathParserInfo={CutoutPathParserInfo{displayWidth=1080 displayHeight=2408 physicalDisplayWidth=1080 physicalDisplayH
+eight=2408 density={2.8125} cutoutSpec={M 0,0 H -25.6‬ V 22.75555555555556 H 25.6‬ V 0 H 0 Z @dp} rotation={0} scale={1.0} physicalPixelDisplaySizeRatio={1.0}}} sideOverrides={}}, 
+mRoundedCorners=RoundedCorners{[RoundedCorner{position=TopLeft, radius=101, center=Point(101, 101)}, RoundedCorner{position=TopRight, radius=101, center=Point(979, 101)}, RoundedCo
+rner{position=BottomRight, radius=101, center=Point(979, 2307)}, RoundedCorner{position=BottomLeft, radius=101, center=Point(101, 2307)}]}  mRoundedCornerFrame=Rect(0, 0 - 1080, 24
+08), mPrivacyIndicatorBounds=PrivacyIndicatorBounds {static bounds=Rect(956, 0 - 1080, 65) rotation=0}, mDisplayShape=DisplayShape{ spec=-311912193 displayWidth=1080 displayHeight=
+2408 physicalPixelDisplaySizeRatio=1.0 rotation=0 offsetX=0 offsetY=0 scale=1.0}, mSources= { InsetsSource: {3 mType=ime mFrame=[0,1400][1080,2408] mVisible=false mFlags= mSideHint
+=BOTTOM mBoundingRects=null}, InsetsSource: {27 mType=displayCutout mFrame=[0,0][1080,64] mVisible=true mFlags= mSideHint=TOP mBoundingRects=null}, InsetsSource: {75e10001 mType=na
+vigationBars mFrame=[0,2273][1080,2408] mVisible=true mFlags= mSideHint=BOTTOM mBoundingRects=null}, InsetsSource: {75e10004 mType=systemGestures mFrame=[0,0][0,0] mVisible=true mF
+lags= mSideHint=NONE mBoundingRects=null}, InsetsSource: {75e10005 mType=mandatorySystemGestures mFrame=[0,2273][1080,2408] mVisible=true mFlags= mSideHint=BOTTOM mBoundingRects=nu
+ll}, InsetsSource: {75e10006 mType=tappableElement mFrame=[0,2273][1080,2408] mVisible=true mFlags= mSideHint=BOTTOM mBoundingRects=null}, InsetsSource: {75e10024 mType=systemGestu
+res mFrame=[0,0][0,0] mVisible=true mFlags= mSideHint=NONE mBoundingRects=null}, InsetsSource: {78760000 mType=statusBars mFrame=[0,0][1080,65] mVisible=true mFlags= mSideHint=TOP 
+mBoundingRects=null}, InsetsSource: {78760005 mType=mandatorySystemGestures mFrame=[0,0][1080,98] mVisible=true mFlags= mSideHint=TOP mBoundingRects=null}, InsetsSource: {78760006 mType=tappableElement mFrame=[0,0][1080,65] mVisible=true mFlags= mSideHint=TOP mBoundingRects=null} }
+I/VRI[MainActivity]@d05a0af( 6454): handleResized, frames=ClientWindowFrames{frame=[0,0][1080,2408] display=[0,0][1080,2408] parentFrame=[0,0][0,0]} displayId=0 dragResizing=false compatScale=1.0 frameChanged=false attachedFrameChanged=false configChanged=false displayChanged=false compatScaleChanged=false dragResizingChanged=false
+I/InsetsSourceConsumer( 6454): applyRequestedVisibilityToControl: visible=true, type=navigationBars, host=com.example.fedha/com.example.fedha.MainActivity
+I/VRI[MainActivity]@d05a0af( 6454): mWNT: t=0xb400007e5d8e9900 mBlastBufferQueue=0xb400007e5d0d5400 fn= 10 HdrRenderState mRenderHdrSdrRatio=1.0 caller= android.view.SyncRtSurfaceT
+ransactionApplier.applyTransaction:96 android.view.SyncRtSurfaceTransactionApplier.lambda$scheduleApply$0:69 android.view.SyncRtSurfaceTransactionApplier.$r8$lambda$afI4fXg3U3-nBZQEDQMiNy-B06s:0
+I/VRI[MainActivity]@d05a0af( 6454): mWNT: t=0xb400007e5d8e9c00 mBlastBufferQueue=0xb400007e5d0d5400 fn= 11 HdrRenderState mRenderHdrSdrRatio=1.0 caller= android.view.SyncRtSurfaceT
+ransactionApplier.applyTransaction:96 android.view.SyncRtSurfaceTransactionApplier.lambda$scheduleApply$0:69 android.view.SyncRtSurfaceTransactionApplier.$r8$lambda$afI4fXg3U3-nBZQEDQMiNy-B06s:0
+I/VRI[MainActivity]@d05a0af( 6454): mWNT: t=0xb400007e5d742e80 mBlastBufferQueue=0xb400007e5d0d5400 fn= 12 HdrRenderState mRenderHdrSdrRatio=1.0 caller= android.view.SyncRtSurfaceT
+ransactionApplier.applyTransaction:96 android.view.SyncRtSurfaceTransactionApplier.lambda$scheduleApply$0:69 android.view.SyncRtSurfaceTransactionApplier.$r8$lambda$afI4fXg3U3-nBZQEDQMiNy-B06s:0
+I/VRI[MainActivity]@d05a0af( 6454): mWNT: t=0xb400007e5d8ea500 mBlastBufferQueue=0xb400007e5d0d5400 fn= 13 HdrRenderState mRenderHdrSdrRatio=1.0 caller= android.view.SyncRtSurfaceT
+ransactionApplier.applyTransaction:96 android.view.SyncRtSurfaceTransactionApplier.lambda$scheduleApply$0:69 android.view.SyncRtSurfaceTransactionApplier.$r8$lambda$afI4fXg3U3-nBZQEDQMiNy-B06s:0
+I/VRI[MainActivity]@d05a0af( 6454): mWNT: t=0xb400007e5d8ea800 mBlastBufferQueue=0xb400007e5d0d5400 fn= 14 HdrRenderState mRenderHdrSdrRatio=1.0 caller= android.view.SyncRtSurfaceT
+ransactionApplier.applyTransaction:96 android.view.SyncRtSurfaceTransactionApplier.lambda$scheduleApply$0:69 android.view.SyncRtSurfaceTransactionApplier.$r8$lambda$afI4fXg3U3-nBZQEDQMiNy-B06s:0
+I/flutter ( 6454): [15:42:17.532] INFO    ApiClient           : Get budgets response: 200
+I/flutter ( 6454): [15:42:17.533] INFO    UnifiedSyncService  : Received 0 budgets from server                                                                                      
+I/flutter ( 6454): [15:42:17.534] INFO    UnifiedSyncService  : ✅ Saved 0 new budgets                                                                                               
+I/flutter ( 6454): [15:42:17.540] INFO    UnifiedSyncService  : 📥 Downloading loans...                                                                                             
+I/flutter ( 6454): [15:42:17.545] INFO    ApiClient           : GET http://192.168.100.6:8000/api/invoicing/loans/?profile_id=51f02462-1860-475e-bbe2-80bd129ea7a5
+I/VRI[MainActivity]@d05a0af( 6454): mWNT: t=0xb400007e5d8eb280 mBlastBufferQueue=0xb400007e5d0d5400 fn= 15 HdrRenderState mRenderHdrSdrRatio=1.0 caller= android.view.SyncRtSurfaceT
+ransactionApplier.applyTransaction:96 android.view.SyncRtSurfaceTransactionApplier.lambda$scheduleApply$0:69 android.view.SyncRtSurfaceTransactionApplier.$r8$lambda$afI4fXg3U3-nBZQEDQMiNy-B06s:0
+I/VRI[MainActivity]@d05a0af( 6454): mWNT: t=0xb400007e5d8eb400 mBlastBufferQueue=0xb400007e5d0d5400 fn= 16 HdrRenderState mRenderHdrSdrRatio=1.0 caller= android.view.SyncRtSurfaceT
+ransactionApplier.applyTransaction:96 android.view.SyncRtSurfaceTransactionApplier.lambda$scheduleApply$0:69 android.view.SyncRtSurfaceTransactionApplier.$r8$lambda$afI4fXg3U3-nBZQEDQMiNy-B06s:0
+I/VRI[MainActivity]@d05a0af( 6454): mWNT: t=0xb400007e5d8eb580 mBlastBufferQueue=0xb400007e5d0d5400 fn= 17 HdrRenderState mRenderHdrSdrRatio=1.0 caller= android.view.SyncRtSurfaceT
+ransactionApplier.applyTransaction:96 android.view.SyncRtSurfaceTransactionApplier.lambda$scheduleApply$0:69 android.view.SyncRtSurfaceTransactionApplier.$r8$lambda$afI4fXg3U3-nBZQEDQMiNy-B06s:0
+I/VRI[MainActivity]@d05a0af( 6454): mWNT: t=0xb400007e5d8eb700 mBlastBufferQueue=0xb400007e5d0d5400 fn= 18 HdrRenderState mRenderHdrSdrRatio=1.0 caller= android.view.SyncRtSurfaceT
+ransactionApplier.applyTransaction:96 android.view.SyncRtSurfaceTransactionApplier.lambda$scheduleApply$0:69 android.view.SyncRtSurfaceTransactionApplier.$r8$lambda$afI4fXg3U3-nBZQEDQMiNy-B06s:0
+I/VRI[MainActivity]@d05a0af( 6454): mWNT: t=0xb400007e5d8ebd00 mBlastBufferQueue=0xb400007e5d0d5400 fn= 19 HdrRenderState mRenderHdrSdrRatio=1.0 caller= android.view.SyncRtSurfaceT
+ransactionApplier.applyTransaction:96 android.view.SyncRtSurfaceTransactionApplier.lambda$scheduleApply$0:69 android.view.SyncRtSurfaceTransactionApplier.$r8$lambda$afI4fXg3U3-nBZQEDQMiNy-B06s:0
+I/VRI[MainActivity]@d05a0af( 6454): mWNT: t=0xb400007db2724980 mBlastBufferQueue=0xb400007e5d0d5400 fn= 20 HdrRenderState mRenderHdrSdrRatio=1.0 caller= android.view.SyncRtSurfaceT
+ransactionApplier.applyTransaction:96 android.view.SyncRtSurfaceTransactionApplier.lambda$scheduleApply$0:69 android.view.SyncRtSurfaceTransactionApplier.$r8$lambda$afI4fXg3U3-nBZQEDQMiNy-B06s:0
+I/InsetsController( 6454): cancelAnimation: types=ime, animType=1, host=com.example.fedha/com.example.fedha.MainActivity, from=android.view.InsetsController.notifyFinished:1890 android.view.InsetsAnimationControlImpl.applyChangeInsets:307 android.view.InsetsController.lambda$new$3:932
+I/ImeTracker( 6454): com.example.fedha:c2014a45: onRequestHide at ORIGIN_CLIENT reason HIDE_SOFT_INPUT_ON_ANIMATION_STATE_CHANGED fromUser false
+I/InputMethodManager_LC( 6454): notifyImeHidden: IInputMethodManagerGlobalInvoker.hideSoftInput
+I/ImeTracker( 6454): com.example.fedha:61cffd42: onHidden
+D/InputMethodManagerUtils( 6454): startInputInner - Id : 0
+I/InputMethodManager( 6454): startInputInner - IInputMethodManagerGlobalInvoker.startInputOrWindowGainedFocus
+I/VRI[MainActivity]@d05a0af( 6454): mWNT: t=0xb400007db2725d00 mBlastBufferQueue=0xb400007e5d0d5400 fn= 21 HdrRenderState mRenderHdrSdrRatio=1.0 caller= android.view.SyncRtSurfaceT
+ransactionApplier.applyTransaction:96 android.view.SyncRtSurfaceTransactionApplier.lambda$scheduleApply$0:69 android.view.SyncRtSurfaceTransactionApplier.$r8$lambda$afI4fXg3U3-nBZQEDQMiNy-B06s:0
+D/InputTransport( 6454): Input channel constructed: 'ClientS', fd=185
+I/InsetsController( 6454): onStateChanged: host=com.example.fedha/com.example.fedha.MainActivity, from=android.view.ViewRootImpl.handleResized:2789, state=InsetsState: {mDisplayFra
+me=Rect(0, 0 - 1080, 2408), mDisplayCutout=DisplayCutout{insets=Rect(0, 64 - 0, 0) waterfall=Insets{left=0, top=0, right=0, bottom=0} boundingRect={Bounds=[Rect(0, 0 - 0, 0), Rect(
+468, 0 - 612, 64), Rect(0, 0 - 0, 0), Rect(0, 0 - 0, 0)]} cutoutPathParserInfo={CutoutPathParserInfo{displayWidth=1080 displayHeight=2408 physicalDisplayWidth=1080 physicalDisplayH
+eight=2408 density={2.8125} cutoutSpec={M 0,0 H -25.6‬ V 22.75555555555556 H 25.6‬ V 0 H 0 Z @dp} rotation={0} scale={1.0} physicalPixelDisplaySizeRatio={1.0}}} sideOverrides={}}, 
+mRoundedCorners=RoundedCorners{[RoundedCorner{position=TopLeft, radius=101, center=Point(101, 101)}, RoundedCorner{position=TopRight, radius=101, center=Point(979, 101)}, RoundedCo
+rner{position=BottomRight, radius=101, center=Point(979, 2307)}, RoundedCorner{position=BottomLeft, radius=101, center=Point(101, 2307)}]}  mRoundedCornerFrame=Rect(0, 0 - 1080, 24
+08), mPrivacyIndicatorBounds=PrivacyIndicatorBounds {static bounds=Rect(956, 0 - 1080, 65) rotation=0}, mDisplayShape=DisplayShape{ spec=-311912193 displayWidth=1080 displayHeight=
+2408 physicalPixelDisplaySizeRatio=1.0 rotation=0 offsetX=0 offsetY=0 scale=1.0}, mSources= { InsetsSource: {3 mType=ime mFrame=[0,0][0,0] mVisible=false mFlags= mSideHint=NONE mBo
+undingRects=null}, InsetsSource: {27 mType=displayCutout mFrame=[0,0][1080,64] mVisible=true mFlags= mSideHint=TOP mBoundingRects=null}, InsetsSource: {75e10001 mType=navigationBar
+s mFrame=[0,2273][1080,2408] mVisible=true mFlags= mSideHint=BOTTOM mBoundingRects=null}, InsetsSource: {75e10004 mType=systemGestures mFrame=[0,0][0,0] mVisible=true mFlags= mSide
+Hint=NONE mBoundingRects=null}, InsetsSource: {75e10005 mType=mandatorySystemGestures mFrame=[0,2273][1080,2408] mVisible=true mFlags= mSideHint=BOTTOM mBoundingRects=null}, Insets
+Source: {75e10006 mType=tappableElement mFrame=[0,2273][1080,2408] mVisible=true mFlags= mSideHint=BOTTOM mBoundingRects=null}, InsetsSource: {75e10024 mType=systemGestures mFrame=
+[0,0][0,0] mVisible=true mFlags= mSideHint=NONE mBoundingRects=null}, InsetsSource: {78760000 mType=statusBars mFrame=[0,0][1080,65] mVisible=true mFlags= mSideHint=TOP mBoundingRe
+cts=null}, InsetsSource: {78760005 mType=mandatorySystemGestures mFrame=[0,0][1080,98] mVisible=true mFlags= mSideHint=TOP mBoundingRects=null}, InsetsSource: {78760006 mType=tappableElement mFrame=[0,0][1080,65] mVisible=true mFlags= mSideHint=TOP mBoundingRects=null} }
+I/VRI[MainActivity]@d05a0af( 6454): handleResized, frames=ClientWindowFrames{frame=[0,0][1080,2408] display=[0,0][1080,2408] parentFrame=[0,0][0,0]} displayId=0 dragResizing=false compatScale=1.0 frameChanged=false attachedFrameChanged=false configChanged=false displayChanged=false compatScaleChanged=false dragResizingChanged=false
+I/flutter ( 6454): [15:42:17.880] INFO    ApiClient           : Get loans response: 200                                                                                             
+I/flutter ( 6454): [15:42:17.884] INFO    UnifiedSyncService  : Received 7 loans from server                                                                                        
+I/flutter ( 6454): [15:42:18.131] INFO    UnifiedSyncService  : ✅ Saved 7 new loans
+I/flutter ( 6454): [15:42:18.135] INFO    UnifiedSyncService  : ✅ Initial sync complete. Downloaded: 7 items                                                                        
+I/VRI[MainActivity]@d05a0af( 6454): call setFrameRateCategory for touch hint category=high hint, reason=touch, vri=VRI[MainActivity]@d05a0af
+I/flutter ( 6454): [15:42:18.741] INFO    SmsListenerService  : Initializing SMS listener for profile: 51f02462-1860-475e-bbe2-80bd129ea7a5
+I/flutter ( 6454): [15:42:19.004] INFO    SmsListenerService  : SMS permission status: granted
+I/flutter ( 6454): [15:42:19.005] INFO    SmsListenerService  : Polling already active                                                                                              
+I/flutter ( 6454): [15:42:19.006] INFO    SmsListenerService  : ✅ SMS listener initialized successfully                                                                             
+I/flutter ( 6454): [15:42:19.126] INFO    BiometricAuthService: Biometric session registered and saved
+D/InputMethodManagerUtils( 6454): startInputInner - Id : 0
+I/InputMethodManager( 6454): startInputInner - IInputMethodManagerGlobalInvoker.startInputOrWindowGainedFocus
+I/InputMethodManager_LC( 6454): showSoftInput(View,I)
+I/ImeTracker( 6454): com.example.fedha:e2471ceb: onRequestShow at ORIGIN_CLIENT reason SHOW_SOFT_INPUT fromUser false
+I/InputMethodManager_LC( 6454): ssi(): flags=0 view=com.example.fedha reason=SHOW_SOFT_INPUT
+I/InputMethodManager_LC( 6454): ssi() view is not EditText
+D/InputMethodManager( 6454): showSoftInput() view=io.flutter.embedding.android.FlutterView{fa239e3 VFE...... .F...... 0,0-1080,2408 #2 aid=1073741824} flags=0 reason=SHOW_SOFT_INPUT
+D/InputTransport( 6454): Input channel constructed: 'ClientS', fd=200
+D/InputMethodManagerUtils( 6454): startInputInner - Id : 0
+I/InputMethodManager( 6454): startInputInner - IInputMethodManagerGlobalInvoker.startInputOrWindowGainedFocus
+D/InputTransport( 6454): Input channel constructed: 'ClientS', fd=201
+I/ImeTracker( 6454): com.example.fedha:64743f7a: onRequestHide at ORIGIN_CLIENT reason HIDE_SOFT_INPUT fromUser false
+I/InputMethodManager_LC( 6454): hsifw() - flag : 0
+I/InputMethodManager_LC( 6454): hsifw() - mService.hideSoftInput
+W/RemoteInputConnectionImpl( 6454): getExtractedText on inactive InputConnection
+W/Android: [Awesome Notifications]( 6454): Channel model 'reminders_channel' was not found (ChannelManager:88)
+D/Android: [Awesome Notifications]( 6454): Notification channel Daily Reminders created (ChannelManager:214)
+I/Choreographer( 6454): Skipped 80 frames!  The application may be doing too much work on its main thread.
+I/ImeFocusController( 6454): onPreWindowFocus: skipped hasWindowFocus=false mHasImeFocus=true
+I/flutter ( 6454): [15:42:21.136] INFO    MyApp               : App lifecycle state: AppLifecycleState.inactive                                                                     
+I/ImeFocusController( 6454): onPostWindowFocus: skipped hasWindowFocus=false mHasImeFocus=true
+W/RemoteInputConnectionImpl( 6454): requestCursorUpdates on inactive InputConnection
+D/InputTransport( 6454): Input channel destroyed: 'ClientS', fd=183
+D/InsetsController( 6454): hide(ime(), fromIme=true)
+I/ImeTracker( 6454): com.example.fedha:64743f7a: onCancelled at PHASE_CLIENT_APPLY_ANIMATION
+I/flutter ( 6454): [15:42:21.216] INFO    BiometricAuthService: Biometric session invalidated
+I/flutter ( 6454): [15:42:21.217] INFO    MyApp               : Biometric session invalidated                                                                                       
+I/flutter ( 6454): [15:42:21.218] INFO    MyApp               : Background SMS processing will continue                                                                             
+I/InsetsController( 6454): onStateChanged: host=com.example.fedha/com.example.fedha.MainActivity, from=android.view.ViewRootImpl.handleResized:2789, state=InsetsState: {mDisplayFra
+me=Rect(0, 0 - 1080, 2408), mDisplayCutout=DisplayCutout{insets=Rect(0, 64 - 0, 0) waterfall=Insets{left=0, top=0, right=0, bottom=0} boundingRect={Bounds=[Rect(0, 0 - 0, 0), Rect(
+468, 0 - 612, 64), Rect(0, 0 - 0, 0), Rect(0, 0 - 0, 0)]} cutoutPathParserInfo={CutoutPathParserInfo{displayWidth=1080 displayHeight=2408 physicalDisplayWidth=1080 physicalDisplayH
+eight=2408 density={2.8125} cutoutSpec={M 0,0 H -25.6‬ V 22.75555555555556 H 25.6‬ V 0 H 0 Z @dp} rotation={0} scale={1.0} physicalPixelDisplaySizeRatio={1.0}}} sideOverrides={}}, 
+mRoundedCorners=RoundedCorners{[RoundedCorner{position=TopLeft, radius=101, center=Point(101, 101)}, RoundedCorner{position=TopRight, radius=101, center=Point(979, 101)}, RoundedCo
+rner{position=BottomRight, radius=101, center=Point(979, 2307)}, RoundedCorner{position=BottomLeft, radius=101, center=Point(101, 2307)}]}  mRoundedCornerFrame=Rect(0, 0 - 1080, 24
+08), mPrivacyIndicatorBounds=PrivacyIndicatorBounds {static bounds=Rect(956, 0 - 1080, 65) rotation=0}, mDisplayShape=DisplayShape{ spec=-311912193 displayWidth=1080 displayHeight=
+2408 physicalPixelDisplaySizeRatio=1.0 rotation=0 offsetX=0 offsetY=0 scale=1.0}, mSources= { InsetsSource: {3 mType=ime mFrame=[0,1400][1080,2408] mVisible=false mFlags= mSideHint
+=BOTTOM mBoundingRects=null}, InsetsSource: {27 mType=displayCutout mFrame=[0,0][1080,64] mVisible=true mFlags= mSideHint=TOP mBoundingRects=null}, InsetsSource: {75e10001 mType=na
+vigationBars mFrame=[0,2273][1080,2408] mVisible=true mFlags= mSideHint=BOTTOM mBoundingRects=null}, InsetsSource: {75e10004 mType=systemGestures mFrame=[0,0][0,0] mVisible=true mF
+lags= mSideHint=NONE mBoundingRects=null}, InsetsSource: {75e10005 mType=mandatorySystemGestures mFrame=[0,2273][1080,2408] mVisible=true mFlags= mSideHint=BOTTOM mBoundingRects=nu
+ll}, InsetsSource: {75e10006 mType=tappableElement mFrame=[0,2273][1080,2408] mVisible=true mFlags= mSideHint=BOTTOM mBoundingRects=null}, InsetsSource: {75e10024 mType=systemGestu
+res mFrame=[0,0][0,0] mVisible=true mFlags= mSideHint=NONE mBoundingRects=null}, InsetsSource: {78760000 mType=statusBars mFrame=[0,0][1080,65] mVisible=true mFlags= mSideHint=TOP 
+mBoundingRects=null}, InsetsSource: {78760005 mType=mandatorySystemGestures mFrame=[0,0][1080,98] mVisible=true mFlags= mSideHint=TOP mBoundingRects=null}, InsetsSource: {78760006 mType=tappableElement mFrame=[0,0][1080,65] mVisible=true mFlags= mSideHint=TOP mBoundingRects=null} }
+I/VRI[MainActivity]@d05a0af( 6454): handleResized, frames=ClientWindowFrames{frame=[0,0][1080,2408] display=[0,0][1080,2408] parentFrame=[0,0][0,0]} displayId=0 dragResizing=false compatScale=1.0 frameChanged=false attachedFrameChanged=false configChanged=false displayChanged=false compatScaleChanged=false dragResizingChanged=false
+D/WM-SystemJobScheduler( 6454): Scheduling work ID dda0bf4f-c627-4b62-838f-c5958455d209Job ID 0
+D/InsetsController( 6454): hide(ime(), fromIme=true)
+I/ImeTracker( 6454): com.samsung.android.biometrics.app.setting:a5c90265: onCancelled at PHASE_CLIENT_APPLY_ANIMATION
+D/WM-PackageManagerHelper( 6454): androidx.work.impl.background.systemalarm.RescheduleReceiver enabled
+I/InsetsController( 6454): onStateChanged: host=com.example.fedha/com.example.fedha.MainActivity, from=android.view.ViewRootImpl.handleResized:2789, state=InsetsState: {mDisplayFra
+me=Rect(0, 0 - 1080, 2408), mDisplayCutout=DisplayCutout{insets=Rect(0, 64 - 0, 0) waterfall=Insets{left=0, top=0, right=0, bottom=0} boundingRect={Bounds=[Rect(0, 0 - 0, 0), Rect(
+468, 0 - 612, 64), Rect(0, 0 - 0, 0), Rect(0, 0 - 0, 0)]} cutoutPathParserInfo={CutoutPathParserInfo{displayWidth=1080 displayHeight=2408 physicalDisplayWidth=1080 physicalDisplayH
+eight=2408 density={2.8125} cutoutSpec={M 0,0 H -25.6‬ V 22.75555555555556 H 25.6‬ V 0 H 0 Z @dp} rotation={0} scale={1.0} physicalPixelDisplaySizeRatio={1.0}}} sideOverrides={}}, 
+mRoundedCorners=RoundedCorners{[RoundedCorner{position=TopLeft, radius=101, center=Point(101, 101)}, RoundedCorner{position=TopRight, radius=101, center=Point(979, 101)}, RoundedCo
+rner{position=BottomRight, radius=101, center=Point(979, 2307)}, RoundedCorner{position=BottomLeft, radius=101, center=Point(101, 2307)}]}  mRoundedCornerFrame=Rect(0, 0 - 1080, 24
+08), mPrivacyIndicatorBounds=PrivacyIndicatorBounds {static bounds=Rect(956, 0 - 1080, 65) rotation=0}, mDisplayShape=DisplayShape{ spec=-311912193 displayWidth=1080 displayHeight=
+2408 physicalPixelDisplaySizeRatio=1.0 rotation=0 offsetX=0 offsetY=0 scale=1.0}, mSources= { InsetsSource: {3 mType=ime mFrame=[0,0][0,0] mVisible=false mFlags= mSideHint=NONE mBo
+undingRects=null}, InsetsSource: {27 mType=displayCutout mFrame=[0,0][1080,64] mVisible=true mFlags= mSideHint=TOP mBoundingRects=null}, InsetsSource: {75e10001 mType=navigationBar
+s mFrame=[0,2273][1080,2408] mVisible=true mFlags= mSideHint=BOTTOM mBoundingRects=null}, InsetsSource: {75e10004 mType=systemGestures mFrame=[0,0][0,0] mVisible=true mFlags= mSide
+Hint=NONE mBoundingRects=null}, InsetsSource: {75e10005 mType=mandatorySystemGestures mFrame=[0,2273][1080,2408] mVisible=true mFlags= mSideHint=BOTTOM mBoundingRects=null}, Insets
+Source: {75e10006 mType=tappableElement mFrame=[0,2273][1080,2408] mVisible=true mFlags= mSideHint=BOTTOM mBoundingRects=null}, InsetsSource: {75e10024 mType=systemGestures mFrame=
+[0,0][0,0] mVisible=true mFlags= mSideHint=NONE mBoundingRects=null}, InsetsSource: {78760000 mType=statusBars mFrame=[0,0][1080,65] mVisible=true mFlags= mSideHint=TOP mBoundingRe
+cts=null}, InsetsSource: {78760005 mType=mandatorySystemGestures mFrame=[0,0][1080,98] mVisible=true mFlags= mSideHint=TOP mBoundingRects=null}, InsetsSource: {78760006 mType=tappableElement mFrame=[0,0][1080,65] mVisible=true mFlags= mSideHint=TOP mBoundingRects=null} }
+I/VRI[MainActivity]@d05a0af( 6454): handleResized, frames=ClientWindowFrames{frame=[0,0][1080,2408] display=[0,0][1080,2408] parentFrame=[0,0][0,0]} displayId=0 dragResizing=false compatScale=1.0 frameChanged=false attachedFrameChanged=false configChanged=false displayChanged=false compatScaleChanged=false dragResizingChanged=false
+I/BiometricPrompt( 6454): onAuthenticationSucceeded: 2
+I/InsetsSourceConsumer( 6454): applyRequestedVisibilityToControl: visible=true, type=statusBars, host=com.example.fedha/com.example.fedha.MainActivity
+I/InsetsSourceConsumer( 6454): applyRequestedVisibilityToControl: visible=true, type=navigationBars, host=com.example.fedha/com.example.fedha.MainActivity
+D/VRI[MainActivity]@d05a0af( 6454): mThreadedRenderer.initializeIfNeeded()#2 mSurface={isValid=true 0xb400007e5d142000}
+I/flutter ( 6454): [15:42:22.338] INFO    MyApp               : App lifecycle state: AppLifecycleState.resumed                                                                      
+D/InputMethodManagerUtils( 6454): startInputInner - Id : 0
+I/InputMethodManager( 6454): startInputInner - IInputMethodManagerGlobalInvoker.startInputOrWindowGainedFocus
+I/flutter ( 6454): [15:42:22.350] INFO    BiometricAuthService: Biometric session registered and saved                                                                              
+D/InputTransport( 6454): Input channel constructed: 'ClientS', fd=183
+I/flutter ( 6454): [15:42:22.360] INFO    SmsListenerService  : Initializing SMS listener for profile: 51f02462-1860-475e-bbe2-80bd129ea7a5                                         
+I/flutter ( 6454): [15:42:22.364] INFO    MyApp               : Skipping resume sync - last sync was recent
+I/flutter ( 6454): [15:42:22.385] INFO    SmsListenerService  : SMS permission status: granted
+I/flutter ( 6454): [15:42:22.386] INFO    SmsListenerService  : Polling already active                                                                                              
+I/flutter ( 6454): [15:42:22.387] INFO    SmsListenerService  : ✅ SMS listener initialized successfully                                                                             
+I/flutter ( 6454): [15:42:22.388] INFO    MyApp               : ✅ Foreground SMS listener restarted                                                                                 
+I/InsetsSourceConsumer( 6454): applyRequestedVisibilityToControl: visible=false, type=ime, host=com.example.fedha/com.example.fedha.MainActivity
+I/VRI[MainActivity]@d05a0af( 6454): call setFrameRateCategory for touch hint category=no preference, reason=boost timeout, vri=VRI[MainActivity]@d05a0af
+I/VRI[MainActivity]@d05a0af( 6454): call setFrameRateCategory for touch hint category=high hint, reason=touch, vri=VRI[MainActivity]@d05a0af
+I/flutter ( 6454): [15:42:31.685] INFO    SmsListenerService  : Processing SMS messages since: 2026-02-01 08:54:36.927
+I/flutter ( 6454): [15:42:32.430] INFO    SmsListenerService  : No new SMS messages to process
+I/VRI[MainActivity]@d05a0af( 6454): call setFrameRateCategory for touch hint category=no preference, reason=boost timeout, vri=VRI[MainActivity]@d05a0af
+Lost connection to device.
+(base) PS C:\GitHub\fedha\app> 

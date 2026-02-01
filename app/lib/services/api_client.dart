@@ -594,6 +594,87 @@ class ApiClient {
     }
   }
 
+  /// ✅ NEW: Update multiple transactions
+  Future<Map<String, dynamic>> updateTransactions(
+    String profileId,
+    List<dynamic> transactions,
+  ) async {
+    final url = Uri.parse(_config.getEndpoint('api/transactions/batch_update/'));
+    
+    try {
+      logger.info('POST ${url.toString()} - ${transactions.length} transactions to update');
+      
+      if (!isAuthenticated) {
+        logger.warning('⚠️ No auth token for update - request may fail');
+      }
+      
+      final resp = await _http.post(
+        url,
+        headers: _headers,
+        body: jsonEncode(transactions),
+      ).timeout(Duration(seconds: _config.timeoutSeconds));
+      
+      if (resp.statusCode == 200 || resp.statusCode == 201) {
+        final data = jsonDecode(resp.body) as Map<String, dynamic>;
+        logger.info('✅ Update complete: ${data['updated']} updated');
+        return {
+          'success': true,
+          'updated': data['updated'] ?? 0,
+          'data': data,
+        };
+      }
+      
+      logger.warning('Update failed: ${resp.statusCode} - ${resp.body}');
+      return {'success': false, 'status': resp.statusCode, 'body': resp.body};
+    } catch (e) {
+      logger.severe('Update transactions error: $e');
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  /// ✅ NEW: Delete multiple transactions
+  Future<Map<String, dynamic>> deleteTransactions(
+    String profileId,
+    List<String> transactionIds,
+  ) async {
+    final url = Uri.parse(_config.getEndpoint('api/transactions/batch_delete/'));
+    
+    try {
+      logger.info('POST ${url.toString()} - ${transactionIds.length} transactions to delete');
+      
+      if (!isAuthenticated) {
+        logger.warning('⚠️ No auth token for delete - request may fail');
+      }
+      
+      final resp = await _http.post(
+        url,
+        headers: _headers,
+        body: jsonEncode({
+          'profile_id': profileId,
+          'transaction_ids': transactionIds,
+        }),
+      ).timeout(Duration(seconds: _config.timeoutSeconds));
+      
+      if (resp.statusCode == 200 || resp.statusCode == 204) {
+        final data = resp.statusCode == 204 
+            ? {'deleted': transactionIds.length} 
+            : jsonDecode(resp.body) as Map<String, dynamic>;
+        logger.info('✅ Delete complete: ${data['deleted']} deleted');
+        return {
+          'success': true,
+          'deleted': data['deleted'] ?? 0,
+          'data': data,
+        };
+      }
+      
+      logger.warning('Delete failed: ${resp.statusCode} - ${resp.body}');
+      return {'success': false, 'status': resp.statusCode, 'body': resp.body};
+    } catch (e) {
+      logger.severe('Delete transactions error: $e');
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
   // ==================== BUDGETS ====================
 
   /// ✅ NEW: Get all budgets for a profile
