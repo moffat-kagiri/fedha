@@ -144,7 +144,7 @@ class UnifiedSyncService with ChangeNotifier {
     return result;
   }
 
-  // ✅ Also update the batch upload section to use this helper
+  /// ✅ FIXED: Batch sync with better validation and error logging
   Future<EntitySyncResult> _syncTransactionsBatch(String profileId) async {
     final result = EntitySyncResult();
     
@@ -155,30 +155,39 @@ class UnifiedSyncService with ChangeNotifier {
       if (_apiClient.isAuthenticated) {
         // STEP 1: Upload unsynced transactions in batches
         final unsyncedTransactions = localTransactions
-            .where((t) => t.remoteId == null)
+            .where((t) => t.remoteId == null || t.remoteId!.isEmpty)
             .toList();
         
         if (unsyncedTransactions.isNotEmpty) {
           _logger.info('📤 Uploading ${unsyncedTransactions.length} transactions');
           
-          // ✅ FIXED: Use the helper method that includes profile_id
-          final batchData = unsyncedTransactions.map((t) {
-            // Validate required fields
+          // ✅ FIXED: Validate and prepare data with profile_id
+          final batchData = <Map<String, dynamic>>[];
+          
+          for (final t in unsyncedTransactions) {
+            // ✅ Validate required fields before upload
             if (t.amount <= 0) {
-              _logger.warning('Skipping transaction with invalid amount: ${t.amount}');
-              return null;
+              _logger.warning('⚠️ Skipping transaction with invalid amount: ${t.amount}');
+              continue;
             }
             
             if (t.type.isEmpty) {
-              _logger.warning('Skipping transaction with empty type');
-              return null;
+              _logger.warning('⚠️ Skipping transaction with empty type');
+              continue;
+            }
+            
+            // Validate type is one of the allowed values
+            if (!['income', 'expense', 'savings', 'transfer'].contains(t.type.toLowerCase())) {
+              _logger.warning('⚠️ Skipping transaction with invalid type: ${t.type}');
+              continue;
             }
             
             // ✅ Use the fixed helper method
-            return _prepareTransactionForUpload(t, profileId);
-          }).where((data) => data != null).cast<Map<String, dynamic>>().toList();
+            final txData = _prepareTransactionForUpload(t, profileId);
+            batchData.add(txData);
+          }
           
-          _logger.info('📤 Prepared ${batchData.length} valid transactions');
+          _logger.info('📤 Prepared ${batchData.length} valid transactions for upload');
           
           // ✅ Log first transaction for debugging
           if (batchData.isNotEmpty) {
@@ -189,26 +198,62 @@ class UnifiedSyncService with ChangeNotifier {
             // Process in batches for better performance
             for (int i = 0; i < batchData.length; i += _batchSize) {
               final batch = batchData.skip(i).take(_batchSize).toList();
+              
+              _logger.info('📤 Uploading batch ${(i ~/ _batchSize) + 1}/${(batchData.length / _batchSize).ceil()}');
+              
               final response = await _apiClient.syncTransactions(profileId, batch);
               
               _logger.info('📥 Sync response: $response');
               
               if (response['success'] == true) {
-                result.uploaded += response['created'] as int? ?? 0;
-                result.uploaded += response['updated'] as int? ?? 0;
+                final created = response['created'] as int? ?? 0;
+                final updated = response['updated'] as int? ?? 0;
+                result.uploaded += created + updated;
+                
+                _logger.info('✅ Batch uploaded: $created created, $updated updated');
+                
+                // ✅ NEW: Set remoteId on uploaded transactions
+                final createdIds = response['created_ids'] as List? ?? [];
+                if (createdIds.isNotEmpty) {
+                  _logger.info('📌 Tracking ${createdIds.length} created transaction IDs');
+                  for (int j = 0; j < batch.length && j < createdIds.length; j++) {
+                    final batchItem = batch[j];
+                    final remoteId = createdIds[j]?.toString();
+                    if (remoteId != null && batchItem['amount'] != null) {
+                      // Find local transaction by amount and date to set remoteId
+                      final txDate = batchItem['date'];
+                      final txAmount = (batchItem['amount'] as num?)?.toInt();
+                      if (txDate != null && txAmount != null) {
+                        await _offlineDataService.updateTransactionRemoteId(
+                          amount: txAmount,
+                          date: txDate,
+                          profileId: profileId,
+                          remoteId: remoteId,
+                        );
+                      }
+                    }
+                  }
+                }
                 
                 // ✅ Log any errors
                 if (response['errors'] != null && (response['errors'] as List).isNotEmpty) {
                   _logger.warning('⚠️ Sync errors: ${response['errors']}');
+                  
+                  // Log each error in detail
+                  for (final error in (response['errors'] as List)) {
+                    _logger.warning('  - $error');
+                  }
                 }
               } else {
-                _logger.severe('❌ Sync failed: ${response['error'] ?? response['body']}');
+                _logger.severe('❌ Batch sync failed: ${response['error'] ?? response['body']}');
               }
             }
           }
+        } else {
+          _logger.info('No unsynced transactions to upload');
         }
 
-        // STEP 2: Download from server (unchanged)
+        // STEP 2: Download from server
         final remoteTransactions = await _apiClient.getTransactions(profileId: profileId);
         _logger.info('📥 Downloaded ${remoteTransactions.length} transactions from server');
 
@@ -288,29 +333,29 @@ class UnifiedSyncService with ChangeNotifier {
     }
   }
 
-  /// ✅ FIXED: Prepare transaction for upload with correct field names
+  /// ✅ FIXED: Prepare transaction for upload with correct field names and profile_id
   Map<String, dynamic> _prepareTransactionForUpload(Transaction t, String profileId) {
     final data = <String, dynamic>{
-      // ✅ CRITICAL: Must include profile_id for backend validation
+      // ✅ CRITICAL FIX: Must include profile_id for backend validation
       'profile_id': profileId,
       
-      // Core transaction fields
-      'amount': t.amount,
-      'type': t.type,
-      'description': t.description ?? '',
+      // Core transaction fields (REQUIRED by backend)
+      'amount': t.amount,  // Backend expects major units (e.g., 100.50)
+      'type': t.type,      // Must be: 'income', 'expense', 'savings', 'transfer'
+      'description': t.description ?? '',  // Default to empty string
       'date': t.date.toIso8601String(),
       
       // Required fields with defaults
       'is_expense': t.isExpense ?? (t.type == 'expense'),
       'currency': t.currency ?? 'KES',
       'status': t.status ?? 'completed',
-      'is_synced': true,
-      'is_recurring': t.isRecurring,
-      'is_pending': t.isPending,
+      'is_synced': true,  // Mark as synced after upload
+      'is_recurring': t.isRecurring ?? false,
+      'is_pending': t.isPending ?? false,
     };
     
-    // ✅ CRITICAL FIX: Only add optional fields if they have non-null values
-    // This prevents "field may not be null" errors
+    // ✅ CRITICAL FIX: Only add optional fields if they have non-null, non-empty values
+    // This prevents "field may not be null" errors from Django backend
     
     if (t.category != null && t.category!.isNotEmpty) {
       data['category'] = t.category;
@@ -352,10 +397,21 @@ class UnifiedSyncService with ChangeNotifier {
       data['sms_source'] = t.smsSource;
     }
     
+    if (t.notes != null && t.notes!.isNotEmpty) {
+      data['notes'] = t.notes;
+    }
+    
+    if (t.location != null && t.location!.isNotEmpty) {
+      data['location'] = t.location;
+    }
+    
+    // ✅ Add remote_id if it exists (for updates)
+    if (t.remoteId != null && t.remoteId!.isNotEmpty) {
+      data['remote_id'] = t.remoteId;
+    }
+    
     return data;
   }
-
-
 
   /// ✅ NEW: Batch sync goals
   Future<EntitySyncResult> _syncGoalsBatch(String profileId) async {

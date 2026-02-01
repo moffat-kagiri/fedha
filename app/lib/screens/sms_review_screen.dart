@@ -131,20 +131,19 @@ class _SmsReviewScreenState extends State<SmsReviewScreen> with TickerProviderSt
       );
       
       // USE TRANSACTION OPERATIONS HELPER FOR APPROVAL
+      // ✅ FIXED: approvePendingTransaction already saves to DB and emits all events
+      // Do NOT call saveTransaction, onTransactionApproved, or onTransactionCreated again
       final success = await TransactionOperations.approvePendingTransaction(
         pendingTransaction: tx,
         offlineService: dataService,
       );
       
       if (success) {
-        await dataService.saveTransaction(tx);
-        await eventService.onTransactionApproved(tx);
-        await eventService.onTransactionCreated(tx);
-        
-        // Delete from pending
-        if (candidate.id != null) {
-          await dataService.deletePendingTransaction(candidate.id!);
-        }
+        // ❌ REMOVED: await dataService.saveTransaction(tx);
+        // ❌ REMOVED: await eventService.onTransactionApproved(tx);
+        // ❌ REMOVED: await eventService.onTransactionCreated(tx);
+        // ❌ REMOVED: await dataService.deletePendingTransaction(candidate.id!);
+        // All of the above is already handled by approvePendingTransaction()
         
         final updatedCandidate = candidate.copyWith(
           status: TransactionStatus.completed,

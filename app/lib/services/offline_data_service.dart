@@ -101,6 +101,7 @@ class OfflineDataService {
     }
   }
 
+  /// ✅ ENHANCED: Save transaction with better event handling
   Future<void> saveTransaction(dom.Transaction tx) async {
     _validateProfileId(tx.profileId);
     
@@ -112,12 +113,7 @@ class OfflineDataService {
           final existing = await _db.getTransactionById(existingId);
           if (existing != null) {
             await updateTransaction(tx);
-            
-            // Emit created event for new transactions
-            if (_eventService != null) {
-              await _eventService!.onTransactionCreated(tx);
-            }
-            
+            // Event emitted by updateTransaction
             return;
           }
         } catch (e) {
@@ -156,7 +152,7 @@ class OfflineDataService {
     final insertedId = await _db.insertTransaction(companion);
     _logger.info('✅ Transaction saved with ID: $insertedId');
     
-    // Emit created event
+    // ✅ ONLY emit event ONCE per save
     if (_eventService != null) {
       await _eventService!.onTransactionCreated(tx.copyWith(id: insertedId.toString()));
     }
@@ -206,6 +202,64 @@ class OfflineDataService {
     }
   }
 
+  /// ✅ NEW: Update remoteId for a transaction (used after syncing to backend)
+  Future<void> updateTransactionRemoteId({
+    required int amount,
+    required String date,
+    required String profileId,
+    required String remoteId,
+  }) async {
+    try {
+      _validateProfileId(profileId);
+      
+      // Parse the date string to DateTime
+      DateTime dateTime;
+      try {
+        dateTime = DateTime.parse(date);
+      } catch (e) {
+        _logger.warning('Failed to parse date: $date');
+        return;
+      }
+      
+      // Find the transaction by amount, date, and profileId
+      final profileIdInt = _profileIdToInt(profileId);
+      final allTxs = await _db.getAllTransactions();
+      
+      final txs = allTxs
+        .where((t) => 
+          t.amountMinor == amount &&
+          t.profileId == profileIdInt &&
+          t.date.year == dateTime.year &&
+          t.date.month == dateTime.month &&
+          t.date.day == dateTime.day
+        )
+        .toList();
+      
+      if (txs.isEmpty) {
+        _logger.warning('No transaction found for remoteId update: amount=$amount, date=$date');
+        return;
+      }
+      
+      // If multiple transactions match, update the most recent one without a remoteId
+      final txToUpdate = txs.firstWhere(
+        (t) => t.remoteId == null || t.remoteId!.isEmpty,
+        orElse: () => txs.last,
+      );
+      
+      final companion = app_db.TransactionsCompanion(
+        id: Value(txToUpdate.id),
+        remoteId: Value(remoteId),
+        isSynced: Value(true),
+        updatedAt: Value(DateTime.now()),
+      );
+      
+      await _db.updateTransaction(companion);
+      _logger.info('✅ Updated remoteId for transaction ${txToUpdate.id}: $remoteId');
+    } catch (e, stackTrace) {
+      _logger.severe('Error updating transaction remoteId', e, stackTrace);
+    }
+  }
+
   Future<void> deleteTransaction(String id) async {
     final numericId = int.tryParse(id);
     if (numericId == null) {
@@ -224,18 +278,64 @@ class OfflineDataService {
     }
   }
 
+  /// ✅ FIXED: Approve pending transaction without duplication
   Future<void> approvePendingTransaction(dom.Transaction tx) async {
-    final mainTransaction = tx.copyWith(isPending: false);
-    
-    await saveTransaction(mainTransaction);
-    await _db.deletePending(tx.id ?? '');
-    
-    if (_eventService != null) {
-      await _eventService!.onTransactionApproved(mainTransaction);
-      _logger.info('📢 Transaction approved event emitted');
+    try {
+      _logger.info('📝 Approving pending transaction: ${tx.id}');
+      
+      // ✅ FIX: Check if this transaction already exists (prevent duplicates)
+      if (tx.id != null && tx.id!.isNotEmpty) {
+        try {
+          final existingId = int.tryParse(tx.id!);
+          if (existingId != null) {
+            final existing = await _db.getTransactionById(existingId);
+            if (existing != null) {
+              _logger.warning('⚠️ Transaction ${tx.id} already exists - updating instead');
+              
+              // Update existing transaction to mark as not pending
+              final updatedTx = tx.copyWith(isPending: false);
+              await updateTransaction(updatedTx);
+              await _db.deletePending(tx.id!);
+              
+              // ✅ FIX: Use onTransactionUpdated instead of onTransactionApproved
+              // This prevents double-save via _handleTransactionAdded
+              if (_eventService != null) {
+                await _eventService!.onTransactionUpdated(updatedTx);
+              }
+              
+              _logger.info('✅ Existing transaction updated and approved');
+              return;
+            }
+          }
+        } catch (e) {
+          _logger.info('Transaction not found, creating new one');
+        }
+      }
+      
+      // ✅ FIX: Create new transaction with a fresh ID to avoid conflicts
+      final approvedTransaction = tx.copyWith(
+        id: null,  // Let the database assign a new ID
+        isPending: false,
+        isSynced: false,
+        updatedAt: DateTime.now(),
+      );
+      
+      // Save the transaction (this will get a new ID from database)
+      await saveTransaction(approvedTransaction);
+      
+      // Delete the pending record
+      await _db.deletePending(tx.id ?? '');
+      
+      // ✅ FIX: DO NOT emit onTransactionApproved event
+      // The saveTransaction() method already calls onTransactionCreated()
+      // which handles all the budget/goal updates
+      
+      _logger.info('✅ Pending transaction approved and saved (no duplication)');
+      
+    } catch (e, stackTrace) {
+      _logger.severe('Error approving pending transaction', e, stackTrace);
+      rethrow;
     }
-    
-    _logger.info('✅ Pending transaction approved and saved');
   }
 
   Future<List<dom.Transaction>> getAllTransactions(String profileId) async {
