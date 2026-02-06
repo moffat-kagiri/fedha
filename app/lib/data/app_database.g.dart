@@ -271,6 +271,32 @@ class $TransactionsTable extends Transactions
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _isDeletedMeta = const VerificationMeta(
+    'isDeleted',
+  );
+  @override
+  late final GeneratedColumn<bool> isDeleted = GeneratedColumn<bool>(
+    'is_deleted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_deleted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -320,6 +346,8 @@ class $TransactionsTable extends Transactions
     isRecurring,
     isSynced,
     remoteId,
+    isDeleted,
+    deletedAt,
     createdAt,
     updatedAt,
   ];
@@ -486,6 +514,18 @@ class $TransactionsTable extends Transactions
         remoteId.isAcceptableOrUnknown(data['remote_id']!, _remoteIdMeta),
       );
     }
+    if (data.containsKey('is_deleted')) {
+      context.handle(
+        _isDeletedMeta,
+        isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
+      );
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
     if (data.containsKey('created_at')) {
       context.handle(
         _createdAtMeta,
@@ -601,6 +641,14 @@ class $TransactionsTable extends Transactions
         DriftSqlType.string,
         data['${effectivePrefix}remote_id'],
       ),
+      isDeleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_deleted'],
+      )!,
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}deleted_at'],
+      ),
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
@@ -645,6 +693,8 @@ class Transaction extends DataClass implements Insertable<Transaction> {
   final bool isRecurring;
   final bool isSynced;
   final String? remoteId;
+  final bool isDeleted;
+  final DateTime? deletedAt;
   final DateTime createdAt;
   final DateTime updatedAt;
   const Transaction({
@@ -671,6 +721,8 @@ class Transaction extends DataClass implements Insertable<Transaction> {
     required this.isRecurring,
     required this.isSynced,
     this.remoteId,
+    required this.isDeleted,
+    this.deletedAt,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -724,6 +776,10 @@ class Transaction extends DataClass implements Insertable<Transaction> {
     if (!nullToAbsent || remoteId != null) {
       map['remote_id'] = Variable<String>(remoteId);
     }
+    map['is_deleted'] = Variable<bool>(isDeleted);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
     return map;
@@ -772,6 +828,10 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       remoteId: remoteId == null && nullToAbsent
           ? const Value.absent()
           : Value(remoteId),
+      isDeleted: Value(isDeleted),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
     );
@@ -806,6 +866,8 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       isRecurring: serializer.fromJson<bool>(json['isRecurring']),
       isSynced: serializer.fromJson<bool>(json['isSynced']),
       remoteId: serializer.fromJson<String?>(json['remoteId']),
+      isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
     );
@@ -837,6 +899,8 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       'isRecurring': serializer.toJson<bool>(isRecurring),
       'isSynced': serializer.toJson<bool>(isSynced),
       'remoteId': serializer.toJson<String?>(remoteId),
+      'isDeleted': serializer.toJson<bool>(isDeleted),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
     };
@@ -866,6 +930,8 @@ class Transaction extends DataClass implements Insertable<Transaction> {
     bool? isRecurring,
     bool? isSynced,
     Value<String?> remoteId = const Value.absent(),
+    bool? isDeleted,
+    Value<DateTime?> deletedAt = const Value.absent(),
     DateTime? createdAt,
     DateTime? updatedAt,
   }) => Transaction(
@@ -898,6 +964,8 @@ class Transaction extends DataClass implements Insertable<Transaction> {
     isRecurring: isRecurring ?? this.isRecurring,
     isSynced: isSynced ?? this.isSynced,
     remoteId: remoteId.present ? remoteId.value : this.remoteId,
+    isDeleted: isDeleted ?? this.isDeleted,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
   );
@@ -940,6 +1008,8 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           : this.isRecurring,
       isSynced: data.isSynced.present ? data.isSynced.value : this.isSynced,
       remoteId: data.remoteId.present ? data.remoteId.value : this.remoteId,
+      isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
@@ -971,6 +1041,8 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           ..write('isRecurring: $isRecurring, ')
           ..write('isSynced: $isSynced, ')
           ..write('remoteId: $remoteId, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('deletedAt: $deletedAt, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
@@ -1002,6 +1074,8 @@ class Transaction extends DataClass implements Insertable<Transaction> {
     isRecurring,
     isSynced,
     remoteId,
+    isDeleted,
+    deletedAt,
     createdAt,
     updatedAt,
   ]);
@@ -1032,6 +1106,8 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           other.isRecurring == this.isRecurring &&
           other.isSynced == this.isSynced &&
           other.remoteId == this.remoteId &&
+          other.isDeleted == this.isDeleted &&
+          other.deletedAt == this.deletedAt &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt);
 }
@@ -1060,6 +1136,8 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
   final Value<bool> isRecurring;
   final Value<bool> isSynced;
   final Value<String?> remoteId;
+  final Value<bool> isDeleted;
+  final Value<DateTime?> deletedAt;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
   const TransactionsCompanion({
@@ -1086,6 +1164,8 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     this.isRecurring = const Value.absent(),
     this.isSynced = const Value.absent(),
     this.remoteId = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.deletedAt = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
   });
@@ -1113,6 +1193,8 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     this.isRecurring = const Value.absent(),
     this.isSynced = const Value.absent(),
     this.remoteId = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.deletedAt = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
   }) : amountMinor = Value(amountMinor),
@@ -1142,6 +1224,8 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     Expression<bool>? isRecurring,
     Expression<bool>? isSynced,
     Expression<String>? remoteId,
+    Expression<bool>? isDeleted,
+    Expression<DateTime>? deletedAt,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
   }) {
@@ -1169,6 +1253,8 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
       if (isRecurring != null) 'is_recurring': isRecurring,
       if (isSynced != null) 'is_synced': isSynced,
       if (remoteId != null) 'remote_id': remoteId,
+      if (isDeleted != null) 'is_deleted': isDeleted,
+      if (deletedAt != null) 'deleted_at': deletedAt,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
     });
@@ -1198,6 +1284,8 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     Value<bool>? isRecurring,
     Value<bool>? isSynced,
     Value<String?>? remoteId,
+    Value<bool>? isDeleted,
+    Value<DateTime?>? deletedAt,
     Value<DateTime>? createdAt,
     Value<DateTime>? updatedAt,
   }) {
@@ -1225,6 +1313,8 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
       isRecurring: isRecurring ?? this.isRecurring,
       isSynced: isSynced ?? this.isSynced,
       remoteId: remoteId ?? this.remoteId,
+      isDeleted: isDeleted ?? this.isDeleted,
+      deletedAt: deletedAt ?? this.deletedAt,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -1304,6 +1394,12 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     if (remoteId.present) {
       map['remote_id'] = Variable<String>(remoteId.value);
     }
+    if (isDeleted.present) {
+      map['is_deleted'] = Variable<bool>(isDeleted.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -1339,6 +1435,8 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
           ..write('isRecurring: $isRecurring, ')
           ..write('isSynced: $isSynced, ')
           ..write('remoteId: $remoteId, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('deletedAt: $deletedAt, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
@@ -2320,6 +2418,32 @@ class $LoansTable extends Loans with TableInfo<$LoansTable, Loan> {
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _isDeletedMeta = const VerificationMeta(
+    'isDeleted',
+  );
+  @override
+  late final GeneratedColumn<bool> isDeleted = GeneratedColumn<bool>(
+    'is_deleted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_deleted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _remoteIdMeta = const VerificationMeta(
     'remoteId',
   );
@@ -2368,6 +2492,8 @@ class $LoansTable extends Loans with TableInfo<$LoansTable, Loan> {
     profileId,
     description,
     isSynced,
+    isDeleted,
+    deletedAt,
     remoteId,
     createdAt,
     updatedAt,
@@ -2471,6 +2597,18 @@ class $LoansTable extends Loans with TableInfo<$LoansTable, Loan> {
         isSynced.isAcceptableOrUnknown(data['is_synced']!, _isSyncedMeta),
       );
     }
+    if (data.containsKey('is_deleted')) {
+      context.handle(
+        _isDeletedMeta,
+        isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
+      );
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
     if (data.containsKey('remote_id')) {
       context.handle(
         _remoteIdMeta,
@@ -2542,6 +2680,14 @@ class $LoansTable extends Loans with TableInfo<$LoansTable, Loan> {
         DriftSqlType.bool,
         data['${effectivePrefix}is_synced'],
       )!,
+      isDeleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_deleted'],
+      )!,
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}deleted_at'],
+      ),
       remoteId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}remote_id'],
@@ -2575,6 +2721,8 @@ class Loan extends DataClass implements Insertable<Loan> {
   final int profileId;
   final String? description;
   final bool isSynced;
+  final bool isDeleted;
+  final DateTime? deletedAt;
   final String? remoteId;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -2590,6 +2738,8 @@ class Loan extends DataClass implements Insertable<Loan> {
     required this.profileId,
     this.description,
     required this.isSynced,
+    required this.isDeleted,
+    this.deletedAt,
     this.remoteId,
     required this.createdAt,
     required this.updatedAt,
@@ -2610,6 +2760,10 @@ class Loan extends DataClass implements Insertable<Loan> {
       map['description'] = Variable<String>(description);
     }
     map['is_synced'] = Variable<bool>(isSynced);
+    map['is_deleted'] = Variable<bool>(isDeleted);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
     if (!nullToAbsent || remoteId != null) {
       map['remote_id'] = Variable<String>(remoteId);
     }
@@ -2633,6 +2787,10 @@ class Loan extends DataClass implements Insertable<Loan> {
           ? const Value.absent()
           : Value(description),
       isSynced: Value(isSynced),
+      isDeleted: Value(isDeleted),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
       remoteId: remoteId == null && nullToAbsent
           ? const Value.absent()
           : Value(remoteId),
@@ -2658,6 +2816,8 @@ class Loan extends DataClass implements Insertable<Loan> {
       profileId: serializer.fromJson<int>(json['profileId']),
       description: serializer.fromJson<String?>(json['description']),
       isSynced: serializer.fromJson<bool>(json['isSynced']),
+      isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
       remoteId: serializer.fromJson<String?>(json['remoteId']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
@@ -2678,6 +2838,8 @@ class Loan extends DataClass implements Insertable<Loan> {
       'profileId': serializer.toJson<int>(profileId),
       'description': serializer.toJson<String?>(description),
       'isSynced': serializer.toJson<bool>(isSynced),
+      'isDeleted': serializer.toJson<bool>(isDeleted),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
       'remoteId': serializer.toJson<String?>(remoteId),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
@@ -2696,6 +2858,8 @@ class Loan extends DataClass implements Insertable<Loan> {
     int? profileId,
     Value<String?> description = const Value.absent(),
     bool? isSynced,
+    bool? isDeleted,
+    Value<DateTime?> deletedAt = const Value.absent(),
     Value<String?> remoteId = const Value.absent(),
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -2711,6 +2875,8 @@ class Loan extends DataClass implements Insertable<Loan> {
     profileId: profileId ?? this.profileId,
     description: description.present ? description.value : this.description,
     isSynced: isSynced ?? this.isSynced,
+    isDeleted: isDeleted ?? this.isDeleted,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
     remoteId: remoteId.present ? remoteId.value : this.remoteId,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
@@ -2736,6 +2902,8 @@ class Loan extends DataClass implements Insertable<Loan> {
           ? data.description.value
           : this.description,
       isSynced: data.isSynced.present ? data.isSynced.value : this.isSynced,
+      isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
       remoteId: data.remoteId.present ? data.remoteId.value : this.remoteId,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
@@ -2756,6 +2924,8 @@ class Loan extends DataClass implements Insertable<Loan> {
           ..write('profileId: $profileId, ')
           ..write('description: $description, ')
           ..write('isSynced: $isSynced, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('deletedAt: $deletedAt, ')
           ..write('remoteId: $remoteId, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt')
@@ -2776,6 +2946,8 @@ class Loan extends DataClass implements Insertable<Loan> {
     profileId,
     description,
     isSynced,
+    isDeleted,
+    deletedAt,
     remoteId,
     createdAt,
     updatedAt,
@@ -2795,6 +2967,8 @@ class Loan extends DataClass implements Insertable<Loan> {
           other.profileId == this.profileId &&
           other.description == this.description &&
           other.isSynced == this.isSynced &&
+          other.isDeleted == this.isDeleted &&
+          other.deletedAt == this.deletedAt &&
           other.remoteId == this.remoteId &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt);
@@ -2812,6 +2986,8 @@ class LoansCompanion extends UpdateCompanion<Loan> {
   final Value<int> profileId;
   final Value<String?> description;
   final Value<bool> isSynced;
+  final Value<bool> isDeleted;
+  final Value<DateTime?> deletedAt;
   final Value<String?> remoteId;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
@@ -2827,6 +3003,8 @@ class LoansCompanion extends UpdateCompanion<Loan> {
     this.profileId = const Value.absent(),
     this.description = const Value.absent(),
     this.isSynced = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.deletedAt = const Value.absent(),
     this.remoteId = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
@@ -2843,6 +3021,8 @@ class LoansCompanion extends UpdateCompanion<Loan> {
     required int profileId,
     this.description = const Value.absent(),
     this.isSynced = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.deletedAt = const Value.absent(),
     this.remoteId = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
@@ -2864,6 +3044,8 @@ class LoansCompanion extends UpdateCompanion<Loan> {
     Expression<int>? profileId,
     Expression<String>? description,
     Expression<bool>? isSynced,
+    Expression<bool>? isDeleted,
+    Expression<DateTime>? deletedAt,
     Expression<String>? remoteId,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
@@ -2880,6 +3062,8 @@ class LoansCompanion extends UpdateCompanion<Loan> {
       if (profileId != null) 'profile_id': profileId,
       if (description != null) 'description': description,
       if (isSynced != null) 'is_synced': isSynced,
+      if (isDeleted != null) 'is_deleted': isDeleted,
+      if (deletedAt != null) 'deleted_at': deletedAt,
       if (remoteId != null) 'remote_id': remoteId,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
@@ -2898,6 +3082,8 @@ class LoansCompanion extends UpdateCompanion<Loan> {
     Value<int>? profileId,
     Value<String?>? description,
     Value<bool>? isSynced,
+    Value<bool>? isDeleted,
+    Value<DateTime?>? deletedAt,
     Value<String?>? remoteId,
     Value<DateTime>? createdAt,
     Value<DateTime>? updatedAt,
@@ -2914,6 +3100,8 @@ class LoansCompanion extends UpdateCompanion<Loan> {
       profileId: profileId ?? this.profileId,
       description: description ?? this.description,
       isSynced: isSynced ?? this.isSynced,
+      isDeleted: isDeleted ?? this.isDeleted,
+      deletedAt: deletedAt ?? this.deletedAt,
       remoteId: remoteId ?? this.remoteId,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -2956,6 +3144,12 @@ class LoansCompanion extends UpdateCompanion<Loan> {
     if (isSynced.present) {
       map['is_synced'] = Variable<bool>(isSynced.value);
     }
+    if (isDeleted.present) {
+      map['is_deleted'] = Variable<bool>(isDeleted.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
     if (remoteId.present) {
       map['remote_id'] = Variable<String>(remoteId.value);
     }
@@ -2982,6 +3176,8 @@ class LoansCompanion extends UpdateCompanion<Loan> {
           ..write('profileId: $profileId, ')
           ..write('description: $description, ')
           ..write('isSynced: $isSynced, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('deletedAt: $deletedAt, ')
           ..write('remoteId: $remoteId, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt')
@@ -4600,6 +4796,8 @@ typedef $$TransactionsTableCreateCompanionBuilder =
       Value<bool> isRecurring,
       Value<bool> isSynced,
       Value<String?> remoteId,
+      Value<bool> isDeleted,
+      Value<DateTime?> deletedAt,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
     });
@@ -4628,6 +4826,8 @@ typedef $$TransactionsTableUpdateCompanionBuilder =
       Value<bool> isRecurring,
       Value<bool> isSynced,
       Value<String?> remoteId,
+      Value<bool> isDeleted,
+      Value<DateTime?> deletedAt,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
     });
@@ -4754,6 +4954,16 @@ class $$TransactionsTableFilterComposer
 
   ColumnFilters<String> get remoteId => $composableBuilder(
     column: $table.remoteId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -4892,6 +5102,16 @@ class $$TransactionsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
@@ -4996,6 +5216,12 @@ class $$TransactionsTableAnnotationComposer
   GeneratedColumn<String> get remoteId =>
       $composableBuilder(column: $table.remoteId, builder: (column) => column);
 
+  GeneratedColumn<bool> get isDeleted =>
+      $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
 
@@ -5057,6 +5283,8 @@ class $$TransactionsTableTableManager
                 Value<bool> isRecurring = const Value.absent(),
                 Value<bool> isSynced = const Value.absent(),
                 Value<String?> remoteId = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
               }) => TransactionsCompanion(
@@ -5083,6 +5311,8 @@ class $$TransactionsTableTableManager
                 isRecurring: isRecurring,
                 isSynced: isSynced,
                 remoteId: remoteId,
+                isDeleted: isDeleted,
+                deletedAt: deletedAt,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
               ),
@@ -5111,6 +5341,8 @@ class $$TransactionsTableTableManager
                 Value<bool> isRecurring = const Value.absent(),
                 Value<bool> isSynced = const Value.absent(),
                 Value<String?> remoteId = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
               }) => TransactionsCompanion.insert(
@@ -5137,6 +5369,8 @@ class $$TransactionsTableTableManager
                 isRecurring: isRecurring,
                 isSynced: isSynced,
                 remoteId: remoteId,
+                isDeleted: isDeleted,
+                deletedAt: deletedAt,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
               ),
@@ -5563,6 +5797,8 @@ typedef $$LoansTableCreateCompanionBuilder =
       required int profileId,
       Value<String?> description,
       Value<bool> isSynced,
+      Value<bool> isDeleted,
+      Value<DateTime?> deletedAt,
       Value<String?> remoteId,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
@@ -5580,6 +5816,8 @@ typedef $$LoansTableUpdateCompanionBuilder =
       Value<int> profileId,
       Value<String?> description,
       Value<bool> isSynced,
+      Value<bool> isDeleted,
+      Value<DateTime?> deletedAt,
       Value<String?> remoteId,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
@@ -5645,6 +5883,16 @@ class $$LoansTableFilterComposer extends Composer<_$AppDatabase, $LoansTable> {
 
   ColumnFilters<bool> get isSynced => $composableBuilder(
     column: $table.isSynced,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -5728,6 +5976,16 @@ class $$LoansTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get remoteId => $composableBuilder(
     column: $table.remoteId,
     builder: (column) => ColumnOrderings(column),
@@ -5794,6 +6052,12 @@ class $$LoansTableAnnotationComposer
   GeneratedColumn<bool> get isSynced =>
       $composableBuilder(column: $table.isSynced, builder: (column) => column);
 
+  GeneratedColumn<bool> get isDeleted =>
+      $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
   GeneratedColumn<String> get remoteId =>
       $composableBuilder(column: $table.remoteId, builder: (column) => column);
 
@@ -5843,6 +6107,8 @@ class $$LoansTableTableManager
                 Value<int> profileId = const Value.absent(),
                 Value<String?> description = const Value.absent(),
                 Value<bool> isSynced = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
                 Value<String?> remoteId = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
@@ -5858,6 +6124,8 @@ class $$LoansTableTableManager
                 profileId: profileId,
                 description: description,
                 isSynced: isSynced,
+                isDeleted: isDeleted,
+                deletedAt: deletedAt,
                 remoteId: remoteId,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
@@ -5875,6 +6143,8 @@ class $$LoansTableTableManager
                 required int profileId,
                 Value<String?> description = const Value.absent(),
                 Value<bool> isSynced = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
                 Value<String?> remoteId = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
@@ -5890,6 +6160,8 @@ class $$LoansTableTableManager
                 profileId: profileId,
                 description: description,
                 isSynced: isSynced,
+                isDeleted: isDeleted,
+                deletedAt: deletedAt,
                 remoteId: remoteId,
                 createdAt: createdAt,
                 updatedAt: updatedAt,

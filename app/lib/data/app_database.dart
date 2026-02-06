@@ -52,6 +52,10 @@ class Transactions extends Table {
   BoolColumn get isSynced => boolean().withDefault(const Constant(false))();
   TextColumn get remoteId => text().nullable()();
   
+  // ✅ NEW: Soft-delete fields for delete feature
+  BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
+  DateTimeColumn get deletedAt => dateTime().nullable()();
+  
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
 }
@@ -100,6 +104,8 @@ class Loans extends Table {
   TextColumn get description => text().nullable()();
   
   BoolColumn get isSynced => boolean().withDefault(const Constant(false))();
+  BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
+  DateTimeColumn get deletedAt => dateTime().nullable()();
   TextColumn get remoteId => text().nullable()();
   
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
