@@ -67,10 +67,11 @@ class LoanSerializer(serializers.ModelSerializer):
             'principal_amount', 'currency',
             'interest_rate', 'interest_model',
             'start_date', 'end_date',
-            'is_synced', 'created_at', 'updated_at',
+            'is_synced', 'is_deleted', 'deleted_at',
+            'created_at', 'updated_at',
             'is_active', 'total_interest', 'total_amount'
         ]
-        read_only_fields = ['id', 'profile', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'profile', 'created_at', 'updated_at', 'is_deleted', 'deleted_at']
     
     def get_total_interest(self, obj):
         """Get calculated total interest."""

@@ -22,6 +22,7 @@ class TransactionSerializer(serializers.ModelSerializer):
             'is_expense', 'is_pending', 'is_recurring', 'is_synced',
             'tags', 'merchant_name', 'merchant_category',
             'location', 'latitude', 'longitude', 'budget_id', 'remote_id',
+            'is_deleted', 'deleted_at',  # ✅ Include soft-delete fields
             'reference', 'recipient', 'sms_source', 'recurring_pattern'
         ]
         read_only_fields = [

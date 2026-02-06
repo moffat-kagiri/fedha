@@ -90,13 +90,13 @@ class LoanViewSet(viewsets.ModelViewSet):
     ordering = ['-start_date']
     
     def get_queryset(self):
-        """Return loans for current user."""
+        """Return loans for current user (excluding soft-deleted)."""
         # Handle both User and Profile objects (authentication may set user to profile directly)
         if isinstance(self.request.user, Profile):
             user_profile = self.request.user
         else:
             user_profile = self.request.user.profile
-        queryset = Loan.objects.filter(profile=user_profile)
+        queryset = Loan.objects.filter(profile=user_profile, is_deleted=False)
         
         # Validate profile_id if provided (must own this profile)
         profile_id = self.request.query_params.get('profile_id')
@@ -104,7 +104,7 @@ class LoanViewSet(viewsets.ModelViewSet):
             # Security: Ensure user owns this profile
             if str(user_profile.id) != str(profile_id):
                 return Loan.objects.none()
-            queryset = queryset.filter(profile_id=profile_id)
+            queryset = queryset.filter(profile_id=profile_id, is_deleted=False)
         
         return queryset
     
@@ -176,4 +176,40 @@ class LoanViewSet(viewsets.ModelViewSet):
             'updated': updated_count,
             'errors': errors
         }, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=['post'])
+    def batch_delete(self, request):
+        """Batch soft-delete loans (mark as deleted, preserve data)."""
+        loan_ids = request.data.get('ids', []) if isinstance(request.data, dict) else []
+        user_profile = request.user if isinstance(request.user, Profile) else request.user.profile
+        
+        if not loan_ids:
+            return Response({
+                'success': False,
+                'error': 'No loan IDs provided',
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        from django.utils import timezone
+        
+        deleted_count = 0
+        errors = []
+        
+        for loan_id in loan_ids:
+            try:
+                loan = Loan.objects.get(id=loan_id, profile=user_profile)
+                loan.is_deleted = True
+                loan.deleted_at = timezone.now()
+                loan.save()
+                deleted_count += 1
+            except Loan.DoesNotExist:
+                errors.append({'id': loan_id, 'error': 'Loan not found'})
+            except Exception as e:
+                errors.append({'id': loan_id, 'error': str(e)})
+        
+        return Response({
+            'success': True,
+            'deleted': deleted_count,
+            'errors': errors
+        }, status=status.HTTP_200_OK)
+
 

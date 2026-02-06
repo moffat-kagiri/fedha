@@ -5,7 +5,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
-from django.db.models import Sum, Q
+from django.db.models import Sum, Q, QuerySet
 from django.utils import timezone
 from datetime import timedelta
 from .models import Transaction, PendingTransaction, TransactionType, TransactionStatus
@@ -37,24 +37,33 @@ class TransactionViewSet(viewsets.ModelViewSet):
         context['request'] = self.request
         return context
     
-    def get_queryset(self):
-        """Return transactions for current user with date filtering."""
-        # Get user's profile
-        try:
-            user_profile = self.request.user.profile
-        except (Profile.DoesNotExist, AttributeError):
-            # If no profile exists, return empty queryset
-            return Transaction.objects.none()
+    def get_queryset(self) -> 'QuerySet[Transaction]':
+        """Return transactions for current user with date filtering.
         
-        queryset = Transaction.objects.filter(profile=user_profile)
-        
-        # Validate profile_id if provided (must own this profile)
+        CRITICAL FIX: request.user IS the Profile (AUTH_USER_MODEL='accounts.Profile')
+        NOT request.user.profile - Profile IS the custom user model itself.
+        """
+        # ✅ FIX: request.user IS the Profile (custom auth model)
+        user_profile = self.request.user
         profile_id = self.request.query_params.get('profile_id')
+        
+        # 🔍 DEBUG: Log query execution details
+        print(f"\n🔍 GET /api/transactions/ EXECUTION:")
+        print(f"  📱 Current user (request.user): {user_profile}")
+        print(f"  📱 Current user ID: {user_profile.id if user_profile else 'None'}")
+        print(f"  🔎 Query param profile_id: {profile_id}")
+        
+        # Filter: User's transactions that are NOT soft-deleted
+        queryset = Transaction.objects.filter(profile=user_profile, is_deleted=False)
+        print(f"  📊 After basic filter (profile={user_profile.id}, is_deleted=False): {queryset.count()} txns")
+        
+        # Security check: Validate profile_id parameter if provided
         if profile_id:
-            # Security: Ensure user owns this profile
             if str(user_profile.id) != str(profile_id):
+                print(f"  ❌ SECURITY: User {user_profile.id} != requested {profile_id}")
                 return Transaction.objects.none()
             queryset = queryset.filter(profile_id=profile_id)
+            print(f"  ✅ Profile validation passed")
         
         # Date range filtering
         start_date = self.request.query_params.get('start_date')
@@ -314,17 +323,26 @@ class TransactionViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['post'])
     def batch_update(self, request):
-        """Batch update transactions from mobile app."""
+        """✅ REFINED: Batch update transactions from mobile app.
+        
+        Request format:
+        [
+            {'id': uuid, 'amount': 100, 'type': 'expense', 'description': '...', ...},
+            {'id': uuid, 'category': 'food', ...},
+        ]
+        
+        Response:
+        {'success': true, 'updated': N, 'errors': [...], 'failed_ids': [...]}
+        """
         import logging
-        import json
-        import traceback
+        from django.utils import timezone
         
         logger = logging.getLogger('transactions')
-        logger.info("========== TRANSACTION BATCH_UPDATE DEBUG ==========")
+        logger.info("========== TRANSACTION BATCH_UPDATE ==========")
         
         try:
             transactions_data = request.data if isinstance(request.data, list) else []
-            logger.info(f"Received {len(transactions_data)} transactions to update")
+            logger.info(f"📝 Received {len(transactions_data)} transactions to update")
             
             if not transactions_data:
                 return Response({
@@ -335,16 +353,27 @@ class TransactionViewSet(viewsets.ModelViewSet):
             user_profile = request.user if isinstance(request.user, Profile) else request.user.profile
             updated_count = 0
             errors = []
+            failed_ids = []
             
             for idx, transaction_data in enumerate(transactions_data):
                 try:
                     transaction_id = transaction_data.get('id')
                     if not transaction_id:
-                        errors.append({'error': 'Transaction ID required for update'})
+                        errors.append({
+                            'index': idx,
+                            'error': 'Transaction ID required for update'
+                        })
                         continue
                     
                     try:
-                        transaction = Transaction.objects.get(id=transaction_id, profile=user_profile)
+                        # ✅ Only update non-deleted transactions
+                        transaction = Transaction.objects.get(
+                            id=transaction_id, 
+                            profile=user_profile,
+                            is_deleted=False  # Don't update soft-deleted
+                        )
+                        
+                        logger.info(f"Processing update for {transaction_id}")
                         
                         serializer = TransactionSerializer(
                             transaction,
@@ -354,24 +383,31 @@ class TransactionViewSet(viewsets.ModelViewSet):
                         )
                         
                         if serializer.is_valid():
-                            serializer.save(profile=user_profile)
+                            # ✅ Explicitly set updated_at to current time
+                            serializer.save(
+                                profile=user_profile,
+                                updated_at=timezone.now()
+                            )
                             updated_count += 1
-                            logger.info(f"✅ Updated transaction {transaction_id}")
+                            logger.info(f"✅ Updated transaction {transaction_id}: {transaction_data}")
                         else:
                             logger.error(f"Validation failed: {serializer.errors}")
+                            failed_ids.append(transaction_id)
                             errors.append({
                                 'id': transaction_id,
                                 'errors': serializer.errors
                             })
                     except Transaction.DoesNotExist:
-                        logger.error(f"Transaction {transaction_id} not found")
+                        logger.error(f"Transaction {transaction_id} not found or deleted")
+                        failed_ids.append(transaction_id)
                         errors.append({
                             'id': transaction_id,
-                            'error': 'Transaction not found'
+                            'error': 'Transaction not found or already deleted'
                         })
                         
                 except Exception as e:
                     logger.exception(f"Error updating transaction: {str(e)}")
+                    failed_ids.append(transaction_data.get('id'))
                     errors.append({
                         'id': transaction_data.get('id'),
                         'error': str(e)
@@ -380,9 +416,11 @@ class TransactionViewSet(viewsets.ModelViewSet):
             logger.info(f"✅ BATCH_UPDATE COMPLETE: {updated_count} updated, {len(errors)} errors")
             
             return Response({
-                'success': True,
+                'success': len(failed_ids) == 0,
                 'updated': updated_count,
-                'errors': errors
+                'failed_count': len(failed_ids),
+                'failed_ids': failed_ids,
+                'errors': errors if errors else None
             }, status=status.HTTP_200_OK)
             
         except Exception as e:
@@ -394,51 +432,97 @@ class TransactionViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['post'])
     def batch_delete(self, request):
-        """Batch delete transactions from mobile app."""
+        """✅ REFINED: Batch delete transactions with soft-delete support.
+        
+        Request format:
+        {
+            'transaction_ids': [uuid1, uuid2, ...],
+            'profile_id': uuid  # Optional, for validation
+        }
+        
+        Response:
+        {'success': true, 'deleted': N, 'soft_deleted': N, 'errors': [...], 'failed_ids': [...]}
+        
+        ✅ Uses SOFT DELETE: Sets is_deleted=True, deleted_at=now()
+        ✅ Data is preserved for audit trail
+        ✅ GET queries automatically exclude soft-deleted
+        ✅ Can be synced to frontend as deletion signal
+        """
         import logging
+        from django.utils import timezone
         
         logger = logging.getLogger('transactions')
-        logger.info("========== TRANSACTION BATCH_DELETE DEBUG ==========")
+        logger.info("========== TRANSACTION BATCH_DELETE (SOFT) ==========")
         
         try:
-            transaction_ids = request.data.get('ids', [])
-            logger.info(f"Received request to delete {len(transaction_ids)} transactions")
+            # Support both 'ids' and 'transaction_ids' parameter names
+            transaction_ids = request.data.get('transaction_ids') or request.data.get('ids', [])
+            logger.info(f"🗑️ Received request to delete {len(transaction_ids)} transactions")
             
             if not transaction_ids:
                 return Response({
                     'success': False,
-                    'error': 'No transaction IDs provided',
+                    'error': 'No transaction IDs provided (use transaction_ids or ids)',
                 }, status=status.HTTP_400_BAD_REQUEST)
             
             user_profile = request.user if isinstance(request.user, Profile) else request.user.profile
             deleted_count = 0
+            already_deleted = 0
             errors = []
+            failed_ids = []
+            now = timezone.now()
             
             for tx_id in transaction_ids:
                 try:
+                    # ✅ SOFT DELETE: Don't actually delete, just mark as deleted
                     transaction = Transaction.objects.get(id=tx_id, profile=user_profile)
-                    transaction.delete()
+                    
+                    if transaction.is_deleted:
+                        # Already soft-deleted, count separately
+                        already_deleted += 1
+                        logger.info(f"ℹ️ Transaction {tx_id} already soft-deleted")
+                        continue
+                    
+                    # Perform soft delete
+                    transaction.is_deleted = True
+                    transaction.deleted_at = now
+                    transaction.save(update_fields=['is_deleted', 'deleted_at', 'updated_at'])
+                    
                     deleted_count += 1
-                    logger.info(f"✅ Deleted transaction {tx_id}")
+                    logger.info(f"✅ Soft-deleted transaction {tx_id} at {now}")
+                    
                 except Transaction.DoesNotExist:
                     logger.error(f"Transaction {tx_id} not found")
+                    failed_ids.append(tx_id)
                     errors.append({
                         'id': tx_id,
                         'error': 'Transaction not found'
                     })
                 except Exception as e:
                     logger.exception(f"Error deleting transaction {tx_id}: {str(e)}")
+                    failed_ids.append(tx_id)
                     errors.append({
                         'id': tx_id,
                         'error': str(e)
                     })
             
-            logger.info(f"✅ BATCH_DELETE COMPLETE: {deleted_count} deleted, {len(errors)} errors")
+            logger.info(
+                f"✅ BATCH_DELETE COMPLETE: "
+                f"soft_deleted={deleted_count}, "
+                f"already_deleted={already_deleted}, "
+                f"failed={len(failed_ids)}, "
+                f"errors={len(errors)}"
+            )
             
             return Response({
-                'success': True,
+                'success': len(failed_ids) == 0,
                 'deleted': deleted_count,
-                'errors': errors
+                'soft_deleted': deleted_count,  # ← Clarify it's soft delete
+                'already_deleted': already_deleted,
+                'failed_count': len(failed_ids),
+                'failed_ids': failed_ids,
+                'errors': errors if errors else None,
+                'note': 'Transactions are soft-deleted (marked as deleted, data preserved)'
             }, status=status.HTTP_200_OK)
             
         except Exception as e:
