@@ -30,18 +30,31 @@ class TransactionOperations {
   }
 
   /// Update an existing transaction
-  /// ✅ Events are emitted by OfflineDataService.updateTransaction()
+  /// ✅ NEW BEHAVIOR (v2):
+  /// 1. Delete old transaction from local storage (hard delete)
+  /// 2. Mark old transaction as deleted in sync queue (soft delete for PostgreSQL)
+  /// 3. Create new transaction with updated values and new ID
+  /// This prevents duplicates and ensures proper sync behavior
   static Future<bool> updateTransaction({
     required Transaction transaction,
     required OfflineDataService offlineService,
+    required Transaction oldTransaction,
   }) async {
     try {
-      // Update transaction - this will emit the updated event automatically
-      await offlineService.updateTransaction(transaction);
-      _logger.info('✅ Transaction updated: ${transaction.id}');
+      // Step 1: Mark old transaction as deleted locally
+      if (oldTransaction.remoteId != null && oldTransaction.remoteId!.isNotEmpty) {
+        // Old transaction has been synced to backend - mark it for deletion in next sync
+        await offlineService.deleteTransaction(oldTransaction.id!);
+        _logger.info('🗑️ Deleted old transaction locally: ${oldTransaction.id}');
+      } else {
+        // Old transaction never reached backend - just hard delete it
+        await offlineService.hardDeleteTransaction(oldTransaction.id!);
+        _logger.info('💥 Hard deleted local-only transaction: ${oldTransaction.id}');
+      }
       
-      // ❌ REMOVED: Duplicate event emission
-      // await TransactionEventService();.onTransactionUpdated(transaction);
+      // Step 2: Save the updated transaction as a new record
+      await offlineService.saveTransaction(transaction);
+      _logger.info('✅ Transaction updated (new record): ${transaction.id}');
       
       return true;
     } catch (e, stackTrace) {

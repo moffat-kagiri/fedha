@@ -1,24 +1,70 @@
-python manage.py runserver 0.0.0.0:8000
 (venv) (base) PS C:\GitHub\fedha\backend> python manage.py runserver 0.0.0.0:8000
-INFO 2026-02-01 15:27:00,539 autoreload Watching for file changes with StatReloader
+INFO 2026-02-06 17:40:19,098 autoreload Watching for file changes with StatReloader
 Performing system checks...
 
 System check identified no issues (0 silenced).
-February 01, 2026 - 15:27:01
+February 06, 2026 - 17:40:19
 Django version 6.0, using settings 'fedha_backend.settings'
 Starting development server at http://0.0.0.0:8000/
 Quit the server with CTRL-BREAK.
 
 WARNING: This is a development server. Do not use it in a production setting. Use a production WSGI or ASGI server instead.
 For more information on production servers see: https://docs.djangoproject.com/en/6.0/howto/deployment/
-INFO 2026-02-01 15:38:01,705 log "GET /api/health/ HTTP/1.1" 200 102
-INFO 2026-02-01 15:38:01,706 log "GET /api/health/ HTTP/1.1" 200 102
-INFO 2026-02-01 15:38:02,188 log "GET /api/health/ HTTP/1.1" 200 102
-INFO 2026-02-01 15:42:10,851 views Login successful for: kagirimoffat@yahoo.com
-INFO 2026-02-01 15:42:10,852 log "POST /api/auth/login/ HTTP/1.1" 200 725
-INFO 2026-02-01 15:42:10,979 log "GET /api/profile/ HTTP/1.1" 200 360
-INFO 2026-02-01 15:42:17,699 log "GET /api/health/ HTTP/1.1" 200 102
-INFO 2026-02-01 15:42:17,808 log "GET /api/transactions/?profile_id=51f02462-1860-475e-bbe2-80bd129ea7a5 HTTP/1.1" 200 52
-INFO 2026-02-01 15:42:18,172 log "GET /api/goals/?profile_id=51f02462-1860-475e-bbe2-80bd129ea7a5 HTTP/1.1" 200 52
-INFO 2026-02-01 15:42:18,307 log "GET /api/budgets/?profile_id=51f02462-1860-475e-bbe2-80bd129ea7a5 HTTP/1.1" 200 52
-INFO 2026-02-01 15:42:18,551 log "GET /api/invoicing/loans/?profile_id=51f02462-1860-475e-bbe2-80bd129ea7a5 HTTP/1.1" 200 3476
+INFO 2026-02-06 17:46:43,067 log "GET /api/health/ HTTP/1.1" 200 102
+INFO 2026-02-06 17:46:43,507 log "GET /api/health/ HTTP/1.1" 200 102
+INFO 2026-02-06 17:46:43,581 log "GET /api/health/ HTTP/1.1" 200 102
+INFO 2026-02-06 17:46:47,305 log "GET /api/health/ HTTP/1.1" 200 102
+INFO 2026-02-06 17:46:49,975 log "GET /api/health/ HTTP/1.1" 200 102
+INFO 2026-02-06 17:46:58,156 log "GET /api/health/ HTTP/1.1" 200 102
+INFO 2026-02-06 17:47:59,361 log "GET /api/health/ HTTP/1.1" 200 102
+INFO 2026-02-06 17:47:59,754 views Login attempt for: kagirimoffat@yahoo.com
+INFO 2026-02-06 17:48:00,879 views Login successful for: kagirimoffat@yahoo.com
+INFO 2026-02-06 17:48:00,880 log "POST /api/auth/login/ HTTP/1.1" 200 725
+INFO 2026-02-06 17:48:01,117 log "GET /api/profile/ HTTP/1.1" 200 360
+INFO 2026-02-06 17:48:07,461 log "GET /api/health/ HTTP/1.1" 200 102
+
+🔍 GET /api/transactions/ EXECUTION:
+  📱 Current user (request.user): kagirimoffat@yahoo.com
+  📱 Current user ID: 51f02462-1860-475e-bbe2-80bd129ea7a5
+  🔎 Query param profile_id: 51f02462-1860-475e-bbe2-80bd129ea7a5
+  📊 After basic filter (profile=51f02462-1860-475e-bbe2-80bd129ea7a5, is_deleted=False): 13 txns
+  ✅ Profile validation passed
+C:\GitHub\fedha\backend\venv\Lib\site-packages\rest_framework\fields.py:992: UserWarning: min_value should be an integer or Decimal instance.
+  warnings.warn("min_value should be an integer or Decimal instance.")
+INFO 2026-02-06 17:48:08,126 log "GET /api/transactions/?profile_id=51f02462-1860-475e-bbe2-80bd129ea7a5 HTTP/1.1" 200 12008
+INFO 2026-02-06 17:48:09,200 log "GET /api/goals/?profile_id=51f02462-1860-475e-bbe2-80bd129ea7a5 HTTP/1.1" 200 52
+INFO 2026-02-06 17:48:09,729 log "GET /api/budgets/?profile_id=51f02462-1860-475e-bbe2-80bd129ea7a5 HTTP/1.1" 200 52
+INFO 2026-02-06 17:48:10,210 log "GET /api/invoicing/loans/?profile_id=51f02462-1860-475e-bbe2-80bd129ea7a5 HTTP/1.1" 200 3735
+INFO 2026-02-06 17:49:10,540 log "GET /api/health/ HTTP/1.1" 200 102
+INFO 2026-02-06 17:49:10,717 log "GET /api/health/ HTTP/1.1" 200 102
+INFO 2026-02-06 17:49:10,798 log "GET /api/health/ HTTP/1.1" 200 102
+INFO 2026-02-06 17:49:13,817 log "GET /api/health/ HTTP/1.1" 200 102
+INFO 2026-02-06 17:49:14,196 log "GET /api/health/ HTTP/1.1" 200 102
+INFO 2026-02-06 17:49:14,974 log "GET /api/health/ HTTP/1.1" 200 102
+INFO 2026-02-06 17:49:15,437 log "POST /api/budgets/bulk_sync/ HTTP/1.1" 200 52
+
+🔍 GET /api/transactions/ EXECUTION:
+  📱 Current user (request.user): kagirimoffat@yahoo.com
+  📱 Current user ID: 51f02462-1860-475e-bbe2-80bd129ea7a5
+  🔎 Query param profile_id: 51f02462-1860-475e-bbe2-80bd129ea7a5        
+  📊 After basic filter (profile=51f02462-1860-475e-bbe2-80bd129ea7a5, is_deleted=False): 13 txns
+  ✅ Profile validation passed
+INFO 2026-02-06 17:49:16,102 log "GET /api/transactions/?profile_id=51f02462-1860-475e-bbe2-80bd129ea7a5 HTTP/1.1" 200 12008
+INFO 2026-02-06 17:49:16,319 log "GET /api/budgets/?profile_id=51f02462-1860-475e-bbe2-80bd129ea7a5 HTTP/1.1" 200 52
+INFO 2026-02-06 17:49:16,562 log "GET /api/goals/?profile_id=51f02462-1860-475e-bbe2-80bd129ea7a5 HTTP/1.1" 200 52
+INFO 2026-02-06 17:49:16,628 log "GET /api/invoicing/loans/?profile_id=51f02462-1860-475e-bbe2-80bd129ea7a5 HTTP/1.1" 200 3735
+INFO 2026-02-06 17:49:22,978 log "GET /api/health/ HTTP/1.1" 200 102     
+INFO 2026-02-06 17:50:48,582 log "GET /api/health/ HTTP/1.1" 200 102     
+INFO 2026-02-06 17:50:48,976 log "POST /api/budgets/bulk_sync/ HTTP/1.1" 200 52
+
+🔍 GET /api/transactions/ EXECUTION:
+  📱 Current user (request.user): kagirimoffat@yahoo.com
+  📱 Current user ID: 51f02462-1860-475e-bbe2-80bd129ea7a5
+  🔎 Query param profile_id: 51f02462-1860-475e-bbe2-80bd129ea7a5        
+  📊 After basic filter (profile=51f02462-1860-475e-bbe2-80bd129ea7a5, is_deleted=False): 13 txns
+  ✅ Profile validation passed
+INFO 2026-02-06 17:50:49,161 log "GET /api/transactions/?profile_id=51f02462-1860-475e-bbe2-80bd129ea7a5 HTTP/1.1" 200 12008
+INFO 2026-02-06 17:50:49,203 log "GET /api/goals/?profile_id=51f02462-1860-475e-bbe2-80bd129ea7a5 HTTP/1.1" 200 52
+INFO 2026-02-06 17:50:49,223 log "GET /api/budgets/?profile_id=51f02462-1860-475e-bbe2-80bd129ea7a5 HTTP/1.1" 200 52
+INFO 2026-02-06 17:50:49,233 log "GET /api/invoicing/loans/?profile_id=51f02462-1860-475e-bbe2-80bd129ea7a5 HTTP/1.1" 200 3735
+(venv) (base) PS C:\GitHub\fedha\backend> 

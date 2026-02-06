@@ -675,6 +675,49 @@ class ApiClient {
     }
   }
 
+  /// ✅ NEW: Batch delete loans
+  Future<Map<String, dynamic>> deleteLoans(
+    String profileId,
+    List<String> loanIds,
+  ) async {
+    final url = Uri.parse(_config.getEndpoint('api/invoicing/loans/batch_delete/'));
+    
+    try {
+      logger.info('POST ${url.toString()} - ${loanIds.length} loans to delete');
+      
+      if (!isAuthenticated) {
+        logger.warning('⚠️ No auth token for delete - request may fail');
+      }
+      
+      final resp = await _http.post(
+        url,
+        headers: _headers,
+        body: jsonEncode({
+          'profile_id': profileId,
+          'ids': loanIds,
+        }),
+      ).timeout(Duration(seconds: _config.timeoutSeconds));
+      
+      if (resp.statusCode == 200 || resp.statusCode == 204) {
+        final data = resp.statusCode == 204 
+            ? {'deleted': loanIds.length} 
+            : jsonDecode(resp.body) as Map<String, dynamic>;
+        logger.info('✅ Loans delete complete: ${data['deleted']} deleted');
+        return {
+          'success': true,
+          'deleted': data['deleted'] ?? 0,
+          'data': data,
+        };
+      }
+      
+      logger.warning('Loans delete failed: ${resp.statusCode} - ${resp.body}');
+      return {'success': false, 'status': resp.statusCode, 'body': resp.body};
+    } catch (e) {
+      logger.severe('Delete loans error: $e');
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
   // ==================== BUDGETS ====================
 
   /// ✅ NEW: Get all budgets for a profile

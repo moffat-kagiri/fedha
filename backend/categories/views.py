@@ -171,7 +171,8 @@ class CategoryViewSet(viewsets.ModelViewSet):
                 profile=request.user.profile,
                 category=category,
                 type=TransactionType.EXPENSE,
-                status=TransactionStatus.COMPLETED
+                status=TransactionStatus.COMPLETED,
+                is_deleted=False  # ✅ Exclude soft-deleted transactions
             )
             
             if start_date:

@@ -294,12 +294,45 @@ class UnifiedSyncService with ChangeNotifier {
           }
         }
 
-        // STEP 1c: Upload DELETED transactions 
-        // NOTE: For now, deletes are handled through a separate deletion tracking mechanism.
-        // When a transaction is deleted locally, we track its remoteId and sync the deletion.
-        // This is a placeholder for future enhancement where we implement a proper delete queue.
-        // Current deletion flow: Transaction.isDeleted flag (if added) → collect → POST /batch_delete/
-        // TODO: Add isDeleted flag to Transaction model and delete tracking
+        // STEP 1c: Upload DELETED transactions (marked with isDeleted flag)
+        // ✅ NOW IMPLEMENTED: Requires Transaction.isDeleted field (added)
+        final deletedTransactions = localTransactions
+            .where((t) => t.isDeleted && (t.remoteId != null && t.remoteId!.isNotEmpty))
+            .toList();
+        
+        if (deletedTransactions.isNotEmpty) {
+          _logger.info('🗑️ Uploading ${deletedTransactions.length} DELETED transactions');
+          
+          // Collect remoteIds (the server UUIDs) to delete
+          final deleteIds = deletedTransactions
+              .map((t) => t.remoteId!)
+              .where((id) => id.isNotEmpty)
+              .toList();
+          
+          if (deleteIds.isNotEmpty) {
+            final response = await _apiClient.deleteTransactions(profileId, deleteIds);
+            if (response['success'] == true) {
+              result.uploaded += response['deleted'] as int? ?? 0;
+              _logger.info('✅ Deleted transactions synced: ${response['deleted']} soft-deleted');
+              
+              // ✅ Remove from local database after successful sync
+              for (final t in deletedTransactions) {
+                try {
+                  if (t.id != null && t.id!.isNotEmpty) {
+                    await _offlineDataService.deleteTransaction(t.id!);
+                    _logger.info('✅ Removed soft-deleted transaction from local DB: ${t.id}');
+                  }
+                } catch (e) {
+                  _logger.warning('Failed to remove deleted transaction locally: $e');
+                }
+              }
+            } else {
+              _logger.warning('⚠️ Delete sync failed: ${response['error']}');
+            }
+          }
+        } else {
+          _logger.info('No deleted transactions to sync');
+        }
         
         // STEP 2: Download from server
         final remoteTransactions = await _apiClient.getTransactions(profileId: profileId);
@@ -783,6 +816,114 @@ class UnifiedSyncService with ChangeNotifier {
 
   Future<SyncResult> quickSync(String profileId) => syncProfile(profileId);
   Future<SyncResult> forceSync(String profileId) => syncProfile(profileId);
+  
+  /// ✅ NEW: Sync only deleted transactions immediately
+  /// Called when user deletes a transaction to ensure it's removed from backend quickly
+  Future<void> syncDeletedTransactions() async {
+    if (_currentProfileId == null) {
+      _logger.warning('No profile selected for deleted transaction sync');
+      return;
+    }
+    
+    try {
+      final profileId = _currentProfileId!;
+      final localTransactions = await _offlineDataService.getAllTransactions(profileId);
+      
+      // Find transactions marked as deleted with a remoteId
+      final deletedTransactions = localTransactions
+          .where((t) => t.isDeleted && (t.remoteId != null && t.remoteId!.isNotEmpty))
+          .toList();
+      
+      if (deletedTransactions.isEmpty) {
+        _logger.info('No deleted transactions to sync');
+        return;
+      }
+      
+      _logger.info('🗑️ Syncing ${deletedTransactions.length} deleted transactions to backend');
+      
+      // Collect remoteIds to delete
+      final deleteIds = deletedTransactions
+          .map((t) => t.remoteId!)
+          .where((id) => id.isNotEmpty)
+          .toList();
+      
+      if (deleteIds.isNotEmpty) {
+        final response = await _apiClient.deleteTransactions(profileId, deleteIds);
+        
+        if (response['success'] == true) {
+          _logger.info('✅ Deleted transactions synced: ${response['deleted']} soft-deleted on backend');
+          
+          // Remove from local database after successful sync
+          for (final t in deletedTransactions) {
+            try {
+              await _offlineDataService.hardDeleteTransaction(t.id!);
+              _logger.info('✅ Removed local deleted transaction: ${t.id}');
+            } catch (e) {
+              _logger.warning('Failed to remove local deleted transaction: $e');
+            }
+          }
+        } else {
+          _logger.severe('Failed to sync deleted transactions: ${response['error'] ?? response['body']}');
+        }
+      }
+    } catch (e) {
+      _logger.severe('Error syncing deleted transactions: $e');
+    }
+  }
+
+  /// ✅ NEW: Sync deleted loans to backend
+  Future<void> syncDeletedLoans() async {
+    if (_currentProfileId == null) {
+      _logger.warning('No profile selected for deleted loans sync');
+      return;
+    }
+    
+    try {
+      final profileId = _currentProfileId!;
+      final localLoans = await _offlineDataService.getAllLoans(profileId);
+      
+      // Find loans marked as deleted with a remoteId
+      final deletedLoans = localLoans
+          .where((l) => l.isDeleted && (l.remoteId != null && l.remoteId!.isNotEmpty))
+          .toList();
+      
+      if (deletedLoans.isEmpty) {
+        _logger.info('No deleted loans to sync');
+        return;
+      }
+      
+      _logger.info('🗑️ Syncing ${deletedLoans.length} deleted loans to backend');
+      
+      // Collect remoteIds to delete
+      final deleteIds = deletedLoans
+          .map((l) => l.remoteId!)
+          .where((id) => id.isNotEmpty)
+          .toList();
+      
+      if (deleteIds.isNotEmpty) {
+        final response = await _apiClient.deleteLoans(profileId, deleteIds);
+        
+        if (response['success'] == true) {
+          _logger.info('✅ Deleted loans synced: ${response['deleted']} soft-deleted on backend');
+          
+          // Remove from local database after successful sync
+          for (final l in deletedLoans) {
+            try {
+              await _offlineDataService.hardDeleteLoan(l.id!);
+              _logger.info('✅ Removed local deleted loan: ${l.id}');
+            } catch (e) {
+              _logger.warning('Failed to remove local deleted loan: $e');
+            }
+          }
+        } else {
+          _logger.severe('Failed to sync deleted loans: ${response['error'] ?? response['body']}');
+        }
+      }
+    } catch (e) {
+      _logger.severe('Error syncing deleted loans: $e');
+    }
+  }
+  
   Future<SyncResult> manualSync() async {
     if (_currentProfileId == null) {
       return SyncResult(

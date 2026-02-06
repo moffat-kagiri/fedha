@@ -28,7 +28,7 @@ class Budget(models.Model):
     currency = models.CharField(max_length=3, default='KES')
     
     budget_amount = models.DecimalField(max_digits=15, decimal_places=2)
-    spent_amount = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    spent_amount = models.DecimalField(max_digits=15, decimal_places=2, default=Decimal('0.00'))
     
     period = models.CharField(
         max_length=20,
@@ -112,13 +112,14 @@ class Budget(models.Model):
         """Recalculate spent amount from transactions."""
         from transactions.models import Transaction, TransactionStatus, TransactionType
         
-        # Get all expense transactions for this budget period
+        # Get all expense transactions for this budget period (excluding soft-deleted)
         transactions = Transaction.objects.filter(
             profile=self.profile,
             type=TransactionType.EXPENSE,
             status=TransactionStatus.COMPLETED,
             transaction_date__gte=self.start_date,
-            transaction_date__lte=self.end_date
+            transaction_date__lte=self.end_date,
+            is_deleted=False  # ✅ Exclude soft-deleted transactions
         )
         
         # Filter by category if budget is category-specific
