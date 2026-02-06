@@ -269,13 +269,37 @@ class OfflineDataService {
     // Get transaction before deleting for event
     final tx = await getTransaction(id);
     
-    await _db.deleteTransactionById(numericId);
-    _logger.info('✅ Transaction deleted: $id');
-    
-    // Emit deleted event
-    if (_eventService != null && tx != null) {
-      await _eventService!.onTransactionDeleted(tx);
+    try {
+      // ✅ FIX: Use proper Drift update syntax that only updates deletion fields
+      await (_db.update(_db.transactions)
+            ..where((t) => t.id.equals(numericId)))
+          .write(app_db.TransactionsCompanion(
+            isDeleted: const Value(true),
+            deletedAt: Value(DateTime.now()),
+          ));
+      
+      _logger.info('✅ Transaction marked as deleted: $id (soft-delete)');
+      
+      // Emit deleted event
+      if (_eventService != null && tx != null) {
+        await _eventService!.onTransactionDeleted(tx);
+      }
+    } catch (e, stackTrace) {
+      _logger.severe('Error marking transaction as deleted: $id', e, stackTrace);
+      rethrow;
     }
+  }
+
+  /// ✅ NEW: Hard delete transaction from database (removes completely)
+  /// Used after backend confirms deletion during sync
+  Future<void> hardDeleteTransaction(String id) async {
+    final numericId = int.tryParse(id);
+    if (numericId == null) {
+      throw Exception('Invalid transaction ID format: $id');
+    }
+    
+    await _db.deleteTransactionById(numericId);
+    _logger.info('✅ Transaction hard deleted from database: $id');
   }
 
   /// ✅ FIXED: Approve pending transaction without duplication
@@ -755,7 +779,7 @@ class OfflineDataService {
     final rows = await _db.getAllLoans();
     
     return rows
-      .where((r) => r.profileId == profileIdInt)
+      .where((r) => r.profileId == profileIdInt && !r.isDeleted)
       .map((r) => _mapDbLoanToDomain(r, profileId))
       .toList();
   }
@@ -785,7 +809,6 @@ class OfflineDataService {
 
     await _db.updateLoan(companion);
   }
-
   dom.Loan _mapDbLoanToDomain(app_db.Loan r, String profileId) {
     return dom.Loan(
       id: r.id.toString(),
@@ -802,6 +825,7 @@ class OfflineDataService {
       profileId: profileId,
       description: r.description,
       isSynced: r.isSynced,
+      isDeleted: r.isDeleted,
       createdAt: r.createdAt,
       updatedAt: r.updatedAt,
     );
@@ -815,10 +839,33 @@ class OfflineDataService {
     }
     
     try {
-      await _db.deleteLoanById(loanIdInt);
-      _logger.info('Deleted loan: $loanId');
+      // ✅ FIX: Use proper Drift update syntax that only updates deletion fields
+      await (_db.update(_db.loans)
+            ..where((l) => l.id.equals(loanIdInt)))
+          .write(app_db.LoansCompanion(
+            isDeleted: const Value(true),
+            deletedAt: Value(DateTime.now()),
+          ));
+      
+      _logger.info('Marked loan as deleted: $loanId');
     } catch (e, stackTrace) {
       _logger.severe('Error deleting loan: $loanId', e, stackTrace);
+      rethrow;
+    }
+  }
+
+  /// ✅ NEW: Hard delete a loan from local database (used after backend sync)
+  Future<void> hardDeleteLoan(String loanId) async {
+    final loanIdInt = int.tryParse(loanId);
+    if (loanIdInt == null) {
+      throw Exception('Invalid loan ID format: $loanId');
+    }
+    
+    try {
+      await _db.deleteLoanById(loanIdInt);
+      _logger.info('Hard deleted loan: $loanId');
+    } catch (e, stackTrace) {
+      _logger.severe('Error hard deleting loan: $loanId', e, stackTrace);
       rethrow;
     }
   }
