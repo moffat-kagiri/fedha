@@ -281,6 +281,9 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
   List<Transaction> _filterTransactions(List<Transaction> transactions) {
     var filtered = transactions;
 
+    // ✅ CRITICAL: Filter out soft-deleted transactions before applying other filters
+    filtered = filtered.where((t) => !t.isDeleted).toList();
+
     // Line 207 in _filterTransactions method:
     if (_selectedFilter != 'All') {
       String type = '';

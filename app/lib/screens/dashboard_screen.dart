@@ -166,8 +166,11 @@ class _DashboardContentState extends State<DashboardContent> {
       final allTransactions = await dataService.getAllTransactions(profileId);
       final budgets = await dataService.getAllBudgets(profileId);
       
-      allTransactions.sort((a, b) => b.date.compareTo(a.date));
-      final recentTransactions = allTransactions.take(5).toList();
+      // ✅ CRITICAL: Filter out soft-deleted transactions
+      final activeTransactions = allTransactions.where((t) => !t.isDeleted).toList();
+      
+      activeTransactions.sort((a, b) => b.date.compareTo(a.date));
+      final recentTransactions = activeTransactions.take(5).toList();
       
       // Get most recent active budget
       final activeBudgets = budgets.where((b) => b.isActive).toList();
@@ -177,7 +180,7 @@ class _DashboardContentState extends State<DashboardContent> {
       return DashboardData(
         goals: goals,
         recentTransactions: recentTransactions,
-        allTransactions: allTransactions,
+        allTransactions: activeTransactions,  // ✅ Only non-deleted transactions
         currentBudget: currentBudget,
         allBudgets: budgets,
       );
