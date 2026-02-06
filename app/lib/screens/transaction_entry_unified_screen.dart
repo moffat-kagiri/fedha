@@ -382,10 +382,13 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
       bool success = false;
       
       if (widget.editingTransaction != null) {
-        // Update existing transaction with event emission
+        // Update existing transaction:
+        // 1. Delete old transaction from local storage
+        // 2. Create new transaction with updated values
         success = await TransactionOperations.updateTransaction(
           transaction: transaction,
           offlineService: dataService,
+          oldTransaction: widget.editingTransaction!,
         );
         if (success) {
           await eventService.onTransactionUpdated(transaction); 
@@ -500,7 +503,7 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
       
       if (success) {
         if (mounted) {
-          Navigator.pop(context, 'deleted');
+          Navigator.pop(context, null);  // ✅ Return null, not 'deleted'
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: const Row(
