@@ -135,7 +135,7 @@ class _LoansTrackerTabState extends State<LoansTrackerTab> {
       }).toList();
 
       // ✅ CRITICAL: Filter out soft-deleted loans
-      final activeLoans = mapped.where((loan) => !loan.isDeleted).toList();
+      final activeLoans = mapped.where((loan) => !(loan.isDeleted ?? false)).toList();
 
       if (mounted) {
         setState(() {

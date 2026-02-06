@@ -9,6 +9,7 @@ import '../models/goal.dart';
 import '../models/enums.dart';
 import '../models/transaction.dart';
 import '../services/offline_data_service.dart';
+import '../services/api_client.dart';
 import '../services/currency_service.dart';
 import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
@@ -494,11 +495,20 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
     
     try {
       final dataService = Provider.of<OfflineDataService>(context, listen: false);
+      final authService = Provider.of<AuthService>(context, listen: false);
+      final apiClient = Provider.of<ApiClient>(context, listen: false);
       
-      // Delete with event emission
+      final profileId = authService.currentProfile?.id ?? '';
+      if (profileId.isEmpty) {
+        throw Exception('No active profile found');
+      }
+      
+      // Delete with immediate sync to prevent restoration on unlock
       final success = await TransactionOperations.deleteTransaction(
         transaction: widget.editingTransaction!,
         offlineService: dataService,
+        profileId: profileId,
+        apiClient: apiClient,
       );
       
       if (success) {

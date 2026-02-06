@@ -873,6 +873,22 @@ class OfflineDataService {
     );
   }
 
+  /// Get a single loan by ID
+  Future<dom.Loan?> getLoan(String loanId) async {
+    try {
+      final id = int.tryParse(loanId);
+      if (id == null) return null;
+      
+      final loan = await _db.getLoanById(id);
+      if (loan == null) return null;
+      
+      return _mapDbLoanToDomain(loan, loan.profileId.toString());
+    } catch (e) {
+      _logger.warning('Loan not found: $loanId - $e');
+      return null;
+    }
+  }
+
   /// Delete a loan by ID
   Future<void> deleteLoan(String loanId) async {
     final loanIdInt = int.tryParse(loanId);
