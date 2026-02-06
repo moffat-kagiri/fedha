@@ -1,6 +1,7 @@
 // lib/utils/transaction_operations_helper.dart
 import '../models/transaction.dart';
 import '../services/offline_data_service.dart';
+import '../services/api_client.dart';
 import '../utils/logger.dart';
 
 /// Helper class to perform transaction operations
@@ -63,19 +64,24 @@ class TransactionOperations {
     }
   }
 
-  /// Delete a transaction
-  /// ✅ Events are emitted by OfflineDataService.deleteTransaction()
+  /// Delete a transaction WITH IMMEDIATE BACKEND SYNC
+  /// ✅ NEW: Uses deleteTransactionWithSync() for immediate sync
+  /// This prevents deleted items from being restored on biometric unlock
+  /// Events are emitted by OfflineDataService.deleteTransaction()
   static Future<bool> deleteTransaction({
     required Transaction transaction,
     required OfflineDataService offlineService,
+    required String profileId,
+    required ApiClient apiClient,
   }) async {
     try {
-      // Delete transaction - this will emit the deleted event automatically
-      await offlineService.deleteTransaction(transaction.id!);
-      _logger.info('✅ Transaction deleted: ${transaction.id}');
-      
-      // ❌ REMOVED: Duplicate event emission
-      // await TransactionEventService();.onTransactionDeleted(transaction);
+      // Delete with immediate sync to prevent restoration on unlock
+      await offlineService.deleteTransactionWithSync(
+        transactionId: transaction.id!,
+        profileId: profileId,
+        deleteToBackend: apiClient.deleteTransactions,
+      );
+      _logger.info('✅ Transaction deleted with sync: ${transaction.id}');
       
       return true;
     } catch (e, stackTrace) {

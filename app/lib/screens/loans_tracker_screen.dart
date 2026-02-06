@@ -690,20 +690,22 @@ class _LoansTrackerTabState extends State<LoansTrackerTab> {
             onPressed: () async {
               try {
                 final loan = _loans[index];
-                final svc = Provider.of<OfflineDataService>(context, listen: false);
-                final syncService = Provider.of<UnifiedSyncService>(context, listen: false);
+                final offlineService = Provider.of<OfflineDataService>(context, listen: false);
+                final authService = Provider.of<AuthService>(context, listen: false);
+                final apiClient = Provider.of<ApiClient>(context, listen: false);
+                
+                final profileId = authService.currentProfile?.id ?? '';
+                if (profileId.isEmpty) {
+                  throw Exception('No active profile found');
+                }
                 
                 if (loan.id != null) {
-                  // Delete loan locally
-                  await svc.deleteLoan(loan.id.toString());
-                  
-                  // Sync deletion to backend if connected
-                  if (loan.remoteId != null && loan.remoteId!.isNotEmpty) {
-                    final connectivityService = Provider.of<ConnectivityService>(context, listen: false);
-                    if (connectivityService.hasConnection) {
-                      await syncService.syncDeletedLoans();
-                    }
-                  }
+                  // ✅ ENHANCED: Use immediate sync to prevent restoration on biometric unlock
+                  await offlineService.deleteLoanWithSync(
+                    loanId: loan.id.toString(),
+                    profileId: profileId,
+                    deleteToBackend: apiClient.deleteLoans,
+                  );
                 }
                 
                 await _loadLoans(); // Reload to refresh the list

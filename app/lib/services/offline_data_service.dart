@@ -290,6 +290,48 @@ class OfflineDataService {
     }
   }
 
+  /// ✅ NEW: Delete transaction WITH IMMEDIATE SYNC to backend
+  /// This prevents restored deleted items on biometric unlock
+  /// Syncs deletion to server before returning to caller
+  Future<void> deleteTransactionWithSync({
+    required String transactionId,
+    required String profileId,
+    required Future<Map<String, dynamic>> Function(String, List<String>) deleteToBackend,
+  }) async {
+    final tx = await getTransaction(transactionId);
+    if (tx == null) {
+      throw Exception('Transaction not found: $transactionId');
+    }
+
+    try {
+      // Step 1: Mark as deleted locally
+      await deleteTransaction(transactionId);
+      _logger.info('✅ Step 1: Marked transaction as deleted locally: $transactionId');
+
+      // Step 2: If this transaction was synced to server, sync deletion immediately
+      if (tx.remoteId != null && tx.remoteId!.isNotEmpty) {
+        _logger.info('🔄 Step 2: Syncing deletion to backend for: ${tx.remoteId}');
+        
+        try {
+          final response = await deleteToBackend(profileId, [tx.remoteId!]);
+          if (response['success'] == true) {
+            _logger.info('✅ Step 3: Deletion synced to backend - ${response['deleted']} marked as deleted on server');
+          } else {
+            _logger.warning('⚠️ Backend deletion response: ${response['error']}');
+          }
+        } catch (syncError) {
+          _logger.warning('⚠️ Error syncing deletion to backend (transaction still marked deleted locally): $syncError');
+          // Don't rethrow - transaction is already marked deleted locally
+        }
+      } else {
+        _logger.info('ℹ️ Transaction never synced to server, local deletion sufficient');
+      }
+    } catch (e, stackTrace) {
+      _logger.severe('Error in deleteTransactionWithSync: $e', e, stackTrace);
+      rethrow;
+    }
+  }
+
   /// ✅ NEW: Hard delete transaction from database (removes completely)
   /// Used after backend confirms deletion during sync
   Future<void> hardDeleteTransaction(String id) async {
@@ -850,6 +892,48 @@ class OfflineDataService {
       _logger.info('Marked loan as deleted: $loanId');
     } catch (e, stackTrace) {
       _logger.severe('Error deleting loan: $loanId', e, stackTrace);
+      rethrow;
+    }
+  }
+
+  /// ✅ NEW: Delete loan WITH IMMEDIATE SYNC to backend
+  /// This prevents restored deleted items on biometric unlock
+  /// Syncs deletion to server before returning to caller
+  Future<void> deleteLoanWithSync({
+    required String loanId,
+    required String profileId,
+    required Future<Map<String, dynamic>> Function(String, List<String>) deleteToBackend,
+  }) async {
+    final loan = await getLoan(loanId);
+    if (loan == null) {
+      throw Exception('Loan not found: $loanId');
+    }
+
+    try {
+      // Step 1: Mark as deleted locally
+      await deleteLoan(loanId);
+      _logger.info('✅ Step 1: Marked loan as deleted locally: $loanId');
+
+      // Step 2: If this loan was synced to server, sync deletion immediately
+      if (loan.remoteId != null && loan.remoteId!.isNotEmpty) {
+        _logger.info('🔄 Step 2: Syncing deletion to backend for: ${loan.remoteId}');
+        
+        try {
+          final response = await deleteToBackend(profileId, [loan.remoteId!]);
+          if (response['success'] == true) {
+            _logger.info('✅ Step 3: Deletion synced to backend - ${response['deleted']} marked as deleted on server');
+          } else {
+            _logger.warning('⚠️ Backend deletion response: ${response['error']}');
+          }
+        } catch (syncError) {
+          _logger.warning('⚠️ Error syncing deletion to backend (loan still marked deleted locally): $syncError');
+          // Don't rethrow - loan is already marked deleted locally
+        }
+      } else {
+        _logger.info('ℹ️ Loan never synced to server, local deletion sufficient');
+      }
+    } catch (e, stackTrace) {
+      _logger.severe('Error in deleteLoanWithSync: $e', e, stackTrace);
       rethrow;
     }
   }
