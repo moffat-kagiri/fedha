@@ -5,6 +5,8 @@ import '../theme/app_theme.dart';
 import '../services/offline_data_service.dart';
 import '../services/auth_service.dart';
 import '../services/api_client.dart';
+import '../services/unified_sync_service.dart';
+import '../services/connectivity_service.dart';
 import '../models/loan.dart' as domain_loan;
 
 class LoansTrackerScreen extends StatefulWidget {
@@ -127,6 +129,8 @@ class _LoansTrackerTabState extends State<LoansTrackerTab> {
           description: d.description,
           createdAt: d.createdAt,
           updatedAt: d.updatedAt,
+          isDeleted: d.isDeleted,  // ✅ NEW: Include deletion status
+          deletedAt: d.deletedAt,  // ✅ NEW: Include deletion timestamp
         );
       }).toList();
 
@@ -599,6 +603,7 @@ class _LoansTrackerTabState extends State<LoansTrackerTab> {
 
                 try {
                   final svc = Provider.of<OfflineDataService>(context, listen: false);
+                  final syncService = Provider.of<UnifiedSyncService>(context, listen: false);
 
                   // ✅ Use ApiClient helper method to prepare data
                   final loanData = ApiClient.prepareLoanData(
@@ -631,7 +636,17 @@ class _LoansTrackerTabState extends State<LoansTrackerTab> {
                   );
 
                   if (loan?.id != null) {
-                    await svc.updateLoan(domainLoan);
+                    // Update: delete old loan and create new one (same as transactions)
+                    if (loan!.remoteId != null && loan.remoteId!.isNotEmpty) {
+                      // Old loan has been synced - mark it for deletion in next sync
+                      await svc.deleteLoan(loan.id.toString());
+                    } else {
+                      // Old loan never reached backend - hard delete it
+                      await svc.deleteLoan(loan.id.toString());
+                    }
+                    
+                    // Save new loan with updated values
+                    await svc.saveLoan(domainLoan);
                   } else {
                     await svc.saveLoan(domainLoan);
                   }
@@ -675,13 +690,22 @@ class _LoansTrackerTabState extends State<LoansTrackerTab> {
             onPressed: () async {
               try {
                 final loan = _loans[index];
-                if (loan.id != null && loan.id != 0) {
-                  final svc = Provider.of<OfflineDataService>(context, listen: false);
+                final svc = Provider.of<OfflineDataService>(context, listen: false);
+                final syncService = Provider.of<UnifiedSyncService>(context, listen: false);
+                
+                if (loan.id != null) {
+                  // Delete loan locally
                   await svc.deleteLoan(loan.id.toString());
-                } else {
-                  // If no database ID, just remove from local list
-                  setState(() => _loans.removeAt(index));
+                  
+                  // Sync deletion to backend if connected
+                  if (loan.remoteId != null && loan.remoteId!.isNotEmpty) {
+                    final connectivityService = Provider.of<ConnectivityService>(context, listen: false);
+                    if (connectivityService.hasConnection) {
+                      await syncService.syncDeletedLoans();
+                    }
+                  }
                 }
+                
                 await _loadLoans(); // Reload to refresh the list
                 if (mounted) Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -724,6 +748,8 @@ class Loan {
   final String? description;
   final DateTime? createdAt;
   final DateTime? updatedAt;
+  final bool? isDeleted;  // ✅ NEW: Track deletion status
+  final DateTime? deletedAt;  // ✅ NEW: Track when deleted
 
   Loan({
     this.id,
@@ -741,6 +767,8 @@ class Loan {
     this.description,
     this.createdAt,
     this.updatedAt,
+    this.isDeleted,  // ✅ NEW
+    this.deletedAt,  // ✅ NEW
   });
 
   // Getters (not constructor parameters)

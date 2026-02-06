@@ -6,6 +6,9 @@ import '../models/goal.dart';
 import '../models/enums.dart';
 import '../services/auth_service.dart';
 import '../services/offline_data_service.dart';
+import '../services/connectivity_service.dart';
+import '../services/unified_sync_service.dart';
+import '../utils/logger.dart';
 import 'transaction_entry_unified_screen.dart';
 import '../widgets/transaction_dialog.dart';
 
@@ -17,6 +20,8 @@ class TransactionsScreen extends StatefulWidget {
 }
 
 class _TransactionsScreenState extends State<TransactionsScreen> {
+  final _logger = AppLogger.getLogger('TransactionsScreen');
+  
   List<Transaction> _transactions = [];
   bool _isLoading = false;
   String? _errorMessage;
@@ -94,12 +99,35 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
   Future<void> _handleRefresh() async {
     await _refreshTransactions();
   }
-
   // Delete transaction method
   Future<void> _deleteTransaction(String transactionId) async {
     try {
       final offlineDataService = Provider.of<OfflineDataService>(context, listen: false);
+      final authService = Provider.of<AuthService>(context, listen: false);
+      final connectivityService = Provider.of<ConnectivityService>(context, listen: false);
+      final syncService = Provider.of<UnifiedSyncService>(context, listen: false);
+      
+      final profileId = authService.currentProfile?.id ?? '';
+      if (profileId.isEmpty) {
+        throw Exception('No active profile found');
+      }
+      
+      // ✅ Step 1: Mark transaction as deleted locally (soft-delete)
+      final tx = await offlineDataService.getTransaction(transactionId);
       await offlineDataService.deleteTransaction(transactionId);
+      _logger.info('🗑️ Marked transaction $transactionId as deleted');
+      
+      // ✅ Step 2: Immediately sync to backend if online and transaction has remoteId
+      if (connectivityService.hasConnection && tx?.remoteId != null && tx!.remoteId!.isNotEmpty) {
+        try {
+          _logger.info('📡 Syncing deleted transaction to backend immediately');
+          await syncService.syncDeletedTransactions();
+          _logger.info('✅ Deleted transaction synced to backend');
+        } catch (e) {
+          _logger.warning('⚠️ Failed to sync deleted transaction: $e (will retry on next sync)');
+          // Don't fail - transaction is marked locally, will sync on next connection
+        }
+      }
       
       await _refreshTransactions();
       
