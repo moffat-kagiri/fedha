@@ -144,6 +144,8 @@ class Loan(models.Model):
     end_date = models.DateTimeField()
     
     is_synced = models.BooleanField(default=False)
+    is_deleted = models.BooleanField(default=False)
+    deleted_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
     

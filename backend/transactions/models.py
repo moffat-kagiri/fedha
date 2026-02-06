@@ -137,6 +137,10 @@ class Transaction(models.Model):
     is_pending = models.BooleanField(default=False)
     is_expense = models.BooleanField(null=True)
     
+    # ✅ Soft delete support (for syncing deletions)
+    is_deleted = models.BooleanField(default=False, db_index=True)
+    deleted_at = models.DateTimeField(null=True, blank=True)
+    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
