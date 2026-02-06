@@ -29,15 +29,12 @@ class GoalViewSet(viewsets.ModelViewSet):
         return context
     
     def get_queryset(self):
-        """Return goals for current user."""
-        # Get user's profile
-        try:
-            user_profile = self.request.user.profile
-        except (Profile.DoesNotExist, AttributeError):
-            # If no profile exists, return empty queryset
-            return Goal.objects.none()
+        """Return goals for current user (excluding soft-deleted)."""
+        # ✅ FIX: request.user IS the Profile (custom auth model)
+        user_profile = self.request.user if isinstance(self.request.user, Profile) else self.request.user.profile
         
-        queryset = Goal.objects.filter(profile=user_profile)
+        # Filter by profile and exclude soft-deleted
+        queryset = Goal.objects.filter(profile=user_profile, is_deleted=False)
         
         # Validate profile_id if provided (must own this profile)
         profile_id = self.request.query_params.get('profile_id')
@@ -307,4 +304,255 @@ class GoalViewSet(viewsets.ModelViewSet):
             return Response({
                 'error': 'Invalid amount value'
             }, status=status.HTTP_400_BAD_REQUEST)
+    
+    @action(detail=False, methods=['post'])
+    def batch_sync(self, request):
+        """Batch sync goals from mobile app (create/update).
+        
+        Request format:
+        POST /api/goals/batch_sync/
+        {
+            'goals': [
+                {
+                    'id': 'uuid',
+                    'name': 'Save for vacation',
+                    'goal_type': 'savings',
+                    'target_amount': 100000,
+                    'current_amount': 45000,
+                    'target_date': '2026-12-31T23:59:59Z',
+                    'status': 'active',
+                    'profile_id': 'uuid'
+                },
+                ...
+            ],
+            'profile_id': 'uuid'  # Optional, for validation
+        }
+        
+        Response:
+        {
+            'success': True,
+            'created': N,
+            'updated': M,
+            'synced_ids': ['id1', 'id2', ...],
+            'conflicts': [],
+            'errors': []
+        }
+        """
+        import logging
+        logger = logging.getLogger('goals')
+        logger.info("========== GOALS BATCH_SYNC ==========")
+        
+        try:
+            # Get goals from request (support both 'goals' and direct list)
+            goals_data = request.data.get('goals') if isinstance(request.data, dict) else request.data
+            if not isinstance(goals_data, list):
+                goals_data = [goals_data] if goals_data else []
             
+            logger.info(f"[RECV] Received {len(goals_data)} goals to sync")
+            
+            if not goals_data:
+                return Response({
+                    'success': False,
+                    'error': 'No goals data provided',
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            user_profile = self.request.user if isinstance(self.request.user, Profile) else self.request.user.profile
+            logger.info(f"[USER] Syncing for profile: {user_profile.id}")
+            
+            created_count = 0
+            updated_count = 0
+            synced_ids = []
+            conflicts = []
+            errors = []
+            
+            for idx, goal_data in enumerate(goals_data):
+                try:
+                    goal_id = goal_data.get('id')
+                    
+                    if goal_id:
+                        try:
+                            # Try to get existing goal
+                            goal = Goal.objects.get(id=goal_id, profile=user_profile)
+                            
+                            # Update existing goal
+                            serializer = GoalSerializer(goal, data=goal_data, partial=True)
+                            if serializer.is_valid():
+                                serializer.save()
+                                updated_count += 1
+                                synced_ids.append(goal_id)
+                                logger.info(f"[OK] Updated goal {goal_id}")
+                            else:
+                                errors.append({
+                                    'id': goal_id,
+                                    'error': 'Validation failed',
+                                    'details': serializer.errors
+                                })
+                                logger.error(f"[ERR] Validation error updating {goal_id}: {serializer.errors}")
+                        except Goal.DoesNotExist:
+                            # Create new goal
+                            goal_data['profile_id'] = str(user_profile.id)
+                            serializer = GoalSerializer(data=goal_data)
+                            
+                            if serializer.is_valid():
+                                serializer.save(profile=user_profile)
+                                created_count += 1
+                                synced_ids.append(goal_id)
+                                logger.info(f"[OK] Created goal {goal_id}")
+                            else:
+                                errors.append({
+                                    'id': goal_id,
+                                    'error': 'Validation failed',
+                                    'details': serializer.errors
+                                })
+                                logger.error(f"[ERR] Validation error creating {goal_id}: {serializer.errors}")
+                    else:
+                        # Create new goal without ID (generate new UUID)
+                        goal_data['profile_id'] = str(user_profile.id)
+                        serializer = GoalSerializer(data=goal_data)
+                        
+                        if serializer.is_valid():
+                            goal = serializer.save(profile=user_profile)
+                            created_count += 1
+                            synced_ids.append(str(goal.id))
+                            logger.info(f"[OK] Created new goal: {goal.id}")
+                        else:
+                            errors.append({
+                                'error': 'Validation failed',
+                                'details': serializer.errors
+                            })
+                            logger.error(f"[ERR] Validation error creating new goal: {serializer.errors}")
+                            
+                except Exception as e:
+                    logger.exception(f"[ERR] Exception syncing goal {goal_id}: {str(e)}")
+                    errors.append({
+                        'id': goal_data.get('id'),
+                        'error': str(e)
+                    })
+            
+            response_data = {
+                'success': len(errors) == 0,
+                'created': created_count,
+                'updated': updated_count,
+                'synced_ids': synced_ids,
+                'conflicts': conflicts,
+                'errors': errors
+            }
+            
+            logger.info(f"[DONE] BATCH_SYNC COMPLETE: created={created_count}, updated={updated_count}, errors={len(errors)}")
+            
+            return Response(response_data, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            logger.exception(f"[FATAL] Fatal error in batch_sync: {str(e)}")
+            return Response({
+                'success': False,
+                'error': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    @action(detail=False, methods=['post'])
+    def batch_delete(self, request):
+        """Batch delete (soft-delete) goals.
+        
+        Request format:
+        POST /api/goals/batch_delete/
+        {
+            'goal_ids': ['id1', 'id2', ...],
+            'profile_id': 'uuid'  # Optional, for validation
+        }
+        
+        Response:
+        {
+            'success': True,
+            'soft_deleted': N,
+            'already_deleted': M,
+            'failed': L,
+            'errors': [...]
+        }
+        
+        ✅ Uses SOFT DELETE: Sets is_deleted=True, deleted_at=now()
+        ✅ Data is preserved for audit trail
+        ✅ GET queries automatically exclude soft-deleted
+        ✅ Can be synced to frontend as deletion signal
+        """
+        import logging
+        from django.utils import timezone
+        
+        logger = logging.getLogger('goals')
+        logger.info("========== GOALS BATCH_DELETE (SOFT) ==========")
+        
+        try:
+            # Support both 'goal_ids' and 'ids' parameter names
+            goal_ids = request.data.get('goal_ids') or request.data.get('ids', [])
+            logger.info(f"[RECV] Received request to delete {len(goal_ids)} goals")
+            
+            if not goal_ids:
+                return Response({
+                    'success': False,
+                    'error': 'No goal IDs provided (use goal_ids or ids)',
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            user_profile = self.request.user if isinstance(self.request.user, Profile) else self.request.user.profile
+            deleted_count = 0
+            already_deleted = 0
+            errors = []
+            failed_ids = []
+            now = timezone.now()
+            
+            for goal_id in goal_ids:
+                try:
+                    # ✅ SOFT DELETE: Don't actually delete, just mark as deleted
+                    goal = Goal.objects.get(id=goal_id, profile=user_profile)
+                    
+                    if goal.is_deleted:
+                        # Already soft-deleted, count separately
+                        already_deleted += 1
+                        logger.info(f"[INFO] Goal {goal_id} already soft-deleted")
+                        continue
+                    
+                    # Perform soft delete
+                    goal.is_deleted = True
+                    goal.deleted_at = now
+                    goal.save(update_fields=['is_deleted', 'deleted_at', 'updated_at'])
+                    
+                    deleted_count += 1
+                    logger.info(f"[OK] Soft-deleted goal {goal_id} at {now}")
+                    
+                except Goal.DoesNotExist:
+                    logger.error(f"[ERR] Goal {goal_id} not found")
+                    failed_ids.append(goal_id)
+                    errors.append({
+                        'id': goal_id,
+                        'error': 'Goal not found'
+                    })
+                except Exception as e:
+                    logger.exception(f"[ERR] Error deleting goal {goal_id}: {str(e)}")
+                    failed_ids.append(goal_id)
+                    errors.append({
+                        'id': goal_id,
+                        'error': str(e)
+                    })
+            
+            logger.info(
+                f"[DONE] BATCH_DELETE COMPLETE: "
+                f"soft_deleted={deleted_count}, "
+                f"already_deleted={already_deleted}, "
+                f"failed={len(failed_ids)}, "
+                f"errors={len(errors)}"
+            )
+            
+            return Response({
+                'success': len(failed_ids) == 0,
+                'deleted': deleted_count,
+                'soft_deleted': deleted_count,  # ← Clarify it's soft delete
+                'already_deleted': already_deleted,
+                'failed': len(failed_ids),
+                'failed_ids': failed_ids,
+                'errors': errors
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            logger.exception(f"[FATAL] Fatal error in batch_delete: {str(e)}")
+            return Response({
+                'success': False,
+                'error': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

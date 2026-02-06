@@ -80,6 +80,10 @@ class Goal(models.Model):
     # ✅ This field exists in your database
     remote_id = models.CharField(max_length=255, blank=True, null=True)
     
+    # ✅ Soft delete fields (for sync with mobile app)
+    is_deleted = models.BooleanField(default=False, db_index=True)
+    deleted_at = models.DateTimeField(null=True, blank=True)
+    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     

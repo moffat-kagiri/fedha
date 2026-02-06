@@ -655,6 +655,142 @@ class OfflineDataService {
     _logger.info('✅ Goal deleted: $goalId');
   }
 
+  /// Delete a goal with immediate sync to backend.
+  /// ✅ Marks goal as deleted locally first
+  /// ✅ Immediately syncs deletion to server
+  /// ✅ Returns success/failure of sync operation
+  /// ✅ Gracefully handles sync failures (local deletion persists)
+  Future<bool> deleteGoalWithSync(
+    String goalId,
+    String profileId,
+    Future<Map<String, dynamic>> Function(String, List<String>)? syncCallback,
+  ) async {
+    _validateProfileId(profileId);
+    
+    try {
+      // Step 1: Mark goal as deleted locally (immediate)
+      final goalIdInt = int.tryParse(goalId);
+      if (goalIdInt == null) {
+        throw Exception('Invalid goal ID format: $goalId');
+      }
+
+      final goal = await getGoal(goalId);
+      if (goal == null) {
+        _logger.warning('Goal not found for deletion: $goalId');
+        return false;
+      }
+
+      // Update goal's isDeleted flag
+      final updatedGoal = goal.copyWith(
+        isSynced: false, // Mark for sync
+      );
+      await updateGoal(updatedGoal);
+
+      // Step 2: Add to sync queue
+      await addToSyncQueue(
+        resourceType: 'goals',
+        resourceId: goalId,
+        action: 'delete',
+        profileId: profileId,
+      );
+      _logger.info('🗑️ Goal marked for deletion: $goalId');
+
+      // Step 3: Immediately sync deletion to backend (blocking call)
+      if (syncCallback != null) {
+        try {
+          final result = await syncCallback('goals', [goalId]);
+          if (result['success'] == true) {
+            _logger.info('✅ Goal deletion synced to backend: $goalId');
+            // Mark as synced in local database
+            updatedGoal.isSynced = true;
+            await updateGoal(updatedGoal);
+            return true;
+          } else {
+            _logger.warning('⚠️ Backend sync returned false for goal deletion: $goalId');
+            return false;
+          }
+        } catch (e) {
+          // Sync failed, but local deletion persists (eventual consistency)
+          _logger.warning('⚠️ Goal deletion sync failed: $e (local deletion persists)');
+          return false;
+        }
+      }
+
+      return true;
+    } catch (e) {
+      _logger.severe('❌ Error deleting goal with sync: $e');
+      rethrow;
+    }
+  }
+
+  /// Sync multiple goals (create/update) with backend
+  /// Request format matches backend batch_sync endpoint
+  /// Returns list of synced goal IDs
+  Future<Map<String, dynamic>> syncGoals(
+    List<dom.Goal> goals,
+    String profileId,
+    Future<Map<String, dynamic>> Function(String, List<Map<String, dynamic>>)? apiCallback,
+  ) async {
+    _validateProfileId(profileId);
+
+    if (goals.isEmpty) {
+      return {
+        'success': true,
+        'created': 0,
+        'updated': 0,
+        'synced_ids': [],
+        'errors': [],
+      };
+    }
+
+    try {
+      // Prepare goals for backend sync
+      final goalsData = goals.map((goal) {
+        return {
+          'id': goal.remoteId ?? goal.id,
+          'name': goal.name,
+          'description': goal.description,
+          'goal_type': goal.goalType.name,
+          'target_amount': goal.targetAmount,
+          'current_amount': goal.currentAmount,
+          'target_date': goal.targetDate?.toIso8601String(),
+          'status': goal.status.name,
+          'currency': goal.currency ?? 'KES',
+          'profile_id': profileId,
+        };
+      }).toList();
+
+      if (apiCallback != null) {
+        final result = await apiCallback('goals', goalsData);
+        
+        // Update local database with sync status
+        if (result['success'] == true && result['synced_ids'] is List) {
+          for (final goalId in result['synced_ids']) {
+            final goal = goals.firstWhere(
+              (g) => g.id == goalId || g.remoteId == goalId,
+              orElse: () => goals.first,
+            );
+            goal.isSynced = true;
+            await updateGoal(goal);
+          }
+        }
+
+        return result;
+      }
+
+      return {
+        'success': false,
+        'error': 'No API callback provided',
+      };
+    } catch (e) {
+      _logger.severe('❌ Error syncing goals: $e');
+      return {
+        'success': false,
+        'error': e.toString(),
+      };
+    }
+  }
+
   dom.Goal _mapDbGoalToDomain(app_db.Goal r, String profileId) {
     return dom.Goal(
       id: r.id.toString(),

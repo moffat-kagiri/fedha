@@ -1030,6 +1030,78 @@ class ApiClient {
     }
   }
 
+  /// Batch sync goals (create/update) with backend
+  /// Uses new batch_sync endpoint for atomic operations
+  Future<Map<String, dynamic>> batchSyncGoals(
+    String profileId,
+    List<Map<String, dynamic>> goals,
+  ) async {
+    final url = Uri.parse(_config.getEndpoint('api/goals/batch_sync/'));
+    
+    try {
+      logger.info('[API] POST ${url.toString()} - ${goals.length} goals');
+      
+      final payload = {
+        'goals': goals,
+        'profile_id': profileId,
+      };
+      
+      final resp = await _http.post(
+        url,
+        headers: _headers,
+        body: jsonEncode(payload),
+      ).timeout(Duration(seconds: _config.timeoutSeconds));
+      
+      if (resp.statusCode == 200 || resp.statusCode == 201) {
+        final data = jsonDecode(resp.body) as Map<String, dynamic>;
+        logger.info('[API] Goal batch_sync complete - created: ${data['created']}, updated: ${data['updated']}');
+        return data;
+      }
+      
+      logger.warning('[API] Goal batch_sync failed - ${resp.statusCode}: ${resp.body}');
+      return {'success': false, 'status': resp.statusCode, 'body': resp.body};
+    } catch (e) {
+      logger.severe('[API] Goal batch_sync error: $e');
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  /// Batch delete (soft-delete) goals
+  /// Returns deletion confirmation from backend
+  Future<Map<String, dynamic>> batchDeleteGoals(
+    String profileId,
+    List<String> goalIds,
+  ) async {
+    final url = Uri.parse(_config.getEndpoint('api/goals/batch_delete/'));
+    
+    try {
+      logger.info('[API] POST ${url.toString()} - ${goalIds.length} goals to delete');
+      
+      final payload = {
+        'goal_ids': goalIds,
+        'profile_id': profileId,
+      };
+      
+      final resp = await _http.post(
+        url,
+        headers: _headers,
+        body: jsonEncode(payload),
+      ).timeout(Duration(seconds: _config.timeoutSeconds));
+      
+      if (resp.statusCode == 200 || resp.statusCode == 201) {
+        final data = jsonDecode(resp.body) as Map<String, dynamic>;
+        logger.info('[API] Goal batch_delete complete - soft_deleted: ${data['soft_deleted']}');
+        return data;
+      }
+      
+      logger.warning('[API] Goal batch_delete failed - ${resp.statusCode}: ${resp.body}');
+      return {'success': false, 'status': resp.statusCode, 'body': resp.body};
+    } catch (e) {
+      logger.severe('[API] Goal batch_delete error: $e');
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
   // ==================== CATEGORIES ====================
 
   Future<Map<String, dynamic>> syncCategories(

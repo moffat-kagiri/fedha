@@ -503,40 +503,66 @@ class UnifiedSyncService with ChangeNotifier {
       result.localCount = localGoals.length;
 
       if (_apiClient.isAuthenticated) {
-        // Upload unsynced goals
-        final unsyncedGoals = localGoals.where((g) => g.remoteId == null).toList();
+        // ✅ STEP 1: Upload unsynced/new goals
+        final unsyncedGoals = localGoals.where((g) => !g.isSynced).toList();
         
         if (unsyncedGoals.isNotEmpty) {
-          final goalsData = unsyncedGoals.map((g) => _prepareGoalForUpload(g, profileId)).toList();
-          final response = await _apiClient.syncGoals(profileId, goalsData);
+          _logger.info('[GOALS] Syncing ${unsyncedGoals.length} unsynced goals');
           
-          if (response['success'] == true) {
-            result.uploaded += response['created'] as int? ?? 0;
+          final goalsData = unsyncedGoals.map((g) => _prepareGoalForUpload(g, profileId)).toList();
+          
+          try {
+            final response = await _apiClient.batchSyncGoals(profileId, goalsData);
+            
+            if (response['success'] == true) {
+              result.uploaded += response['created'] as int? ?? 0;
+              result.uploaded += response['updated'] as int? ?? 0;
+              
+              // Mark synced goals locally
+              if (response['synced_ids'] is List) {
+                for (final syncedId in response['synced_ids']) {
+                  final goal = unsyncedGoals.firstWhere(
+                    (g) => g.id == syncedId,
+                    orElse: () => unsyncedGoals.first,
+                  );
+                  goal.isSynced = true;
+                  await _offlineDataService.updateGoal(goal);
+                }
+              }
+            }
+          } catch (e) {
+            _logger.warning('[GOALS] Upload sync failed: $e');
+            result.uploadErrors.add('Goal upload failed: $e');
           }
         }
         
-        // Download from server
-        final remoteGoals = await _apiClient.getGoals(profileId: profileId);
-        
-        for (final remote in remoteGoals) {
-          final remoteId = remote['id']?.toString();
-          if (remoteId == null) continue;
+        // ✅ STEP 2: Download goals from server
+        try {
+          final remoteGoals = await _apiClient.getGoals(profileId: profileId);
           
-          final existsLocally = localGoals.any((g) => g.remoteId == remoteId);
-          
-          if (!existsLocally) {
-            final goal = _parseRemoteGoal(remote, profileId);
-            if (goal != null) {
-              await _offlineDataService.saveGoal(goal);
-              result.downloaded++;
+          for (final remote in remoteGoals) {
+            final remoteId = remote['id']?.toString();
+            if (remoteId == null) continue;
+            
+            final existsLocally = localGoals.any((g) => g.remoteId == remoteId);
+            
+            if (!existsLocally) {
+              final goal = _parseRemoteGoal(remote, profileId);
+              if (goal != null) {
+                await _offlineDataService.saveGoal(goal);
+                result.downloaded++;
+              }
             }
           }
+        } catch (e) {
+          _logger.warning('[GOALS] Download sync failed: $e');
+          result.downloadErrors.add('Goal download failed: $e');
         }
       }
 
       result.success = true;
     } catch (e, stackTrace) {
-      _logger.severe('Goal sync failed', e, stackTrace);
+      _logger.severe('[GOALS] Goal sync batch failed', e, stackTrace);
       result.success = false;
       result.error = e.toString();
     }
