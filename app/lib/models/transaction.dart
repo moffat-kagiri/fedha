@@ -38,6 +38,9 @@ class Transaction {
   String? location;
   double? latitude;
   double? longitude;
+  // ✅ NEW: Soft delete support
+  bool isDeleted;
+  DateTime? deletedAt;
 
   Transaction({
     String? id,
@@ -69,6 +72,9 @@ class Transaction {
     this.location,
     this.latitude,
     this.longitude,
+    // ✅ NEW: Soft delete
+    this.isDeleted = false,
+    this.deletedAt,
   })  : id = id ?? const Uuid().v4(),
         createdAt = createdAt ?? DateTime.now(),
         isExpense = isExpense ?? (type == 'expense'),
@@ -120,6 +126,9 @@ class Transaction {
     String? location,
     double? latitude,
     double? longitude,
+    // ✅ NEW: Soft delete
+    bool? isDeleted,
+    DateTime? deletedAt,
   }) {
     return Transaction(
       id: id ?? this.id,
@@ -151,6 +160,9 @@ class Transaction {
       location: location ?? this.location,
       latitude: latitude ?? this.latitude,
       longitude: longitude ?? this.longitude,
+      // ✅ NEW: Soft delete
+      isDeleted: isDeleted ?? this.isDeleted,
+      deletedAt: deletedAt ?? this.deletedAt,
     );
   }
 

@@ -40,6 +40,10 @@ Transaction _$TransactionFromJson(Map<String, dynamic> json) => Transaction(
   location: json['location'] as String?,
   latitude: (json['latitude'] as num?)?.toDouble(),
   longitude: (json['longitude'] as num?)?.toDouble(),
+  isDeleted: json['isDeleted'] as bool? ?? false,
+  deletedAt: json['deletedAt'] == null
+      ? null
+      : DateTime.parse(json['deletedAt'] as String),
 )..amountMinor = (json['amountMinor'] as num).toInt();
 
 Map<String, dynamic> _$TransactionToJson(Transaction instance) =>
@@ -73,5 +77,7 @@ Map<String, dynamic> _$TransactionToJson(Transaction instance) =>
       'location': instance.location,
       'latitude': instance.latitude,
       'longitude': instance.longitude,
+      'isDeleted': instance.isDeleted,
+      'deletedAt': instance.deletedAt?.toIso8601String(),
       'amountMinor': instance.amountMinor,
     };

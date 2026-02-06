@@ -33,6 +33,8 @@ class Loan {
   
   final String? description;
   final bool isSynced;
+  final bool isDeleted;
+  final DateTime? deletedAt;  // ✅ NEW: Track when deleted
   final DateTime createdAt;
   final DateTime? updatedAt;
   Loan({
@@ -48,6 +50,8 @@ class Loan {
     required this.profileId,
     this.description,
     this.isSynced = false,
+    this.isDeleted = false,
+    this.deletedAt,  // ✅ NEW
     DateTime? createdAt,
     this.updatedAt,
   }) : id = id ?? const Uuid().v4(),
@@ -109,6 +113,8 @@ class Loan {
     String? profileId,
     String? description,
     bool? isSynced,
+    bool? isDeleted,
+    DateTime? deletedAt,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -125,6 +131,8 @@ class Loan {
       profileId: profileId ?? this.profileId,
       description: description ?? this.description,
       isSynced: isSynced ?? this.isSynced,
+      isDeleted: isDeleted ?? this.isDeleted,
+      deletedAt: deletedAt ?? this.deletedAt,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? DateTime.now(),
     );

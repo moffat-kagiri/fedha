@@ -19,6 +19,10 @@ Loan _$LoanFromJson(Map<String, dynamic> json) => Loan(
   profileId: json['profile_id'] as String,
   description: json['description'] as String?,
   isSynced: json['isSynced'] as bool? ?? false,
+  isDeleted: json['isDeleted'] as bool? ?? false,
+  deletedAt: json['deletedAt'] == null
+      ? null
+      : DateTime.parse(json['deletedAt'] as String),
   createdAt: json['createdAt'] == null
       ? null
       : DateTime.parse(json['createdAt'] as String),
@@ -40,6 +44,8 @@ Map<String, dynamic> _$LoanToJson(Loan instance) => <String, dynamic>{
   'profile_id': instance.profileId,
   'description': instance.description,
   'isSynced': instance.isSynced,
+  'isDeleted': instance.isDeleted,
+  'deletedAt': instance.deletedAt?.toIso8601String(),
   'createdAt': instance.createdAt.toIso8601String(),
   'updatedAt': instance.updatedAt?.toIso8601String(),
 };
