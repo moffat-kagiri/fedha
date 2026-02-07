@@ -42,10 +42,6 @@ class Budget(models.Model):
     is_active = models.BooleanField(default=True)
     is_synced = models.BooleanField(default=False)
     
-    # ✅ Soft-delete fields
-    is_deleted = models.BooleanField(default=False)
-    deleted_at = models.DateTimeField(null=True, blank=True)
-    
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -58,7 +54,6 @@ class Budget(models.Model):
             models.Index(fields=['is_active']),
             models.Index(fields=['start_date', 'end_date']),
             models.Index(fields=['is_synced']),
-            models.Index(fields=['is_deleted']),  # ✅ Index for soft-delete filtering
         ]
         constraints = [
             models.CheckConstraint(

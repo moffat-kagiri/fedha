@@ -571,14 +571,10 @@ class UnifiedSyncService with ChangeNotifier {
               if (updatedIds.isNotEmpty) {
                 _logger.info('[GOALS] Marking ${updatedIds.length} updated goals as synced');
                 for (final updatedId in updatedIds) {
-                  Goal? goal;
-                  try {
-                    goal = unsyncedGoals.firstWhere(
-                      (g) => g.remoteId == updatedId?.toString(),
-                    );
-                  } catch (e) {
-                    goal = null;
-                  }
+                  final goal = unsyncedGoals.firstWhere(
+                    (g) => g.remoteId == updatedId?.toString(),
+                    orElse: () => null as Goal,
+                  );
                   if (goal != null) {
                     final syncedGoal = goal.copyWith(isSynced: true);
                     await _offlineDataService.updateGoal(syncedGoal);
@@ -606,14 +602,10 @@ class UnifiedSyncService with ChangeNotifier {
             if (remoteId == null) continue;
             
             // ✅ CRITICAL FIX: Check if this remote goal exists locally by remoteId
-            Goal? existingLocalGoal;
-            try {
-              existingLocalGoal = updatedLocalGoals.firstWhere(
-                (g) => g.remoteId == remoteId,
-              );
-            } catch (e) {
-              existingLocalGoal = null;
-            }
+            final existingLocalGoal = updatedLocalGoals.firstWhere(
+              (g) => g.remoteId == remoteId,
+              orElse: () => null as Goal,
+            );
             
             if (existingLocalGoal != null) {
               // ✅ UPDATE: Goal exists locally - sync server state (e.g., updated current_amount from transactions)
@@ -683,7 +675,7 @@ class UnifiedSyncService with ChangeNotifier {
   }
 
   Map<String, dynamic> _prepareGoalForUpload(Goal g, String profileId) {
-    final data = <String, dynamic>{
+    return {
       'profile_id': profileId,
       'name': g.name,
       'target_amount': g.targetAmount,
@@ -694,14 +686,6 @@ class UnifiedSyncService with ChangeNotifier {
       'due_date': g.targetDate.toIso8601String(),
       'currency': g.currency ?? 'KES',
     };
-    
-    // ✅ Include remoteId if goal has been previously synced
-    // This allows backend to UPDATE instead of CREATE
-    if (g.remoteId != null && g.remoteId!.isNotEmpty) {
-      data['id'] = g.remoteId!;
-    }
-    
-    return data;
   }
 
   /// ✅ NEW: Batch sync budgets
@@ -713,115 +697,32 @@ class UnifiedSyncService with ChangeNotifier {
       result.localCount = localBudgets.length;
 
       if (_apiClient.isAuthenticated) {
-        // ✅ STEP 1: Upload unsynced/new budgets
-        final unsyncedBudgets = localBudgets.where((b) => !b.isSynced).toList();
+        final unsyncedBudgets = localBudgets.where((b) => b.remoteId == null).toList();
         
         if (unsyncedBudgets.isNotEmpty) {
-          _logger.info('[BUDGETS] Syncing ${unsyncedBudgets.length} unsynced budgets');
-          
           final budgetsData = unsyncedBudgets.map((b) => _prepareBudgetForUpload(b, profileId)).toList();
+          final response = await _apiClient.syncBudgets(profileId, budgetsData);
           
-          try {
-            final response = await _apiClient.batchSyncBudgets(profileId, budgetsData);
-            
-            if (response['success'] == true) {
-              result.uploaded += response['created'] as int? ?? 0;
-              result.uploaded += response['updated'] as int? ?? 0;
-              
-              // ✅ CRITICAL: Set remoteId on created budgets to prevent re-uploads
-              final createdIds = response['created_ids'] as List? ?? [];
-              if (createdIds.isNotEmpty) {
-                _logger.info('[BUDGETS] Setting remoteIds for ${createdIds.length} budgets to prevent re-upload');
-                for (int i = 0; i < createdIds.length && i < unsyncedBudgets.length; i++) {
-                  final remoteId = createdIds[i]?.toString();
-                  if (remoteId != null && remoteId.isNotEmpty) {
-                    final localBudget = unsyncedBudgets[i];
-                    try {
-                      final updatedBudget = localBudget.copyWith(
-                        remoteId: remoteId,
-                        isSynced: true,
-                      );
-                      await _offlineDataService.updateBudget(updatedBudget);
-                      _logger.info('[BUDGETS] Set remoteId $remoteId for local budget ${localBudget.id}');
-                    } catch (e) {
-                      _logger.warning('[BUDGETS] Failed to set remoteId for budget: $e');
-                    }
-                  }
-                }
-               _logger.info('[BUDGETS] All created budgets marked as synced');
-              }
-            }
-          } catch (e) {
-            _logger.warning('[BUDGETS] Upload sync failed: $e');
-            result.error = 'Budget upload failed: $e';
+          if (response['success'] == true) {
+            result.uploaded += response['created'] as int? ?? 0;
           }
         }
         
-        // ✅ STEP 2: Upload deleted budgets (soft-delete)
-        final deletedBudgets = localBudgets.where((b) => b.isDeleted).toList();
-        if (deletedBudgets.isNotEmpty) {
-          _logger.info('[BUDGETS] Syncing ${deletedBudgets.length} deleted budgets');
-          try {
-            final deletedIds = deletedBudgets
-              .where((b) => b.remoteId != null && b.remoteId!.isNotEmpty)
-              .map((b) => b.remoteId!)
-              .toList();
-            
-            if (deletedIds.isNotEmpty) {
-              final response = await _apiClient.batchDeleteBudgets(profileId, deletedIds);
-              _logger.info('[BUDGETS] Batch delete response: soft_deleted=${response['soft_deleted']}, already_deleted=${response['already_deleted']}');
-            }
-          } catch (e) {
-            _logger.warning('[BUDGETS] Delete sync failed: $e');
-          }
-        }
+        final remoteBudgets = await _apiClient.getBudgets(profileId: profileId);
         
-        // ✅ Reload localBudgets after upload
-        final updatedLocalBudgets = await _offlineDataService.getAllBudgets(profileId);
-        
-        // ✅ STEP 3: Download budgets from server
-        try {
-          final remoteBudgets = await _apiClient.getBudgets(profileId: profileId);
+        for (final remote in remoteBudgets) {
+          final remoteId = remote['id']?.toString();
+          if (remoteId == null) continue;
           
-          for (final remote in remoteBudgets) {
-            final remoteId = remote['id']?.toString();
-            if (remoteId == null) continue;
-            
-            // Check if this remote budget exists locally by remoteId
-            Budget? existingLocalBudget;
-            try {
-              existingLocalBudget = updatedLocalBudgets.firstWhere(
-                (b) => b.remoteId == remoteId,
-              );
-            } catch (e) {
-              existingLocalBudget = null;
-            }
-            
-            if (existingLocalBudget != null) {
-              // UPDATE: Budget exists locally - sync server state
-              final updatedBudget = _parseRemoteBudget(remote, profileId);
-              if (updatedBudget != null) {
-                // Preserve local ID and remoteId
-                final mergedBudget = updatedBudget.copyWith(
-                  id: existingLocalBudget.id,
-                  remoteId: remoteId,
-                  isSynced: true,
-                );
-                await _offlineDataService.updateBudget(mergedBudget);
-                _logger.info('[BUDGETS] Updated existing budget with server state: $remoteId');
-              }
-            } else {
-              // CREATE: New budget from server
-              final budget = _parseRemoteBudget(remote, profileId);
-              if (budget != null) {
-                await _offlineDataService.saveBudget(budget);
-                result.downloaded++;
-                _logger.info('[BUDGETS] Downloaded new budget from server: $remoteId');
-              }
+          final existsLocally = localBudgets.any((b) => b.remoteId == remoteId);
+          
+          if (!existsLocally) {
+            final budget = _parseRemoteBudget(remote, profileId);
+            if (budget != null) {
+              await _offlineDataService.saveBudget(budget);
+              result.downloaded++;
             }
           }
-        } catch (e) {
-          _logger.warning('[BUDGETS] Download sync failed: $e');
         }
       }
 
@@ -860,7 +761,7 @@ class UnifiedSyncService with ChangeNotifier {
   }
 
   Map<String, dynamic> _prepareBudgetForUpload(Budget b, String profileId) {
-    final data = <String, dynamic>{
+    return {
       'name': b.name,
       'budget_amount': b.budgetAmount,
       'spent_amount': b.spentAmount,
@@ -871,14 +772,6 @@ class UnifiedSyncService with ChangeNotifier {
       'currency': b.currency ?? 'KES',
       'is_active': b.isActive,
     };
-    
-    // ✅ Include remoteId if budget has been previously synced
-    // This allows backend to UPDATE instead of CREATE
-    if (b.remoteId != null && b.remoteId!.isNotEmpty) {
-      data['id'] = b.remoteId!;
-    }
-    
-    return data;
   }
 
   /// ✅ UPDATED: Batch sync loans with proper data processing
