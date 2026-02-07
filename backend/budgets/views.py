@@ -23,13 +23,14 @@ class BudgetViewSet(viewsets.ModelViewSet):
     ordering = ['-start_date']
     
     def get_queryset(self):
-        """Return budgets for current user."""
+        """Return budgets for current user (excluding soft-deleted)."""
         # Handle both User and Profile objects (authentication may set user to profile directly)
         if isinstance(self.request.user, Profile):
             user_profile = self.request.user
         else:
             user_profile = self.request.user.profile
-        queryset = Budget.objects.filter(profile=user_profile)
+        # ✅ Filter out soft-deleted budgets
+        queryset = Budget.objects.filter(profile=user_profile, is_deleted=False)
         
         # Validate profile_id if provided (must own this profile)
         profile_id = self.request.query_params.get('profile_id')
@@ -91,6 +92,117 @@ class BudgetViewSet(viewsets.ModelViewSet):
             'budget': serializer.data
         })
     
+    @action(detail=False, methods=['post'])
+    def batch_sync(self, request):
+        """Batch sync budgets from mobile app (create/update).
+        
+        Request format:
+        POST /api/budgets/batch_sync/
+        [
+            {
+                'id': 'uuid',  # optional (for updates)
+                'name': 'Monthly Expenses',
+                'budget_amount': 50000,
+                'period': 'monthly',
+                'start_date': '2026-01-01T00:00:00Z',
+                'end_date': '2026-01-31T23:59:59Z',
+                'profile_id': 'uuid'
+            },
+            ...
+        ]
+        
+        Response:
+        {
+            'success': True,
+            'created': N,
+            'updated': M,
+            'created_ids': ['server_id_1', ...],
+            'updated_ids': ['id_1', ...],
+            'errors': []
+        }
+        """
+        import logging
+        logger = logging.getLogger('budgets')
+        logger.info("========== BUDGETS BATCH_SYNC ==========")
+        
+        try:
+            budgets_data = request.data.get('budgets') if isinstance(request.data, dict) else request.data
+            if not isinstance(budgets_data, list):
+                budgets_data = [budgets_data] if budgets_data else []
+            
+            logger.info(f"[RECV] Received {len(budgets_data)} budgets to sync")
+            
+            if not budgets_data:
+                return Response({
+                    'success': False,
+                    'error': 'No budgets data provided',
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            user_profile = request.user if isinstance(request.user, Profile) else request.user.profile
+            logger.info(f"[USER] Syncing for profile: {user_profile.id}")
+            
+            created_count = 0
+            updated_count = 0
+            created_ids = []
+            updated_ids = []
+            errors = []
+            
+            for idx, budget_data in enumerate(budgets_data):
+                try:
+                    budget_id = budget_data.get('id')
+                    
+                    if budget_id:
+                        try:
+                            budget = Budget.objects.get(id=budget_id, profile=user_profile)
+                            serializer = BudgetSerializer(budget, data=budget_data, partial=True)
+                            if serializer.is_valid():
+                                serializer.save()
+                                updated_count += 1
+                                updated_ids.append(budget_id)
+                                logger.info(f"[OK] Updated budget {budget_id}")
+                            else:
+                                errors.append({'id': budget_id, 'error': 'Validation failed', 'details': serializer.errors})
+                        except Budget.DoesNotExist:
+                            budget_data['profile_id'] = str(user_profile.id)
+                            serializer = BudgetSerializer(data=budget_data)
+                            if serializer.is_valid():
+                                budget = serializer.save(profile=user_profile)
+                                created_count += 1
+                                created_ids.append(str(budget.id))
+                                logger.info(f"[OK] Created budget: {budget.id}")
+                            else:
+                                errors.append({'id': budget_id, 'error': 'Validation failed', 'details': serializer.errors})
+                    else:
+                        budget_data['profile_id'] = str(user_profile.id)
+                        serializer = BudgetSerializer(data=budget_data)
+                        if serializer.is_valid():
+                            budget = serializer.save(profile=user_profile)
+                            created_count += 1
+                            created_ids.append(str(budget.id))
+                            logger.info(f"[OK] Created new budget: {budget.id}")
+                        else:
+                            errors.append({'error': 'Validation failed', 'details': serializer.errors})
+                            
+                except Exception as e:
+                    logger.exception(f"[ERR] Exception syncing budget: {str(e)}")
+                    errors.append({'id': budget_data.get('id'), 'error': str(e)})
+            
+            response_data = {
+                'success': len(errors) == 0,
+                'created': created_count,
+                'updated': updated_count,
+                'created_ids': created_ids,
+                'updated_ids': updated_ids,
+                'errors': errors
+            }
+            
+            logger.info(f"[DONE] BATCH_SYNC COMPLETE: created={created_count}, updated={updated_count}, errors={len(errors)}")
+            return Response(response_data, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            logger.exception(f"[FATAL] Fatal error in batch_sync: {str(e)}")
+            return Response({'success': False, 'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
     @action(detail=False, methods=['post'])
     def bulk_sync(self, request):
         """Bulk sync budgets from mobile app."""
@@ -156,6 +268,65 @@ class BudgetViewSet(viewsets.ModelViewSet):
             'success': True,
             'created': created_count,
             'updated': updated_count,
+            'errors': errors
+        }, status=status.HTTP_200_OK)
+    
+    @action(detail=False, methods=['post'])
+    def batch_delete(self, request):
+        """Batch soft-delete budgets.
+        
+        Request format:
+        POST /api/budgets/batch_delete/
+        {
+            'ids': ['id1', 'id2', ...]
+        }
+        
+        Response:
+        {
+            'soft_deleted': N,
+            'already_deleted': M,
+            'failed': L,
+            'errors': []
+        }
+        """
+        import logging
+        logger = logging.getLogger('budgets')
+        
+        budget_ids = request.data.get('ids', [])
+        user_profile = request.user if isinstance(request.user, Profile) else request.user.profile
+        
+        soft_deleted = 0
+        already_deleted = 0
+        failed = 0
+        errors = []
+        
+        for budget_id in budget_ids:
+            try:
+                budget = Budget.objects.get(id=budget_id, profile=user_profile)
+                
+                if budget.is_deleted:
+                    already_deleted += 1
+                else:
+                    # Soft-delete
+                    budget.is_deleted = True
+                    budget.deleted_at = timezone.now()
+                    budget.save()
+                    soft_deleted += 1
+                    logger.info(f"[OK] Soft-deleted budget: {budget_id}")
+                    
+            except Budget.DoesNotExist:
+                failed += 1
+                errors.append({'id': budget_id, 'error': 'Budget not found'})
+                logger.warning(f"[ERR] Budget not found: {budget_id}")
+            except Exception as e:
+                failed += 1
+                errors.append({'id': budget_id, 'error': str(e)})
+                logger.exception(f"[ERR] Exception deleting {budget_id}: {str(e)}")
+        
+        return Response({
+            'soft_deleted': soft_deleted,
+            'already_deleted': already_deleted,
+            'failed': failed,
             'errors': errors
         }, status=status.HTTP_200_OK)
     

@@ -1,70 +1,129 @@
+python manage.py runserver 0.0.0.0:8000
+Message: '✅ BATCH_DELETE COMPLETE: soft_deleted=1, already_deleted=0, failed=0, errors=0'
+Arguments: ()
+INFO 2026-02-07 10:53:18,981 log "POST /api/transactions/batch_delete/ HTTP/1.1" 200 187
 (venv) (base) PS C:\GitHub\fedha\backend> python manage.py runserver 0.0.0.0:8000
-INFO 2026-02-06 17:40:19,098 autoreload Watching for file changes with StatReloader
+INFO 2026-02-07 11:17:42,464 autoreload Watching for file changes with StatReloader
 Performing system checks...
 
 System check identified no issues (0 silenced).
-February 06, 2026 - 17:40:19
+February 07, 2026 - 11:17:43
 Django version 6.0, using settings 'fedha_backend.settings'
 Starting development server at http://0.0.0.0:8000/
 Quit the server with CTRL-BREAK.
 
-WARNING: This is a development server. Do not use it in a production setting. Use a production WSGI or ASGI server instead.
-For more information on production servers see: https://docs.djangoproject.com/en/6.0/howto/deployment/
-INFO 2026-02-06 17:46:43,067 log "GET /api/health/ HTTP/1.1" 200 102
-INFO 2026-02-06 17:46:43,507 log "GET /api/health/ HTTP/1.1" 200 102
-INFO 2026-02-06 17:46:43,581 log "GET /api/health/ HTTP/1.1" 200 102
-INFO 2026-02-06 17:46:47,305 log "GET /api/health/ HTTP/1.1" 200 102
-INFO 2026-02-06 17:46:49,975 log "GET /api/health/ HTTP/1.1" 200 102
-INFO 2026-02-06 17:46:58,156 log "GET /api/health/ HTTP/1.1" 200 102
-INFO 2026-02-06 17:47:59,361 log "GET /api/health/ HTTP/1.1" 200 102
-INFO 2026-02-06 17:47:59,754 views Login attempt for: kagirimoffat@yahoo.com
-INFO 2026-02-06 17:48:00,879 views Login successful for: kagirimoffat@yahoo.com
-INFO 2026-02-06 17:48:00,880 log "POST /api/auth/login/ HTTP/1.1" 200 725
-INFO 2026-02-06 17:48:01,117 log "GET /api/profile/ HTTP/1.1" 200 360
-INFO 2026-02-06 17:48:07,461 log "GET /api/health/ HTTP/1.1" 200 102
+WARNING: This is a development server. Do not use it in a production setting. Use a production WS
+GI or ASGI server instead.                                                                       For more information on production servers see: https://docs.djangoproject.com/en/6.0/howto/deplo
+yment/                                                                                           INFO 2026-02-07 11:23:11,832 log "GET /api/health/ HTTP/1.1" 200 102
+INFO 2026-02-07 11:23:11,832 log "GET /api/health/ HTTP/1.1" 200 102
+INFO 2026-02-07 11:23:11,900 log "GET /api/health/ HTTP/1.1" 200 102
+INFO 2026-02-07 11:23:14,855 log "GET /api/health/ HTTP/1.1" 200 102
+INFO 2026-02-07 11:23:15,652 log "GET /api/health/ HTTP/1.1" 200 102
+INFO 2026-02-07 11:23:17,370 log "GET /api/health/ HTTP/1.1" 200 102
+INFO 2026-02-07 11:23:18,078 log "POST /api/budgets/bulk_sync/ HTTP/1.1" 200 52
+INFO 2026-02-07 11:23:19,480 log "GET /api/invoicing/loans/?profile_id=51f02462-1860-475e-bbe2-80
+bd129ea7a5 HTTP/1.1" 200 567                                                                     INFO 2026-02-07 11:23:19,495 log "GET /api/budgets/?profile_id=51f02462-1860-475e-bbe2-80bd129ea7
+a5 HTTP/1.1" 200 52                                                                              INFO 2026-02-07 11:23:19,538 views ========== GOALS BATCH_SYNC ==========
+INFO 2026-02-07 11:23:19,542 views [RECV] Received 1 goals to sync
+INFO 2026-02-07 11:23:19,542 views [USER] Syncing for profile: 51f02462-1860-475e-bbe2-80bd129ea7
+a5                                                                                               INFO 2026-02-07 11:23:19,602 views [OK] Created new goal: 3b7f94a6-aacb-4839-8167-039fdbb67d9c
+INFO 2026-02-07 11:23:19,603 views [DONE] BATCH_SYNC COMPLETE: created=1, updated=0, errors=0
+INFO 2026-02-07 11:23:19,603 log "POST /api/goals/batch_sync/ HTTP/1.1" 200 124
 
 🔍 GET /api/transactions/ EXECUTION:
   📱 Current user (request.user): kagirimoffat@yahoo.com
   📱 Current user ID: 51f02462-1860-475e-bbe2-80bd129ea7a5
   🔎 Query param profile_id: 51f02462-1860-475e-bbe2-80bd129ea7a5
-  📊 After basic filter (profile=51f02462-1860-475e-bbe2-80bd129ea7a5, is_deleted=False): 13 txns
+  📊 After basic filter (profile=51f02462-1860-475e-bbe2-80bd129ea7a5, is_deleted=False): 10 txns
   ✅ Profile validation passed
-C:\GitHub\fedha\backend\venv\Lib\site-packages\rest_framework\fields.py:992: UserWarning: min_value should be an integer or Decimal instance.
-  warnings.warn("min_value should be an integer or Decimal instance.")
-INFO 2026-02-06 17:48:08,126 log "GET /api/transactions/?profile_id=51f02462-1860-475e-bbe2-80bd129ea7a5 HTTP/1.1" 200 12008
-INFO 2026-02-06 17:48:09,200 log "GET /api/goals/?profile_id=51f02462-1860-475e-bbe2-80bd129ea7a5 HTTP/1.1" 200 52
-INFO 2026-02-06 17:48:09,729 log "GET /api/budgets/?profile_id=51f02462-1860-475e-bbe2-80bd129ea7a5 HTTP/1.1" 200 52
-INFO 2026-02-06 17:48:10,210 log "GET /api/invoicing/loans/?profile_id=51f02462-1860-475e-bbe2-80bd129ea7a5 HTTP/1.1" 200 3735
-INFO 2026-02-06 17:49:10,540 log "GET /api/health/ HTTP/1.1" 200 102
-INFO 2026-02-06 17:49:10,717 log "GET /api/health/ HTTP/1.1" 200 102
-INFO 2026-02-06 17:49:10,798 log "GET /api/health/ HTTP/1.1" 200 102
-INFO 2026-02-06 17:49:13,817 log "GET /api/health/ HTTP/1.1" 200 102
-INFO 2026-02-06 17:49:14,196 log "GET /api/health/ HTTP/1.1" 200 102
-INFO 2026-02-06 17:49:14,974 log "GET /api/health/ HTTP/1.1" 200 102
-INFO 2026-02-06 17:49:15,437 log "POST /api/budgets/bulk_sync/ HTTP/1.1" 200 52
+C:\GitHub\fedha\backend\venv\Lib\site-packages\rest_framework\fields.py:992: UserWarning: min_val
+ue should be an integer or Decimal instance.                                                       warnings.warn("min_value should be an integer or Decimal instance.")
+INFO 2026-02-07 11:23:19,763 log "GET /api/transactions/?profile_id=51f02462-1860-475e-bbe2-80bd1
+29ea7a5 HTTP/1.1" 200 8801                                                                       INFO 2026-02-07 11:23:20,296 log "GET /api/goals/?profile_id=51f02462-1860-475e-bbe2-80bd129ea7a5
+ HTTP/1.1" 200 2776                                                                              INFO 2026-02-07 11:23:33,817 basehttp - Broken pipe from ('192.168.100.8', 42152)
+INFO 2026-02-07 11:23:33,818 basehttp - Broken pipe from ('192.168.100.8', 42174)
+INFO 2026-02-07 11:23:33,818 basehttp - Broken pipe from ('192.168.100.8', 33474)
+INFO 2026-02-07 11:23:33,819 basehttp - Broken pipe from ('192.168.100.8', 42164)
+INFO 2026-02-07 11:25:15,481 log "GET /api/health/ HTTP/1.1" 200 102
+INFO 2026-02-07 11:25:25,594 log "GET /api/health/ HTTP/1.1" 200 102
+INFO 2026-02-07 11:25:26,421 log "GET /api/invoicing/loans/?profile_id=51f02462-1860-475e-bbe2-80
+bd129ea7a5 HTTP/1.1" 200 567                                                                     INFO 2026-02-07 11:25:26,457 log "POST /api/budgets/bulk_sync/ HTTP/1.1" 200 52
 
 🔍 GET /api/transactions/ EXECUTION:
   📱 Current user (request.user): kagirimoffat@yahoo.com
   📱 Current user ID: 51f02462-1860-475e-bbe2-80bd129ea7a5
-  🔎 Query param profile_id: 51f02462-1860-475e-bbe2-80bd129ea7a5        
-  📊 After basic filter (profile=51f02462-1860-475e-bbe2-80bd129ea7a5, is_deleted=False): 13 txns
+  🔎 Query param profile_id: 51f02462-1860-475e-bbe2-80bd129ea7a5
+  📊 After basic filter (profile=51f02462-1860-475e-bbe2-80bd129ea7a5, is_deleted=False): 10 txns
   ✅ Profile validation passed
-INFO 2026-02-06 17:49:16,102 log "GET /api/transactions/?profile_id=51f02462-1860-475e-bbe2-80bd129ea7a5 HTTP/1.1" 200 12008
-INFO 2026-02-06 17:49:16,319 log "GET /api/budgets/?profile_id=51f02462-1860-475e-bbe2-80bd129ea7a5 HTTP/1.1" 200 52
-INFO 2026-02-06 17:49:16,562 log "GET /api/goals/?profile_id=51f02462-1860-475e-bbe2-80bd129ea7a5 HTTP/1.1" 200 52
-INFO 2026-02-06 17:49:16,628 log "GET /api/invoicing/loans/?profile_id=51f02462-1860-475e-bbe2-80bd129ea7a5 HTTP/1.1" 200 3735
-INFO 2026-02-06 17:49:22,978 log "GET /api/health/ HTTP/1.1" 200 102     
-INFO 2026-02-06 17:50:48,582 log "GET /api/health/ HTTP/1.1" 200 102     
-INFO 2026-02-06 17:50:48,976 log "POST /api/budgets/bulk_sync/ HTTP/1.1" 200 52
-
+INFO 2026-02-07 11:25:26,655 log "GET /api/goals/?profile_id=51f02462-1860-475e-bbe2-80bd129ea7a5
+ HTTP/1.1" 200 2776                                                                              INFO 2026-02-07 11:25:26,664 log "GET /api/transactions/?profile_id=51f02462-1860-475e-bbe2-80bd1
+29ea7a5 HTTP/1.1" 200 8801                                                                       INFO 2026-02-07 11:25:26,744 log "GET /api/budgets/?profile_id=51f02462-1860-475e-bbe2-80bd129ea7
+a5 HTTP/1.1" 200 52                                                                              INFO 2026-02-07 11:25:36,280 log "GET /api/health/ HTTP/1.1" 200 102
+INFO 2026-02-07 11:27:23,507 log "GET /api/health/ HTTP/1.1" 200 102
+INFO 2026-02-07 11:27:23,841 log "POST /api/budgets/bulk_sync/ HTTP/1.1" 200 52
+INFO 2026-02-07 11:27:23,963 views ========== TRANSACTION BULK_SYNC DEBUG ==========
+INFO 2026-02-07 11:27:23,964 views Content-Type: application/json
+INFO 2026-02-07 11:27:23,964 views Request body type: <class 'list'>
+INFO 2026-02-07 11:27:23,966 views Received 1 transactions
+INFO 2026-02-07 11:27:23,967 views User profile: 51f02462-1860-475e-bbe2-80bd129ea7a5
+INFO 2026-02-07 11:27:23,967 views ==================================================
+INFO 2026-02-07 11:27:23,968 views Processing transaction 1/1
+INFO 2026-02-07 11:27:23,968 views Raw data: {
+  "profile_id": "51f02462-1860-475e-bbe2-80bd129ea7a5",
+  "amount": 1000.0,
+  "type": "savings",
+  "description": "",
+  "date": "2026-02-07T11:26:31.000",
+  "is_expense": false,
+  "currency": "KES",
+  "status": "completed",
+  "is_synced": true,
+  "is_recurring": false,
+  "is_pending": false,
+  "category": "emergencyFund",
+  "goal_id": "4",
+  "budget_category": "savings"
+}
+INFO 2026-02-07 11:27:23,969 views Creating new transaction (no ID provided)
+INFO 2026-02-07 11:27:24,040 views Successfully created new transaction (server ID: cf7f5c35-965c
+-42ff-9a98-6865bb10035c)                                                                         INFO 2026-02-07 11:27:24,040 views ==================================================
+INFO 2026-02-07 11:27:24,041 views SYNC COMPLETE
+INFO 2026-02-07 11:27:24,041 views Created: 1
+INFO 2026-02-07 11:27:24,041 views Updated: 0
+INFO 2026-02-07 11:27:24,041 views Errors: 0
+INFO 2026-02-07 11:27:24,043 log "POST /api/transactions/bulk_sync/ HTTP/1.1" 200 107
+INFO 2026-02-07 11:27:24,054 views ========== GOALS BATCH_SYNC ==========
+INFO 2026-02-07 11:27:24,055 views [RECV] Received 1 goals to sync
+INFO 2026-02-07 11:27:24,055 views [USER] Syncing for profile: 51f02462-1860-475e-bbe2-80bd129ea7
+a5                                                                                               INFO 2026-02-07 11:27:24,077 views [OK] Created new goal: 7fb448af-15f0-4ce4-99a3-8eb1d7d05a67
+INFO 2026-02-07 11:27:24,077 views [DONE] BATCH_SYNC COMPLETE: created=1, updated=0, errors=0
+INFO 2026-02-07 11:27:24,078 log "POST /api/goals/batch_sync/ HTTP/1.1" 200 124
+INFO 2026-02-07 11:27:24,094 log "GET /api/invoicing/loans/?profile_id=51f02462-1860-475e-bbe2-80
+bd129ea7a5 HTTP/1.1" 200 567                                                                     INFO 2026-02-07 11:27:24,283 log "GET /api/budgets/?profile_id=51f02462-1860-475e-bbe2-80bd129ea7
+a5 HTTP/1.1" 200 52                                                                              
 🔍 GET /api/transactions/ EXECUTION:
   📱 Current user (request.user): kagirimoffat@yahoo.com
   📱 Current user ID: 51f02462-1860-475e-bbe2-80bd129ea7a5
-  🔎 Query param profile_id: 51f02462-1860-475e-bbe2-80bd129ea7a5        
-  📊 After basic filter (profile=51f02462-1860-475e-bbe2-80bd129ea7a5, is_deleted=False): 13 txns
+  🔎 Query param profile_id: 51f02462-1860-475e-bbe2-80bd129ea7a5
+  📊 After basic filter (profile=51f02462-1860-475e-bbe2-80bd129ea7a5, is_deleted=False): 11 txns
   ✅ Profile validation passed
-INFO 2026-02-06 17:50:49,161 log "GET /api/transactions/?profile_id=51f02462-1860-475e-bbe2-80bd129ea7a5 HTTP/1.1" 200 12008
-INFO 2026-02-06 17:50:49,203 log "GET /api/goals/?profile_id=51f02462-1860-475e-bbe2-80bd129ea7a5 HTTP/1.1" 200 52
-INFO 2026-02-06 17:50:49,223 log "GET /api/budgets/?profile_id=51f02462-1860-475e-bbe2-80bd129ea7a5 HTTP/1.1" 200 52
-INFO 2026-02-06 17:50:49,233 log "GET /api/invoicing/loans/?profile_id=51f02462-1860-475e-bbe2-80bd129ea7a5 HTTP/1.1" 200 3735
-(venv) (base) PS C:\GitHub\fedha\backend> 
+INFO 2026-02-07 11:27:24,402 log "GET /api/transactions/?profile_id=51f02462-1860-475e-bbe2-80bd1
+29ea7a5 HTTP/1.1" 200 9515                                                                       INFO 2026-02-07 11:27:24,403 log "GET /api/goals/?profile_id=51f02462-1860-475e-bbe2-80bd129ea7a5
+ HTTP/1.1" 200 3456                                                                              INFO 2026-02-07 11:28:04,640 log "GET /api/health/ HTTP/1.1" 200 102
+INFO 2026-02-07 11:28:05,091 log "POST /api/budgets/bulk_sync/ HTTP/1.1" 200 52
+INFO 2026-02-07 11:28:05,236 views ========== GOALS BATCH_SYNC ==========
+INFO 2026-02-07 11:28:05,237 views [RECV] Received 1 goals to sync
+INFO 2026-02-07 11:28:05,237 views [USER] Syncing for profile: 51f02462-1860-475e-bbe2-80bd129ea7
+a5                                                                                               INFO 2026-02-07 11:28:05,255 views [OK] Created new goal: 40e27363-b4c3-4cd8-9752-dbbc9c0efe2c   
+INFO 2026-02-07 11:28:05,256 views [DONE] BATCH_SYNC COMPLETE: created=1, updated=0, errors=0    
+INFO 2026-02-07 11:28:05,257 log "POST /api/goals/batch_sync/ HTTP/1.1" 200 124
+
+🔍 GET /api/transactions/ EXECUTION:INFO 2026-02-07 11:28:05,291 log "GET /api/invoicing/loans/?p
+rofile_id=51f02462-1860-475e-bbe2-80bd129ea7a5 HTTP/1.1" 200 567                                 
+INFO 2026-02-07 11:28:05,293 log "GET /api/budgets/?profile_id=51f02462-1860-475e-bbe2-80bd129ea7
+a5 HTTP/1.1" 200 52                                                                                📱 Current user (request.user): kagirimoffat@yahoo.com
+  📱 Current user ID: 51f02462-1860-475e-bbe2-80bd129ea7a5
+  🔎 Query param profile_id: 51f02462-1860-475e-bbe2-80bd129ea7a5
+  📊 After basic filter (profile=51f02462-1860-475e-bbe2-80bd129ea7a5, is_deleted=False): 11 txns
+  ✅ Profile validation passed
+INFO 2026-02-07 11:28:05,351 log "GET /api/transactions/?profile_id=51f02462-1860-475e-bbe2-80bd1

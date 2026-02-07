@@ -21,6 +21,8 @@ class Budget {
   DateTime createdAt;
   DateTime updatedAt;
   bool isSynced; // ✅ ADD THIS
+  bool isDeleted; // ✅ ADDED: Soft-delete flag
+  DateTime? deletedAt; // ✅ ADDED: Soft-delete timestamp
   String currency;
   
   static final Uuid _uuid = Uuid(); // ✅ ADDED: UUID generator instance
@@ -35,7 +37,9 @@ class Budget {
     required this.category,
     required this.profileId, 
     this.period = 'monthly',
-    this.isSynced = false, 
+    this.isSynced = false,
+    this.isDeleted = false, // ✅ ADDED: Default not deleted
+    this.deletedAt, // ✅ ADDED: Optional deletion timestamp
     required this.startDate,
     required this.endDate,
     this.isActive = true,
@@ -80,6 +84,8 @@ class Budget {
     DateTime? endDate,
     bool? isActive,
     bool? isSynced,
+    bool? isDeleted, // ✅ ADDED: Support isDeleted in copyWith
+    DateTime? deletedAt, // ✅ ADDED: Support deletedAt in copyWith
     DateTime? createdAt,
     DateTime? updatedAt,
     String? currency,
@@ -98,6 +104,8 @@ class Budget {
       endDate: endDate ?? this.endDate,
       isActive: isActive ?? this.isActive,
       isSynced: isSynced ?? this.isSynced,
+      isDeleted: isDeleted ?? this.isDeleted, // ✅ ADDED: Copy isDeleted
+      deletedAt: deletedAt ?? this.deletedAt, // ✅ ADDED: Copy deletedAt
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       currency: currency ?? 'KES',
@@ -163,6 +171,8 @@ class Budget {
       endDate: DateTime.parse(json['end_date']),
       isActive: json['is_active'] ?? true,
       isSynced: json['is_synced'] ?? false,
+      isDeleted: json['is_deleted'] ?? false, // ✅ ADDED: Parse is_deleted
+      deletedAt: json['deleted_at'] != null ? DateTime.parse(json['deleted_at']) : null, // ✅ ADDED: Parse deleted_at
       createdAt: DateTime.parse(json['created_at']),
       updatedAt: DateTime.parse(json['updated_at']),
     );

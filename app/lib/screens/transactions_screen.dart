@@ -127,6 +127,13 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
         _logger.warning('⚠️ Transaction not found: $transactionId');
       }
       
+      // ✅ Remove from UI list immediately
+      if (mounted) {
+        setState(() {
+          _transactions.removeWhere((t) => t.id == transactionId);
+        });
+      }
+      
       await _refreshTransactions();
       
       if (mounted) {

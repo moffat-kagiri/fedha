@@ -314,7 +314,6 @@ class GoalViewSet(viewsets.ModelViewSet):
         {
             'goals': [
                 {
-                    'id': 'uuid',
                     'name': 'Save for vacation',
                     'goal_type': 'savings',
                     'target_amount': 100000,
@@ -333,8 +332,8 @@ class GoalViewSet(viewsets.ModelViewSet):
             'success': True,
             'created': N,
             'updated': M,
-            'synced_ids': ['id1', 'id2', ...],
-            'conflicts': [],
+            'created_ids': ['server_id_1', 'server_id_2', ...],  # Server UUIDs for new goals
+            'updated_ids': ['id_1', 'id_2', ...],                # IDs that were updated
             'errors': []
         }
         """
@@ -361,8 +360,8 @@ class GoalViewSet(viewsets.ModelViewSet):
             
             created_count = 0
             updated_count = 0
-            synced_ids = []
-            conflicts = []
+            created_ids = []  # ✅ Track server UUIDs of newly created goals
+            updated_ids = []  # ✅ Track IDs of updated goals
             errors = []
             
             for idx, goal_data in enumerate(goals_data):
@@ -379,7 +378,7 @@ class GoalViewSet(viewsets.ModelViewSet):
                             if serializer.is_valid():
                                 serializer.save()
                                 updated_count += 1
-                                synced_ids.append(goal_id)
+                                updated_ids.append(goal_id)
                                 logger.info(f"[OK] Updated goal {goal_id}")
                             else:
                                 errors.append({
@@ -389,15 +388,15 @@ class GoalViewSet(viewsets.ModelViewSet):
                                 })
                                 logger.error(f"[ERR] Validation error updating {goal_id}: {serializer.errors}")
                         except Goal.DoesNotExist:
-                            # Create new goal
+                            # Create new goal (even though ID was provided, it doesn't exist)
                             goal_data['profile_id'] = str(user_profile.id)
                             serializer = GoalSerializer(data=goal_data)
                             
                             if serializer.is_valid():
-                                serializer.save(profile=user_profile)
+                                goal = serializer.save(profile=user_profile)
                                 created_count += 1
-                                synced_ids.append(goal_id)
-                                logger.info(f"[OK] Created goal {goal_id}")
+                                created_ids.append(str(goal.id))  # ✅ Track server UUID
+                                logger.info(f"[OK] Created goal (requested ID {goal_id}, got server ID {goal.id})")
                             else:
                                 errors.append({
                                     'id': goal_id,
@@ -413,7 +412,7 @@ class GoalViewSet(viewsets.ModelViewSet):
                         if serializer.is_valid():
                             goal = serializer.save(profile=user_profile)
                             created_count += 1
-                            synced_ids.append(str(goal.id))
+                            created_ids.append(str(goal.id))  # ✅ Track server UUID
                             logger.info(f"[OK] Created new goal: {goal.id}")
                         else:
                             errors.append({
@@ -433,8 +432,8 @@ class GoalViewSet(viewsets.ModelViewSet):
                 'success': len(errors) == 0,
                 'created': created_count,
                 'updated': updated_count,
-                'synced_ids': synced_ids,
-                'conflicts': conflicts,
+                'created_ids': created_ids,  # ✅ Return server-generated UUIDs for new goals
+                'updated_ids': updated_ids,  # ✅ Return IDs of updated goals
                 'errors': errors
             }
             

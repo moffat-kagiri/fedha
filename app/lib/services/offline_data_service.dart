@@ -411,7 +411,7 @@ class OfflineDataService {
     final rows = await _db.getAllTransactions();
     
     return rows
-      .where((r) => r.profileId == profileIdInt)
+      .where((r) => r.profileId == profileIdInt && !r.isDeleted)  // ✅ CRITICAL: Filter out soft-deleted transactions
       .map((r) => _mapDbTransactionToDomain(r))
       .toList();
   }
@@ -596,7 +596,7 @@ class OfflineDataService {
     final rows = await _db.getAllGoals();
     
     return rows
-      .where((r) => r.profileId == profileIdInt)
+      .where((r) => r.profileId == profileIdInt && r.status != 'cancelled')  // ✅ CRITICAL: Filter out cancelled goals like deleted transactions
       .map((r) => _mapDbGoalToDomain(r, profileId))
       .toList();
   }
@@ -613,6 +613,55 @@ class OfflineDataService {
     } catch (e) {
       _logger.warning('Goal not found: $goalId - $e');
       return null;
+    }
+  }
+
+  /// ✅ NEW: Update goal WITH IMMEDIATE SYNC to backend
+  /// Like deleteTransactionWithSync, this syncs cancellation/status changes immediately
+  /// Prevents GET requests from restoring old states
+  Future<void> updateGoalWithSync({
+    required dom.Goal goal,
+    required String profileId,
+    required Future<Map<String, dynamic>> Function(String, List<Map<String, dynamic>>) syncToBackend,
+  }) async {
+    _validateProfileId(profileId);
+    
+    try {
+      // Step 1: Update locally
+      await updateGoal(goal);
+      _logger.info('✅ Goal updated locally: ${goal.id}');
+      
+      // Step 2: If goal is linked to server (has remoteId), sync immediately
+      if (goal.remoteId != null && goal.remoteId!.isNotEmpty) {
+        _logger.info('🔄 Syncing goal update to backend (remoteId: ${goal.remoteId})');
+        
+        try {
+          final goalData = {
+            'id': goal.remoteId,
+            'status': goal.status.name,
+            'current_amount': goal.currentAmount,
+            'name': goal.name,
+            'target_amount': goal.targetAmount,
+            'target_date': goal.targetDate.toIso8601String(),
+            'goal_type': goal.goalType.name,
+          };
+          
+          final response = await syncToBackend(profileId, [goalData]);
+          if (response['success'] == true) {
+            _logger.info('✅ Goal update synced to backend');
+          } else {
+            _logger.warning('⚠️ Backend sync response: ${response['error']}');
+          }
+        } catch (syncError) {
+          _logger.warning('⚠️ Error syncing goal update (local change preserved): $syncError');
+          // Don't rethrow - local update is already done
+        }
+      } else {
+        _logger.info('ℹ️ Goal never synced to server, local update sufficient');
+      }
+    } catch (e, stackTrace) {
+      _logger.severe('Error in updateGoalWithSync: $e', e, stackTrace);
+      rethrow;
     }
   }
 
@@ -685,25 +734,17 @@ class OfflineDataService {
         isSynced: false, // Mark for sync
       );
       await updateGoal(updatedGoal);
+      _logger.info('[DEL] Goal marked for deletion: $goalId');
 
-      // Step 2: Add to sync queue
-      await addToSyncQueue(
-        resourceType: 'goals',
-        resourceId: goalId,
-        action: 'delete',
-        profileId: profileId,
-      );
-      _logger.info('🗑️ Goal marked for deletion: $goalId');
-
-      // Step 3: Immediately sync deletion to backend (blocking call)
+      // Step 2: Immediately sync deletion to backend (blocking call)
       if (syncCallback != null) {
         try {
           final result = await syncCallback('goals', [goalId]);
           if (result['success'] == true) {
-            _logger.info('✅ Goal deletion synced to backend: $goalId');
-            // Mark as synced in local database
-            updatedGoal.isSynced = true;
-            await updateGoal(updatedGoal);
+            _logger.info('[OK] Goal deletion synced to backend: $goalId');
+            // Mark as synced in local database using copyWith
+            final syncedGoal = updatedGoal.copyWith(isSynced: true);
+            await updateGoal(syncedGoal);
             return true;
           } else {
             _logger.warning('⚠️ Backend sync returned false for goal deletion: $goalId');
@@ -711,14 +752,14 @@ class OfflineDataService {
           }
         } catch (e) {
           // Sync failed, but local deletion persists (eventual consistency)
-          _logger.warning('⚠️ Goal deletion sync failed: $e (local deletion persists)');
+          _logger.warning('[WARN] Goal deletion sync failed: $e (local deletion persists)');
           return false;
         }
       }
 
       return true;
     } catch (e) {
-      _logger.severe('❌ Error deleting goal with sync: $e');
+      _logger.severe('[ERR] Error deleting goal with sync: $e');
       rethrow;
     }
   }
@@ -770,8 +811,9 @@ class OfflineDataService {
               (g) => g.id == goalId || g.remoteId == goalId,
               orElse: () => goals.first,
             );
-            goal.isSynced = true;
-            await updateGoal(goal);
+            // Use copyWith to create new goal with isSynced=true
+            final syncedGoal = goal.copyWith(isSynced: true);
+            await updateGoal(syncedGoal);
           }
         }
 

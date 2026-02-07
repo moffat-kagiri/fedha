@@ -17,6 +17,10 @@ Budget _$BudgetFromJson(Map<String, dynamic> json) => Budget(
   profileId: json['profileId'] as String,
   period: json['period'] as String? ?? 'monthly',
   isSynced: json['isSynced'] as bool? ?? false,
+  isDeleted: json['isDeleted'] as bool? ?? false,
+  deletedAt: json['deletedAt'] == null
+      ? null
+      : DateTime.parse(json['deletedAt'] as String),
   startDate: DateTime.parse(json['startDate'] as String),
   endDate: DateTime.parse(json['endDate'] as String),
   isActive: json['isActive'] as bool? ?? true,
@@ -45,5 +49,7 @@ Map<String, dynamic> _$BudgetToJson(Budget instance) => <String, dynamic>{
   'createdAt': instance.createdAt.toIso8601String(),
   'updatedAt': instance.updatedAt.toIso8601String(),
   'isSynced': instance.isSynced,
+  'isDeleted': instance.isDeleted,
+  'deletedAt': instance.deletedAt?.toIso8601String(),
   'currency': instance.currency,
 };
