@@ -688,7 +688,7 @@ class UnifiedSyncService with ChangeNotifier {
     };
   }
 
-  /// ✅ NEW: Batch sync budgets
+  /// ✅ Batch sync budgets with UPDATE support
   Future<EntitySyncResult> _syncBudgetsBatch(String profileId) async {
     final result = EntitySyncResult();
     
@@ -697,19 +697,83 @@ class UnifiedSyncService with ChangeNotifier {
       result.localCount = localBudgets.length;
 
       if (_apiClient.isAuthenticated) {
-        final unsyncedBudgets = localBudgets.where((b) => b.remoteId == null).toList();
+        // STEP 1a: Upload NEW budgets
+        final unsyncedBudgets = localBudgets
+            .where((b) => b.remoteId == null || b.remoteId!.isEmpty)
+            .toList();
         
         if (unsyncedBudgets.isNotEmpty) {
+          _logger.info('📤 Uploading ${unsyncedBudgets.length} NEW budgets');
+          
           final budgetsData = unsyncedBudgets.map((b) => _prepareBudgetForUpload(b, profileId)).toList();
           final response = await _apiClient.syncBudgets(profileId, budgetsData);
           
           if (response['success'] == true) {
             result.uploaded += response['created'] as int? ?? 0;
+            
+            // ✅ Set remoteId on created budgets
+            final createdIds = response['created_ids'] as List? ?? [];
+            for (int i = 0; i < createdIds.length && i < unsyncedBudgets.length; i++) {
+              final remoteId = createdIds[i]?.toString();
+              if (remoteId != null && remoteId.isNotEmpty) {
+                final updatedBudget = unsyncedBudgets[i].copyWith(
+                  remoteId: remoteId,
+                  isSynced: true,
+                );
+                await _offlineDataService.updateBudget(updatedBudget);
+              }
+            }
+          }
+        }
+
+        // STEP 1b: Upload UPDATED budgets
+        final updatedBudgets = localBudgets
+            .where((b) => b.remoteId != null && b.remoteId!.isNotEmpty && !b.isSynced)
+            .toList();
+        
+        if (updatedBudgets.isNotEmpty) {
+          _logger.info('📝 Uploading ${updatedBudgets.length} UPDATED budgets');
+          
+          final updateBatch = updatedBudgets.map((b) => _prepareBudgetForUpload(b, profileId)).toList();
+          final response = await _apiClient.updateBudgets(profileId, updateBatch);
+          
+          if (response['success'] == true) {
+            result.uploaded += response['updated'] as int? ?? 0;
+            
+            // Mark as synced
+            for (final b in updatedBudgets) {
+              await _offlineDataService.updateBudget(b.copyWith(isSynced: true));
+            }
+          }
+        }
+
+        // STEP 1c: Upload DELETED budgets
+        final deletedBudgets = localBudgets
+            .where((b) => b.isDeleted && (b.remoteId != null && b.remoteId!.isNotEmpty))
+            .toList();
+        
+        if (deletedBudgets.isNotEmpty) {
+          _logger.info('🗑️ Uploading ${deletedBudgets.length} DELETED budgets');
+          
+          final deleteIds = deletedBudgets.map((b) => b.remoteId!).toList();
+          final response = await _apiClient.deleteBudgets(profileId, deleteIds);
+          
+          if (response['success'] == true) {
+            result.uploaded += response['deleted'] as int? ?? 0;
+            
+            // Remove from local database
+            for (final b in deletedBudgets) {
+              if (b.id != null) {
+                await _offlineDataService.deleteBudget(b.id!);
+              }
+            }
           }
         }
         
+        // STEP 2: Download from server
         final remoteBudgets = await _apiClient.getBudgets(profileId: profileId);
         
+        // STEP 3: Merge
         for (final remote in remoteBudgets) {
           final remoteId = remote['id']?.toString();
           if (remoteId == null) continue;

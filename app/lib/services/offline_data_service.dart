@@ -349,7 +349,7 @@ class OfflineDataService {
     try {
       _logger.info('📝 Approving pending transaction: ${tx.id}');
       
-      // ✅ FIX: Check if this transaction already exists (prevent duplicates)
+      // Check if transaction already exists
       if (tx.id != null && tx.id!.isNotEmpty) {
         try {
           final existingId = int.tryParse(tx.id!);
@@ -358,18 +358,22 @@ class OfflineDataService {
             if (existing != null) {
               _logger.warning('⚠️ Transaction ${tx.id} already exists - updating instead');
               
-              // Update existing transaction to mark as not pending
+              // Temporarily disable event service
+              final tempEventService = _eventService;
+              _eventService = null;
+              
               final updatedTx = tx.copyWith(isPending: false);
               await updateTransaction(updatedTx);
+              
+              // Restore and emit once
+              _eventService = tempEventService;
               await _db.deletePending(tx.id!);
               
-              // ✅ FIX: Use onTransactionUpdated instead of onTransactionApproved
-              // This prevents double-save via _handleTransactionAdded
               if (_eventService != null) {
                 await _eventService!.onTransactionUpdated(updatedTx);
               }
               
-              _logger.info('✅ Existing transaction updated and approved');
+              _logger.info('✅ Existing transaction updated');
               return;
             }
           }
@@ -378,25 +382,30 @@ class OfflineDataService {
         }
       }
       
-      // ✅ FIX: Create new transaction with a fresh ID to avoid conflicts
+      // Create new transaction - temporarily disable events
+      final tempEventService = _eventService;
+      _eventService = null;
+      
       final approvedTransaction = tx.copyWith(
-        id: null,  // Let the database assign a new ID
+        id: null,
         isPending: false,
         isSynced: false,
         updatedAt: DateTime.now(),
       );
       
-      // Save the transaction (this will get a new ID from database)
       await saveTransaction(approvedTransaction);
       
-      // Delete the pending record
+      // Restore event service
+      _eventService = tempEventService;
+      
       await _db.deletePending(tx.id ?? '');
       
-      // ✅ FIX: DO NOT emit onTransactionApproved event
-      // The saveTransaction() method already calls onTransactionCreated()
-      // which handles all the budget/goal updates
+      // Emit event once
+      if (_eventService != null) {
+        await _eventService!.onTransactionCreated(approvedTransaction);
+      }
       
-      _logger.info('✅ Pending transaction approved and saved (no duplication)');
+      _logger.info('✅ Pending transaction approved (no duplication)');
       
     } catch (e, stackTrace) {
       _logger.severe('Error approving pending transaction', e, stackTrace);

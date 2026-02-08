@@ -1,5 +1,4 @@
-# budgets/views.py
-# Create your views here.
+# budgets/views.py - COMPLETE FILE WITH CRUD SYNC
 from django.shortcuts import render
 from rest_framework import viewsets, status, permissions
 from rest_framework.decorators import action
@@ -13,7 +12,7 @@ from .serializers import BudgetSerializer, BudgetSummarySerializer
 
 
 class BudgetViewSet(viewsets.ModelViewSet):
-    """ViewSet for Budget model."""
+    """ViewSet for Budget model with full CRUD sync support."""
     serializer_class = BudgetSerializer
     permission_classes = [permissions.IsAuthenticated]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
@@ -24,18 +23,17 @@ class BudgetViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         """Return budgets for current user (excluding soft-deleted)."""
-        # Handle both User and Profile objects (authentication may set user to profile directly)
         if isinstance(self.request.user, Profile):
             user_profile = self.request.user
         else:
             user_profile = self.request.user.profile
+        
         # ✅ Filter out soft-deleted budgets
         queryset = Budget.objects.filter(profile=user_profile, is_deleted=False)
         
-        # Validate profile_id if provided (must own this profile)
+        # Validate profile_id if provided
         profile_id = self.request.query_params.get('profile_id')
         if profile_id:
-            # Security: Ensure user owns this profile
             if str(user_profile.id) != str(profile_id):
                 return Budget.objects.none()
             queryset = queryset.filter(profile_id=profile_id)
@@ -54,7 +52,6 @@ class BudgetViewSet(viewsets.ModelViewSet):
     
     def perform_create(self, serializer):
         """Set profile on create."""
-        # Handle both User and Profile objects
         if isinstance(self.request.user, Profile):
             profile = self.request.user
         else:
@@ -69,7 +66,8 @@ class BudgetViewSet(viewsets.ModelViewSet):
             profile=request.user,
             start_date__lte=now,
             end_date__gte=now,
-            is_active=True
+            is_active=True,
+            is_deleted=False
         ).order_by('-start_date').first()
         
         if current_budget:
@@ -94,7 +92,7 @@ class BudgetViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['post'])
     def batch_sync(self, request):
-        """Batch sync budgets from mobile app (create/update).
+        """✅ Batch sync budgets (create/update) from mobile app.
         
         Request format:
         POST /api/budgets/batch_sync/
@@ -204,76 +202,123 @@ class BudgetViewSet(viewsets.ModelViewSet):
             return Response({'success': False, 'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @action(detail=False, methods=['post'])
-    def bulk_sync(self, request):
-        """Bulk sync budgets from mobile app."""
-        budgets_data = request.data if isinstance(request.data, list) else []
-        # Handle both User and Profile objects
-        if isinstance(request.user, Profile):
-            user_profile = request.user
-        else:
-            user_profile = request.user.profile
+    def batch_update(self, request):
+        """✅ Batch update budgets from mobile app.
         
-        created_count = 0
-        updated_count = 0
-        errors = []
+        Request format:
+        POST /api/budgets/batch_update/
+        [
+            {'id': uuid, 'budget_amount': 50000, 'spent_amount': 15000, ...},
+            {'id': uuid, 'name': 'Updated Budget', ...},
+        ]
         
-        for budget_data in budgets_data:
-            try:
-                # Ensure profile is set
-                budget_data['profile'] = str(user_profile.id)
-                
-                budget_id = budget_data.get('id')
-                
-                if budget_id:
-                    # Try to update existing budget
+        Response:
+        {
+            'success': true,
+            'updated': N,
+            'failed_count': M,
+            'failed_ids': [...],
+            'errors': [...]
+        }
+        """
+        import logging
+        from django.utils import timezone
+        
+        logger = logging.getLogger('budgets')
+        logger.info("========== BUDGETS BATCH_UPDATE ==========")
+        
+        try:
+            budgets_data = request.data if isinstance(request.data, list) else []
+            logger.info(f"📝 Received {len(budgets_data)} budgets to update")
+            
+            if not budgets_data:
+                return Response({
+                    'success': False,
+                    'error': 'No budgets data provided',
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            user_profile = request.user if isinstance(request.user, Profile) else request.user.profile
+            updated_count = 0
+            errors = []
+            failed_ids = []
+            
+            for idx, budget_data in enumerate(budgets_data):
+                try:
+                    budget_id = budget_data.get('id')
+                    if not budget_id:
+                        errors.append({
+                            'index': idx,
+                            'error': 'Budget ID required for update'
+                        })
+                        continue
+                    
                     try:
-                        budget = Budget.objects.get(id=budget_id, profile=user_profile)
-                        serializer = BudgetSerializer(budget, data=budget_data, partial=True)
+                        # ✅ Only update non-deleted budgets
+                        budget = Budget.objects.get(
+                            id=budget_id,
+                            profile=user_profile,
+                            is_deleted=False
+                        )
+                        
+                        logger.info(f"Processing update for {budget_id}")
+                        
+                        serializer = BudgetSerializer(
+                            budget,
+                            data=budget_data,
+                            partial=True,
+                            context={'request': request}
+                        )
+                        
                         if serializer.is_valid():
-                            serializer.save()
+                            serializer.save(
+                                profile=user_profile,
+                                updated_at=timezone.now()
+                            )
                             updated_count += 1
+                            logger.info(f"✅ Updated budget {budget_id}")
                         else:
+                            logger.error(f"Validation failed: {serializer.errors}")
+                            failed_ids.append(budget_id)
                             errors.append({
                                 'id': budget_id,
                                 'errors': serializer.errors
                             })
                     except Budget.DoesNotExist:
-                        # Create new budget with specified ID
-                        serializer = BudgetSerializer(data=budget_data)
-                        if serializer.is_valid():
-                            serializer.save(profile=user_profile)
-                            created_count += 1
-                        else:
-                            errors.append({
-                                'id': budget_id,
-                                'errors': serializer.errors
-                            })
-                else:
-                    # Create new budget
-                    serializer = BudgetSerializer(data=budget_data)
-                    if serializer.is_valid():
-                        serializer.save(profile=user_profile)
-                        created_count += 1
-                    else:
+                        logger.error(f"Budget {budget_id} not found or deleted")
+                        failed_ids.append(budget_id)
                         errors.append({
-                            'errors': serializer.errors
+                            'id': budget_id,
+                            'error': 'Budget not found or already deleted'
                         })
-            except Exception as e:
-                errors.append({
-                    'id': budget_data.get('id'),
-                    'error': str(e)
-                })
-        
-        return Response({
-            'success': True,
-            'created': created_count,
-            'updated': updated_count,
-            'errors': errors
-        }, status=status.HTTP_200_OK)
-    
+                        
+                except Exception as e:
+                    logger.exception(f"Error updating budget: {str(e)}")
+                    failed_ids.append(budget_data.get('id'))
+                    errors.append({
+                        'id': budget_data.get('id'),
+                        'error': str(e)
+                    })
+            
+            logger.info(f"✅ BATCH_UPDATE COMPLETE: {updated_count} updated, {len(errors)} errors")
+            
+            return Response({
+                'success': len(failed_ids) == 0,
+                'updated': updated_count,
+                'failed_count': len(failed_ids),
+                'failed_ids': failed_ids,
+                'errors': errors if errors else None
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            logger.exception(f"Fatal error in batch_update: {str(e)}")
+            return Response({
+                'success': False,
+                'error': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
     @action(detail=False, methods=['post'])
     def batch_delete(self, request):
-        """Batch soft-delete budgets.
+        """✅ Batch soft-delete budgets.
         
         Request format:
         POST /api/budgets/batch_delete/
@@ -283,59 +328,85 @@ class BudgetViewSet(viewsets.ModelViewSet):
         
         Response:
         {
+            'success': true,
+            'deleted': N,
             'soft_deleted': N,
             'already_deleted': M,
-            'failed': L,
-            'errors': []
+            'failed_count': L,
+            'failed_ids': [...],
+            'errors': [...]
         }
         """
         import logging
+        from django.utils import timezone
+        
         logger = logging.getLogger('budgets')
+        logger.info("========== BUDGETS BATCH_DELETE (SOFT) ==========")
         
-        budget_ids = request.data.get('ids', [])
-        user_profile = request.user if isinstance(request.user, Profile) else request.user.profile
-        
-        soft_deleted = 0
-        already_deleted = 0
-        failed = 0
-        errors = []
-        
-        for budget_id in budget_ids:
-            try:
-                budget = Budget.objects.get(id=budget_id, profile=user_profile)
-                
-                if budget.is_deleted:
-                    already_deleted += 1
-                else:
-                    # Soft-delete
-                    budget.is_deleted = True
-                    budget.deleted_at = timezone.now()
-                    budget.save()
-                    soft_deleted += 1
-                    logger.info(f"[OK] Soft-deleted budget: {budget_id}")
+        try:
+            budget_ids = request.data.get('ids', [])
+            logger.info(f"🗑️ Received request to delete {len(budget_ids)} budgets")
+            
+            if not budget_ids:
+                return Response({
+                    'success': False,
+                    'error': 'No budget IDs provided',
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            user_profile = request.user if isinstance(request.user, Profile) else request.user.profile
+            deleted_count = 0
+            already_deleted = 0
+            errors = []
+            failed_ids = []
+            now = timezone.now()
+            
+            for budget_id in budget_ids:
+                try:
+                    budget = Budget.objects.get(id=budget_id, profile=user_profile)
                     
-            except Budget.DoesNotExist:
-                failed += 1
-                errors.append({'id': budget_id, 'error': 'Budget not found'})
-                logger.warning(f"[ERR] Budget not found: {budget_id}")
-            except Exception as e:
-                failed += 1
-                errors.append({'id': budget_id, 'error': str(e)})
-                logger.exception(f"[ERR] Exception deleting {budget_id}: {str(e)}")
-        
-        return Response({
-            'soft_deleted': soft_deleted,
-            'already_deleted': already_deleted,
-            'failed': failed,
-            'errors': errors
-        }, status=status.HTTP_200_OK)
-    
+                    if budget.is_deleted:
+                        already_deleted += 1
+                        logger.info(f"ℹ️ Budget {budget_id} already soft-deleted")
+                        continue
+                    
+                    # Soft delete
+                    budget.is_deleted = True
+                    budget.deleted_at = now
+                    budget.save(update_fields=['is_deleted', 'deleted_at', 'updated_at'])
+                    
+                    deleted_count += 1
+                    logger.info(f"✅ Soft-deleted budget {budget_id}")
+                    
+                except Budget.DoesNotExist:
+                    logger.error(f"Budget {budget_id} not found")
+                    failed_ids.append(budget_id)
+                    errors.append({'id': budget_id, 'error': 'Budget not found'})
+                except Exception as e:
+                    logger.exception(f"Error deleting budget {budget_id}")
+                    failed_ids.append(budget_id)
+                    errors.append({'id': budget_id, 'error': str(e)})
+            
+            logger.info(f"✅ BATCH_DELETE COMPLETE: {deleted_count} deleted, {already_deleted} already deleted")
+            
+            return Response({
+                'success': len(failed_ids) == 0,
+                'deleted': deleted_count,
+                'soft_deleted': deleted_count,
+                'already_deleted': already_deleted,
+                'failed_count': len(failed_ids),
+                'failed_ids': failed_ids,
+                'errors': errors if errors else None
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            logger.exception(f"Fatal error in batch_delete")
+            return Response({'success': False, 'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
     @action(detail=False, methods=['get'])
     def summary(self, request):
         """Get summary of all budgets."""
-        budgets = self.get_queryset().filter(is_active=True)
+        budgets = self.get_queryset().filter(is_active=True, is_deleted=False)
         
-        # Get current budgets
         now = timezone.now()
         current_budgets = budgets.filter(
             start_date__lte=now,

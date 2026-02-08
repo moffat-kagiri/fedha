@@ -1,34 +1,28 @@
 python manage.py runserver 0.0.0.0:8000
-Message: '✅ BATCH_DELETE COMPLETE: soft_deleted=1, already_deleted=0, failed=0, errors=0'
-Arguments: ()
-INFO 2026-02-07 10:53:18,981 log "POST /api/transactions/batch_delete/ HTTP/1.1" 200 187
-(venv) (base) PS C:\GitHub\fedha\backend> python manage.py runserver 0.0.0.0:8000
-INFO 2026-02-07 11:17:42,464 autoreload Watching for file changes with StatReloader
+                                          python manage.py runserver 0.0.0.0:8000
+INFO 2026-02-08 10:53:55,039 autoreload Watching for file changes with StatReloader
 Performing system checks...
 
 System check identified no issues (0 silenced).
-February 07, 2026 - 11:17:43
+February 08, 2026 - 10:53:58
 Django version 6.0, using settings 'fedha_backend.settings'
 Starting development server at http://0.0.0.0:8000/
 Quit the server with CTRL-BREAK.
 
-WARNING: This is a development server. Do not use it in a production setting. Use a production WS
-GI or ASGI server instead.                                                                       For more information on production servers see: https://docs.djangoproject.com/en/6.0/howto/deplo
-yment/                                                                                           INFO 2026-02-07 11:23:11,832 log "GET /api/health/ HTTP/1.1" 200 102
-INFO 2026-02-07 11:23:11,832 log "GET /api/health/ HTTP/1.1" 200 102
-INFO 2026-02-07 11:23:11,900 log "GET /api/health/ HTTP/1.1" 200 102
-INFO 2026-02-07 11:23:14,855 log "GET /api/health/ HTTP/1.1" 200 102
-INFO 2026-02-07 11:23:15,652 log "GET /api/health/ HTTP/1.1" 200 102
-INFO 2026-02-07 11:23:17,370 log "GET /api/health/ HTTP/1.1" 200 102
-INFO 2026-02-07 11:23:18,078 log "POST /api/budgets/bulk_sync/ HTTP/1.1" 200 52
-INFO 2026-02-07 11:23:19,480 log "GET /api/invoicing/loans/?profile_id=51f02462-1860-475e-bbe2-80
-bd129ea7a5 HTTP/1.1" 200 567                                                                     INFO 2026-02-07 11:23:19,495 log "GET /api/budgets/?profile_id=51f02462-1860-475e-bbe2-80bd129ea7
-a5 HTTP/1.1" 200 52                                                                              INFO 2026-02-07 11:23:19,538 views ========== GOALS BATCH_SYNC ==========
-INFO 2026-02-07 11:23:19,542 views [RECV] Received 1 goals to sync
-INFO 2026-02-07 11:23:19,542 views [USER] Syncing for profile: 51f02462-1860-475e-bbe2-80bd129ea7
-a5                                                                                               INFO 2026-02-07 11:23:19,602 views [OK] Created new goal: 3b7f94a6-aacb-4839-8167-039fdbb67d9c
-INFO 2026-02-07 11:23:19,603 views [DONE] BATCH_SYNC COMPLETE: created=1, updated=0, errors=0
-INFO 2026-02-07 11:23:19,603 log "POST /api/goals/batch_sync/ HTTP/1.1" 200 124
+WARNING: This is a development server. Do not use it in a production setting. Use a production WSGI or ASGI server instead.
+For more information on production servers see: https://docs.djangoproject.com/en/6.0/howto/deployment/
+INFO 2026-02-08 11:03:25,338 log "GET /api/health/ HTTP/1.1" 200 102
+INFO 2026-02-08 11:03:25,474 log "GET /api/health/ HTTP/1.1" 200 102
+INFO 2026-02-08 11:03:25,483 log "GET /api/health/ HTTP/1.1" 200 102
+INFO 2026-02-08 11:03:28,472 log "GET /api/health/ HTTP/1.1" 200 102
+INFO 2026-02-08 11:03:28,702 log "GET /api/health/ HTTP/1.1" 200 102
+INFO 2026-02-08 11:03:36,948 log "GET /api/health/ HTTP/1.1" 200 102
+INFO 2026-02-08 11:04:24,538 log "GET /api/health/ HTTP/1.1" 200 102
+INFO 2026-02-08 11:04:24,792 views Login attempt for: kagirimoffat@yahoo.com
+INFO 2026-02-08 11:04:26,312 views Login successful for: kagirimoffat@yahoo.com
+INFO 2026-02-08 11:04:26,313 log "POST /api/auth/login/ HTTP/1.1" 200 725
+INFO 2026-02-08 11:04:26,658 log "GET /api/profile/ HTTP/1.1" 200 360
+INFO 2026-02-08 11:04:33,866 log "GET /api/health/ HTTP/1.1" 200 102
 
 🔍 GET /api/transactions/ EXECUTION:
   📱 Current user (request.user): kagirimoffat@yahoo.com
@@ -36,44 +30,297 @@ INFO 2026-02-07 11:23:19,603 log "POST /api/goals/batch_sync/ HTTP/1.1" 200 124
   🔎 Query param profile_id: 51f02462-1860-475e-bbe2-80bd129ea7a5
   📊 After basic filter (profile=51f02462-1860-475e-bbe2-80bd129ea7a5, is_deleted=False): 10 txns
   ✅ Profile validation passed
-C:\GitHub\fedha\backend\venv\Lib\site-packages\rest_framework\fields.py:992: UserWarning: min_val
-ue should be an integer or Decimal instance.                                                       warnings.warn("min_value should be an integer or Decimal instance.")
-INFO 2026-02-07 11:23:19,763 log "GET /api/transactions/?profile_id=51f02462-1860-475e-bbe2-80bd1
-29ea7a5 HTTP/1.1" 200 8801                                                                       INFO 2026-02-07 11:23:20,296 log "GET /api/goals/?profile_id=51f02462-1860-475e-bbe2-80bd129ea7a5
- HTTP/1.1" 200 2776                                                                              INFO 2026-02-07 11:23:33,817 basehttp - Broken pipe from ('192.168.100.8', 42152)
-INFO 2026-02-07 11:23:33,818 basehttp - Broken pipe from ('192.168.100.8', 42174)
-INFO 2026-02-07 11:23:33,818 basehttp - Broken pipe from ('192.168.100.8', 33474)
-INFO 2026-02-07 11:23:33,819 basehttp - Broken pipe from ('192.168.100.8', 42164)
-INFO 2026-02-07 11:25:15,481 log "GET /api/health/ HTTP/1.1" 200 102
-INFO 2026-02-07 11:25:25,594 log "GET /api/health/ HTTP/1.1" 200 102
-INFO 2026-02-07 11:25:26,421 log "GET /api/invoicing/loans/?profile_id=51f02462-1860-475e-bbe2-80
-bd129ea7a5 HTTP/1.1" 200 567                                                                     INFO 2026-02-07 11:25:26,457 log "POST /api/budgets/bulk_sync/ HTTP/1.1" 200 52
-
-🔍 GET /api/transactions/ EXECUTION:
-  📱 Current user (request.user): kagirimoffat@yahoo.com
-  📱 Current user ID: 51f02462-1860-475e-bbe2-80bd129ea7a5
-  🔎 Query param profile_id: 51f02462-1860-475e-bbe2-80bd129ea7a5
-  📊 After basic filter (profile=51f02462-1860-475e-bbe2-80bd129ea7a5, is_deleted=False): 10 txns
-  ✅ Profile validation passed
-INFO 2026-02-07 11:25:26,655 log "GET /api/goals/?profile_id=51f02462-1860-475e-bbe2-80bd129ea7a5
- HTTP/1.1" 200 2776                                                                              INFO 2026-02-07 11:25:26,664 log "GET /api/transactions/?profile_id=51f02462-1860-475e-bbe2-80bd1
-29ea7a5 HTTP/1.1" 200 8801                                                                       INFO 2026-02-07 11:25:26,744 log "GET /api/budgets/?profile_id=51f02462-1860-475e-bbe2-80bd129ea7
-a5 HTTP/1.1" 200 52                                                                              INFO 2026-02-07 11:25:36,280 log "GET /api/health/ HTTP/1.1" 200 102
-INFO 2026-02-07 11:27:23,507 log "GET /api/health/ HTTP/1.1" 200 102
-INFO 2026-02-07 11:27:23,841 log "POST /api/budgets/bulk_sync/ HTTP/1.1" 200 52
-INFO 2026-02-07 11:27:23,963 views ========== TRANSACTION BULK_SYNC DEBUG ==========
-INFO 2026-02-07 11:27:23,964 views Content-Type: application/json
-INFO 2026-02-07 11:27:23,964 views Request body type: <class 'list'>
-INFO 2026-02-07 11:27:23,966 views Received 1 transactions
-INFO 2026-02-07 11:27:23,967 views User profile: 51f02462-1860-475e-bbe2-80bd129ea7a5
-INFO 2026-02-07 11:27:23,967 views ==================================================
-INFO 2026-02-07 11:27:23,968 views Processing transaction 1/1
-INFO 2026-02-07 11:27:23,968 views Raw data: {
+C:\GitHub\fedha\backend\venv\Lib\site-packages\rest_framework\fields.py:992: UserWarning: min_value should be an integer or Decimal instance.
+  warnings.warn("min_value should be an integer or Decimal instance.")
+INFO 2026-02-08 11:04:35,168 log "GET /api/transactions/?profile_id=51f02462-1860-475e-bbe2-80bd129ea7a5 HTTP/1.1" 200 8801
+INFO 2026-02-08 11:04:36,002 log "GET /api/goals/?profile_id=51f02462-1860-475e-bbe2-80bd129ea7a5 HTTP/1.1" 200 4144
+INFO 2026-02-08 11:04:36,529 log "GET /api/budgets/?profile_id=51f02462-1860-475e-bbe2-80bd129ea7a5 HTTP/1.1" 200 52
+INFO 2026-02-08 11:04:36,845 log "GET /api/invoicing/loans/?profile_id=51f02462-1860-475e-bbe2-80bd129ea7a5 HTTP/1.1" 200 567
+INFO 2026-02-08 11:07:33,604 views ========== TRANSACTION BATCH_DELETE (SOFT) ==========
+INFO 2026-02-08 11:07:33,605 views 🗑️ Received request to delete 1 transactions
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\ProgramData\miniconda3\Lib\logging\__init__.py", line 1153, in emit
+    stream.write(msg + self.terminator)
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\ProgramData\miniconda3\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode characters in position 35-36: character maps to <undefined>
+Call stack:
+  File "C:\ProgramData\miniconda3\Lib\threading.py", line 1012, in _bootstrap
+    self._bootstrap_inner()
+  File "C:\ProgramData\miniconda3\Lib\threading.py", line 1041, in _bootstrap_inner
+    self.run()
+  File "C:\ProgramData\miniconda3\Lib\threading.py", line 992, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\ProgramData\miniconda3\Lib\socketserver.py", line 697, in process_request_thread
+    self.finish_request(request, client_address)
+  File "C:\ProgramData\miniconda3\Lib\socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "C:\ProgramData\miniconda3\Lib\socketserver.py", line 766, in __init__
+    self.handle()
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\django\core\servers\basehttp.py", line 221, in handle
+    self.handle_one_request()
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\django\core\servers\basehttp.py", line 248, in handle_one_request
+    handler.run(self.server.get_app())
+  File "C:\ProgramData\miniconda3\Lib\wsgiref\handlers.py", line 137, in run
+    self.result = application(self.environ, self.start_response)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\django\contrib\staticfiles\handlers.py", line 80, in __call__
+    return self.application(environ, start_response)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\django\core\handlers\wsgi.py", line 124, in __call__
+    response = self.get_response(request)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\django\core\handlers\base.py", line 141, in get_response
+    response = self._middleware_chain(request)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\django\utils\deprecation.py", line 309, in __call__
+    response = response or self.get_response(request)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\whitenoise\middleware.py", line 123, in __call__
+    return self.get_response(request)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\django\utils\deprecation.py", line 309, in __call__
+    response = response or self.get_response(request)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\corsheaders\middleware.py", line 53, in __call__
+    result = self.get_response(request)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\django\utils\deprecation.py", line 309, in __call__
+    response = response or self.get_response(request)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\django\utils\deprecation.py", line 309, in __call__
+    response = response or self.get_response(request)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\django\utils\deprecation.py", line 309, in __call__
+    response = response or self.get_response(request)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\django\utils\deprecation.py", line 309, in __call__
+    response = response or self.get_response(request)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\django\utils\deprecation.py", line 309, in __call__
+    response = response or self.get_response(request)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\django\core\handlers\base.py", line 198, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\django\views\decorators\csrf.py", line 65, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\rest_framework\viewsets.py", line 125, in view
+    return self.dispatch(request, *args, **kwargs)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\rest_framework\views.py", line 512, in dispatch
+    response = handler(request, *args, **kwargs)
+  File "C:\GitHub\fedha\backend\transactions\views.py", line 460, in batch_delete
+    logger.info(f"🗑️ Received request to delete {len(transaction_ids)} transactions")
+Message: '🗑️ Received request to delete 1 transactions'
+Arguments: ()
+INFO 2026-02-08 11:07:34,191 views ✅ Soft-deleted transaction cf7f5c35-965c-42ff-9a98-6865bb10035c at 2026-02-08 08:07:33.946081+00:00
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\ProgramData\miniconda3\Lib\logging\__init__.py", line 1153, in emit
+    stream.write(msg + self.terminator)
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\ProgramData\miniconda3\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2705' in position 35: character maps to <undefined>
+Call stack:
+  File "C:\ProgramData\miniconda3\Lib\threading.py", line 1012, in _bootstrap
+    self._bootstrap_inner()
+  File "C:\ProgramData\miniconda3\Lib\threading.py", line 1041, in _bootstrap_inner
+    self.run()
+  File "C:\ProgramData\miniconda3\Lib\threading.py", line 992, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\ProgramData\miniconda3\Lib\socketserver.py", line 697, in process_request_thread
+    self.finish_request(request, client_address)
+  File "C:\ProgramData\miniconda3\Lib\socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "C:\ProgramData\miniconda3\Lib\socketserver.py", line 766, in __init__
+    self.handle()
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\django\core\servers\basehttp.py", line 221, in handle
+    self.handle_one_request()
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\django\core\servers\basehttp.py", line 248, in handle_one_request
+    handler.run(self.server.get_app())
+  File "C:\ProgramData\miniconda3\Lib\wsgiref\handlers.py", line 137, in run
+    self.result = application(self.environ, self.start_response)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\django\contrib\staticfiles\handlers.py", line 80, in __call__
+    return self.application(environ, start_response)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\django\core\handlers\wsgi.py", line 124, in __call__
+    response = self.get_response(request)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\django\core\handlers\base.py", line 141, in get_response
+    response = self._middleware_chain(request)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\django\utils\deprecation.py", line 309, in __call__
+    response = response or self.get_response(request)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\whitenoise\middleware.py", line 123, in __call__
+    return self.get_response(request)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\django\utils\deprecation.py", line 309, in __call__
+    response = response or self.get_response(request)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\corsheaders\middleware.py", line 53, in __call__
+    result = self.get_response(request)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\django\utils\deprecation.py", line 309, in __call__
+    response = response or self.get_response(request)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\django\utils\deprecation.py", line 309, in __call__
+    response = response or self.get_response(request)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\django\utils\deprecation.py", line 309, in __call__
+    response = response or self.get_response(request)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\django\utils\deprecation.py", line 309, in __call__
+    response = response or self.get_response(request)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\django\utils\deprecation.py", line 309, in __call__
+    response = response or self.get_response(request)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\django\core\handlers\base.py", line 198, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\django\views\decorators\csrf.py", line 65, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\rest_framework\viewsets.py", line 125, in view
+    return self.dispatch(request, *args, **kwargs)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\rest_framework\views.py", line 512, in dispatch
+    response = handler(request, *args, **kwargs)
+  File "C:\GitHub\fedha\backend\transactions\views.py", line 492, in batch_delete
+    logger.info(f"✅ Soft-deleted transaction {tx_id} at {now}")
+Message: '✅ Soft-deleted transaction cf7f5c35-965c-42ff-9a98-6865bb10035c at 2026-02-08 08:07:33.946081+00:00'
+Arguments: ()
+INFO 2026-02-08 11:07:34,198 views ✅ BATCH_DELETE COMPLETE: soft_deleted=1, already_deleted=0, failed=0, errors=0
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\ProgramData\miniconda3\Lib\logging\__init__.py", line 1153, in emit
+    stream.write(msg + self.terminator)
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\ProgramData\miniconda3\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2705' in position 35: character maps to <undefined>
+Call stack:
+  File "C:\ProgramData\miniconda3\Lib\threading.py", line 1012, in _bootstrap
+    self._bootstrap_inner()
+  File "C:\ProgramData\miniconda3\Lib\threading.py", line 1041, in _bootstrap_inner
+    self.run()
+  File "C:\ProgramData\miniconda3\Lib\threading.py", line 992, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\ProgramData\miniconda3\Lib\socketserver.py", line 697, in process_request_thread
+    self.finish_request(request, client_address)
+  File "C:\ProgramData\miniconda3\Lib\socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "C:\ProgramData\miniconda3\Lib\socketserver.py", line 766, in __init__
+    self.handle()
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\django\core\servers\basehttp.py", line 221, in handle
+    self.handle_one_request()
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\django\core\servers\basehttp.py", line 248, in handle_one_request
+    handler.run(self.server.get_app())
+  File "C:\ProgramData\miniconda3\Lib\wsgiref\handlers.py", line 137, in run
+    self.result = application(self.environ, self.start_response)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\django\contrib\staticfiles\handlers.py", line 80, in __call__
+    return self.application(environ, start_response)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\django\core\handlers\wsgi.py", line 124, in __call__
+    response = self.get_response(request)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\django\core\handlers\base.py", line 141, in get_response
+    response = self._middleware_chain(request)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\django\utils\deprecation.py", line 309, in __call__
+    response = response or self.get_response(request)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\whitenoise\middleware.py", line 123, in __call__
+    return self.get_response(request)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\django\utils\deprecation.py", line 309, in __call__
+    response = response or self.get_response(request)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\corsheaders\middleware.py", line 53, in __call__
+    result = self.get_response(request)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\django\utils\deprecation.py", line 309, in __call__
+    response = response or self.get_response(request)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\django\utils\deprecation.py", line 309, in __call__
+    response = response or self.get_response(request)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\django\utils\deprecation.py", line 309, in __call__
+    response = response or self.get_response(request)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\django\utils\deprecation.py", line 309, in __call__
+    response = response or self.get_response(request)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\django\utils\deprecation.py", line 309, in __call__
+    response = response or self.get_response(request)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\django\core\handlers\base.py", line 198, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\django\views\decorators\csrf.py", line 65, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\rest_framework\viewsets.py", line 125, in view
+    return self.dispatch(request, *args, **kwargs)
+  File "C:\GitHub\fedha\backend\venv\Lib\site-packages\rest_framework\views.py", line 512, in dispatch
+    response = handler(request, *args, **kwargs)
+  File "C:\GitHub\fedha\backend\transactions\views.py", line 509, in batch_delete
+    logger.info(
+Message: '✅ BATCH_DELETE COMPLETE: soft_deleted=1, already_deleted=0, failed=0, errors=0'
+Arguments: ()
+INFO 2026-02-08 11:07:34,204 log "POST /api/transactions/batch_delete/ HTTP/1.1" 200 187
+INFO 2026-02-08 11:07:56,917 log "GET /api/health/ HTTP/1.1" 200 102
+INFO 2026-02-08 11:07:57,022 log "GET /api/health/ HTTP/1.1" 200 102
+INFO 2026-02-08 11:07:57,271 log "GET /api/health/ HTTP/1.1" 200 102
+INFO 2026-02-08 11:08:00,348 log "GET /api/health/ HTTP/1.1" 200 102
+INFO 2026-02-08 11:08:00,540 log "GET /api/health/ HTTP/1.1" 200 102
+INFO 2026-02-08 11:08:01,031 log "GET /api/health/ HTTP/1.1" 200 102
+WARNING 2026-02-08 11:08:01,399 log Method Not Allowed: /api/budgets/bulk_sync/
+WARNING 2026-02-08 11:08:01,400 log "POST /api/budgets/bulk_sync/ HTTP/1.1" 405 41
+INFO 2026-02-08 11:08:02,414 views ========== GOALS BATCH_SYNC ==========
+INFO 2026-02-08 11:08:02,414 views [RECV] Received 1 goals to sync
+INFO 2026-02-08 11:08:02,414 views [USER] Syncing for profile: 51f02462-1860-475e-bbe2-80bd129ea7a5
+INFO 2026-02-08 11:08:02,491 views [OK] Created new goal: 5b02595c-3846-41ff-9f07-31178f5bbbd9
+INFO 2026-02-08 11:08:02,492 views [DONE] BATCH_SYNC COMPLETE: created=1, updated=0, errors=0
+INFO 2026-02-08 11:08:02,494 log "POST /api/goals/batch_sync/ HTTP/1.1" 200 124
+INFO 2026-02-08 11:08:02,586 views ========== TRANSACTION BULK_SYNC DEBUG ==========
+INFO 2026-02-08 11:08:02,597 views Content-Type: application/json
+INFO 2026-02-08 11:08:02,598 views Request body type: <class 'list'>
+INFO 2026-02-08 11:08:02,598 log "GET /api/invoicing/loans/?profile_id=51f02462-1860-475e-bbe2-80bd129ea7a5 HTTP/1.1" 200 567
+INFO 2026-02-08 11:08:02,598 views Received 1 transactions
+INFO 2026-02-08 11:08:02,599 views User profile: 51f02462-1860-475e-bbe2-80bd129ea7a5
+INFO 2026-02-08 11:08:02,600 views ==================================================
+INFO 2026-02-08 11:08:02,600 views Processing transaction 1/1
+INFO 2026-02-08 11:08:02,600 views Raw data: {
   "profile_id": "51f02462-1860-475e-bbe2-80bd129ea7a5",
-  "amount": 1000.0,
+  "amount": 120.0,
   "type": "savings",
   "description": "",
-  "date": "2026-02-07T11:26:31.000",
+  "date": "2026-02-08T11:06:51.000",
   "is_expense": false,
   "currency": "KES",
   "status": "completed",
@@ -81,49 +328,134 @@ INFO 2026-02-07 11:27:23,968 views Raw data: {
   "is_recurring": false,
   "is_pending": false,
   "category": "emergencyFund",
-  "goal_id": "4",
+  "goal_id": "7fb448af-15f0-4ce4-99a3-8eb1d7d05a67",
   "budget_category": "savings"
 }
-INFO 2026-02-07 11:27:23,969 views Creating new transaction (no ID provided)
-INFO 2026-02-07 11:27:24,040 views Successfully created new transaction (server ID: cf7f5c35-965c
--42ff-9a98-6865bb10035c)                                                                         INFO 2026-02-07 11:27:24,040 views ==================================================
-INFO 2026-02-07 11:27:24,041 views SYNC COMPLETE
-INFO 2026-02-07 11:27:24,041 views Created: 1
-INFO 2026-02-07 11:27:24,041 views Updated: 0
-INFO 2026-02-07 11:27:24,041 views Errors: 0
-INFO 2026-02-07 11:27:24,043 log "POST /api/transactions/bulk_sync/ HTTP/1.1" 200 107
-INFO 2026-02-07 11:27:24,054 views ========== GOALS BATCH_SYNC ==========
-INFO 2026-02-07 11:27:24,055 views [RECV] Received 1 goals to sync
-INFO 2026-02-07 11:27:24,055 views [USER] Syncing for profile: 51f02462-1860-475e-bbe2-80bd129ea7
-a5                                                                                               INFO 2026-02-07 11:27:24,077 views [OK] Created new goal: 7fb448af-15f0-4ce4-99a3-8eb1d7d05a67
-INFO 2026-02-07 11:27:24,077 views [DONE] BATCH_SYNC COMPLETE: created=1, updated=0, errors=0
-INFO 2026-02-07 11:27:24,078 log "POST /api/goals/batch_sync/ HTTP/1.1" 200 124
-INFO 2026-02-07 11:27:24,094 log "GET /api/invoicing/loans/?profile_id=51f02462-1860-475e-bbe2-80
-bd129ea7a5 HTTP/1.1" 200 567                                                                     INFO 2026-02-07 11:27:24,283 log "GET /api/budgets/?profile_id=51f02462-1860-475e-bbe2-80bd129ea7
-a5 HTTP/1.1" 200 52                                                                              
+INFO 2026-02-08 11:08:02,601 views Creating new transaction (no ID provided)
+INFO 2026-02-08 11:08:02,617 log "GET /api/budgets/?profile_id=51f02462-1860-475e-bbe2-80bd129ea7a5 HTTP/1.1" 200 52
+INFO 2026-02-08 11:08:02,648 views Successfully created new transaction (server ID: 501c3e99-39f2-428c-a8ae-0d80a35772d2)
+INFO 2026-02-08 11:08:02,649 views ==================================================
+INFO 2026-02-08 11:08:02,651 views SYNC COMPLETE
+INFO 2026-02-08 11:08:02,652 views Created: 1
+INFO 2026-02-08 11:08:02,653 views Updated: 0
+INFO 2026-02-08 11:08:02,653 views Errors: 0
+INFO 2026-02-08 11:08:02,655 log "POST /api/transactions/bulk_sync/ HTTP/1.1" 200 107
+INFO 2026-02-08 11:08:02,854 log "GET /api/goals/?profile_id=51f02462-1860-475e-bbe2-80bd129ea7a5 HTTP/1.1" 200 4825
+
+🔍 GET /api/transactions/ EXECUTION:
+  📱 Current user (request.user): kagirimoffat@yahoo.com
+  📱 Current user ID: 51f02462-1860-475e-bbe2-80bd129ea7a5
+  🔎 Query param profile_id: 51f02462-1860-475e-bbe2-80bd129ea7a5
+  📊 After basic filter (profile=51f02462-1860-475e-bbe2-80bd129ea7a5, is_deleted=False): 10 txns
+  ✅ Profile validation passed
+INFO 2026-02-08 11:08:03,019 log "GET /api/transactions/?profile_id=51f02462-1860-475e-bbe2-80bd129ea7a5 HTTP/1.1" 200 8835
+INFO 2026-02-08 11:08:09,569 log "GET /api/health/ HTTP/1.1" 200 102
+INFO 2026-02-08 11:11:26,629 log "GET /api/health/ HTTP/1.1" 200 102
+WARNING 2026-02-08 11:11:26,996 log Method Not Allowed: /api/budgets/bulk_sync/
+WARNING 2026-02-08 11:11:26,997 log "POST /api/budgets/bulk_sync/ HTTP/1.1" 405 41
+INFO 2026-02-08 11:11:27,210 log "GET /api/goals/?profile_id=51f02462-1860-475e-bbe2-80bd129ea7a5 HTTP/1.1" 200 4825
+INFO 2026-02-08 11:11:27,214 views ========== TRANSACTION BULK_SYNC DEBUG ==========
+INFO 2026-02-08 11:11:27,215 views Content-Type: application/json
+INFO 2026-02-08 11:11:27,215 views Request body type: <class 'list'>
+INFO 2026-02-08 11:11:27,216 views Received 1 transactions
+INFO 2026-02-08 11:11:27,216 views User profile: 51f02462-1860-475e-bbe2-80bd129ea7a5
+INFO 2026-02-08 11:11:27,216 views ==================================================
+INFO 2026-02-08 11:11:27,217 views Processing transaction 1/1
+INFO 2026-02-08 11:11:27,217 views Raw data: {
+  "profile_id": "51f02462-1860-475e-bbe2-80bd129ea7a5",
+  "amount": 500.0,
+  "type": "expense",
+  "description": "",
+  "date": "2026-02-08T11:11:01.000",
+  "is_expense": true,
+  "currency": "KES",
+  "status": "completed",
+  "is_synced": true,
+  "is_recurring": false,
+  "is_pending": false,
+  "category": "food",
+  "budget_category": "food"
+}
+INFO 2026-02-08 11:11:27,218 views Creating new transaction (no ID provided)
+INFO 2026-02-08 11:11:27,228 log "GET /api/invoicing/loans/?profile_id=51f02462-1860-475e-bbe2-80bd129ea7a5 HTTP/1.1" 200 567
+INFO 2026-02-08 11:11:27,239 views Successfully created new transaction (server ID: 6a9fef3d-f8a9-4f02-b1d1-026e96a66efd)
+INFO 2026-02-08 11:11:27,241 views ==================================================
+INFO 2026-02-08 11:11:27,242 views SYNC COMPLETE
+INFO 2026-02-08 11:11:27,242 views Created: 1
+INFO 2026-02-08 11:11:27,243 views Updated: 0
+INFO 2026-02-08 11:11:27,244 views Errors: 0
+INFO 2026-02-08 11:11:27,247 log "POST /api/transactions/bulk_sync/ HTTP/1.1" 200 107
+INFO 2026-02-08 11:11:27,335 log "GET /api/budgets/?profile_id=51f02462-1860-475e-bbe2-80bd129ea7a5 HTTP/1.1" 200 52
+
 🔍 GET /api/transactions/ EXECUTION:
   📱 Current user (request.user): kagirimoffat@yahoo.com
   📱 Current user ID: 51f02462-1860-475e-bbe2-80bd129ea7a5
   🔎 Query param profile_id: 51f02462-1860-475e-bbe2-80bd129ea7a5
   📊 After basic filter (profile=51f02462-1860-475e-bbe2-80bd129ea7a5, is_deleted=False): 11 txns
   ✅ Profile validation passed
-INFO 2026-02-07 11:27:24,402 log "GET /api/transactions/?profile_id=51f02462-1860-475e-bbe2-80bd1
-29ea7a5 HTTP/1.1" 200 9515                                                                       INFO 2026-02-07 11:27:24,403 log "GET /api/goals/?profile_id=51f02462-1860-475e-bbe2-80bd129ea7a5
- HTTP/1.1" 200 3456                                                                              INFO 2026-02-07 11:28:04,640 log "GET /api/health/ HTTP/1.1" 200 102
-INFO 2026-02-07 11:28:05,091 log "POST /api/budgets/bulk_sync/ HTTP/1.1" 200 52
-INFO 2026-02-07 11:28:05,236 views ========== GOALS BATCH_SYNC ==========
-INFO 2026-02-07 11:28:05,237 views [RECV] Received 1 goals to sync
-INFO 2026-02-07 11:28:05,237 views [USER] Syncing for profile: 51f02462-1860-475e-bbe2-80bd129ea7
-a5                                                                                               INFO 2026-02-07 11:28:05,255 views [OK] Created new goal: 40e27363-b4c3-4cd8-9752-dbbc9c0efe2c   
-INFO 2026-02-07 11:28:05,256 views [DONE] BATCH_SYNC COMPLETE: created=1, updated=0, errors=0    
-INFO 2026-02-07 11:28:05,257 log "POST /api/goals/batch_sync/ HTTP/1.1" 200 124
+INFO 2026-02-08 11:11:27,511 log "GET /api/transactions/?profile_id=51f02462-1860-475e-bbe2-80bd129ea7a5 HTTP/1.1" 200 9539
+INFO 2026-02-08 11:11:38,144 log "GET /api/health/ HTTP/1.1" 200 102
+WARNING 2026-02-08 11:11:38,577 log Method Not Allowed: /api/budgets/bulk_sync/
+WARNING 2026-02-08 11:11:38,578 log "POST /api/budgets/bulk_sync/ HTTP/1.1" 405 41
+INFO 2026-02-08 11:11:38,628 log "GET /api/invoicing/loans/?profile_id=51f02462-1860-475e-bbe2-80bd129ea7a5 HTTP/1.1" 200 567
 
-🔍 GET /api/transactions/ EXECUTION:INFO 2026-02-07 11:28:05,291 log "GET /api/invoicing/loans/?p
-rofile_id=51f02462-1860-475e-bbe2-80bd129ea7a5 HTTP/1.1" 200 567                                 
-INFO 2026-02-07 11:28:05,293 log "GET /api/budgets/?profile_id=51f02462-1860-475e-bbe2-80bd129ea7
-a5 HTTP/1.1" 200 52                                                                                📱 Current user (request.user): kagirimoffat@yahoo.com
+🔍 GET /api/transactions/ EXECUTION:
+  📱 Current user (request.user): kagirimoffat@yahoo.com
   📱 Current user ID: 51f02462-1860-475e-bbe2-80bd129ea7a5
   🔎 Query param profile_id: 51f02462-1860-475e-bbe2-80bd129ea7a5
   📊 After basic filter (profile=51f02462-1860-475e-bbe2-80bd129ea7a5, is_deleted=False): 11 txns
   ✅ Profile validation passed
-INFO 2026-02-07 11:28:05,351 log "GET /api/transactions/?profile_id=51f02462-1860-475e-bbe2-80bd1
+INFO 2026-02-08 11:11:38,675 log "GET /api/goals/?profile_id=51f02462-1860-475e-bbe2-80bd129ea7a5 HTTP/1.1" 200 4825
+INFO 2026-02-08 11:11:38,700 log "GET /api/transactions/?profile_id=51f02462-1860-475e-bbe2-80bd129ea7a5 HTTP/1.1" 200 9539
+INFO 2026-02-08 11:11:38,801 log "GET /api/budgets/?profile_id=51f02462-1860-475e-bbe2-80bd129ea7a5 HTTP/1.1" 200 52
+INFO 2026-02-08 11:12:39,572 log "GET /api/health/ HTTP/1.1" 200 102
+WARNING 2026-02-08 11:12:39,935 log Method Not Allowed: /api/budgets/bulk_sync/
+WARNING 2026-02-08 11:12:39,936 log "POST /api/budgets/bulk_sync/ HTTP/1.1" 405 41
+INFO 2026-02-08 11:12:39,968 views ========== GOALS BATCH_SYNC ==========
+INFO 2026-02-08 11:12:39,970 views [RECV] Received 1 goals to sync
+INFO 2026-02-08 11:12:39,971 views [USER] Syncing for profile: 51f02462-1860-475e-bbe2-80bd129ea7a5
+INFO 2026-02-08 11:12:39,989 log "GET /api/invoicing/loans/?profile_id=51f02462-1860-475e-bbe2-80bd129ea7a5 HTTP/1.1" 200 567
+INFO 2026-02-08 11:12:39,998 views [OK] Created new goal: 06f39ff2-1580-49d8-afb3-ff7b8030a4d9
+INFO 2026-02-08 11:12:40,010 views [DONE] BATCH_SYNC COMPLETE: created=1, updated=0, errors=0
+INFO 2026-02-08 11:12:40,011 log "POST /api/goals/batch_sync/ HTTP/1.1" 200 124
+INFO 2026-02-08 11:12:40,118 views ========== TRANSACTION BULK_SYNC DEBUG ==========
+INFO 2026-02-08 11:12:40,121 views Content-Type: application/json
+INFO 2026-02-08 11:12:40,121 log "GET /api/budgets/?profile_id=51f02462-1860-475e-bbe2-80bd129ea7a5 HTTP/1.1" 200 52
+INFO 2026-02-08 11:12:40,121 views Request body type: <class 'list'>
+INFO 2026-02-08 11:12:40,122 views Received 1 transactions
+INFO 2026-02-08 11:12:40,123 views User profile: 51f02462-1860-475e-bbe2-80bd129ea7a5
+INFO 2026-02-08 11:12:40,123 views ==================================================
+INFO 2026-02-08 11:12:40,123 views Processing transaction 1/1
+INFO 2026-02-08 11:12:40,123 views Raw data: {
+  "profile_id": "51f02462-1860-475e-bbe2-80bd129ea7a5",
+  "amount": 1500.0,
+  "type": "savings",
+  "description": "",
+  "date": "2026-02-08T11:12:17.000",
+  "is_expense": false,
+  "currency": "KES",
+  "status": "completed",
+  "is_synced": true,
+  "is_recurring": false,
+  "is_pending": false,
+  "category": "emergencyFund",
+  "goal_id": "5b02595c-3846-41ff-9f07-31178f5bbbd9",
+  "budget_category": "savings"
+}
+INFO 2026-02-08 11:12:40,124 views Creating new transaction (no ID provided)
+INFO 2026-02-08 11:12:40,132 views Successfully created new transaction (server ID: 91e2419f-a37e-4caa-b44e-b4cbcecb35ff)
+INFO 2026-02-08 11:12:40,132 views ==================================================
+INFO 2026-02-08 11:12:40,132 views SYNC COMPLETE
+INFO 2026-02-08 11:12:40,133 views Created: 1
+INFO 2026-02-08 11:12:40,133 views Updated: 0
+INFO 2026-02-08 11:12:40,133 views Errors: 0
+INFO 2026-02-08 11:12:40,134 log "POST /api/transactions/bulk_sync/ HTTP/1.1" 200 107
+
+🔍 GET /api/transactions/ EXECUTION:
+  📱 Current user (request.user): kagirimoffat@yahoo.com
+  📱 Current user ID: 51f02462-1860-475e-bbe2-80bd129ea7a5
+  🔎 Query param profile_id: 51f02462-1860-475e-bbe2-80bd129ea7a5
+  📊 After basic filter (profile=51f02462-1860-475e-bbe2-80bd129ea7a5, is_deleted=False): 12 txns
+  ✅ Profile validation passed
+INFO 2026-02-08 11:12:40,296 log "GET /api/transactions/?profile_id=51f02462-1860-475e-bbe2-80bd129ea7a5 HTTP/1.1" 200 10288
+INFO 2026-02-08 11:12:40,333 log "GET /api/goals/?profile_id=51f02462-1860-475e-bbe2-80bd129ea7a5 HTTP/1.1" 200 5505

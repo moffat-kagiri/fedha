@@ -877,6 +877,151 @@ class ApiClient {
     }
   }
 
+  /// ✅ Update multiple budgets
+  Future<Map<String, dynamic>> updateBudgets(
+    String profileId,
+    List<dynamic> budgets,
+  ) async {
+    final url = Uri.parse(_config.getEndpoint('api/budgets/batch_update/'));
+    
+    try {
+      logger.info('POST ${url.toString()} - ${budgets.length} budgets to update');
+      
+      final resp = await _http.post(
+        url,
+        headers: _headers,
+        body: jsonEncode(budgets),
+      ).timeout(Duration(seconds: _config.timeoutSeconds));
+      
+      if (resp.statusCode == 200 || resp.statusCode == 201) {
+        final data = jsonDecode(resp.body) as Map<String, dynamic>;
+        logger.info('✅ Update complete: ${data['updated']} updated');
+        return {
+          'success': true,
+          'updated': data['updated'] ?? 0,
+          'data': data,
+        };
+      }
+      
+      logger.warning('Update failed: ${resp.statusCode} - ${resp.body}');
+      return {'success': false, 'status': resp.statusCode, 'body': resp.body};
+    } catch (e) {
+      logger.severe('Update budgets error: $e');
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  /// ✅ Delete multiple budgets
+  Future<Map<String, dynamic>> deleteBudgets(
+    String profileId,
+    List<String> budgetIds,
+  ) async {
+    final url = Uri.parse(_config.getEndpoint('api/budgets/batch_delete/'));
+    
+    try {
+      logger.info('POST ${url.toString()} - ${budgetIds.length} budgets to delete');
+      
+      final resp = await _http.post(
+        url,
+        headers: _headers,
+        body: jsonEncode({
+          'profile_id': profileId,
+          'ids': budgetIds,
+        }),
+      ).timeout(Duration(seconds: _config.timeoutSeconds));
+      
+      if (resp.statusCode == 200 || resp.statusCode == 204) {
+        final data = resp.statusCode == 204 
+            ? {'deleted': budgetIds.length} 
+            : jsonDecode(resp.body) as Map<String, dynamic>;
+        logger.info('✅ Delete complete: ${data['deleted']} deleted');
+        return {
+          'success': true,
+          'deleted': data['deleted'] ?? 0,
+          'data': data,
+        };
+      }
+      
+      logger.warning('Delete failed: ${resp.statusCode} - ${resp.body}');
+      return {'success': false, 'status': resp.statusCode, 'body': resp.body};
+    } catch (e) {
+      logger.severe('Delete budgets error: $e');
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  /// ✅ NEW: Batch sync budgets (create/update with ID tracking)
+  Future<Map<String, dynamic>> batchSyncBudgets(
+    String profileId,
+    List<dynamic> budgets,
+  ) async {
+    final url = Uri.parse(_config.getEndpoint('api/budgets/batch_sync/'));
+    
+    try {
+      logger.info('[API] POST ${url.toString()} - ${budgets.length} budgets');
+      
+      final resp = await _http
+          .post(
+            url,
+            headers: _headers,
+            body: jsonEncode(budgets),
+          )
+          .timeout(Duration(seconds: _config.timeoutSeconds));
+      
+      if (resp.statusCode == 200 || resp.statusCode == 201) {
+        final data = jsonDecode(resp.body) as Map<String, dynamic>;
+        logger.info('[API] Budget batch_sync complete - created: ${data['created']}, updated: ${data['updated']}');
+        return data;
+      }
+      
+      if (resp.statusCode == 401) {
+        logger.warning('Budget batch_sync unauthorized');
+        clearAuthToken();
+      }
+      
+      return {'success': false, 'status': resp.statusCode};
+    } catch (e) {
+      logger.severe('Batch sync budgets error: $e');
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  /// ✅ NEW: Batch delete budgets (soft-delete)
+  Future<Map<String, dynamic>> batchDeleteBudgets(
+    String profileId,
+    List<String> budgetIds,
+  ) async {
+    final url = Uri.parse(_config.getEndpoint('api/budgets/batch_delete/'));
+    
+    try {
+      logger.info('[API] POST ${url.toString()} - ${budgetIds.length} budgets to delete');
+      
+      final resp = await _http
+          .post(
+            url,
+            headers: _headers,
+            body: jsonEncode({'ids': budgetIds}),
+          )
+          .timeout(Duration(seconds: _config.timeoutSeconds));
+      
+      if (resp.statusCode == 200) {
+        final data = jsonDecode(resp.body) as Map<String, dynamic>;
+        logger.info('[API] Batch delete complete - soft_deleted: ${data['soft_deleted']}, already_deleted: ${data['already_deleted']}');
+        return data;
+      }
+      
+      if (resp.statusCode == 401) {
+        logger.warning('Budget batch_delete unauthorized');
+        clearAuthToken();
+      }
+      
+      return {'soft_deleted': 0, 'already_deleted': 0, 'failed': budgetIds.length};
+    } catch (e) {
+      logger.severe('Batch delete budgets error: $e');
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
   // ==================== GOALS ====================
 
   Future<List<dynamic>> getGoals({
