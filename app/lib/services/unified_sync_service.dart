@@ -1196,26 +1196,80 @@ class UnifiedSyncService with ChangeNotifier {
       
       _logger.info('Received ${transactionsJson.length} transactions from server');
       
+      // ✅ CRITICAL FIX: Load local transactions ONCE before processing
+      final localTransactions = await _offlineDataService.getAllTransactions(profileId);
+      
+      // ✅ Create lookup maps for fast duplicate detection
+      // Map 1: By remoteId (most reliable)
+      final remoteIdMap = <String, Transaction>{};
+      for (final tx in localTransactions) {
+        if (tx.remoteId != null && tx.remoteId!.isNotEmpty) {
+          remoteIdMap[tx.remoteId!] = tx;
+        }
+      }
+      
+      // Map 2: By local ID (for transactions created locally)
+      final localIdMap = <String, Transaction>{};
+      for (final tx in localTransactions) {
+        if (tx.id != null && tx.id!.isNotEmpty) {
+          localIdMap[tx.id!] = tx;
+        }
+      }
+      
+      // Map 3: By fingerprint (amount + date + type) for extra safety
+      final fingerprintMap = <String, Transaction>{};
+      for (final tx in localTransactions) {
+        final fingerprint = '${tx.amount}_${tx.date.toIso8601String()}_${tx.type}';
+        fingerprintMap[fingerprint] = tx;
+      }
+      
+      _logger.info('Local transaction maps created: ${remoteIdMap.length} by remoteId, ${localIdMap.length} by localId, ${fingerprintMap.length} by fingerprint');
+      
       // Convert and save each transaction
+      int skipped = 0;
       for (final txJson in transactionsJson) {
         try {
-          final transaction = _parseRemoteTransaction(txJson, profileId);
+          final remoteId = txJson['id']?.toString();
           
+          // ✅ FIX 1: Check remoteId map first (most reliable)
+          if (remoteId != null && remoteIdMap.containsKey(remoteId)) {
+            skipped++;
+            _logger.info('Skipping duplicate (remoteId): $remoteId');
+            continue;
+          }
+          
+          // ✅ FIX 2: Check local ID map
+          if (remoteId != null && localIdMap.containsKey(remoteId)) {
+            skipped++;
+            _logger.info('Skipping duplicate (localId): $remoteId');
+            continue;
+          }
+          
+          // ✅ FIX 3: Parse transaction and check fingerprint
+          final transaction = _parseRemoteTransaction(txJson, profileId);
           if (transaction != null) {
-            // Check if already exists locally
-            final localTransactions = await _offlineDataService.getAllTransactions(profileId);
-            final remoteId = txJson['id']?.toString();
+            final fingerprint = '${transaction.amount}_${transaction.date.toIso8601String()}_${transaction.type}';
             
-            final existsLocally = localTransactions.any((t) => 
-              t.remoteId == remoteId || t.id == remoteId
-            );
-            
-            if (!existsLocally) {
-              await _offlineDataService.saveTransaction(transaction);
-              result.downloaded++;
-            } else {
-              _logger.info('Transaction already exists locally: $remoteId');
+            if (fingerprintMap.containsKey(fingerprint)) {
+              skipped++;
+              _logger.info('Skipping duplicate (fingerprint): $fingerprint');
+              
+              // ✅ BONUS: Update local transaction with remoteId if missing
+              final existingTx = fingerprintMap[fingerprint]!;
+              if ((existingTx.remoteId == null || existingTx.remoteId!.isEmpty) && 
+                  remoteId != null && remoteId.isNotEmpty) {
+                _logger.info('Updating local transaction with remoteId: ${existingTx.id} -> $remoteId');
+                await _offlineDataService.updateTransaction(
+                  existingTx.copyWith(remoteId: remoteId, isSynced: true)
+                );
+              }
+              continue;
             }
+            
+            // ✅ Safe to create - no duplicates found
+            await _offlineDataService.saveTransaction(transaction);
+            result.downloaded++;
+            _logger.info('Created new transaction from server: $remoteId');
           }
         } catch (e) {
           _logger.warning('Failed to parse transaction: $e');
@@ -1223,7 +1277,7 @@ class UnifiedSyncService with ChangeNotifier {
       }
       
       result.success = true;
-      _logger.info('✅ Saved ${result.downloaded} new transactions');
+      _logger.info('✅ Saved ${result.downloaded} new transactions, skipped $skipped duplicates');
       
     } catch (e, stackTrace) {
       _logger.severe('Failed to download transactions', e, stackTrace);

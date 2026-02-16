@@ -451,7 +451,7 @@ class _LoansTrackerTabState extends State<LoansTrackerTab> {
     final nameController = TextEditingController(text: loan?.name ?? '');
     final principalController = TextEditingController(text: loan?.principal.toString() ?? '');
     final rateController = TextEditingController(text: loan?.interestRate.toString() ?? '');
-    // ✅ NEW: Interest model dropdown value
+    // ✅ Interest model dropdown value
     String interestModel = loan?.interestModel ?? 'simple';
     
     DateTime startDate = loan?.startDate ?? DateTime.now();
@@ -490,7 +490,6 @@ class _LoansTrackerTabState extends State<LoansTrackerTab> {
                   keyboardType: TextInputType.number,
                 ),
                 const SizedBox(height: 16),
-                // ✅ NEW: Interest model dropdown
                 DropdownButtonFormField<String>(
                   value: interestModel,
                   decoration: const InputDecoration(
@@ -606,24 +605,12 @@ class _LoansTrackerTabState extends State<LoansTrackerTab> {
 
                 try {
                   final svc = Provider.of<OfflineDataService>(context, listen: false);
-                  final syncService = Provider.of<UnifiedSyncService>(context, listen: false);
+                  final apiClient = Provider.of<ApiClient>(context, listen: false);
 
-                  // ✅ Use ApiClient helper method to prepare data
-                  final loanData = ApiClient.prepareLoanData(
-                    profileId: profileId,
-                    name: name,
-                    principalAmount: principal,
-                    interestRate: rate,
-                    interestModel: interestModel,
-                    startDate: startDate,
-                    endDate: endDate,
-                    currency: 'KES',
-                  );
-
-                  // Create domain loan from prepared data
+                  // Create domain loan
                   final domainLoan = domain_loan.Loan(
-                    id: loan?.id?.toString(),
-                    remoteId: loan?.remoteId,
+                    id: null,  // ✅ Always generate new ID for updates
+                    remoteId: null,  // ✅ Will get new remoteId from backend
                     name: name,
                     principalAmount: principal,
                     currency: 'KES',
@@ -633,25 +620,35 @@ class _LoansTrackerTabState extends State<LoansTrackerTab> {
                     endDate: endDate,
                     profileId: profileId,
                     description: null,
-                    isSynced: loan?.isSynced ?? false,
-                    createdAt: loan?.createdAt ?? DateTime.now(),
+                    isSynced: false,
+                    createdAt: DateTime.now(),
                     updatedAt: DateTime.now(),
                   );
 
-                  if (loan?.id != null) {
-                    // Update: delete old loan and create new one (same as transactions)
-                    if (loan!.remoteId != null && loan.remoteId!.isNotEmpty) {
-                      // Old loan has been synced - mark it for deletion in next sync
-                      await svc.deleteLoan(loan.id.toString());
+                  if (loan != null && loan.id != null) {
+                    // ✅ CRITICAL FIX: UPDATE = DELETE OLD + CREATE NEW (like transactions)
+                    // This ensures backend consistency
+                    
+                    // Step 1: Delete old loan (with immediate backend sync if it has remoteId)
+                    if (loan.remoteId != null && loan.remoteId!.isNotEmpty) {
+                      await svc.deleteLoanWithSync(
+                        loanId: loan.id.toString(),
+                        profileId: profileId,
+                        deleteToBackend: apiClient.deleteLoans,
+                      );
                     } else {
-                      // Old loan never reached backend - hard delete it
+                      // Old loan never reached backend - safe to hard delete
                       await svc.deleteLoan(loan.id.toString());
                     }
                     
-                    // Save new loan with updated values
+                    // Step 2: Save new loan (will sync on next sync cycle)
                     await svc.saveLoan(domainLoan);
+                    
+                    print('✅ Loan updated via delete-and-create pattern');
                   } else {
+                    // New loan
                     await svc.saveLoan(domainLoan);
+                    print('✅ New loan created');
                   }
 
                   await _loadLoans();
@@ -677,6 +674,7 @@ class _LoansTrackerTabState extends State<LoansTrackerTab> {
       ),
     );
   }
+
 
   void _deleteLoan(int index) {
     showDialog(

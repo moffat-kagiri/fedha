@@ -342,7 +342,7 @@ class TransactionViewSet(viewsets.ModelViewSet):
         
         try:
             transactions_data = request.data if isinstance(request.data, list) else []
-            logger.info(f"📝 Received {len(transactions_data)} transactions to update")
+            logger.info(f"Received {len(transactions_data)} transactions to update")
             
             if not transactions_data:
                 return Response({
@@ -389,7 +389,7 @@ class TransactionViewSet(viewsets.ModelViewSet):
                                 updated_at=timezone.now()
                             )
                             updated_count += 1
-                            logger.info(f"✅ Updated transaction {transaction_id}: {transaction_data}")
+                            logger.info(f" Updated transaction {transaction_id}: {transaction_data}")
                         else:
                             logger.error(f"Validation failed: {serializer.errors}")
                             failed_ids.append(transaction_id)
@@ -413,7 +413,7 @@ class TransactionViewSet(viewsets.ModelViewSet):
                         'error': str(e)
                     })
             
-            logger.info(f"✅ BATCH_UPDATE COMPLETE: {updated_count} updated, {len(errors)} errors")
+            logger.info(f" BATCH_UPDATE COMPLETE: {updated_count} updated, {len(errors)} errors")
             
             return Response({
                 'success': len(failed_ids) == 0,
@@ -457,7 +457,7 @@ class TransactionViewSet(viewsets.ModelViewSet):
         try:
             # Support both 'ids' and 'transaction_ids' parameter names
             transaction_ids = request.data.get('transaction_ids') or request.data.get('ids', [])
-            logger.info(f"🗑️ Received request to delete {len(transaction_ids)} transactions")
+            logger.info(f" Received request to delete {len(transaction_ids)} transactions")
             
             if not transaction_ids:
                 return Response({
@@ -480,7 +480,7 @@ class TransactionViewSet(viewsets.ModelViewSet):
                     if transaction.is_deleted:
                         # Already soft-deleted, count separately
                         already_deleted += 1
-                        logger.info(f"ℹ️ Transaction {tx_id} already soft-deleted")
+                        logger.info(f" Transaction {tx_id} already soft-deleted")
                         continue
                     
                     # Perform soft delete
@@ -489,7 +489,7 @@ class TransactionViewSet(viewsets.ModelViewSet):
                     transaction.save(update_fields=['is_deleted', 'deleted_at', 'updated_at'])
                     
                     deleted_count += 1
-                    logger.info(f"✅ Soft-deleted transaction {tx_id} at {now}")
+                    logger.info(f" Soft-deleted transaction {tx_id} at {now}")
                     
                 except Transaction.DoesNotExist:
                     logger.error(f"Transaction {tx_id} not found")
@@ -507,7 +507,7 @@ class TransactionViewSet(viewsets.ModelViewSet):
                     })
             
             logger.info(
-                f"✅ BATCH_DELETE COMPLETE: "
+                f" BATCH_DELETE COMPLETE: "
                 f"soft_deleted={deleted_count}, "
                 f"already_deleted={already_deleted}, "
                 f"failed={len(failed_ids)}, "

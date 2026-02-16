@@ -27,14 +27,18 @@ class GoalViewSet(viewsets.ModelViewSet):
         context = super().get_serializer_context()
         context['request'] = self.request
         return context
-    
+
     def get_queryset(self):
-        """Return goals for current user (excluding soft-deleted)."""
+        """Return goals for current user (excluding soft-deleted and cancelled)."""
         # ✅ FIX: request.user IS the Profile (custom auth model)
         user_profile = self.request.user if isinstance(self.request.user, Profile) else self.request.user.profile
         
-        # Filter by profile and exclude soft-deleted
-        queryset = Goal.objects.filter(profile=user_profile, is_deleted=False)
+        # ✅ CRITICAL FIX: Filter by profile and exclude soft-deleted AND cancelled goals
+        # Cancelled goals should not appear in GET requests to avoid confusion
+        queryset = Goal.objects.filter(
+            profile=user_profile, 
+            is_deleted=False
+        ).exclude(status=GoalStatus.CANCELLED)  # ✅ NEW: Exclude cancelled goals
         
         # Validate profile_id if provided (must own this profile)
         profile_id = self.request.query_params.get('profile_id')
