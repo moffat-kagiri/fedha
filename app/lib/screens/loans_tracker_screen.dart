@@ -159,6 +159,27 @@ class _LoansTrackerTabState extends State<LoansTrackerTab> {
     return diff < 0 ? 0 : diff;
   }
 
+  /// Outstanding balance using the present value of remaining payments formula:
+  /// OB = R × (1 - v^n) / r
+  /// where R = monthly payment, r = monthly rate, v = 1/(1+r), n = remaining months
+  double _computeOutstandingBalance(
+    double principal,
+    double annualRatePercent,
+    int totalMonths,
+    int remainingMonths,
+  ) {
+    if (remainingMonths <= 0) return 0.0;
+    final r = annualRatePercent / 100.0 / 12.0;
+    if (r <= 0) {
+      // Zero-interest: OB = principal × remaining/total
+      return principal * remainingMonths / totalMonths;
+    }
+    final R = _computeMonthlyPayment(principal, annualRatePercent, totalMonths);
+    final v = 1.0 / (1.0 + r);
+    final ob = R * (1 - math.pow(v, remainingMonths)) / r;
+    return ob.clamp(0.0, principal);
+  }
+
   double _computeMonthlyPayment(double principal, double annualRatePercent, int months) {
     if (months <= 0) return 0.0;
     final monthlyRate = annualRatePercent / 100.0 / 12.0;
@@ -359,7 +380,15 @@ class _LoansTrackerTabState extends State<LoansTrackerTab> {
                               child: _buildLoanInfo('Principal', 'KES ${loan.principal.toStringAsFixed(0)}'),
                             ),
                             Expanded(
-                              child: _buildLoanInfo('Rate', '${loan.interestRate.toStringAsFixed(1)}%'),
+                              child: _buildLoanInfo(
+                                'Outstanding',
+                                'KES ${_computeOutstandingBalance(
+                                  loan.principal,
+                                  loan.interestRate,
+                                  loan.totalMonths,
+                                  loan.remainingMonths,
+                                ).toStringAsFixed(0)}',
+                              ),
                             ),
                           ],
                         ),

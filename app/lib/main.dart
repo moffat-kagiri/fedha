@@ -722,16 +722,13 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       });
     }
 
-    // Do everything else in background
+    // Set biometric session, NO SYNC HERE - we will sync in background after 
+    // CRUD operations to avoid duplicate sync calls on resume and unlock
     Future.microtask(() async {
-      try {
         final biometricService = context.read<BiometricAuthService>();
         await biometricService.registerSuccessfulBiometricSession();
-        
-        await _syncDataInBackground();
-      } catch (e) {
-        _logger.warning('Post-auth processing failed: $e');
-      }
+
+        // ✅ Removed sync from here to avoid duplicate sync calls on resume and unlock
     });
   }
 

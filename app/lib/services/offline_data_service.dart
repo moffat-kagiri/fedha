@@ -1,4 +1,5 @@
 // lib/services/offline_data_service.dart - UPDATED FOR NEW SCHEMA
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -13,8 +14,9 @@ import 'package:fedha/models/category.dart' as dom;
 import 'package:fedha/models/budget.dart' as dom;
 import '../utils/logger.dart';
 import 'transaction_event_service.dart';
+import 'unified_sync_service.dart';
 
- /// Service to manage offline data storage and retrieval
+/// Service to manage offline data storage and retrieval
 class OfflineDataService {
   static OfflineDataService? _instance;
   
@@ -24,16 +26,18 @@ class OfflineDataService {
   
   SharedPreferences? _prefs;
   TransactionEventService? _eventService;
+  final UnifiedSyncService? _syncService;
   
   // Factory constructor with optional database parameter
-  factory OfflineDataService({app_db.AppDatabase? db}) {
-    _instance ??= OfflineDataService._internal(db: db);
+  factory OfflineDataService({app_db.AppDatabase? db, UnifiedSyncService? syncService}) {
+    _instance ??= OfflineDataService._internal(db: db, syncService: syncService);
     return _instance!;
   }
   
   // Private internal constructor
-  OfflineDataService._internal({app_db.AppDatabase? db}) 
-      : _db = db ?? app_db.AppDatabase();
+  OfflineDataService._internal({app_db.AppDatabase? db, UnifiedSyncService? syncService}) 
+      : _db = db ?? app_db.AppDatabase(),
+        _syncService = syncService;
 
   Future<void> initialize() async {
     if (_prefs != null) return; // Already initialized
@@ -150,6 +154,8 @@ class OfflineDataService {
     );
     
     final insertedId = await _db.insertTransaction(companion);
+    // Trigger background sync after transaction is saved
+    unawaited(_syncService?.syncAfterCrud(tx.profileId, 'transaction')); 
     _logger.info('✅ Transaction saved with ID: $insertedId');
     
     // ✅ ONLY emit event ONCE per save
@@ -194,6 +200,8 @@ class OfflineDataService {
     );
     
     await _db.updateTransaction(companion);
+    // Trigger background sync after transaction is updated
+    unawaited(_syncService?.syncAfterCrud(tx.profileId, 'transaction'));
     _logger.info('✅ Transaction updated: ${tx.id}');
     
     // Emit updated event
