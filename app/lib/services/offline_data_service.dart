@@ -26,7 +26,11 @@ class OfflineDataService {
   
   SharedPreferences? _prefs;
   TransactionEventService? _eventService;
-  final UnifiedSyncService? _syncService;
+  UnifiedSyncService? _syncService;
+
+  void setSyncService(UnifiedSyncService syncService) {
+    _syncService = syncService;
+  }
   
   // Factory constructor with optional database parameter
   factory OfflineDataService({app_db.AppDatabase? db, UnifiedSyncService? syncService}) {

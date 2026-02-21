@@ -133,7 +133,6 @@ Future<void> main() async {
     if (kDebugMode) logger.info('✅ WorkManager initialized');
 
     await _initializeServices();
-
     
     final authService = AuthService.instance;
     final biometricAuthService = BiometricAuthService.instance;
@@ -202,6 +201,8 @@ Future<void> _initializeServices() async {
     authService: AuthService.instance,
   );
   logger.info('✅ Sync service initialized');
+
+  offlineDataService.setSyncService(unifiedSyncService);
 
   final budgetService = BudgetService.instance;
   await budgetService.initialize(offlineDataService);
