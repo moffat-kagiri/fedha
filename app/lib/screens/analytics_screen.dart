@@ -1,5 +1,6 @@
 // lib/screens/analytics_screen.dart
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/transaction.dart';
@@ -10,6 +11,7 @@ import '../models/enums.dart';
 import '../services/offline_data_service.dart';
 import '../services/auth_service.dart';
 import '../services/currency_service.dart';
+import '../models/loan.dart' as domain_loan;
 import '../theme/app_theme.dart';
 import '../services/transaction_event_service.dart'; 
 import '../utils/logger.dart';
@@ -49,6 +51,31 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   @override
   void dispose() {    _eventSubscription?.cancel();
     super.dispose();
+  }
+
+  double _computeMonthlyPayment(double principal, double annualRatePercent, int months) {
+    if (months <= 0) return 0.0;
+    final r = annualRatePercent / 100.0 / 12.0;
+    if (r <= 0) return principal / months;
+    final powFactor = math.pow(1 + r, months);
+    return (principal * (r * powFactor) / (powFactor - 1)).toDouble();
+  }
+
+  double _computeOutstandingBalance(
+    double principal,
+    double annualRatePercent,
+    int totalMonths,
+    int remainingMonths,
+  ) {
+    if (remainingMonths <= 0) return 0.0;
+    final r = annualRatePercent / 100.0 / 12.0;
+    if (r <= 0) {
+      return principal * remainingMonths / totalMonths;
+    }
+    final R = _computeMonthlyPayment(principal, annualRatePercent, totalMonths);
+    final v = 1.0 / (1.0 + r);
+    final ob = R * (1 - math.pow(v, remainingMonths)) / r;
+    return ob.clamp(0.0, principal);
   }
 
   // Update the _loadAnalytics method with better type checking and amount calculation
@@ -386,7 +413,17 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   }
 
   Widget _buildLoansSummary(ColorScheme colorScheme, TextTheme textTheme) {
-    final totalDebt = _data!.loans.fold(0.0, (sum, l) => sum + l.principalAmount);
+    // Sum outstanding balances rather than principal amounts so the figure
+    // reflects actual remaining debt after repayments already made.
+    final totalDebt = _data!.loans.fold(0.0, (sum, l) {
+      final outstanding = _computeOutstandingBalance(
+        l.principalAmount,
+        l.interestRate,
+        l.totalMonths,      // total loan term in months
+        l.remainingMonths,  // months still to run
+      );
+      return sum + outstanding;
+    });
     
     return Card(
       child: Padding(

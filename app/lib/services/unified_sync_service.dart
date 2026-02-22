@@ -144,233 +144,324 @@ class UnifiedSyncService with ChangeNotifier {
     return result;
   }
 
-  /// ✅ FIXED: Batch sync with better validation and error logging
+  // This method now includes robust validation of transaction data before upload,
+  // detailed logging of each step, and improved parsing of remote transactions.
   Future<EntitySyncResult> _syncTransactionsBatch(String profileId) async {
     final result = EntitySyncResult();
-    
+
     try {
-      final localTransactions = await _offlineDataService.getAllTransactions(profileId);
+      // ── INITIAL LOCAL SNAPSHOT ──────────────────────────────────────────────
+      // Loaded once at the top. Phases 1a/1b/1c operate on this snapshot.
+      // Phase 2 (download) re-fetches from DB AFTER all writes have committed.
+      final localTransactions =
+          await _offlineDataService.getAllTransactions(profileId);
       result.localCount = localTransactions.length;
 
-      if (_apiClient.isAuthenticated) {
-        // ✅ FIX: Load all goals to get remoteId mapping for transaction sync
-        // When syncing transactions with goal_id, we need to send the goal's remoteId
-        // so the backend can update the correct goal's current_amount
-        final allGoals = await _offlineDataService.getAllGoals(profileId);
-        final goalIdToRemoteIdMap = <String, String>{};
-        for (final goal in allGoals) {
-          if (goal.id != null && goal.id!.isNotEmpty && 
-              goal.remoteId != null && goal.remoteId!.isNotEmpty) {
-            goalIdToRemoteIdMap[goal.id!] = goal.remoteId!;
-          }
-        }
-        _logger.info('📍 Goal remoteId mapping: ${goalIdToRemoteIdMap.length} goals found');
-        
-        // STEP 1a: Upload NEW transactions in batches
-        final unsyncedTransactions = localTransactions
-            .where((t) => t.remoteId == null || t.remoteId!.isEmpty)
-            .toList();
-        
-        if (unsyncedTransactions.isNotEmpty) {
-          _logger.info('📤 Uploading ${unsyncedTransactions.length} NEW transactions');
-          
-          // ✅ FIXED: Validate and prepare data with profile_id
-          final batchData = <Map<String, dynamic>>[];
-          final batchTransactionMap = <int, Transaction>{}; // ✅ Map batch index to transaction
-          
-          int batchIndex = 0;
-          for (final t in unsyncedTransactions) {
-            // ✅ Validate required fields before upload
-            if (t.amount <= 0) {
-              _logger.warning('⚠️ Skipping transaction with invalid amount: ${t.amount}');
-              continue;
-            }
-            
-            if (t.type.isEmpty) {
-              _logger.warning('⚠️ Skipping transaction with empty type');
-              continue;
-            }
-            
-            // Validate type is one of the allowed values
-            if (!['income', 'expense', 'savings', 'transfer'].contains(t.type.toLowerCase())) {
-              _logger.warning('⚠️ Skipping transaction with invalid type: ${t.type}');
-              continue;
-            }
-            
-            // ✅ Use the fixed helper method with goalIdToRemoteIdMap
-            final txData = _prepareTransactionForUpload(t, profileId, goalIdToRemoteIdMap);
-            batchData.add(txData);
-            batchTransactionMap[batchIndex] = t; // ✅ Track original transaction
-            batchIndex++;
-          }
-          
-          _logger.info('📤 Prepared ${batchData.length} valid transactions for upload');
-          
-          // ✅ Log first transaction for debugging
-          if (batchData.isNotEmpty) {
-            _logger.info('📤 Sample transaction data: ${batchData.first}');
-          }
-          
-          if (batchData.isNotEmpty) {
-            // Process in batches for better performance
-            for (int i = 0; i < batchData.length; i += _batchSize) {
-              final batch = batchData.skip(i).take(_batchSize).toList();
-              final batchStartIndex = i;
-              
-              _logger.info('📤 Uploading batch ${(i ~/ _batchSize) + 1}/${(batchData.length / _batchSize).ceil()}');
-              
-              final response = await _apiClient.syncTransactions(profileId, batch);
-              
-              _logger.info('📥 Sync response: $response');
-              
-              if (response['success'] == true) {
-                final created = response['created'] as int? ?? 0;
-                final updated = response['updated'] as int? ?? 0;
-                result.uploaded += created + updated;
-                
-                _logger.info('✅ Batch uploaded: $created created, $updated updated');
-                
-                // ✅ CRITICAL: Set remoteId on uploaded transactions to prevent re-uploads
-                final createdIds = response['created_ids'] as List? ?? [];
-                if (createdIds.isNotEmpty) {
-                  _logger.info('📌 Setting remoteIds for ${createdIds.length} transactions to prevent re-upload');
-                  for (int j = 0; j < batch.length && j < createdIds.length; j++) {
-                    final remoteId = createdIds[j]?.toString();
-                    if (remoteId != null && remoteId.isNotEmpty) {
-                      // ✅ Use the original Transaction object directly
-                      final transactionIndex = batchStartIndex + j;
-                      final originalTransaction = batchTransactionMap[transactionIndex];
-                      
-                      if (originalTransaction != null) {
-                        try {
-                          // Update the transaction directly with the remote ID
-                          final updatedTransaction = originalTransaction.copyWith(
-                            remoteId: remoteId,
-                            isSynced: true,
-                          );
-                          await _offlineDataService.updateTransaction(updatedTransaction);
-                          _logger.info('✅ Set remoteId $remoteId for local transaction ${originalTransaction.id}');
-                        } catch (e) {
-                          _logger.warning('Failed to set remoteId for transaction: $e');
-                        }
-                      }
-                    }
-                  }
-                  _logger.info('✅ All remoteIds updated - transactions marked as synced');
-                }
-                
-                // ✅ Log any errors
-                if (response['errors'] != null && (response['errors'] as List).isNotEmpty) {
-                  _logger.warning('⚠️ Sync errors: ${response['errors']}');
-                  
-                  // Log each error in detail
-                  for (final error in (response['errors'] as List)) {
-                    _logger.warning('  - $error');
-                  }
-                }
-              } else {
-                _logger.severe('❌ Batch sync failed: ${response['error'] ?? response['body']}');
-              }
-            }
-          }
-        } else {
-          _logger.info('No unsynced transactions to upload');
-        }
+      if (!_apiClient.isAuthenticated) {
+        result.success = true;
+        return result;
+      }
 
-        // STEP 1b: Upload UPDATED transactions (those with remoteId but isSynced=False after edit)
-        final updatedTransactions = localTransactions
-            .where((t) => t.remoteId != null && t.remoteId!.isNotEmpty && !t.isSynced)
-            .toList();
-        
-        if (updatedTransactions.isNotEmpty) {
-          _logger.info('📝 Uploading ${updatedTransactions.length} UPDATED transactions');
-          
-          final updateBatch = <Map<String, dynamic>>[];
-          for (final t in updatedTransactions) {
-            final txData = _prepareTransactionForUpload(t, profileId, goalIdToRemoteIdMap);  // ✅ Pass goal mapping
-            updateBatch.add(txData);
-          }
-          
-          if (updateBatch.isNotEmpty) {
-            final response = await _apiClient.updateTransactions(profileId, updateBatch);
-            if (response['success'] == true) {
-              result.uploaded += response['updated'] as int? ?? 0;
-              _logger.info('✅ Updated transactions synced: ${response['updated']} updated');
-              
-              // Mark as synced
-              for (final t in updatedTransactions) {
-                await _offlineDataService.updateTransaction(
-                  t.copyWith(isSynced: true),
-                );
-              }
-            }
-          }
-        }
-
-        // STEP 1c: Upload DELETED transactions (marked with isDeleted flag)
-        // ✅ NOW IMPLEMENTED: Requires Transaction.isDeleted field (added)
-        final deletedTransactions = localTransactions
-            .where((t) => t.isDeleted && (t.remoteId != null && t.remoteId!.isNotEmpty))
-            .toList();
-        
-        if (deletedTransactions.isNotEmpty) {
-          _logger.info('🗑️ Uploading ${deletedTransactions.length} DELETED transactions');
-          
-          // Collect remoteIds (the server UUIDs) to delete
-          final deleteIds = deletedTransactions
-              .map((t) => t.remoteId!)
-              .where((id) => id.isNotEmpty)
-              .toList();
-          
-          if (deleteIds.isNotEmpty) {
-            final response = await _apiClient.deleteTransactions(profileId, deleteIds);
-            if (response['success'] == true) {
-              result.uploaded += response['deleted'] as int? ?? 0;
-              _logger.info('✅ Deleted transactions synced: ${response['deleted']} soft-deleted');
-              
-              // ✅ Remove from local database after successful sync
-              for (final t in deletedTransactions) {
-                try {
-                  if (t.id != null && t.id!.isNotEmpty) {
-                    await _offlineDataService.deleteTransaction(t.id!);
-                    _logger.info('✅ Removed soft-deleted transaction from local DB: ${t.id}');
-                  }
-                } catch (e) {
-                  _logger.warning('Failed to remove deleted transaction locally: $e');
-                }
-              }
-            } else {
-              _logger.warning('⚠️ Delete sync failed: ${response['error']}');
-            }
-          }
-        } else {
-          _logger.info('No deleted transactions to sync');
-        }
-        
-        // STEP 2: Download from server
-        final remoteTransactions = await _apiClient.getTransactions(profileId: profileId);
-        _logger.info('📥 Downloaded ${remoteTransactions.length} transactions from server');
-
-        // STEP 3: Merge only new transactions
-        for (final remote in remoteTransactions) {
-          final remoteId = remote['id']?.toString();
-          if (remoteId == null) continue;
-          
-          final existsLocally = localTransactions.any((t) => t.remoteId == remoteId);
-          
-          if (!existsLocally) {
-            final transaction = _parseRemoteTransaction(remote, profileId);
-            if (transaction != null) {
-              await _offlineDataService.saveTransaction(transaction);
-              result.downloaded++;
-            }
-          }
+      // ── GOAL → REMOTE-ID MAP (needed for goal_id field in upload payload) ──
+      final allGoals = await _offlineDataService.getAllGoals(profileId);
+      final goalIdToRemoteIdMap = <String, String>{};
+      for (final goal in allGoals) {
+        if (goal.id != null &&
+            goal.id!.isNotEmpty &&
+            goal.remoteId != null &&
+            goal.remoteId!.isNotEmpty) {
+          goalIdToRemoteIdMap[goal.id!] = goal.remoteId!;
         }
       }
-      
+      _logger.info(
+          '📍 Goal remoteId mapping: ${goalIdToRemoteIdMap.length} goals found');
+
+      // ════════════════════════════════════════════════════════════════════════
+      // PHASE 1 — UPLOAD  (must fully complete before Phase 2 snapshot)
+      // ════════════════════════════════════════════════════════════════════════
+
+      // ── STEP 1a: NEW transactions (no remoteId yet) ─────────────────────────
+      final unsyncedTransactions = localTransactions
+          .where((t) =>
+              !t.isDeleted &&
+              (t.remoteId == null || t.remoteId!.isEmpty) &&
+              !t.isPending)
+          .toList();
+
+      if (unsyncedTransactions.isNotEmpty) {
+        _logger.info(
+            '📤 Uploading ${unsyncedTransactions.length} NEW transactions');
+
+        final batchData = <Map<String, dynamic>>[];
+        // Maps sequential batch index → original Transaction so we can write
+        // back the remoteId returned by the server.
+        final batchTransactionMap = <int, Transaction>{};
+
+        int batchIndex = 0;
+        for (final t in unsyncedTransactions) {
+          // Validate required fields
+          if (t.amount <= 0) {
+            _logger.warning(
+                '⚠️ Skipping transaction with invalid amount: ${t.amount}');
+            continue;
+          }
+          if (t.type.isEmpty) {
+            _logger.warning('⚠️ Skipping transaction with empty type');
+            continue;
+          }
+          if (!['income', 'expense', 'savings', 'transfer']
+              .contains(t.type.toLowerCase())) {
+            _logger.warning(
+                '⚠️ Skipping transaction with invalid type: ${t.type}');
+            continue;
+          }
+
+          batchData.add(
+              _prepareTransactionForUpload(t, profileId, goalIdToRemoteIdMap));
+          batchTransactionMap[batchIndex] = t;
+          batchIndex++;
+        }
+
+        _logger.info(
+            '📤 Prepared ${batchData.length} valid transactions for upload');
+        if (batchData.isNotEmpty) {
+          _logger.info('📤 Sample transaction data: ${batchData.first}');
+        }
+
+        // Process in sub-batches of _batchSize
+        for (int i = 0; i < batchData.length; i += _batchSize) {
+          final batch = batchData.skip(i).take(_batchSize).toList();
+          final batchStartIndex = i;
+
+          _logger.info(
+              '📤 Uploading batch ${(i ~/ _batchSize) + 1}/'
+              '${(batchData.length / _batchSize).ceil()}');
+
+          final response = await _apiClient.syncTransactions(profileId, batch);
+          _logger.info('📥 Sync response: $response');
+
+          if (response['success'] == true) {
+            final created = response['created'] as int? ?? 0;
+            final updated = response['updated'] as int? ?? 0;
+            result.uploaded += created + updated;
+            _logger.info('✅ Batch uploaded: $created created, $updated updated');
+
+            // ── CRITICAL: Write remoteIds back BEFORE Phase 2 reads the DB ──
+            final createdIds = response['created_ids'] as List? ?? [];
+            if (createdIds.isNotEmpty) {
+              _logger.info(
+                  '📌 Setting remoteIds for ${createdIds.length} transactions');
+              for (int j = 0;
+                  j < batch.length && j < createdIds.length;
+                  j++) {
+                final remoteId = createdIds[j]?.toString();
+                if (remoteId == null || remoteId.isEmpty) continue;
+
+                final originalTx = batchTransactionMap[batchStartIndex + j];
+                if (originalTx == null) continue;
+
+                try {
+                  await _offlineDataService.updateTransaction(
+                    originalTx.copyWith(remoteId: remoteId, isSynced: true),
+                  );
+                  _logger.info(
+                      '✅ Set remoteId $remoteId for local tx ${originalTx.id}');
+                } catch (e) {
+                  _logger
+                      .warning('Failed to set remoteId for transaction: $e');
+                }
+              }
+              _logger.info('✅ All remoteIds committed to local DB');
+            }
+
+            if (response['errors'] != null &&
+                (response['errors'] as List).isNotEmpty) {
+              _logger.warning('⚠️ Sync errors: ${response['errors']}');
+              for (final error in (response['errors'] as List)) {
+                _logger.warning('  - $error');
+              }
+            }
+          } else {
+            _logger.severe(
+                '❌ Batch sync failed: ${response['error'] ?? response['body']}');
+          }
+        }
+      } else {
+        _logger.info('No new transactions to upload');
+      }
+
+      // ── STEP 1b: UPDATED transactions (have remoteId, isSynced = false) ────
+      final updatedTransactions = localTransactions
+          .where((t) =>
+              !t.isDeleted &&
+              t.remoteId != null &&
+              t.remoteId!.isNotEmpty &&
+              !t.isSynced)
+          .toList();
+
+      if (updatedTransactions.isNotEmpty) {
+        _logger.info(
+            '📝 Uploading ${updatedTransactions.length} UPDATED transactions');
+
+        final updateBatch = updatedTransactions
+            .map((t) =>
+                _prepareTransactionForUpload(t, profileId, goalIdToRemoteIdMap))
+            .toList();
+
+        final response =
+            await _apiClient.updateTransactions(profileId, updateBatch);
+        if (response['success'] == true) {
+          result.uploaded += response['updated'] as int? ?? 0;
+          _logger.info(
+              '✅ Updated transactions synced: ${response['updated']} updated');
+
+          // Mark as synced locally
+          for (final t in updatedTransactions) {
+            await _offlineDataService
+                .updateTransaction(t.copyWith(isSynced: true));
+          }
+        } else {
+          _logger.warning(
+              '⚠️ Update sync failed: ${response['error'] ?? response['body']}');
+        }
+      } else {
+        _logger.info('No updated transactions to upload');
+      }
+
+      // ── STEP 1c: DELETED transactions (remoteId exists, isDeleted = true) ──
+      final deletedTransactions = localTransactions
+          .where((t) =>
+              t.isDeleted &&
+              t.remoteId != null &&
+              t.remoteId!.isNotEmpty)
+          .toList();
+
+      if (deletedTransactions.isNotEmpty) {
+        _logger.info(
+            '🗑️ Uploading ${deletedTransactions.length} DELETED transactions');
+
+        final deleteIds = deletedTransactions
+            .map((t) => t.remoteId!)
+            .where((id) => id.isNotEmpty)
+            .toList();
+
+        if (deleteIds.isNotEmpty) {
+          final response =
+              await _apiClient.deleteTransactions(profileId, deleteIds);
+          if (response['success'] == true) {
+            result.uploaded += response['deleted'] as int? ?? 0;
+            _logger.info(
+                '✅ Deleted transactions synced: ${response['deleted']} soft-deleted');
+
+            // Hard-delete from local DB now that server has acknowledged
+            for (final t in deletedTransactions) {
+              try {
+                if (t.id != null && t.id!.isNotEmpty) {
+                  await _offlineDataService.hardDeleteTransaction(t.id!);
+                  _logger.info(
+                      '✅ Removed soft-deleted transaction from local DB: ${t.id}');
+                }
+              } catch (e) {
+                _logger.warning(
+                    'Failed to remove deleted transaction locally: $e');
+              }
+            }
+          } else {
+            _logger.warning(
+                '⚠️ Delete sync failed: ${response['error'] ?? response['body']}');
+          }
+        }
+      } else {
+        _logger.info('No deleted transactions to sync');
+      }
+
+      // ════════════════════════════════════════════════════════════════════════
+      // PHASE 2 — DOWNLOAD
+      //
+      // The DB snapshot is taken HERE, after all Phase 1 writes have committed.
+      // This guarantees the remoteId map includes every transaction that was
+      // just uploaded, so the server's response can never be saved as a duplicate.
+      // ════════════════════════════════════════════════════════════════════════
+      final freshLocalTransactions =
+          await _offlineDataService.getAllTransactions(profileId);
+
+      // Build lookup maps on the fresh snapshot
+      final remoteIdMap = <String, Transaction>{};
+      for (final tx in freshLocalTransactions) {
+        if (tx.remoteId != null && tx.remoteId!.isNotEmpty) {
+          remoteIdMap[tx.remoteId!] = tx;
+        }
+      }
+
+      final fingerprintMap = <String, Transaction>{};
+      for (final tx in freshLocalTransactions) {
+        fingerprintMap[_txFingerprint(tx.amount, tx.date, tx.type)] = tx;
+      }
+
+      _logger.info(
+          '📥 Download snapshot: ${remoteIdMap.length} by remoteId, '
+          '${fingerprintMap.length} by fingerprint');
+
+      final remoteTransactions =
+          await _apiClient.getTransactions(profileId: profileId);
+      _logger.info(
+          '📥 Downloaded ${remoteTransactions.length} transactions from server');
+
+      int downloaded = 0;
+      int skipped = 0;
+
+      for (final txJson in remoteTransactions) {
+        try {
+          final remoteId = txJson['id']?.toString();
+
+          // Check 1: remoteId already known locally → skip
+          if (remoteId != null && remoteIdMap.containsKey(remoteId)) {
+            skipped++;
+            _logger.info('Skipping duplicate (remoteId): $remoteId');
+            continue;
+          }
+
+          final transaction = _parseRemoteTransaction(txJson, profileId);
+          if (transaction == null) continue;
+
+          final fp = _txFingerprint(
+              transaction.amount, transaction.date, transaction.type);
+
+          // Check 2: same fingerprint locally → update remoteId if missing
+          if (fingerprintMap.containsKey(fp)) {
+            skipped++;
+            _logger.info('Skipping duplicate (fingerprint): $fp');
+
+            // Opportunistically patch missing remoteId
+            final existingTx = fingerprintMap[fp]!;
+            if ((existingTx.remoteId == null || existingTx.remoteId!.isEmpty) &&
+                remoteId != null &&
+                remoteId.isNotEmpty) {
+              _logger.info(
+                  'Patching remoteId on existing tx ${existingTx.id} → $remoteId');
+              await _offlineDataService.updateTransaction(
+                existingTx.copyWith(remoteId: remoteId, isSynced: true),
+              );
+            }
+            continue;
+          }
+
+          // Genuinely new — safe to save
+          await _offlineDataService.saveTransaction(transaction);
+          downloaded++;
+          _logger.info('Created new transaction from server: $remoteId');
+        } catch (e) {
+          _logger.warning('Failed to process remote transaction: $e');
+        }
+      }
+
+      result.downloaded = downloaded;
+      _logger.info(
+          '✅ Download complete: $downloaded saved, $skipped skipped');
+
       result.success = true;
     } catch (e, stackTrace) {
-      _logger.severe('Transaction sync failed', e, stackTrace);
+      _logger.severe('Transaction sync batch failed', e, stackTrace);
       result.success = false;
       result.error = e.toString();
     }
@@ -699,7 +790,7 @@ class UnifiedSyncService with ChangeNotifier {
           _logger.info('📤 Uploading ${unsyncedBudgets.length} NEW budgets');
           
           final budgetsData = unsyncedBudgets.map((b) => _prepareBudgetForUpload(b, profileId)).toList();
-          final response = await _apiClient.syncBudgets(profileId, budgetsData);
+          final response = await _apiClient.batchSyncBudgets(profileId, unsyncedBudgets);
           
           if (response['success'] == true) {
             result.uploaded += response['created'] as int? ?? 0;
@@ -749,7 +840,7 @@ class UnifiedSyncService with ChangeNotifier {
           _logger.info('🗑️ Uploading ${deletedBudgets.length} DELETED budgets');
           
           final deleteIds = deletedBudgets.map((b) => b.remoteId!).toList();
-          final response = await _apiClient.deleteBudgets(profileId, deleteIds);
+          final response = await _apiClient.batchDeleteBudgets(profileId, deleteIds);
           
           if (response['success'] == true) {
             result.uploaded += response['deleted'] as int? ?? 0;
@@ -1464,6 +1555,23 @@ class UnifiedSyncService with ChangeNotifier {
     } finally {
       _isSyncing = false; // 3. Always unlock
     }
+  }
+
+  // ---------------------------------------------------------------------------
+  // HELPER: Normalised transaction fingerprint
+  //
+  // Normalises amount, date (UTC day precision), and type into a stable string
+  // that is immune to:
+  //   • timezone suffixes  (Z vs +00:00 vs no suffix)
+  //   • sub-second precision differences
+  //   • floating-point representation differences (400 vs 400.0 vs 400.00)
+  // ---------------------------------------------------------------------------
+  String _txFingerprint(double amount, DateTime date, String type) {
+    final d = date.toUtc();
+    // Zero-pad month/day so '2026-2-5' never collides with '2026-12-5'
+    final dateStr =
+        '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+    return '${amount.toStringAsFixed(2)}_${dateStr}_${type.toLowerCase()}';
   }
 
 }

@@ -286,42 +286,58 @@ class SmsListenerService extends ChangeNotifier {
     await _handleSmsReceived(msg.toMap());
   }
   
-  /// Check if SMS is a financial transaction
+  /// Check if SMS is a financial transaction  
   bool _isFinancialTransaction(SmsMessage message) {
     final sender = message.sender.toLowerCase();
     final body = message.body.toLowerCase();
-    
-    // M-PESA transactions
-    if (sender.contains('mpesa') || sender.contains('m-pesa')) {
-      return body.contains('confirmed') || 
-             body.contains('received') || 
-             body.contains('sent') ||
-             body.contains('paid') ||
-             body.contains('withdrawn');
-    }
-    
-    // Bank transactions
-    final bankKeywords = [
-      'kcb', 'equity', 'cooperative', 'coop', 'absa', 'dtb', 'family',
-      'ncba', 'diamond', 'chase', 'gulf', 'prime', 'citibank', 'barclays',
-      'standard', 'stanchart', 'bank'
+
+    // ── Tier 1: known sender short-codes / keywords ──────────────────────────
+    const financialSenders = [
+      // Mobile money
+      'mpesa', 'm-pesa', 'safaricom', 'airtel', 'tkash', 't-kash', 'equitel',
+      // Banks
+      'kcb', 'equity', 'cooperative', 'co-op', 'coop', 'absa', 'barclays',
+      'dtb', 'diamond', 'family', 'ncba', 'chase', 'gulf', 'prime', 'citibank',
+      'standard', 'stanchart', 'i&m', 'crdb', 'victoria', 'sidian', 'gtbank',
+      'guaranty', 'hfck', 'hf', 'nbk', 'consolidated', 'middle east', 'meb',
+      // SACCOs & MFIs
+      'stima', 'mwalimu', 'harambee', 'ukulima', 'kenya police', 'afya',
+      'faulu', 'kwft', 'smep', 'rafiki', 'century', 'imarika', 'kenya bankers', 
+      'kbsacco',
+      // Generic
+      'bank', 'sacco', 'microfinance', 'mfi',
     ];
-    
-    for (final bank in bankKeywords) {
-      if (sender.contains(bank)) {
-        return body.contains('transaction') ||
-               body.contains('transfer') ||
-               body.contains('deposit') ||
-               body.contains('withdrawal') ||
-               body.contains('payment') ||
-               body.contains('debit') ||
-               body.contains('credit');
-      }
+
+    final senderMatches = financialSenders.any((k) => sender.contains(k));
+
+    // ── Tier 2: financial body keywords (catches messages where sender is a
+    //    numeric short-code, e.g. "40033") ───────────────────────────────────
+    const bodyFinancialKeywords = [
+      'confirmed', 'transaction', 'transfer', 'deposit', 'withdrawal',
+      'withdrawn', 'payment', 'debit', 'debited', 'credit', 'credited',
+      'received', 'sent to', 'paid to', 'account balance', 'new balance',
+      'your account', 'your m-pesa', 'mpesa balance',
+    ];
+
+    // Require both a monetary indicator AND a financial action keyword to avoid
+    // marketing messages that mention "credit card offers" etc.
+    const monetaryIndicators = ['ksh', 'kes', 'ksh.', '/=', 'shilling'];
+
+    final hasMonetary = monetaryIndicators.any((m) => body.contains(m));
+    final hasAction = bodyFinancialKeywords.any((k) => body.contains(k));
+    final bodyMatches = hasMonetary && hasAction;
+
+    if (!senderMatches && !bodyMatches) return false;
+
+    // ── Tier 3: if sender matched, still require at least one action keyword
+    //    to filter out balance inquiry responses and promotional messages ──────
+    if (senderMatches) {
+      return hasAction || body.contains('confirmed');
     }
-    
-    return false;
+
+    return bodyMatches;
   }
-  
+
   /// Parse transaction details from SMS
   TransactionData? parseTransaction(SmsMessage message) {
     try {
@@ -364,99 +380,133 @@ class TransactionData {
   });
 }
 
+// ---------------------------------------------------------------------------
+// TransactionParser 
+// ---------------------------------------------------------------------------
 class TransactionParser {
+  // Ordered list of amount patterns, tried in sequence.
+  // Group 1 always captures the numeric string.
+  static final _amountPatterns = [
+    RegExp(r'[Kk][Ee][Ss]\.?\s*([\d,]+\.?\d*)',     caseSensitive: false), // KES 1,500 / Kes1500
+    RegExp(r'[Kk][Ss][Hh]\.?\s*([\d,]+\.?\d*)',     caseSensitive: false), // Ksh 1500 / KSH1500
+    RegExp(r'([\d,]+\.?\d*)\s*/='),                                          // 1,500/=
+    RegExp(r'(?:amount|debit(?:ed)?|credit(?:ed)?|sent|received|paid)[:\s]+'
+           r'([\d,]+\.?\d*)',                        caseSensitive: false), // Amount: 500
+  ];
+
+  /// Returns a parsed [TransactionData] for any Kenyan financial SMS, or null
+  /// if the message cannot be recognised as a transaction.
   static TransactionData? parse(SmsMessage message) {
-    final sender = message.sender.toLowerCase();
-    
-    if (sender.contains('mpesa')) {
-      return _parseMpesaTransaction(message);
+    final body  = message.body;
+    final lower = body.toLowerCase();
+
+    // ── 1. Extract amount ─────────────────────────────────────────────────
+    double? amount;
+    for (final pattern in _amountPatterns) {
+      final m = pattern.firstMatch(body);
+      if (m != null) {
+        final raw = m.group(1)!.replaceAll(',', '');
+        amount = double.tryParse(raw);
+        if (amount != null && amount > 0) break;
+      }
+    }
+    if (amount == null) return null;
+
+    // ── 2. Determine transaction type from body ───────────────────────────
+    //    Map to the four canonical types the app uses.
+    String type;
+    if (_bodyContainsAny(lower, ['received', 'credited', 'credit', 'deposit', 'deposited'])) {
+      type = 'income';
+    } else if (_bodyContainsAny(lower, ['sent to', 'paid to', 'payment', 'debit', 'debited',
+                                         'withdrawn', 'withdrawal', 'purchase'])) {
+      type = 'expense';
+    } else if (_bodyContainsAny(lower, ['saved', 'saving', 'goal', 'investment'])) {
+      type = 'savings';
+    } else if (_bodyContainsAny(lower, ['transfer', 'moved'])) {
+      // Default transfers to expense (money left the account)
+      type = 'expense';
+    } else if (lower.contains('confirmed')) {
+      // M-PESA "confirmed" without clear direction — treat as expense (most common)
+      type = 'expense';
     } else {
-      return _parseBankTransaction(message);
+      // Cannot determine direction
+      return null;
     }
-  }
-  
-  static TransactionData? _parseMpesaTransaction(SmsMessage message) {
-    final body = message.body;
-    
-    final amountRegex = RegExp(r'Ksh([\d,]+\.?\d*)');
-    final amountMatch = amountRegex.firstMatch(body);
-    
-    if (amountMatch == null) return null;
-    
-    final amountStr = amountMatch.group(1)?.replaceAll(',', '');
-    final amount = double.tryParse(amountStr ?? '');
-    
-    if (amount == null) return null;
-    
-    String type = 'unknown';
+
+    // ── 3. Extract recipient / payee ─────────────────────────────────────
     String? recipient;
-    
-    if (body.toLowerCase().contains('sent to')) {
-      type = 'sent';
-      final recipientRegex = RegExp(r'sent to ([^.]+)');
-      final recipientMatch = recipientRegex.firstMatch(body);
-      recipient = recipientMatch?.group(1)?.trim();
-    } else if (body.toLowerCase().contains('received from')) {
-      type = 'received';
-      final senderRegex = RegExp(r'received from ([^.]+)');
-      final senderMatch = senderRegex.firstMatch(body);
-      recipient = senderMatch?.group(1)?.trim();
-    } else if (body.toLowerCase().contains('withdrawn from')) {
-      type = 'withdrawal';
-    } else if (body.toLowerCase().contains('paid to')) {
-      type = 'payment';
-      final merchantRegex = RegExp(r'paid to ([^.]+)');
-      final merchantMatch = merchantRegex.firstMatch(body);
-      recipient = merchantMatch?.group(1)?.trim();
+    final recipientPatterns = [
+      RegExp(r'(?:sent to|paid to|transfer(?:red)? to)\s+([A-Z][A-Za-z ]{2,40}?)(?=\s+\d|\s+on|\s+at|\.)',
+             caseSensitive: false),
+      RegExp(r'received from\s+([A-Z][A-Za-z ]{2,40}?)(?=\s+\d|\s+on|\s+at|\.)',
+             caseSensitive: false),
+    ];
+    for (final p in recipientPatterns) {
+      final m = p.firstMatch(body);
+      if (m != null) {
+        recipient = m.group(1)?.trim();
+        break;
+      }
     }
-    
-    final refRegex = RegExp(r'([A-Z0-9]{10})');
-    final refMatch = refRegex.firstMatch(body);
-    final reference = refMatch?.group(1);
-    
+
+    // ── 4. Extract reference code ─────────────────────────────────────────
+    // M-PESA codes are exactly 10 upper-case alphanumerics at word boundary.
+    // Bank references vary — look for explicit ref/code label first.
+    String? reference;
+    final refPatterns = [
+      RegExp(r'\b([A-Z]{2,3}\d{7,12})\b'),         // e.g. QHK1234567890 (M-PESA)
+      RegExp(r'(?:ref|reference|txn|tran)[.:\s#]*([A-Z0-9]{6,20})',
+             caseSensitive: false),
+      RegExp(r'\b([A-Z0-9]{10})\b'),               // fallback 10-char code
+    ];
+    for (final p in refPatterns) {
+      final m = p.firstMatch(body);
+      if (m != null) {
+        reference = m.group(1);
+        break;
+      }
+    }
+
+    // ── 5. Determine source label ─────────────────────────────────────────
+    final source = _detectSource(message.sender, lower);
+
     return TransactionData(
-      type: type,
-      amount: amount,
-      currency: 'KES',
-      recipient: recipient,
-      reference: reference,
-      timestamp: message.timestamp,
-      source: 'mpesa',
-      rawMessage: message.body,
+      type:       type,
+      amount:     amount,
+      currency:   'KES',
+      recipient:  recipient,
+      reference:  reference,
+      timestamp:  message.timestamp,
+      source:     source,
+      rawMessage: body,
     );
   }
-  
-  static TransactionData? _parseBankTransaction(SmsMessage message) {
-    final body = message.body;
-    
-    final amountRegex = RegExp(r'(KES|Ksh)\s*([\d,]+\.?\d*)');
-    final amountMatch = amountRegex.firstMatch(body);
-    
-    if (amountMatch == null) return null;
-    
-    final amountStr = amountMatch.group(2)?.replaceAll(',', '');
-    final amount = double.tryParse(amountStr ?? '');
-    
-    if (amount == null) return null;
-    
-    String type = 'unknown';
-    if (body.toLowerCase().contains('debit')) {
-      type = 'debit';
-    } else if (body.toLowerCase().contains('credit')) {
-      type = 'credit';
-    } else if (body.toLowerCase().contains('transfer')) {
-      type = 'transfer';
-    } else if (body.toLowerCase().contains('withdrawal')) {
-      type = 'withdrawal';
+
+  static bool _bodyContainsAny(String lower, List<String> terms) =>
+      terms.any((t) => lower.contains(t));
+
+  static String _detectSource(String sender, String lowerBody) {
+    final s = sender.toLowerCase();
+    if (s.contains('mpesa') || s.contains('m-pesa') || lowerBody.contains('m-pesa balance')) {
+      return 'mpesa';
     }
-    
-    return TransactionData(
-      type: type,
-      amount: amount,
-      currency: 'KES',
-      timestamp: message.timestamp,
-      source: 'bank',
-      rawMessage: message.body,
-    );
+    if (s.contains('airtel')) return 'airtel';
+    if (s.contains('tkash') || s.contains('t-kash')) return 'tkash';
+    if (s.contains('equitel')) return 'equitel';
+    if (s.contains('kcb')) return 'kcb';
+    if (s.contains('equity')) return 'equity';
+    if (s.contains('ncba')) return 'ncba';
+    if (s.contains('coop') || s.contains('co-op')) return 'coop';
+    if (s.contains('absa') || s.contains('barclays')) return 'absa';
+    if (s.contains('family')) return 'family_bank';
+    if (s.contains('dtb') || s.contains('diamond')) return 'dtb';
+    if (s.contains('stima')) return 'stima_sacco';
+    if (s.contains('mwalimu')) return 'mwalimu_sacco';
+    if (s.contains('harambee')) return 'harambee_sacco';
+    if (s.contains('sacco')) return 'sacco';
+    if (s.contains('bank')) return 'bank';
+    return 'other';
   }
 }
+
+
