@@ -200,6 +200,36 @@ class SmsListenerService extends ChangeNotifier {
       _logger.severe('Error processing SMS messages', e, stackTrace);
     }
   }
+
+  /// Maps the canonical source code from TransactionParser._detectSource()
+  /// to a human-readable display name for the review card Platform tag.
+  static String _platformDisplayName(String source) {
+    const displayNames = {
+      'mpesa':         'M-PESA',
+      'airtel':        'Airtel Money',
+      'tkash':         'T-Kash',
+      'equitel':       'Equitel',
+      'kcb':           'KCB Bank',
+      'equity':        'Equity Bank',
+      'ncba':          'NCBA Bank',
+      'coop':          'Co-op Bank',
+      'absa':          'Absa Bank',
+      'family_bank':   'Family Bank',
+      'dtb':           'Diamond Trust Bank',
+      'stima_sacco':   'Stima SACCO',
+      'mwalimu_sacco': 'Mwalimu SACCO',
+      'harambee_sacco':'Harambee SACCO',
+      'sacco':         'SACCO',
+      'bank':          'Bank',
+      'other':         'Other',
+      'standard':      'Standard Chartered',
+      'stanbic':       'Stanbic Bank',
+      'kbsacco':       'Kenya Bankers SACCO',
+      'gtbank':        'GT Bank',
+      'guaranty':      'Guaranty Trust Bank',
+    };
+    return displayNames[source] ?? source.toUpperCase();
+  }
   
   /// Start listening for SMS transactions
   Future<bool> startListening({
@@ -242,9 +272,11 @@ class SmsListenerService extends ChangeNotifier {
         final parsedData = parseTransaction(message);
         if (parsedData != null) {
           // ✅ Extract platform (recipient) and reference using enhanced extractor
-          final platform = _extractor.extractPlatform(message.body, sender: message.sender);
+          // parsedData.source is set by TransactionParser._detectSource()
+          // and is always a canonical lowercase key ('mpesa', 'kcb', etc.)
+          final platform  = _platformDisplayName(parsedData.source);
           final reference = _extractor.extractReference(message.body);
-          final payee = _extractor.extractRecipient(message.body);
+          final payee     = _extractor.extractRecipient(message.body);
           
           final tx = Transaction(
             amount: parsedData.amount,

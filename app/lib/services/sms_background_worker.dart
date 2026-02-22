@@ -144,7 +144,37 @@ class SmsBackgroundWorker {
       return 0;
     }
   }
-  
+
+  /// Maps the canonical source code from TransactionParser._detectSource()
+  /// to a human-readable display name for the review card Platform tag.
+  static String _platformDisplayNameStatic(String source) {
+    const displayNames = {
+      'mpesa':         'M-PESA',
+      'airtel':        'Airtel Money',
+      'tkash':         'T-Kash',
+      'equitel':       'Equitel',
+      'kcb':           'KCB Bank',
+      'equity':        'Equity Bank',
+      'ncba':          'NCBA Bank',
+      'coop':          'Co-op Bank',
+      'absa':          'Absa Bank',
+      'family_bank':   'Family Bank',
+      'dtb':           'Diamond Trust Bank',
+      'stima_sacco':   'Stima SACCO',
+      'mwalimu_sacco': 'Mwalimu SACCO',
+      'harambee_sacco':'Harambee SACCO',
+      'sacco':         'SACCO',
+      'bank':          'Bank',
+      'other':         'Other',
+      'standard':      'Standard Chartered',
+      'stanbic':       'Stanbic Bank',
+      'kbsacco':       'Kenya Bankers SACCO',
+      'gtbank':        'GT Bank',
+      'guaranty':      'Guaranty Trust Bank',
+    };
+    return displayNames[source] ?? source;
+  }
+
   /// Save transaction to pending transactions
   static Future<void> _saveTransaction({
     required SmsMessage message,
@@ -161,7 +191,7 @@ class SmsBackgroundWorker {
       }
       
       // ✅ Extract platform and reference using enhanced extractor
-      final platform = extractor.extractPlatform(message.body, sender: message.sender);
+      final platform = _platformDisplayNameStatic(parsedData.source);
       final reference = extractor.extractReference(message.body);
       final payee = extractor.extractRecipient(message.body);
       
