@@ -55,6 +55,11 @@ class ApiClient {
     logger.info('Auth token cleared');
   }
 
+  // In api_client.dart / api_client_sqlite.dart
+  String? get currentProfileId => _config.profileId ?? _authToken != null
+      ? _parseProfileIdFromToken(_authToken!)
+      : null;
+
   /// Get headers with optional custom token
   Map<String, String> _getHeaders({String? customToken}) {
     final headers = Map<String, String>.from(_headers);

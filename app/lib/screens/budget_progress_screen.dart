@@ -13,6 +13,29 @@ import '../services/transaction_event_service.dart';
 import '../screens/budget_review_screen.dart';
 import '../services/currency_service.dart';
 
+// ── Data class for a group of budgets sharing the same period ─────────────
+class _BudgetPeriodGroup {
+  final DateTime startDate;
+  final DateTime endDate;
+  final List<Budget> budgets;
+
+  _BudgetPeriodGroup({
+    required this.startDate,
+    required this.endDate,
+    required this.budgets,
+  });
+
+  double get totalBudgeted =>
+      budgets.fold(0.0, (sum, b) => sum + b.budgetAmount);
+
+  double get totalSpent =>
+      budgets.fold(0.0, (sum, b) => sum + b.spentAmount);
+
+  bool get wasSuccessful => totalSpent <= totalBudgeted;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 class BudgetProgressScreen extends StatefulWidget {
   const BudgetProgressScreen({super.key});
 
@@ -37,14 +60,13 @@ class _BudgetProgressScreenState extends State<BudgetProgressScreen>
   }
 
   void _setupEventListeners() {
-    final eventService = Provider.of<TransactionEventService>(context, listen: false);
-    
+    final eventService =
+        Provider.of<TransactionEventService>(context, listen: false);
+
     _eventSubscription = eventService.eventStream.listen((event) {
       final type = event.transaction.type.toLowerCase();
-      
-      // Listen for both expense AND savings transactions
       if (type == 'expense' || type == 'savings') {
-        _loadData(); // Refresh when expenses or savings change
+        _loadData();
       }
     });
   }
@@ -56,14 +78,16 @@ class _BudgetProgressScreenState extends State<BudgetProgressScreen>
     super.dispose();
   }
 
+  // ── Data loading ──────────────────────────────────────────────────────────
+
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
 
     try {
-      final offlineDataService = Provider.of<OfflineDataService>(context, listen: false);
+      final offlineDataService =
+          Provider.of<OfflineDataService>(context, listen: false);
       final authService = Provider.of<AuthService>(context, listen: false);
-      
-      // ✅ FIX: Validate profile exists and is properly initialized
+
       if (!authService.hasActiveProfile) {
         setState(() => _isLoading = false);
         if (mounted) {
@@ -77,8 +101,7 @@ class _BudgetProgressScreenState extends State<BudgetProgressScreen>
         return;
       }
 
-      final profileId = authService.currentProfile!.id; // ✅ Now safe to force unwrap
-
+      final profileId = authService.currentProfile!.id;
       final budgets = await offlineDataService.getAllBudgets(profileId);
       final unbudgeted = await _loadUnbudgetedSpending(profileId);
 
@@ -100,44 +123,62 @@ class _BudgetProgressScreenState extends State<BudgetProgressScreen>
     }
   }
 
-  /// ✅ FIX: Normalize category IDs to consistent format
-  String _normalizeCategoryId(String category) {
-    return category.toLowerCase().replaceAll(' ', '_').replaceAll('-', '_');
-  }
-
-  Future<Map<String, double>> _loadUnbudgetedSpending(String profileId) async {
+  Future<Map<String, double>> _loadUnbudgetedSpending(
+      String profileId) async {
     final prefs = await SharedPreferences.getInstance();
     final Map<String, double> unbudgeted = {};
-    
-    // ✅ FIX: Get all keys for this profile
     final allKeys = prefs.getKeys();
     final unbudgetedPrefix = 'unbudgeted_${profileId}_';
-    
+
     for (final key in allKeys) {
       if (key.startsWith(unbudgetedPrefix)) {
         final categoryKey = key.substring(unbudgetedPrefix.length);
         final amount = prefs.getDouble(key) ?? 0.0;
         if (amount > 0) {
-          // ✅ FIX: Convert from stored key format to display format
-          final displayCategory = categoryKey.replaceAll('_', ' ').toLowerCase();
+          final displayCategory =
+              categoryKey.replaceAll('_', ' ').toLowerCase();
           unbudgeted[displayCategory] = amount;
         }
       }
     }
-
     return unbudgeted;
   }
+
+  // ── Derived lists ─────────────────────────────────────────────────────────
 
   List<Budget> get _activeBudgets =>
       _allBudgets.where((b) => b.isCurrent && b.isActive).toList();
 
   List<Budget> get _completedBudgets =>
       _allBudgets.where((b) => b.isExpired).toList()
-      ..sort((a, b) => b.endDate.compareTo(a.endDate));
+        ..sort((a, b) => b.endDate.compareTo(a.endDate));
 
   List<Budget> get _upcomingBudgets =>
       _allBudgets.where((b) => b.isUpcoming && b.isActive).toList()
-      ..sort((a, b) => a.startDate.compareTo(b.startDate));
+        ..sort((a, b) => a.startDate.compareTo(b.startDate));
+
+  // ── History grouping ──────────────────────────────────────────────────────
+
+  List<_BudgetPeriodGroup> get _periodGroups {
+    final Map<String, _BudgetPeriodGroup> groups = {};
+    for (final budget in _completedBudgets) {
+      final key =
+          '${budget.startDate.toIso8601String()}_${budget.endDate.toIso8601String()}';
+      if (groups.containsKey(key)) {
+        groups[key]!.budgets.add(budget);
+      } else {
+        groups[key] = _BudgetPeriodGroup(
+          startDate: budget.startDate,
+          endDate: budget.endDate,
+          budgets: [budget],
+        );
+      }
+    }
+    return groups.values.toList()
+      ..sort((a, b) => b.endDate.compareTo(a.endDate));
+  }
+
+  // ── Scaffold ──────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -152,7 +193,8 @@ class _BudgetProgressScreenState extends State<BudgetProgressScreen>
           IconButton(
             icon: const Icon(Icons.add),
             onPressed: () {
-              Navigator.pushNamed(context, '/create_budget').then((_) => _loadData());
+              Navigator.pushNamed(context, '/create_budget')
+                  .then((_) => _loadData());
             },
           ),
         ],
@@ -181,6 +223,8 @@ class _BudgetProgressScreenState extends State<BudgetProgressScreen>
     );
   }
 
+  // ── Active tab ────────────────────────────────────────────────────────────
+
   Widget _buildActiveBudgetsTab() {
     if (_activeBudgets.isEmpty) {
       return _buildEmptyState(
@@ -208,14 +252,19 @@ class _BudgetProgressScreenState extends State<BudgetProgressScreen>
     );
   }
 
+  // ── History tab ───────────────────────────────────────────────────────────
+
   Widget _buildHistoryTab() {
     if (_completedBudgets.isEmpty) {
       return _buildEmptyState(
         icon: Icons.history,
         title: 'No Budget History',
-        message: 'Complete your first budget cycle to see your progress here!',
+        message:
+            'Complete your first budget cycle to see your progress here!',
       );
     }
+
+    final groups = _periodGroups;
 
     return RefreshIndicator(
       onRefresh: _loadData,
@@ -224,11 +273,200 @@ class _BudgetProgressScreenState extends State<BudgetProgressScreen>
         children: [
           _buildHistorySummary(),
           const SizedBox(height: 24),
-          ..._completedBudgets.map((budget) => _buildHistoryBudgetCard(budget)),
+          ...groups.map((group) => _buildPeriodGroupCard(group)),
         ],
       ),
     );
   }
+
+  /// Collapsible card representing one time period, containing all budgets
+  /// that share the same start and end dates.
+  Widget _buildPeriodGroupCard(_BudgetPeriodGroup group) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final wasSuccessful = group.wasSuccessful;
+    final progress = group.totalBudgeted > 0
+        ? (group.totalSpent / group.totalBudgeted).clamp(0.0, 1.0)
+        : 0.0;
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 16),
+      clipBehavior: Clip.antiAlias,
+      child: ExpansionTile(
+        leading: CircleAvatar(
+          backgroundColor: wasSuccessful
+              ? FedhaColors.successGreen.withOpacity(0.15)
+              : FedhaColors.errorRed.withOpacity(0.15),
+          child: Icon(
+            wasSuccessful ? Icons.check_circle : Icons.warning_amber,
+            color: wasSuccessful
+                ? FedhaColors.successGreen
+                : FedhaColors.errorRed,
+            size: 20,
+          ),
+        ),
+        title: Text(
+          '${_formatDate(group.startDate)} – ${_formatDate(group.endDate)}',
+          style:
+              textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+        ),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 4, bottom: 6),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '${group.budgets.length} '
+                'budget${group.budgets.length == 1 ? '' : 's'} · '
+                'KSh ${group.totalSpent.toStringAsFixed(0)} / '
+                'KSh ${group.totalBudgeted.toStringAsFixed(0)}',
+                style: textTheme.bodySmall
+                    ?.copyWith(color: colorScheme.onSurfaceVariant),
+              ),
+              const SizedBox(height: 6),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: progress,
+                  minHeight: 5,
+                  backgroundColor: colorScheme.surfaceVariant,
+                  color: wasSuccessful
+                      ? FedhaColors.successGreen
+                      : FedhaColors.errorRed,
+                ),
+              ),
+            ],
+          ),
+        ),
+        // Override the default trailing arrow so we can show the badge
+        // alongside the expand icon in a Row.
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: wasSuccessful
+                    ? FedhaColors.successGreen.withOpacity(0.1)
+                    : FedhaColors.errorRed.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                wasSuccessful ? 'On Budget' : 'Over Budget',
+                style: textTheme.bodySmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: wasSuccessful
+                      ? FedhaColors.successGreen
+                      : FedhaColors.errorRed,
+                ),
+              ),
+            ),
+            const SizedBox(width: 4),
+            const Icon(Icons.expand_more),
+          ],
+        ),
+        children: [
+          const Divider(height: 1),
+          ...group.budgets.map(_buildHistoryBudgetRow),
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+
+  /// Individual budget row rendered inside an expanded period group.
+  Widget _buildHistoryBudgetRow(Budget budget) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final wasSuccessful = budget.spentAmount <= budget.budgetAmount;
+    final progress = budget.budgetAmount > 0
+        ? (budget.spentAmount / budget.budgetAmount).clamp(0.0, 1.0)
+        : 0.0;
+
+    return InkWell(
+      onTap: () =>
+          Navigator.pushNamed(context, '/budget_review', arguments: budget),
+      child: Padding(
+        padding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    budget.name,
+                    style: textTheme.bodyMedium
+                        ?.copyWith(fontWeight: FontWeight.w600),
+                  ),
+                ),
+                Text(
+                  wasSuccessful ? '✓' : '✗',
+                  style: textTheme.bodyMedium?.copyWith(
+                    color: wasSuccessful
+                        ? FedhaColors.successGreen
+                        : FedhaColors.errorRed,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'KSh ${budget.spentAmount.toStringAsFixed(0)} '
+                  'of KSh ${budget.budgetAmount.toStringAsFixed(0)}',
+                  style: textTheme.bodySmall
+                      ?.copyWith(color: colorScheme.onSurfaceVariant),
+                ),
+                Text(
+                  '${(progress * 100).toStringAsFixed(0)}%',
+                  style: textTheme.bodySmall?.copyWith(
+                    color: wasSuccessful
+                        ? FedhaColors.successGreen
+                        : FedhaColors.errorRed,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(3),
+              child: LinearProgressIndicator(
+                value: progress,
+                minHeight: 4,
+                backgroundColor: colorScheme.surfaceVariant,
+                color: wasSuccessful
+                    ? FedhaColors.successGreen
+                    : FedhaColors.errorRed,
+              ),
+            ),
+            Align(
+              alignment: Alignment.centerRight,
+              child: Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(
+                  'Tap to review →',
+                  style: textTheme.bodySmall?.copyWith(
+                    color: FedhaColors.primaryGreen,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Upcoming tab ──────────────────────────────────────────────────────────
 
   Widget _buildUpcomingTab() {
     if (_upcomingBudgets.isEmpty) {
@@ -242,9 +480,13 @@ class _BudgetProgressScreenState extends State<BudgetProgressScreen>
 
     return ListView(
       padding: const EdgeInsets.all(16),
-      children: _upcomingBudgets.map((budget) => _buildUpcomingBudgetCard(budget)).toList(),
+      children: _upcomingBudgets
+          .map((budget) => _buildUpcomingBudgetCard(budget))
+          .toList(),
     );
   }
+
+  // ── Shared widgets ────────────────────────────────────────────────────────
 
   Widget _buildEmptyState({
     required IconData icon,
@@ -265,19 +507,22 @@ class _BudgetProgressScreenState extends State<BudgetProgressScreen>
             const SizedBox(height: 24),
             Text(
               title,
-              style: textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
+              style: textTheme.headlineMedium
+                  ?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
             Text(
               message,
-              style: textTheme.bodyLarge?.copyWith(color: colorScheme.onSurfaceVariant),
+              style: textTheme.bodyLarge
+                  ?.copyWith(color: colorScheme.onSurfaceVariant),
               textAlign: TextAlign.center,
             ),
             if (actionLabel != null) ...[
               const SizedBox(height: 32),
               FilledButton.icon(
                 onPressed: () {
-                  Navigator.pushNamed(context, '/create_budget').then((_) => _loadData());
+                  Navigator.pushNamed(context, '/create_budget')
+                      .then((_) => _loadData());
                 },
                 icon: const Icon(Icons.add),
                 label: Text(actionLabel),
@@ -292,8 +537,9 @@ class _BudgetProgressScreenState extends State<BudgetProgressScreen>
   Widget _buildOverallSummary(List<Budget> budgets) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
-    
-    final totalBudget = budgets.fold(0.0, (sum, b) => sum + b.budgetAmount);
+
+    final totalBudget =
+        budgets.fold(0.0, (sum, b) => sum + b.budgetAmount);
     final totalSpent = budgets.fold(0.0, (sum, b) => sum + b.spentAmount);
     final remaining = totalBudget - totalSpent;
     final progress = totalBudget > 0 ? (totalSpent / totalBudget) : 0.0;
@@ -312,16 +558,23 @@ class _BudgetProgressScreenState extends State<BudgetProgressScreen>
           children: [
             Text(
               'Overall Progress',
-              style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+              style:
+                  textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 20),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                _buildSummaryItem('Budget', totalBudget, colorScheme.onSurface),
+                _buildSummaryItem(
+                    'Budget', totalBudget, colorScheme.onSurface),
                 _buildSummaryItem('Spent', totalSpent, color),
-                _buildSummaryItem('Remaining', remaining, 
-                    remaining >= 0 ? FedhaColors.successGreen : FedhaColors.errorRed),
+                _buildSummaryItem(
+                  'Remaining',
+                  remaining,
+                  remaining >= 0
+                      ? FedhaColors.successGreen
+                      : FedhaColors.errorRed,
+                ),
               ],
             ),
             const SizedBox(height: 20),
@@ -338,7 +591,8 @@ class _BudgetProgressScreenState extends State<BudgetProgressScreen>
               children: [
                 Text(
                   '${(progress * 100).toStringAsFixed(1)}% used',
-                  style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                  style: textTheme.bodySmall
+                      ?.copyWith(color: colorScheme.onSurfaceVariant),
                 ),
                 if (progress < 1.0)
                   Text(
@@ -376,7 +630,8 @@ class _BudgetProgressScreenState extends State<BudgetProgressScreen>
   Widget _buildUnbudgetedSpendingCard() {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
-    final total = _unbudgetedSpending.values.fold(0.0, (sum, amt) => sum + amt);
+    final total =
+        _unbudgetedSpending.values.fold(0.0, (sum, amt) => sum + amt);
 
     return Card(
       color: colorScheme.tertiaryContainer,
@@ -387,7 +642,8 @@ class _BudgetProgressScreenState extends State<BudgetProgressScreen>
           children: [
             Row(
               children: [
-                Icon(Icons.insights, color: colorScheme.onTertiaryContainer),
+                Icon(Icons.insights,
+                    color: colorScheme.onTertiaryContainer),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
@@ -409,10 +665,10 @@ class _BudgetProgressScreenState extends State<BudgetProgressScreen>
             ),
             const SizedBox(height: 12),
             Text(
-              'You\'ve spent in categories without budgets. Consider adding budgets for these to track better!',
-              style: textTheme.bodySmall?.copyWith(
-                color: colorScheme.onTertiaryContainer,
-              ),
+              'You\'ve spent in categories without budgets. '
+              'Consider adding budgets for these to track better!',
+              style: textTheme.bodySmall
+                  ?.copyWith(color: colorScheme.onTertiaryContainer),
             ),
             const SizedBox(height: 12),
             ..._unbudgetedSpending.entries.map((entry) {
@@ -424,8 +680,7 @@ class _BudgetProgressScreenState extends State<BudgetProgressScreen>
                     Text(
                       entry.key.toUpperCase(),
                       style: textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onTertiaryContainer,
-                      ),
+                          color: colorScheme.onTertiaryContainer),
                     ),
                     Text(
                       'KSh ${entry.value.toStringAsFixed(0)}',
@@ -445,20 +700,15 @@ class _BudgetProgressScreenState extends State<BudgetProgressScreen>
   }
 
   Widget _buildBudgetCard(Budget budget) {
-    final currencyService = context.read<CurrencyService>();
-    final isOverBudget = budget.isOverBudget;
-    final statusColor = isOverBudget 
-        ? Colors.red 
-        : budget.spentPercentage >= 80 
-            ? Colors.orange 
-            : FedhaColors.primaryGreen;
-
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
-    final progress = budget.budgetAmount > 0 ? (budget.spentAmount / budget.budgetAmount) : 0.0;
+    final progress = budget.budgetAmount > 0
+        ? (budget.spentAmount / budget.budgetAmount)
+        : 0.0;
     final remaining = budget.budgetAmount - budget.spentAmount;
-    final daysLeft = budget.endDate.difference(DateTime.now()).inDays;
-    
+    final daysLeft =
+        budget.endDate.difference(DateTime.now()).inDays;
+
     final color = progress > 0.9
         ? FedhaColors.errorRed
         : progress > 0.75
@@ -477,13 +727,13 @@ class _BudgetProgressScreenState extends State<BudgetProgressScreen>
                 Expanded(
                   child: Text(
                     budget.name,
-                    style: textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: textTheme.titleMedium
+                        ?.copyWith(fontWeight: FontWeight.bold),
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: color.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(4),
@@ -498,13 +748,13 @@ class _BudgetProgressScreenState extends State<BudgetProgressScreen>
                 ),
               ],
             ),
-            if (budget.description != null && budget.description!.isNotEmpty) ...[
+            if (budget.description != null &&
+                budget.description!.isNotEmpty) ...[
               const SizedBox(height: 4),
               Text(
                 budget.description!,
-                style: textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                ),
+                style: textTheme.bodySmall
+                    ?.copyWith(color: colorScheme.onSurfaceVariant),
               ),
             ],
             const SizedBox(height: 16),
@@ -520,9 +770,8 @@ class _BudgetProgressScreenState extends State<BudgetProgressScreen>
                 ),
                 Text(
                   'of KSh ${budget.budgetAmount.toStringAsFixed(0)}',
-                  style: textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
+                  style: textTheme.bodyMedium
+                      ?.copyWith(color: colorScheme.onSurfaceVariant),
                 ),
               ],
             ),
@@ -540,14 +789,15 @@ class _BudgetProgressScreenState extends State<BudgetProgressScreen>
               children: [
                 Text(
                   '${(progress * 100).toStringAsFixed(1)}% used',
-                  style: textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
+                  style: textTheme.bodySmall
+                      ?.copyWith(color: colorScheme.onSurfaceVariant),
                 ),
                 Text(
                   'KSh ${remaining.toStringAsFixed(0)} remaining',
                   style: textTheme.bodySmall?.copyWith(
-                    color: remaining >= 0 ? FedhaColors.successGreen : FedhaColors.errorRed,
+                    color: remaining >= 0
+                        ? FedhaColors.successGreen
+                        : FedhaColors.errorRed,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -570,10 +820,10 @@ class _BudgetProgressScreenState extends State<BudgetProgressScreen>
                       child: Text(
                         progress > 0.9
                             ? 'You\'ve exceeded or nearly reached your budget!'
-                            : 'You\'re approaching your budget limit. Consider reducing spending.',
-                        style: textTheme.bodySmall?.copyWith(
-                          color: color,
-                        ),
+                            : 'You\'re approaching your budget limit. '
+                                'Consider reducing spending.',
+                        style:
+                            textTheme.bodySmall?.copyWith(color: color),
                       ),
                     ),
                   ],
@@ -581,17 +831,12 @@ class _BudgetProgressScreenState extends State<BudgetProgressScreen>
               ),
             ],
             const SizedBox(height: 16),
-            
-            // Add Review Button at the bottom
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
                 onPressed: () {
-                  Navigator.pushNamed(
-                    context,
-                    '/budget_review',
-                    arguments: budget,
-                  );
+                  Navigator.pushNamed(context, '/budget_review',
+                      arguments: budget);
                 },
                 icon: const Icon(Icons.analytics),
                 label: const Text('Review Budget Performance'),
@@ -613,7 +858,8 @@ class _BudgetProgressScreenState extends State<BudgetProgressScreen>
     final completedOnBudget = _completedBudgets
         .where((b) => b.spentAmount <= b.budgetAmount)
         .length;
-    final successRate = totalBudgets > 0 ? (completedOnBudget / totalBudgets) * 100 : 0;
+    final successRate =
+        totalBudgets > 0 ? (completedOnBudget / totalBudgets) * 100 : 0;
 
     return Card(
       child: Padding(
@@ -623,16 +869,26 @@ class _BudgetProgressScreenState extends State<BudgetProgressScreen>
           children: [
             Text(
               'Budget History Summary',
-              style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+              style:
+                  textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                _buildHistorySummaryItem('Total Periods', totalBudgets.toString(), colorScheme.onSurface),
-                _buildHistorySummaryItem('On Budget', completedOnBudget.toString(), FedhaColors.successGreen),
-                _buildHistorySummaryItem('Success Rate', '${successRate.toStringAsFixed(0)}%', 
-                    successRate >= 70 ? FedhaColors.successGreen : FedhaColors.warningOrange),
+                _buildHistorySummaryItem(
+                    'Total Periods',
+                    totalBudgets.toString(),
+                    colorScheme.onSurface),
+                _buildHistorySummaryItem('On Budget',
+                    completedOnBudget.toString(), FedhaColors.successGreen),
+                _buildHistorySummaryItem(
+                  'Success Rate',
+                  '${successRate.toStringAsFixed(0)}%',
+                  successRate >= 70
+                      ? FedhaColors.successGreen
+                      : FedhaColors.warningOrange,
+                ),
               ],
             ),
           ],
@@ -641,7 +897,8 @@ class _BudgetProgressScreenState extends State<BudgetProgressScreen>
     );
   }
 
-  Widget _buildHistorySummaryItem(String label, String value, Color color) {
+  Widget _buildHistorySummaryItem(
+      String label, String value, Color color) {
     final textTheme = Theme.of(context).textTheme;
     return Column(
       children: [
@@ -658,109 +915,11 @@ class _BudgetProgressScreenState extends State<BudgetProgressScreen>
     );
   }
 
-  Widget _buildHistoryBudgetCard(Budget budget) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-    final progress = budget.budgetAmount > 0 ? (budget.spentAmount / budget.budgetAmount) : 0.0;
-    final wasSuccessful = budget.spentAmount <= budget.budgetAmount;
-    
-    return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Text(
-                    budget.name,
-                    style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: wasSuccessful 
-                        ? FedhaColors.successGreen.withOpacity(0.1)
-                        : FedhaColors.errorRed.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    wasSuccessful ? 'On Budget' : 'Over Budget',
-                    style: textTheme.bodySmall?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: wasSuccessful ? FedhaColors.successGreen : FedhaColors.errorRed,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '${_formatDate(budget.startDate)} - ${_formatDate(budget.endDate)}',
-              style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'KSh ${budget.spentAmount.toStringAsFixed(0)}',
-                  style: textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: wasSuccessful ? FedhaColors.successGreen : FedhaColors.errorRed,
-                  ),
-                ),
-                Text(
-                  'of KSh ${budget.budgetAmount.toStringAsFixed(0)}',
-                  style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            LinearProgressIndicator(
-              value: progress.clamp(0.0, 1.0),
-              backgroundColor: colorScheme.surfaceVariant,
-              color: wasSuccessful ? FedhaColors.successGreen : FedhaColors.errorRed,
-              minHeight: 8,
-              borderRadius: BorderRadius.circular(4),
-            ),
-            if (!wasSuccessful) ...[
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: FedhaColors.errorRed.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.tips_and_updates, color: FedhaColors.errorRed, size: 20),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        'You exceeded by KSh ${(budget.spentAmount - budget.budgetAmount).toStringAsFixed(0)}. '
-                        'Consider allocating more to this category next time.',
-                        style: textTheme.bodySmall?.copyWith(color: FedhaColors.errorRed),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildUpcomingBudgetCard(Budget budget) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
-    final daysUntilStart = budget.startDate.difference(DateTime.now()).inDays;
+    final daysUntilStart =
+        budget.startDate.difference(DateTime.now()).inDays;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
@@ -775,11 +934,13 @@ class _BudgetProgressScreenState extends State<BudgetProgressScreen>
                 Expanded(
                   child: Text(
                     budget.name,
-                    style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                    style: textTheme.titleMedium
+                        ?.copyWith(fontWeight: FontWeight.bold),
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: FedhaColors.infoBlue.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(4),
@@ -797,23 +958,23 @@ class _BudgetProgressScreenState extends State<BudgetProgressScreen>
             const SizedBox(height: 8),
             Text(
               '${_formatDate(budget.startDate)} - ${_formatDate(budget.endDate)}',
-              style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+              style: textTheme.bodySmall
+                  ?.copyWith(color: colorScheme.onSurfaceVariant),
             ),
-            if (budget.description != null && budget.description!.isNotEmpty) ...[
+            if (budget.description != null &&
+                budget.description!.isNotEmpty) ...[
               const SizedBox(height: 8),
               Text(
                 budget.description!,
-                style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                style: textTheme.bodySmall
+                    ?.copyWith(color: colorScheme.onSurfaceVariant),
               ),
             ],
             const SizedBox(height: 16),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'Planned Budget:',
-                  style: textTheme.bodyMedium,
-                ),
+                Text('Planned Budget:', style: textTheme.bodyMedium),
                 Text(
                   'KSh ${budget.budgetAmount.toStringAsFixed(0)}',
                   style: textTheme.titleMedium?.copyWith(
@@ -829,7 +990,8 @@ class _BudgetProgressScreenState extends State<BudgetProgressScreen>
     );
   }
 
-  String _formatDate(DateTime date) {
-    return '${date.day}/${date.month}/${date.year}';
-  }
+  // ── Helpers ───────────────────────────────────────────────────────────────
+
+  String _formatDate(DateTime date) =>
+      '${date.day}/${date.month}/${date.year}';
 }

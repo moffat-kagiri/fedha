@@ -372,8 +372,11 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   }
 
   Widget _buildBudgetsSummary(ColorScheme colorScheme, TextTheme textTheme) {
-    final activeBudgets = _data!.budgets.where((b) => b.isActive).toList();
-    
+    // ✅ FIX: Only show budgets that are both active AND within their date range
+    final activeBudgets = _data!.budgets
+        .where((b) => b.isActive && b.isCurrent)
+        .toList();
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -383,16 +386,13 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'Budgets',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+                Text('Budgets',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        )),
                 TextButton.icon(
-                  onPressed: () {
-                    Navigator.pushNamed(context, '/budget_management');
-                  },
+                  onPressed: () =>
+                      Navigator.pushNamed(context, '/budget_management'),
                   icon: const Icon(Icons.settings),
                   label: const Text('Manage'),
                 ),
@@ -408,9 +408,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
               )
             else
               ...activeBudgets.map((budget) => Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _buildBudgetRow(budget, textTheme, colorScheme),
-              )),
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _buildBudgetRow(budget, textTheme, colorScheme),
+                  )),
           ],
         ),
       ),

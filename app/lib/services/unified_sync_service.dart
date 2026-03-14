@@ -147,6 +147,7 @@ class UnifiedSyncService with ChangeNotifier {
   // This method now includes robust validation of transaction data before upload,
   // detailed logging of each step, and improved parsing of remote transactions.
   Future<EntitySyncResult> _syncTransactionsBatch(String profileId) async {
+    final remoteProfileId = _apiClient.currentProfileId ?? profileId;
     final result = EntitySyncResult();
 
     try {
@@ -217,7 +218,7 @@ class UnifiedSyncService with ChangeNotifier {
           }
 
           batchData.add(
-              _prepareTransactionForUpload(t, profileId, goalIdToRemoteIdMap));
+              _prepareTransactionForUpload(t, remoteProfileId, goalIdToRemoteIdMap));
           batchTransactionMap[batchIndex] = t;
           batchIndex++;
         }
@@ -305,7 +306,7 @@ class UnifiedSyncService with ChangeNotifier {
 
         final updateBatch = updatedTransactions
             .map((t) =>
-                _prepareTransactionForUpload(t, profileId, goalIdToRemoteIdMap))
+                _prepareTransactionForUpload(t, remoteProfileId, goalIdToRemoteIdMap))
             .toList();
 
         final response =
@@ -522,89 +523,73 @@ class UnifiedSyncService with ChangeNotifier {
   Map<String, dynamic> _prepareTransactionForUpload(
     Transaction t,
     String profileId,
-    [Map<String, String> goalIdToRemoteIdMap = const {}]  // ✅ Optional goal ID mapping
+    [Map<String, String> goalIdToRemoteIdMap = const {}]
   ) {
+    // ✅ FIX: Always resolve to the remote UUID before upload.
+    // The profileId passed here is the local profile ID (may be a numeric
+    // string from SQLite). We must use the authenticated user's remote UUID
+    // which the ApiClient already holds, not the local rowid.
+    final remoteProfileId = _apiClient.currentProfileId ?? profileId;
+
     final data = <String, dynamic>{
-      // ✅ CRITICAL FIX: Must include profile_id for backend validation
-      'profile_id': profileId,
-      
-      // Core transaction fields (REQUIRED by backend)
-      'amount': t.amount,  // Backend expects major units (e.g., 100.50)
-      'type': t.type,      // Must be: 'income', 'expense', 'savings', 'transfer'
-      'description': t.description ?? '',  // Default to empty string
+      'profile_id': remoteProfileId,   // ← was: profileId (local int string)
+      'amount': t.amount,
+      'type': t.type,
+      'description': t.description ?? '',
       'date': t.date.toIso8601String(),
-      
-      // Required fields with defaults
       'is_expense': t.isExpense ?? (t.type == 'expense'),
       'currency': t.currency ?? 'KES',
       'status': t.status ?? 'completed',
-      'is_synced': true,  // Mark as synced after upload
+      'is_synced': true,
       'is_recurring': t.isRecurring ?? false,
       'is_pending': t.isPending ?? false,
     };
-    
-    // ✅ CRITICAL FIX: Only add optional fields if they have non-null, non-empty values
-    // This prevents "field may not be null" errors from Django backend
-    
+
     if (t.category != null && t.category!.isNotEmpty) {
       data['category'] = t.category;
     }
-    
     if (t.goalId != null && t.goalId!.isNotEmpty) {
-      // ✅ FIX: Use goal's remoteId if available for backend attribution
       final goalRemoteId = goalIdToRemoteIdMap[t.goalId];
       if (goalRemoteId != null && goalRemoteId.isNotEmpty) {
-        data['goal_id'] = goalRemoteId;  // Send remote ID (backend will update goal's current_amount)
+        data['goal_id'] = goalRemoteId;
       } else {
-        data['goal_id'] = t.goalId;  // Fallback to local ID
+        data['goal_id'] = t.goalId;
       }
     }
-    
     if (t.budgetCategory != null && t.budgetCategory!.isNotEmpty) {
       data['budget_category'] = t.budgetCategory;
     }
-    
     if (t.paymentMethod != null && t.paymentMethod!.isNotEmpty) {
       data['payment_method'] = t.paymentMethod;
     }
-    
     if (t.merchantName != null && t.merchantName!.isNotEmpty) {
       data['merchant_name'] = t.merchantName;
     }
-    
     if (t.merchantCategory != null && t.merchantCategory!.isNotEmpty) {
       data['merchant_category'] = t.merchantCategory;
     }
-    
     if (t.tags != null && t.tags!.isNotEmpty) {
       data['tags'] = t.tags;
     }
-    
     if (t.reference != null && t.reference!.isNotEmpty) {
       data['reference'] = t.reference;
     }
-    
     if (t.recipient != null && t.recipient!.isNotEmpty) {
       data['recipient'] = t.recipient;
     }
-    
     if (t.smsSource != null && t.smsSource!.isNotEmpty) {
       data['sms_source'] = t.smsSource;
     }
-    
     if (t.notes != null && t.notes!.isNotEmpty) {
       data['notes'] = t.notes;
     }
-    
     if (t.location != null && t.location!.isNotEmpty) {
       data['location'] = t.location;
     }
-    
-    // ✅ Add remote_id if it exists (for updates)
     if (t.remoteId != null && t.remoteId!.isNotEmpty) {
       data['remote_id'] = t.remoteId;
     }
-    
+
     return data;
   }
 
@@ -612,6 +597,7 @@ class UnifiedSyncService with ChangeNotifier {
   /// Upload always runs and completes before download to prevent stale server
   /// data from overwriting locally-tracked progress.
   Future<EntitySyncResult> _syncGoalsBatch(String profileId) async {
+    final remoteProfileId = _apiClient.currentProfileId ?? profileId;
     final result = EntitySyncResult();
 
     try {
@@ -636,8 +622,8 @@ class UnifiedSyncService with ChangeNotifier {
             '[GOALS] Uploading ${newGoals.length} new + ${updatedGoals.length} updated goals');
 
         final goalsData = [
-          ...newGoals.map((g) => _prepareGoalForUpload(g, profileId)),
-          ...updatedGoals.map((g) => _prepareGoalForUpload(g, profileId)),
+          ...newGoals.map((g) => _prepareGoalForUpload(g, remoteProfileId)),
+          ...updatedGoals.map((g) => _prepareGoalForUpload(g, remoteProfileId)),
         ];
 
         try {
