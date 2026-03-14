@@ -147,7 +147,7 @@ class UnifiedSyncService with ChangeNotifier {
   // This method now includes robust validation of transaction data before upload,
   // detailed logging of each step, and improved parsing of remote transactions.
   Future<EntitySyncResult> _syncTransactionsBatch(String profileId) async {
-    final remoteProfileId = _apiClient.currentProfileId ?? profileId;
+    final remoteProfileId = _authService.currentProfile?.id ?? profileId;
     final result = EntitySyncResult();
 
     try {
@@ -529,7 +529,7 @@ class UnifiedSyncService with ChangeNotifier {
     // The profileId passed here is the local profile ID (may be a numeric
     // string from SQLite). We must use the authenticated user's remote UUID
     // which the ApiClient already holds, not the local rowid.
-    final remoteProfileId = _apiClient.currentProfileId ?? profileId;
+    final remoteProfileId = _authService.currentProfile?.id ?? profileId;
 
     final data = <String, dynamic>{
       'profile_id': remoteProfileId,   // ← was: profileId (local int string)
@@ -597,7 +597,7 @@ class UnifiedSyncService with ChangeNotifier {
   /// Upload always runs and completes before download to prevent stale server
   /// data from overwriting locally-tracked progress.
   Future<EntitySyncResult> _syncGoalsBatch(String profileId) async {
-    final remoteProfileId = _apiClient.currentProfileId ?? profileId;
+    final remoteProfileId = _authService.currentProfile?.id ?? profileId;
     final result = EntitySyncResult();
 
     try {
