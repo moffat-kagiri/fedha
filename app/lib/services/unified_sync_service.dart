@@ -608,26 +608,33 @@ class UnifiedSyncService with ChangeNotifier {
     return data;
   }
 
-  /// ✅ FIXED: Batch sync goals with Explicit separation and Name-match safety net
+  /// ✅ PATCHED: Batch sync goals with local-wins progress merge strategy.
+  /// Upload always runs and completes before download to prevent stale server
+  /// data from overwriting locally-tracked progress.
   Future<EntitySyncResult> _syncGoalsBatch(String profileId) async {
     final result = EntitySyncResult();
+
     try {
       if (!_apiClient.isAuthenticated) return result;
 
+      // ── STEP 0: Load local snapshot ONCE before any writes ──────────────────
       final localGoals = await _offlineDataService.getAllGoals(profileId);
       result.localCount = localGoals.length;
 
-      // ✅ STEP 1: Upload Unsynced Goals
+      // ── STEP 1: UPLOAD — must fully complete before download reads DB ────────
       final unsyncedGoals = localGoals.where((g) => !g.isSynced).toList();
 
       if (unsyncedGoals.isNotEmpty) {
-        // Separate to ensure mapping logic only targets items expecting a new ID
-        final newGoals = unsyncedGoals.where((g) => g.remoteId == null || g.remoteId!.isEmpty).toList();
-        final updatedGoals = unsyncedGoals.where((g) => g.remoteId != null && g.remoteId!.isNotEmpty).toList();
+        final newGoals = unsyncedGoals
+            .where((g) => g.remoteId == null || g.remoteId!.isEmpty)
+            .toList();
+        final updatedGoals = unsyncedGoals
+            .where((g) => g.remoteId != null && g.remoteId!.isNotEmpty)
+            .toList();
 
-        _logger.info('[GOALS] Syncing ${newGoals.length} new and ${updatedGoals.length} updated goals');
+        _logger.info(
+            '[GOALS] Uploading ${newGoals.length} new + ${updatedGoals.length} updated goals');
 
-        // Payload: New goals first to match the 'created_ids' index mapping
         final goalsData = [
           ...newGoals.map((g) => _prepareGoalForUpload(g, profileId)),
           ...updatedGoals.map((g) => _prepareGoalForUpload(g, profileId)),
@@ -637,15 +644,16 @@ class UnifiedSyncService with ChangeNotifier {
           final response = await _apiClient.batchSyncGoals(profileId, goalsData);
 
           if (response['success'] == true) {
-            result.uploaded += (response['created'] as int? ?? 0) + (response['updated'] as int? ?? 0);
+            result.uploaded +=
+                (response['created'] as int? ?? 0) + (response['updated'] as int? ?? 0);
 
-            // Map Remote IDs to NEW goals by index
+            // Write remoteIds back to NEW goals by index
             final createdIds = response['created_ids'] as List? ?? [];
             for (int i = 0; i < createdIds.length && i < newGoals.length; i++) {
               final remoteId = createdIds[i]?.toString();
               if (remoteId != null && remoteId.isNotEmpty) {
                 await _offlineDataService.updateGoal(newGoals[i].copyWith(
-                  remoteId: remoteId, 
+                  remoteId: remoteId,
                   isSynced: true,
                 ));
               }
@@ -667,11 +675,24 @@ class UnifiedSyncService with ChangeNotifier {
         } catch (e) {
           _logger.warning('[GOALS] Upload sync failed: $e');
           result.error = 'Goal upload failed: $e';
+          // ⚠️ Do NOT return here — still attempt download with post-upload DB state
         }
       }
 
-      // ✅ STEP 2: Download Goals (with Name Fallback Safety)
+      // ── STEP 2: DOWNLOAD — re-fetch local state AFTER upload writes ──────────
+      // This ensures the local snapshot reflects any remoteIds just written above,
+      // so the merge logic below can correctly identify already-synced goals.
       final refreshedLocalGoals = await _offlineDataService.getAllGoals(profileId);
+
+      // Build a fast lookup: remoteId → local Goal
+      final localByRemoteId = <String, Goal>{
+        for (final g in refreshedLocalGoals)
+          if (g.remoteId != null && g.remoteId!.isNotEmpty) g.remoteId!: g,
+      };
+      // Fallback lookup: name → local Goal (for goals not yet assigned a remoteId)
+      final localByName = <String, Goal>{
+        for (final g in refreshedLocalGoals) g.name: g,
+      };
 
       try {
         final remoteGoals = await _apiClient.getGoals(profileId: profileId);
@@ -681,27 +702,41 @@ class UnifiedSyncService with ChangeNotifier {
           final remoteName = remote['name']?.toString();
           if (remoteId == null) continue;
 
-          // ✅ SAFETY NET: Match by remoteId OR (Name + Profile) to prevent duplicates
-          final existingLocalGoal = refreshedLocalGoals.firstWhere(
-            (g) => g.remoteId == remoteId || 
-                  (g.name == remoteName && g.profileId == profileId),
-            orElse: () => null as Goal,
-          );
-
           final parsedGoal = _parseRemoteGoal(remote, profileId);
           if (parsedGoal == null) continue;
 
-          if (existingLocalGoal != null) {
-            // UPDATE: Found via ID or Name match
+          // ── Match by remoteId first, then by name as safety net ────────────
+          final existingLocal = localByRemoteId[remoteId] ??
+              (remoteName != null ? localByName[remoteName] : null);
+
+          if (existingLocal != null) {
+            // ── LOCAL-WINS MERGE for currentAmount ────────────────────────────
+            // If the local goal still has unsynced changes (e.g. offline progress
+            // that hasn't reached the server yet), prefer the LOCAL currentAmount
+            // only when it is strictly greater than what the server returned.
+            // This prevents the server's stale 0 from resetting offline progress.
+            final double resolvedCurrentAmount;
+            if (!existingLocal.isSynced &&
+                existingLocal.currentAmount > parsedGoal.currentAmount) {
+              resolvedCurrentAmount = existingLocal.currentAmount;
+              _logger.info(
+                  '[GOALS] Local-wins merge for "${existingLocal.name}": '
+                  'local=${existingLocal.currentAmount}, remote=${parsedGoal.currentAmount} → keeping local');
+            } else {
+              resolvedCurrentAmount = parsedGoal.currentAmount;
+            }
+
             final mergedGoal = parsedGoal.copyWith(
-              id: existingLocalGoal.id, // Preserve local primary key
-              remoteId: remoteId,       // Ensure remoteId is now set if matched by name
+              id: existingLocal.id,           // Preserve local primary key
+              remoteId: remoteId,             // Ensure remoteId is set
+              currentAmount: resolvedCurrentAmount,
               isSynced: true,
             );
+
             await _offlineDataService.updateGoal(mergedGoal);
-            _logger.info('[GOALS] Synced remote goal $remoteId to local goal ${existingLocalGoal.id}');
+            _logger.info('[GOALS] Merged remote goal $remoteId → local ${existingLocal.id}');
           } else {
-            // CREATE: Genuinely new
+            // Genuinely new goal from server
             await _offlineDataService.saveGoal(parsedGoal);
             result.downloaded++;
             _logger.info('[GOALS] Created new goal from server: $remoteId');
@@ -723,22 +758,36 @@ class UnifiedSyncService with ChangeNotifier {
   }
 
 
-  /// ✅ IMPROVED: Parse remote goal with progress update
+  /// ✅ PATCHED: Parse remote goal. Returns null on failure so callers can skip.
+  /// currentAmount defaults to 0.0 only when the field is explicitly absent —
+  /// this is intentional; the local-wins merge in _syncGoalsBatch handles the
+  /// case where 0 from the server would overwrite valid local progress.
   Goal? _parseRemoteGoal(Map<String, dynamic> remote, String profileId) {
     try {
       final targetAmount = _parseAmount(remote['target_amount']);
-      final currentAmount = _parseAmount(remote['current_amount']);
-      
+      // ✅ Treat missing current_amount as 0.0 but log it so we can diagnose
+      // server-side serialisation gaps during development.
+      final rawCurrent = remote['current_amount'];
+      final currentAmount = rawCurrent != null ? _parseAmount(rawCurrent) : 0.0;
+      if (rawCurrent == null) {
+        _logger.warning(
+            '[GOALS] Remote goal "${remote['name']}" has null current_amount — defaulting to 0.0. '
+            'Local-wins merge will protect existing progress.');
+      }
+
       return Goal(
         id: _uuid.v4(),
         remoteId: remote['id']?.toString(),
         name: remote['name']?.toString() ?? '',
         targetAmount: targetAmount,
         currentAmount: currentAmount,
-        targetDate: _parseDate(remote['due_date'] ?? remote['target_date']) ?? DateTime.now(),
+        targetDate:
+            _parseDate(remote['due_date'] ?? remote['target_date']) ?? DateTime.now(),
         profileId: profileId,
-        goalType: GoalTypeExtension.fromString(remote['goal_type']?.toString() ?? 'savings'),
-        status: GoalStatusExtension.fromString(remote['status']?.toString() ?? 'active'),
+        goalType: GoalTypeExtension.fromString(
+            remote['goal_type']?.toString() ?? 'savings'),
+        status: GoalStatusExtension.fromString(
+            remote['status']?.toString() ?? 'active'),
         currency: remote['currency']?.toString() ?? 'KES',
         description: remote['description']?.toString(),
         isSynced: true,
@@ -746,7 +795,7 @@ class UnifiedSyncService with ChangeNotifier {
         updatedAt: _parseDate(remote['updated_at']) ?? DateTime.now(),
       );
     } catch (e) {
-      _logger.warning('Failed to parse remote goal: $e');
+      _logger.warning('[GOALS] Failed to parse remote goal: $e — data: $remote');
       return null;
     }
   }

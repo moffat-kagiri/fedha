@@ -9,6 +9,7 @@ import 'package:workmanager/workmanager.dart';
 import 'package:awesome_notifications/awesome_notifications.dart';
 import 'services/notification_service.dart';
 import 'package:provider/single_child_widget.dart';
+import 'dart:async' show unawaited;
 
 // Models
 import 'models/profile.dart';
@@ -118,8 +119,8 @@ void callbackDispatcher() {
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // Initialize OfflineDataService FIRST
+
+  // ✅ FAST PATH: Only initialize what's needed to show first frame
   await OfflineDataService().initialize();
 
   Provider.debugCheckInvalidValueType = null;
@@ -129,14 +130,16 @@ Future<void> main() async {
   try {
     logger.info('🚀 Starting Fedha app...');
 
+    // WorkManager init is fast (no network) — keep on critical path
     await Workmanager().initialize(callbackDispatcher);
-    if (kDebugMode) logger.info('✅ WorkManager initialized');
 
-    await _initializeServices();
-    
+    // ✅ Initialize all LOCAL services synchronously
+    await _initializeLocalServices();
+
+    // ✅ Resolve auth/biometric state from local storage only (no network)
     final authService = AuthService.instance;
     final biometricAuthService = BiometricAuthService.instance;
-    
+
     final isLoggedIn = authService.hasActiveProfile;
     final biometricEnabled = biometricAuthService != null
         ? await biometricAuthService.isBiometricEnabled()
@@ -144,61 +147,74 @@ Future<void> main() async {
     final hasValidSession = biometricAuthService != null
         ? await biometricAuthService.hasValidBiometricSession()
         : false;
-    
+
     final requireBiometricOnLaunch = isLoggedIn && biometricEnabled && !hasValidSession;
-    // Determine biometric requirements
-    
-    logger.info('✅ All services initialized successfully');
-    logger.info('🎉 Launching app...');
-    
+
+    logger.info('✅ Local services ready — launching app');
+
+    // ✅ Launch the app immediately with local data
     runApp(
       MultiProvider(
         providers: _buildProviders(),
         child: MyApp(requireBiometricOnLaunch: requireBiometricOnLaunch),
       ),
     );
+
+    // ✅ Network discovery runs AFTER first frame is painted — never blocks UI
+    unawaited(_initializeNetworkServicesInBackground());
+
   } catch (e, stackTrace) {
     logger.severe('❌ App initialization failed', e, stackTrace);
     _launchErrorApp(e);
   }
 }
 
-// ==================== SERVICE INITIALIZATION ====================
+// ==================== LOCAL-ONLY SERVICE INITIALIZATION ====================
+// Everything here reads from disk or memory only. No network calls. No timeouts.
+// This runs on the critical path before runApp.
 
-Future<void> _initializeServices() async {
+Future<void> _initializeLocalServices() async {
   final logger = AppLogger.getLogger('ServiceInit');
-  
-  // ==================== CORE SERVICES ====================
-  logger.info('Initializing core services...');
-  
-  final offlineDataService = OfflineDataService(); // This gets singleton
-  //await offlineDataService.initialize(); 
-  logger.info('✅ Offline data service initialized');
-  
+
+  logger.info('Initializing local services...');
+
+  // These are all local/disk operations — fast and safe offline
   final biometricAuthService = BiometricAuthService.instance;
   await biometricAuthService?.initialize();
   logger.info('✅ Biometric auth service initialized');
-  
+
   final permissionsService = PermissionsService.instance;
   await permissionsService.initialize();
   logger.info('✅ Permissions service initialized');
-  
+
   final themeService = ThemeService.instance;
   await themeService.initialize();
   logger.info('✅ Theme service initialized');
 
-  // ==================== NETWORK SERVICES ====================
-  await _initializeNetworkServices();
+  // Auth service restores profile from SharedPreferences — no network needed
+  final authService = AuthService.instance;
+  await authService.initializeWithDependencies(
+    offlineDataService: OfflineDataService(),
+    biometricService: BiometricAuthService.instance,
+  );
+  logger.info('✅ Auth service initialized');
 
-  // ==================== SYNC & BUDGET SERVICES ====================
+  // Sync and budget services initialize their local state only
   final apiClient = ApiClient.instance;
-  
-  // Initialize Unified Sync Service FIRST
+  final offlineDataService = OfflineDataService();
+
+  // ✅ Init API client with config only — no health check here
+  final initialConfig = kDebugMode
+      ? ApiConfig.development()
+      : ApiConfig.production();
+  apiClient.init(config: initialConfig);
+  logger.info('✅ API client configured (no connection test)');
+
   final unifiedSyncService = UnifiedSyncService.instance;
   await unifiedSyncService.initialize(
     offlineDataService: offlineDataService,
     apiClient: apiClient,
-    authService: AuthService.instance,
+    authService: authService,
   );
   logger.info('✅ Sync service initialized');
 
@@ -208,71 +224,144 @@ Future<void> _initializeServices() async {
   await budgetService.initialize(offlineDataService);
   logger.info('✅ Budget service initialized');
 
-  // ==================== TRANSACTION EVENT SERVICE (NEW) ====================
-  final transactionEventService = TransactionEventService();
-  await transactionEventService.initialize(
-    offlineDataService: offlineDataService,
-    budgetService: budgetService,
-  );
-  logger.info('✅ Transaction event service initialized');
+  logger.info('✅ All local services ready');
+}
 
-  offlineDataService.setEventService(transactionEventService);
 
-  // ==================== AUTH SERVICE ====================
-  final authService = AuthService.instance;
-  await authService.initializeWithAllDependencies(
-    offlineDataService: offlineDataService,
-    biometricService: biometricAuthService,
-    syncService: unifiedSyncService,
-    budgetService: budgetService,
-  );
-  logger.info('✅ Auth service initialized with all dependencies');
+// ==================== BACKGROUND NETWORK INITIALIZATION ====================
+// Runs after runApp — the UI is already visible. Any delay here is invisible
+// to the user. ConnectivityService and sync will notify listeners when ready.
 
-  // ==================== SET PROFILE FOR SYNC SERVICE ====================
-  if (authService.hasActiveProfile && authService.profileId != null) {
-    logger.info('User logged in - setting profile for services');
-    
-    // 🔴 CRITICAL: Set profile for sync service BEFORE sync
-    unifiedSyncService.setCurrentProfile(authService.profileId!);
-    
-    // Set profile for transaction event service
-    transactionEventService.setCurrentProfile(authService.profileId!);
-    
-    // 🔴 CRITICAL: Perform initial sync to fetch existing data from server
-    logger.info('🔄 Performing initial sync to fetch existing data...');
-    try {
-      final syncResult = await unifiedSyncService.syncAll();
-      if (syncResult.success) {
-        logger.info('✅ Initial sync successful. '
-            'Downloaded: ${syncResult.totalDownloaded} items, '
-            'Uploaded: ${syncResult.totalUploaded} items');
-      } else {
-        logger.warning('⚠️ Initial sync failed: ${syncResult.error}');
+Future<void> _initializeNetworkServicesInBackground() async {
+  final logger = AppLogger.getLogger('NetworkInit');
+
+  try {
+    logger.info('🌐 Starting background network initialization...');
+
+    final apiClient = ApiClient.instance;
+
+    // Step 1: Fast connectivity check using the platform's network status
+    // (connectivity_plus reads the OS — no HTTP request, near-instant)
+    final connectivityService = conn_svc.ConnectivityService(apiClient);
+    await connectivityService.initialize();
+
+    final hasConnectivity = await connectivityService.hasInternetConnection();
+    logger.info('Internet: ${hasConnectivity ? "✅ Available" : "❌ Unavailable"}');
+
+    if (!hasConnectivity) {
+      logger.info('Offline — skipping server discovery');
+      return;
+    }
+
+    // Step 2: In debug mode, probe for the best local endpoint.
+    // Use a short overall timeout cap so even a slow LAN doesn't hang here.
+    if (kDebugMode) {
+      logger.info('Dev mode: probing for best connection (capped at 5s)...');
+
+      try {
+        final bestConnectionUrl = await ConnectionManager
+            .findWorkingConnection()
+            .timeout(
+              const Duration(seconds: 5),
+              onTimeout: () {
+                logger.warning('Connection probe timed out — using default config');
+                return null;
+              },
+            );
+
+        if (bestConnectionUrl != null) {
+          final ApiConfig optimalConfig;
+
+          if (bestConnectionUrl.contains('trycloudflare.com')) {
+            optimalConfig = ApiConfig.cloudflare(tunnelUrl: bestConnectionUrl);
+          } else if (bestConnectionUrl.contains('192.168.') ||
+              bestConnectionUrl.contains('10.0.2.2') ||
+              bestConnectionUrl.contains('localhost')) {
+            optimalConfig = ApiConfig.development().copyWith(
+              primaryApiUrl: _extractHost(bestConnectionUrl),
+            );
+          } else {
+            optimalConfig = ApiConfig.custom(
+              apiUrl: _extractHost(bestConnectionUrl),
+              useSecureConnections: bestConnectionUrl.startsWith('https'),
+            );
+          }
+
+          apiClient.init(config: optimalConfig);
+          logger.info('✅ API client reconfigured: $bestConnectionUrl');
+
+          // Quick health verify — also capped
+          final isHealthy = await apiClient
+              .checkServerHealth()
+              .timeout(
+                const Duration(seconds: 3),
+                onTimeout: () => false,
+              );
+
+          if (!isHealthy) {
+            logger.warning('Health check failed — reverting to default config');
+            final fallback = kDebugMode
+                ? ApiConfig.development()
+                : ApiConfig.production();
+            apiClient.init(config: fallback);
+          }
+        }
+      } catch (e) {
+        logger.warning('Connection probe error (non-fatal): $e');
       }
-    } catch (e, stackTrace) {
-      logger.severe('❌ Initial sync failed with error', e, stackTrace);
     }
-    
-    // 🔴 CRITICAL: Recalculate all budgets and goals on app start
-    // This ensures data consistency even if app was closed mid-transaction
-    try {
-      logger.info('🔄 Recalculating budgets and goals on app start...');
-      await transactionEventService.recalculateAll(authService.profileId!);
-      logger.info('✅ Budget and goal recalculation complete');
-    } catch (e, stackTrace) {
-      logger.severe('⚠️ Failed to recalculate budgets/goals', e, stackTrace);
-      // Don't throw - app should still work
+
+    // Step 3: If user is logged in, trigger background sync now that
+    // network is confirmed available.
+    final authService = AuthService.instance;
+    if (authService.hasActiveProfile && authService.profileId != null) {
+      logger.info('🔄 Triggering post-startup background sync...');
+      unawaited(_runPostStartupSync(authService.profileId!));
     }
-    
-    await _registerBackgroundTasks(authService.profileId!);
-    
-    // Also start foreground SMS listener
+
+    logger.info('✅ Background network initialization complete');
+  } catch (e, stackTrace) {
+    logger.warning('Background network init failed (non-fatal): $e', e, stackTrace);
+    // Never rethrow — the app is already running fine with local data
+  }
+}
+
+
+// ==================== POST-STARTUP SYNC ====================
+// Called only after network is confirmed. Keeps startup clean.
+Future<void> _runPostStartupSync(String profileId) async {
+  final logger = AppLogger.getLogger('PostStartupSync');
+
+  try {
+    final offlineDataService = OfflineDataService();
+    final unifiedSyncService = UnifiedSyncService.instance;
+    final budgetService = BudgetService.instance;
+    final transactionEventService = TransactionEventService();
+
+    unifiedSyncService.setCurrentProfile(profileId);
+
+    final syncResult = await unifiedSyncService.syncAll();
+    if (syncResult.success) {
+      logger.info('✅ Post-startup sync complete. '
+          'Downloaded: ${syncResult.totalDownloaded}, '
+          'Uploaded: ${syncResult.totalUploaded}');
+    }
+
+    // Use the correct service and method name
+    await transactionEventService.recalculateAll(profileId);
+    await budgetService.loadBudgetsForProfile(profileId);
+
+    await _registerBackgroundTasks(profileId);
+
     final smsService = SmsListenerService.instance;
     await smsService.startListening(
       offlineDataService: offlineDataService,
-      profileId: authService.profileId!,
+      profileId: profileId,
     );
-    logger.info('✅ Foreground SMS listener started');
+
+    logger.info('✅ Post-startup background processing complete');
+  } catch (e, stackTrace) {
+    logger.warning('Post-startup sync failed (non-fatal)', e, stackTrace);
   }
 }
 

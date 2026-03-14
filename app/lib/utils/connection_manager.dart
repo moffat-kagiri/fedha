@@ -53,66 +53,61 @@ class ConnectionManager {
   // Health endpoint path
   static const String _healthEndpoint = '/api/health/';
 
-  // Find the first working connection from the available options
+  /// ✅ PATCHED: Tests all connection options in PARALLEL and returns the first
+  /// that succeeds. Worst-case latency = single timeout (3s), not N × 3s.
   static Future<String?> findWorkingConnection() async {
-    _log.info('Testing connection options...');
-    
-    // Create a map to store results for reporting
-    final results = <String, String>{};
-    
-    // Get connection options based on platform
+    _log.info('Probing ${_connectionOptions.length} connection options in parallel...');
+
     final options = _connectionOptions;
-    _log.info('Connection options for ${kIsWeb ? 'web' : Platform.operatingSystem}: ${options.join(', ')}');
-    
-    for (var baseUrl in options) {
-      _log.info('Trying $baseUrl...');
-      try {
-        final response = await http.get(
-          Uri.parse('$baseUrl$_healthEndpoint'),
-          headers: {'Accept': 'application/json'},
-        ).timeout(_connectionTimeout);
-        
-        if (response.statusCode == 200) {
-          _log.info('✅ Connection successful: $baseUrl (${response.statusCode})');
-          
-          // Try to parse response to verify it's actually our API
-          try {
-            final jsonResponse = response.body;
-            if (jsonResponse.contains('healthy') || jsonResponse.contains('status')) {
-              _log.info('✓ Valid API response received');
-              return baseUrl;
-            } else {
-              _log.warning('⚠️ Response doesn\'t look like our API: ${response.body.substring(0, min(50, response.body.length))}');
-              results[baseUrl] = 'Invalid API response';
-            }
-          } catch (e) {
-            _log.warning('⚠️ Could not parse response: $e');
-            // If we can't parse but got a 200, still consider it valid
-            return baseUrl;
-          }
-        } else {
-          _log.warning('❌ Connection failed: $baseUrl (status ${response.statusCode})');
-          results[baseUrl] = 'HTTP ${response.statusCode}';
+    if (options.isEmpty) return null;
+
+    // Each option races independently. The first to return a non-null value wins.
+    // We use a Completer so we can short-circuit as soon as one succeeds without
+    // waiting for the others.
+    final completer = Completer<String?>();
+    int pending = options.length;
+
+    for (final baseUrl in options) {
+      _testSingleConnectionFast(baseUrl).then((winner) {
+        if (winner != null && !completer.isCompleted) {
+          _log.info('✅ First working connection: $winner');
+          completer.complete(winner);
         }
-      } on SocketException catch (e) {
-        _log.warning('❌ Connection refused: $baseUrl - ${e.message}');
-        results[baseUrl] = 'Connection refused';
-      } on TimeoutException {
-        _log.warning('❌ Connection timeout: $baseUrl');
-        results[baseUrl] = 'Timeout after ${_connectionTimeout.inSeconds}s';
-      } catch (e) {
-        _log.warning('❌ Connection error: $baseUrl - ${e.toString()}');
-        results[baseUrl] = e.toString();
-      }
+      }).catchError((_) {
+        // swallow individual errors
+      }).whenComplete(() {
+        pending--;
+        // If all probes exhausted without a winner, complete with null
+        if (pending == 0 && !completer.isCompleted) {
+          _log.warning('❌ All connection probes failed');
+          completer.complete(null);
+        }
+      });
     }
-    
-    // Log all results for diagnostics
-    _log.warning('❌ All connection options failed. Results:');
-    results.forEach((url, result) {
-      _log.warning('  - $url: $result');
-    });
-    
-    return null;
+
+    return completer.future;
+  }
+
+  /// Lightweight single-URL probe used by the parallel finder.
+  static Future<String?> _testSingleConnectionFast(String baseUrl) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl$_healthEndpoint'),
+        headers: {'Accept': 'application/json'},
+      ).timeout(_connectionTimeout);
+
+      if (response.statusCode == 200) {
+        final body = response.body;
+        if (body.contains('healthy') || body.contains('status')) {
+          return baseUrl;
+        }
+        // Got 200 but unexpected body — still accept it
+        return baseUrl;
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
   }
   
   // Helper function to get the minimum of two values

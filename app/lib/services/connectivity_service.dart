@@ -50,12 +50,32 @@ class ConnectivityService {
     _initConnectivity();
   }
   
-  /// Initialize the connectivity service
+  /// ✅ PATCHED: initialize() only confirms device network state via the OS.
+  /// Server reachability check is kicked off asynchronously so callers are
+  /// not blocked waiting for an HTTP round-trip.
   Future<void> initialize() async {
-    await _checkConnectivity();
+    // OS-level network state — fast, no HTTP
+    final connectivityResult = await _connectivity.checkConnectivity();
+    _hasConnection = connectivityResult != ConnectivityResult.none;
+    _connectionStatusController.add(_hasConnection);
+
+    // Set up the listener for future changes
     _setupConnectivityListener();
+
+    // Server reachability check is non-blocking — result arrives via stream
+    if (_hasConnection) {
+      unawaited(checkServerStatus());
+    } else {
+      _serverReachable = false;
+      _serverStatusController.add(false);
+      _logger.info('Offline mode — skipping server check on initialize');
+    }
+
+    // Periodic checks handle reconnection automatically
+    startPeriodicChecks();
   }
-  
+
+
   /// Check if device has internet connection
   Future<bool> hasInternetConnection() async {
     try {
