@@ -16,7 +16,8 @@ class LoansTrackerScreen extends StatefulWidget {
   State<LoansTrackerScreen> createState() => _LoansTrackerScreenState();
 }
 
-class _LoansTrackerScreenState extends State<LoansTrackerScreen> with SingleTickerProviderStateMixin {
+class _LoansTrackerScreenState extends State<LoansTrackerScreen>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
   @override
@@ -62,7 +63,10 @@ class _LoansTrackerScreenState extends State<LoansTrackerScreen> with SingleTick
 
   Widget _buildPaidLoansTab() {
     return Center(
-      child: Text('No paid off loans yet', style: TextStyle(color: Colors.grey.shade700)),
+      child: Text(
+        'No paid off loans yet',
+        style: TextStyle(color: Colors.grey.shade700),
+      ),
     );
   }
 }
@@ -110,8 +114,15 @@ class _LoansTrackerTabState extends State<LoansTrackerTab> {
         final start = d.startDate;
         final end = d.endDate;
         final totalMonths = _monthsBetween(start, end).clamp(1, 1000);
-        final remainingMonths = (_monthsBetween(DateTime.now(), end)).clamp(0, totalMonths);
-        final monthlyPayment = _computeMonthlyPayment(principal, d.interestRate, totalMonths);
+        final remainingMonths = (_monthsBetween(
+          DateTime.now(),
+          end,
+        )).clamp(0, totalMonths);
+        final monthlyPayment = _computeMonthlyPayment(
+          principal,
+          d.interestRate,
+          totalMonths,
+        );
 
         return Loan(
           id: int.tryParse(d.id) ?? 0,
@@ -129,25 +140,29 @@ class _LoansTrackerTabState extends State<LoansTrackerTab> {
           description: d.description,
           createdAt: d.createdAt,
           updatedAt: d.updatedAt,
-          isDeleted: d.isDeleted,  // ✅ NEW: Include deletion status
-          deletedAt: d.deletedAt,  // ✅ NEW: Include deletion timestamp
+          isDeleted: d.isDeleted, // ✅ NEW: Include deletion status
+          deletedAt: d.deletedAt, // ✅ NEW: Include deletion timestamp
         );
       }).toList();
 
       // ✅ CRITICAL: Filter out soft-deleted loans
-      final activeLoans = mapped.where((loan) => !(loan.isDeleted ?? false)).toList();
+      final activeLoans = mapped
+          .where((loan) => !(loan.isDeleted ?? false))
+          .toList();
 
       if (mounted) {
         setState(() {
           _loans
             ..clear()
-            ..addAll(activeLoans);  // ✅ Only add non-deleted loans
+            ..addAll(activeLoans); // ✅ Only add non-deleted loans
           _isLoading = false;
         });
       }
     } catch (e) {
       if (mounted) setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to load loans: $e')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to load loans: $e')));
     }
   }
 
@@ -180,7 +195,11 @@ class _LoansTrackerTabState extends State<LoansTrackerTab> {
     return ob.clamp(0.0, principal);
   }
 
-  double _computeMonthlyPayment(double principal, double annualRatePercent, int months) {
+  double _computeMonthlyPayment(
+    double principal,
+    double annualRatePercent,
+    int months,
+  ) {
     if (months <= 0) return 0.0;
     final monthlyRate = annualRatePercent / 100.0 / 12.0;
     if (monthlyRate <= 0) return principal / months;
@@ -256,7 +275,10 @@ class _LoansTrackerTabState extends State<LoansTrackerTab> {
                   children: [
                     const Icon(Icons.lock_outline, size: 48),
                     const SizedBox(height: 12),
-                    Text('Sign in to view and manage your loans', style: theme.textTheme.titleMedium),
+                    Text(
+                      'Sign in to view and manage your loans',
+                      style: theme.textTheme.titleMedium,
+                    ),
                     const SizedBox(height: 8),
                     ElevatedButton(
                       onPressed: () => Navigator.pushNamed(context, '/login'),
@@ -326,9 +348,8 @@ class _LoansTrackerTabState extends State<LoansTrackerTab> {
                                 children: [
                                   Text(
                                     loan.name,
-                                    style: theme.textTheme.titleMedium?.copyWith(
-                                      fontWeight: FontWeight.bold,
-                                    ),
+                                    style: theme.textTheme.titleMedium
+                                        ?.copyWith(fontWeight: FontWeight.bold),
                                   ),
                                   // ✅ NEW: Show interest model
                                   Text(
@@ -363,9 +384,21 @@ class _LoansTrackerTabState extends State<LoansTrackerTab> {
                                   value: 'delete',
                                   child: Row(
                                     children: [
-                                      Icon(Icons.delete, color: Theme.of(context).colorScheme.error),
+                                      Icon(
+                                        Icons.delete,
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.error,
+                                      ),
                                       const SizedBox(width: 8),
-                                      Text('Delete', style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                                      Text(
+                                        'Delete',
+                                        style: TextStyle(
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.error,
+                                        ),
+                                      ),
                                     ],
                                   ),
                                 ),
@@ -377,17 +410,15 @@ class _LoansTrackerTabState extends State<LoansTrackerTab> {
                         Row(
                           children: [
                             Expanded(
-                              child: _buildLoanInfo('Principal', 'KES ${loan.principal.toStringAsFixed(0)}'),
+                              child: _buildLoanInfo(
+                                'Principal',
+                                'KES ${loan.principal.toStringAsFixed(0)}',
+                              ),
                             ),
                             Expanded(
                               child: _buildLoanInfo(
                                 'Outstanding',
-                                'KES ${_computeOutstandingBalance(
-                                  loan.principal,
-                                  loan.interestRate,
-                                  loan.totalMonths,
-                                  loan.remainingMonths,
-                                ).toStringAsFixed(0)}',
+                                'KES ${_computeOutstandingBalance(loan.principal, loan.interestRate, loan.totalMonths, loan.remainingMonths).toStringAsFixed(0)}',
                               ),
                             ),
                           ],
@@ -396,19 +427,30 @@ class _LoansTrackerTabState extends State<LoansTrackerTab> {
                         Row(
                           children: [
                             Expanded(
-                              child: _buildLoanInfo('Monthly Payment', 'KES ${loan.monthlyPayment.toStringAsFixed(0)}'),
+                              child: _buildLoanInfo(
+                                'Monthly Payment',
+                                'KES ${loan.monthlyPayment.toStringAsFixed(0)}',
+                              ),
                             ),
                             Expanded(
-                              child: _buildLoanInfo('Remaining', '${loan.remainingMonths} months'),
+                              child: _buildLoanInfo(
+                                'Remaining',
+                                '${loan.remainingMonths} months',
+                              ),
                             ),
                           ],
                         ),
                         const SizedBox(height: 12),
                         LinearProgressIndicator(
-                          value: (loan.totalMonths - loan.remainingMonths) / loan.totalMonths,
-                          backgroundColor: theme.colorScheme.onSurface.withOpacity(0.12),
+                          value:
+                              (loan.totalMonths - loan.remainingMonths) /
+                              loan.totalMonths,
+                          backgroundColor: theme.colorScheme.onSurface
+                              .withOpacity(0.12),
                           valueColor: AlwaysStoppedAnimation<Color>(
-                            loan.isActive ? theme.colorScheme.primary : Colors.green,
+                            loan.isActive
+                                ? theme.colorScheme.primary
+                                : Colors.green,
                           ),
                         ),
                         const SizedBox(height: 8),
@@ -423,11 +465,16 @@ class _LoansTrackerTabState extends State<LoansTrackerTab> {
                             ),
                             // ✅ NEW: Show active/overdue status
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 2,
+                              ),
                               decoration: BoxDecoration(
-                                color: loan.isActive 
-                                  ? (loan.isOverdue ? Colors.orange.withOpacity(0.2) : Colors.green.withOpacity(0.2))
-                                  : Colors.grey.withOpacity(0.2),
+                                color: loan.isActive
+                                    ? (loan.isOverdue
+                                          ? Colors.orange.withOpacity(0.2)
+                                          : Colors.green.withOpacity(0.2))
+                                    : Colors.grey.withOpacity(0.2),
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Text(
@@ -458,11 +505,15 @@ class _LoansTrackerTabState extends State<LoansTrackerTab> {
       children: [
         Text(
           label,
-          style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
         ),
         Text(
           value,
-          style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+          style: theme.textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
         ),
       ],
     );
@@ -478,13 +529,19 @@ class _LoansTrackerTabState extends State<LoansTrackerTab> {
 
   void _showLoanDialog({Loan? loan, int? index}) {
     final nameController = TextEditingController(text: loan?.name ?? '');
-    final principalController = TextEditingController(text: loan?.principal.toString() ?? '');
-    final rateController = TextEditingController(text: loan?.interestRate.toString() ?? '');
+    final principalController = TextEditingController(
+      text: loan?.principal.toString() ?? '',
+    );
+    final rateController = TextEditingController(
+      text: loan?.interestRate.toString() ?? '',
+    );
     // ✅ Interest model dropdown value
     String interestModel = loan?.interestModel ?? 'simple';
-    
+
     DateTime startDate = loan?.startDate ?? DateTime.now();
-    DateTime endDate = loan?.endDate ?? DateTime.now().add(Duration(days: (loan?.totalMonths ?? 12) * 30));
+    DateTime endDate =
+        loan?.endDate ??
+        DateTime.now().add(Duration(days: (loan?.totalMonths ?? 12) * 30));
 
     showDialog(
       context: context,
@@ -562,14 +619,22 @@ class _LoansTrackerTabState extends State<LoansTrackerTab> {
                               );
                               if (picked != null) {
                                 setState(() {
-                                  startDate = DateTime(picked.year, picked.month, picked.day);
+                                  startDate = DateTime(
+                                    picked.year,
+                                    picked.month,
+                                    picked.day,
+                                  );
                                   if (endDate.isBefore(startDate)) {
-                                    endDate = startDate.add(const Duration(days: 30));
+                                    endDate = startDate.add(
+                                      const Duration(days: 30),
+                                    );
                                   }
                                 });
                               }
                             },
-                            child: Text('${startDate.toLocal().toIso8601String().split('T').first}'),
+                            child: Text(
+                              '${startDate.toLocal().toIso8601String().split('T').first}',
+                            ),
                           ),
                         ],
                       ),
@@ -589,14 +654,22 @@ class _LoansTrackerTabState extends State<LoansTrackerTab> {
                               );
                               if (picked != null) {
                                 setState(() {
-                                  endDate = DateTime(picked.year, picked.month, picked.day);
+                                  endDate = DateTime(
+                                    picked.year,
+                                    picked.month,
+                                    picked.day,
+                                  );
                                   if (endDate.isBefore(startDate)) {
-                                    startDate = endDate.subtract(const Duration(days: 30));
+                                    startDate = endDate.subtract(
+                                      const Duration(days: 30),
+                                    );
                                   }
                                 });
                               }
                             },
-                            child: Text('${endDate.toLocal().toIso8601String().split('T').first}'),
+                            child: Text(
+                              '${endDate.toLocal().toIso8601String().split('T').first}',
+                            ),
                           ),
                         ],
                       ),
@@ -614,12 +687,15 @@ class _LoansTrackerTabState extends State<LoansTrackerTab> {
             ElevatedButton(
               onPressed: () async {
                 final name = nameController.text.trim();
-                final principal = double.tryParse(principalController.text) ?? 0;
+                final principal =
+                    double.tryParse(principalController.text) ?? 0;
                 final rate = double.tryParse(rateController.text) ?? 0;
 
                 if (name.isEmpty || principal <= 0) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Please enter valid loan details')),
+                    const SnackBar(
+                      content: Text('Please enter valid loan details'),
+                    ),
                   );
                   return;
                 }
@@ -627,19 +703,27 @@ class _LoansTrackerTabState extends State<LoansTrackerTab> {
                 final profileId = AuthService.instance.profileId;
                 if (profileId == null || profileId.isEmpty) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Please sign in to save loans')),
+                    const SnackBar(
+                      content: Text('Set up a local profile to save loans'),
+                    ),
                   );
                   return;
                 }
 
                 try {
-                  final svc = Provider.of<OfflineDataService>(context, listen: false);
-                  final apiClient = Provider.of<ApiClient>(context, listen: false);
+                  final svc = Provider.of<OfflineDataService>(
+                    context,
+                    listen: false,
+                  );
+                  final apiClient = Provider.of<ApiClient>(
+                    context,
+                    listen: false,
+                  );
 
                   // Create domain loan
                   final domainLoan = domain_loan.Loan(
-                    id: null,  // ✅ Always generate new ID for updates
-                    remoteId: null,  // ✅ Will get new remoteId from backend
+                    id: null, // ✅ Always generate new ID for updates
+                    remoteId: null, // ✅ Will get new remoteId from backend
                     name: name,
                     principalAmount: principal,
                     currency: 'KES',
@@ -657,7 +741,7 @@ class _LoansTrackerTabState extends State<LoansTrackerTab> {
                   if (loan != null && loan.id != null) {
                     // ✅ CRITICAL FIX: UPDATE = DELETE OLD + CREATE NEW (like transactions)
                     // This ensures backend consistency
-                    
+
                     // Step 1: Delete old loan (with immediate backend sync if it has remoteId)
                     if (loan.remoteId != null && loan.remoteId!.isNotEmpty) {
                       await svc.deleteLoanWithSync(
@@ -669,10 +753,10 @@ class _LoansTrackerTabState extends State<LoansTrackerTab> {
                       // Old loan never reached backend - safe to hard delete
                       await svc.deleteLoan(loan.id.toString());
                     }
-                    
+
                     // Step 2: Save new loan (will sync on next sync cycle)
                     await svc.saveLoan(domainLoan);
-                    
+
                     print('✅ Loan updated via delete-and-create pattern');
                   } else {
                     // New loan
@@ -686,7 +770,11 @@ class _LoansTrackerTabState extends State<LoansTrackerTab> {
 
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text(loan == null ? 'Loan added successfully!' : 'Loan updated successfully!'),
+                      content: Text(
+                        loan == null
+                            ? 'Loan added successfully!'
+                            : 'Loan updated successfully!',
+                      ),
                       backgroundColor: Theme.of(context).colorScheme.primary,
                     ),
                   );
@@ -704,7 +792,6 @@ class _LoansTrackerTabState extends State<LoansTrackerTab> {
     );
   }
 
-
   void _deleteLoan(int index) {
     showDialog(
       context: context,
@@ -720,15 +807,24 @@ class _LoansTrackerTabState extends State<LoansTrackerTab> {
             onPressed: () async {
               try {
                 final loan = _loans[index];
-                final offlineService = Provider.of<OfflineDataService>(context, listen: false);
-                final authService = Provider.of<AuthService>(context, listen: false);
-                final apiClient = Provider.of<ApiClient>(context, listen: false);
-                
+                final offlineService = Provider.of<OfflineDataService>(
+                  context,
+                  listen: false,
+                );
+                final authService = Provider.of<AuthService>(
+                  context,
+                  listen: false,
+                );
+                final apiClient = Provider.of<ApiClient>(
+                  context,
+                  listen: false,
+                );
+
                 final profileId = authService.currentProfile?.id ?? '';
                 if (profileId.isEmpty) {
                   throw Exception('No active profile found');
                 }
-                
+
                 if (loan.id != null) {
                   // ✅ ENHANCED: Use immediate sync to prevent restoration on biometric unlock
                   await offlineService.deleteLoanWithSync(
@@ -737,7 +833,7 @@ class _LoansTrackerTabState extends State<LoansTrackerTab> {
                     deleteToBackend: apiClient.deleteLoans,
                   );
                 }
-                
+
                 await _loadLoans(); // Reload to refresh the list
                 if (mounted) Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -780,8 +876,8 @@ class Loan {
   final String? description;
   final DateTime? createdAt;
   final DateTime? updatedAt;
-  final bool? isDeleted;  // ✅ NEW: Track deletion status
-  final DateTime? deletedAt;  // ✅ NEW: Track when deleted
+  final bool? isDeleted; // ✅ NEW: Track deletion status
+  final DateTime? deletedAt; // ✅ NEW: Track when deleted
 
   Loan({
     this.id,
@@ -799,8 +895,8 @@ class Loan {
     this.description,
     this.createdAt,
     this.updatedAt,
-    this.isDeleted,  // ✅ NEW
-    this.deletedAt,  // ✅ NEW
+    this.isDeleted, // ✅ NEW
+    this.deletedAt, // ✅ NEW
   });
 
   // Getters (not constructor parameters)
@@ -811,13 +907,13 @@ class Loan {
   }
 
   bool get isOverdue => endDate?.isBefore(DateTime.now()) ?? false;
-  
+
   String get statusDisplay {
     if (isOverdue) return 'Overdue ⚠️';
     if (isActive) return 'Active 📍';
     return 'Completed ✅';
   }
-  
+
   Color get statusColor {
     if (isOverdue) return Colors.orange;
     if (isActive) return Colors.green;

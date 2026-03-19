@@ -8,9 +8,9 @@ class Profile {
   final String id;
   final String name;
   final String? email;
-  final String password;  // hashed locally
-  final String? authToken;  // from server
-  final String? sessionToken;  // local session
+  final String password; // hashed locally
+  final String? authToken; // from server
+  final String? sessionToken; // local session
   final ProfileType type;
   final String baseCurrency;
   final String timezone;
@@ -25,7 +25,6 @@ class Profile {
   final String? displayName;
   final String? phoneNumber;
   final String? photoUrl;
-
 
   Profile({
     required this.id,
@@ -49,12 +48,11 @@ class Profile {
     this.photoUrl,
     this.authToken,
   }) {
-    // Ensure either email or phoneNumber is provided
-    assert(email != null || phoneNumber != null, 
-      'Either email or phoneNumber must be provided');
+    // Local-only profiles can exist without a contact detail.
   }
 
-  factory Profile.fromJson(Map<String, dynamic> json) => _$ProfileFromJson(json);
+  factory Profile.fromJson(Map<String, dynamic> json) =>
+      _$ProfileFromJson(json);
   Map<String, dynamic> toJson() => _$ProfileToJson(this);
 
   Profile copyWith({
@@ -100,7 +98,7 @@ class Profile {
       authToken: authToken ?? this.authToken,
     );
   }
-  
+
   // Factory method to create a default profile
   factory Profile.defaultProfile({
     required String id,
@@ -109,9 +107,6 @@ class Profile {
     String? phoneNumber,
     required String password,
   }) {
-    assert(email != null || phoneNumber != null,
-      'Either email or phoneNumber must be provided');
-    
     return Profile(
       id: id,
       name: name,

@@ -1,12 +1,14 @@
-// lib/screens/auth_wrapper.dart 
+// lib/screens/auth_wrapper.dart
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
 import '../services/auth_service.dart';
 import '../services/offline_data_service.dart';
 import 'login_screen.dart';
 import 'welcome_onboarding_screen.dart';
-import 'dashboard_screen.dart'; 
+import 'dashboard_screen.dart';
 
 class AuthWrapper extends StatefulWidget {
   const AuthWrapper({super.key});
@@ -17,7 +19,7 @@ class AuthWrapper extends StatefulWidget {
 
 class _AuthWrapperState extends State<AuthWrapper> {
   bool _isChecking = true;
-  bool _isFirstTime = true;
+  bool _showOnboarding = true;
 
   @override
   void initState() {
@@ -38,15 +40,15 @@ class _AuthWrapperState extends State<AuthWrapper> {
         );
       }
 
-      // Check if first time user
-      final isFirstTime = await authService.isFirstLogin();
-      
-      // Check if logged in
-      final isLoggedIn = await authService.isLoggedIn();
+      final prefs = await SharedPreferences.getInstance();
+      final onboardingComplete =
+          prefs.getBool('onboarding_completed') ??
+          prefs.getBool('onboarding_complete') ??
+          false;
 
       if (mounted) {
         setState(() {
-          _isFirstTime = isFirstTime;
+          _showOnboarding = !onboardingComplete;
           _isChecking = false;
         });
       }
@@ -63,15 +65,11 @@ class _AuthWrapperState extends State<AuthWrapper> {
   @override
   Widget build(BuildContext context) {
     if (_isChecking) {
-      return const Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(),
-        ),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     // Show onboarding for first-time users
-    if (_isFirstTime) {
+    if (_showOnboarding) {
       return const WelcomeOnboardingScreen();
     }
 
@@ -79,7 +77,6 @@ class _AuthWrapperState extends State<AuthWrapper> {
     return Consumer<AuthService>(
       builder: (context, authService, child) {
         if (authService.hasActiveProfile) {
-          // FIXED: Use DashboardScreen instead of HomeScreen
           return const DashboardScreen();
         } else {
           return const LoginScreen();

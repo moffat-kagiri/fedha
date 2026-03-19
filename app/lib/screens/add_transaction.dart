@@ -78,9 +78,11 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
         description: _descriptionController.text,
         date: _selectedDate,
       );
-      
+
       // getSuggestedGoals returns a List<Goal>, not a Future<List<Goal>>
-      final suggested = _goalService.getSuggestedGoalsForTransaction(tempTransaction);
+      final suggested = _goalService.getSuggestedGoalsForTransaction(
+        tempTransaction,
+      );
       setState(() {
         _suggestedGoals = suggested;
       });
@@ -100,13 +102,12 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
               // Type selector
               DropdownButtonFormField<Type>(
                 value: _selectedType,
-                items:
-                    Type.values.map((type) {
-                      return DropdownMenuItem(
-                        value: type,
-                        child: Text(type.toString().split('.').last),
-                      );
-                    }).toList(),
+                items: Type.values.map((type) {
+                  return DropdownMenuItem(
+                    value: type,
+                    child: Text(type.toString().split('.').last),
+                  );
+                }).toList(),
                 onChanged: (value) {
                   setState(() {
                     _selectedType = value!;
@@ -123,15 +124,14 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
               // Category selector
               DropdownButtonFormField<TransactionCategory>(
                 value: _selectedCategory,
-                items:
-                    TransactionCategory.values.map((category) {
-                      return DropdownMenuItem(
-                        value: category,
-                        child: Text(category.toString().split('.').last),
-                      );
-                    }).toList(),
-                onChanged:
-                    (value) => setState(() => _selectedCategory = value!),
+                items: TransactionCategory.values.map((category) {
+                  return DropdownMenuItem(
+                    value: category,
+                    child: Text(category.toString().split('.').last),
+                  );
+                }).toList(),
+                onChanged: (value) =>
+                    setState(() => _selectedCategory = value!),
                 decoration: const InputDecoration(labelText: 'Category'),
               ),
               const SizedBox(height: 16),
@@ -191,21 +191,19 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                   const SizedBox(height: 8),
                   Wrap(
                     spacing: 8,
-                    children:
-                        _suggestedGoals.map((goal) {
-                          return ActionChip(
-                            label: Text(goal.name),
-                            onPressed: () {
-                              setState(() {
-                                _selectedGoal = goal;
-                              });
-                            },
-                            backgroundColor:
-                                _selectedGoal?.id == goal.id
-                                    ? Colors.blue.shade100
-                                    : null,
-                          );
-                        }).toList(),
+                    children: _suggestedGoals.map((goal) {
+                      return ActionChip(
+                        label: Text(goal.name),
+                        onPressed: () {
+                          setState(() {
+                            _selectedGoal = goal;
+                          });
+                        },
+                        backgroundColor: _selectedGoal?.id == goal.id
+                            ? Colors.blue.shade100
+                            : null,
+                      );
+                    }).toList(),
                   ),
                   const SizedBox(height: 16),
                 ],
@@ -213,28 +211,27 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                 // Goal selector dropdown
                 DropdownButtonFormField<Goal>(
                   value: _selectedGoal,
-                  items:
-                      _availableGoals.map((goal) {
-                        final progress =
-                            goal.currentAmount / goal.targetAmount * 100;
-                        return DropdownMenuItem(
-                          value: goal,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(goal.name),
-                              Text(
-                                '${progress.toStringAsFixed(1)}% complete • \$${goal.currentAmount.toStringAsFixed(0)} / \$${goal.targetAmount.toStringAsFixed(0)}',
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey,
-                                ),
-                              ),
-                            ],
+                  items: _availableGoals.map((goal) {
+                    final progress =
+                        goal.currentAmount / goal.targetAmount * 100;
+                    return DropdownMenuItem(
+                      value: goal,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(goal.name),
+                          Text(
+                            '${progress.toStringAsFixed(1)}% complete • \$${goal.currentAmount.toStringAsFixed(0)} / \$${goal.targetAmount.toStringAsFixed(0)}',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey,
+                            ),
                           ),
-                        );
-                      }).toList(),
+                        ],
+                      ),
+                    );
+                  }).toList(),
                   onChanged: (value) => setState(() => _selectedGoal = value),
                   decoration: const InputDecoration(
                     labelText: 'Assign to Goal (Optional)',
@@ -260,9 +257,10 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                         ),
                         const SizedBox(height: 4),
                         LinearProgressIndicator(
-                          value: (_selectedGoal!.currentAmount /
-                                  _selectedGoal!.targetAmount)
-                              .clamp(0.0, 1.0),
+                          value:
+                              (_selectedGoal!.currentAmount /
+                                      _selectedGoal!.targetAmount)
+                                  .clamp(0.0, 1.0),
                           backgroundColor: Colors.grey.shade300,
                           valueColor: AlwaysStoppedAnimation<Color>(
                             Colors.blue.shade600,
@@ -312,7 +310,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     if (!_formKey.currentState!.validate()) {
       return;
     }
-    
+
     // Store services before any async operations
     final authService = Provider.of<AuthService>(context, listen: false);
     final profileId = authService.currentProfile?.id;
@@ -321,7 +319,9 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     if (profileId == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please log in to add transactions')),
+          const SnackBar(
+            content: Text('Set up a local profile to add transactions'),
+          ),
         );
       }
       return;
@@ -336,7 +336,9 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
         transaction = await _goalService.createSavingsTransaction(
           amount: double.parse(_amountController.text),
           goalId: _selectedGoal!.id,
-          description: _descriptionController.text.isEmpty ? null : _descriptionController.text,
+          description: _descriptionController.text.isEmpty
+              ? null
+              : _descriptionController.text,
           category: _selectedCategory.toString().split('.').last,
         );
       } else {
@@ -347,10 +349,9 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
           category: _selectedCategory.toString().split('.').last,
           category: _selectedCategory,
           date: _selectedDate,
-          description:
-              _descriptionController.text.isEmpty
-                  ? null
-                  : _descriptionController.text,
+          description: _descriptionController.text.isEmpty
+              ? null
+              : _descriptionController.text,
           notes: _notesController.text.isEmpty ? null : _notesController.text,
           profileId: profileId,
         );
@@ -361,10 +362,11 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       // Now handle the UI updates if still mounted
       if (mounted) {
         // Create the success message
-        final successMessage = _selectedType == Type.savings && _selectedGoal != null
+        final successMessage =
+            _selectedType == Type.savings && _selectedGoal != null
             ? 'Transaction saved and added to ${_selectedGoal!.name}'
             : 'Transaction saved successfully';
-            
+
         // Show success message
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -372,7 +374,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
             backgroundColor: Colors.green,
           ),
         );
-        
+
         // Return to previous screen with the transaction
         Navigator.pop(context, transaction);
       }

@@ -13,17 +13,18 @@ import 'package:fedha/models/enums.dart';
 import 'package:fedha/models/category.dart' as dom;
 import 'package:fedha/models/budget.dart' as dom;
 import '../utils/logger.dart';
+import '../config/app_mode.dart';
 import 'transaction_event_service.dart';
 import 'unified_sync_service.dart';
 
 /// Service to manage offline data storage and retrieval
 class OfflineDataService {
   static OfflineDataService? _instance;
-  
+
   final app_db.AppDatabase _db;
   final _logger = AppLogger.getLogger('OfflineDataService');
   final _uuid = const Uuid();
-  
+
   SharedPreferences? _prefs;
   TransactionEventService? _eventService;
   UnifiedSyncService? _syncService;
@@ -31,17 +32,25 @@ class OfflineDataService {
   void setSyncService(UnifiedSyncService syncService) {
     _syncService = syncService;
   }
-  
+
   // Factory constructor with optional database parameter
-  factory OfflineDataService({app_db.AppDatabase? db, UnifiedSyncService? syncService}) {
-    _instance ??= OfflineDataService._internal(db: db, syncService: syncService);
+  factory OfflineDataService({
+    app_db.AppDatabase? db,
+    UnifiedSyncService? syncService,
+  }) {
+    _instance ??= OfflineDataService._internal(
+      db: db,
+      syncService: syncService,
+    );
     return _instance!;
   }
-  
+
   // Private internal constructor
-  OfflineDataService._internal({app_db.AppDatabase? db, UnifiedSyncService? syncService}) 
-      : _db = db ?? app_db.AppDatabase(),
-        _syncService = syncService;
+  OfflineDataService._internal({
+    app_db.AppDatabase? db,
+    UnifiedSyncService? syncService,
+  }) : _db = db ?? app_db.AppDatabase(),
+       _syncService = syncService;
 
   Future<void> initialize() async {
     if (_prefs != null) return; // Already initialized
@@ -68,6 +77,7 @@ class OfflineDataService {
   set onboardingComplete(bool v) {
     _prefs!.setBool('onboarding_complete', v);
   }
+
   bool get darkMode {
     return _prefs?.getBool('dark_mode') ?? false;
   }
@@ -98,10 +108,10 @@ class OfflineDataService {
     try {
       final id = int.tryParse(transactionId);
       if (id == null) return null;
-      
+
       final tx = await _db.getTransactionById(id);
       if (tx == null) return null;
-      
+
       return _mapDbTransactionToDomain(tx);
     } catch (e) {
       _logger.severe('Error getting transaction: $e');
@@ -112,7 +122,7 @@ class OfflineDataService {
   /// ✅ ENHANCED: Save transaction with better event handling
   Future<void> saveTransaction(dom.Transaction tx) async {
     _validateProfileId(tx.profileId);
-    
+
     // Check if updating existing transaction
     if (tx.id != null && tx.id!.isNotEmpty) {
       final existingId = int.tryParse(tx.id!);
@@ -129,7 +139,7 @@ class OfflineDataService {
         }
       }
     }
-    
+
     final companion = app_db.TransactionsCompanion.insert(
       amountMinor: tx.amount,
       currency: Value(tx.currency ?? 'KES'),
@@ -156,26 +166,28 @@ class OfflineDataService {
       createdAt: Value(tx.createdAt),
       updatedAt: Value(tx.updatedAt),
     );
-    
+
     final insertedId = await _db.insertTransaction(companion);
     // Trigger background sync after transaction is saved
-    unawaited(_syncService?.syncAfterCrud(tx.profileId, 'transaction')); 
+    unawaited(_syncService?.syncAfterCrud(tx.profileId, 'transaction'));
     _logger.info('✅ Transaction saved with ID: $insertedId');
-    
+
     // ✅ ONLY emit event ONCE per save
     if (_eventService != null) {
-      await _eventService!.onTransactionCreated(tx.copyWith(id: insertedId.toString()));
+      await _eventService!.onTransactionCreated(
+        tx.copyWith(id: insertedId.toString()),
+      );
     }
   }
 
   Future<void> updateTransaction(dom.Transaction tx) async {
     _validateProfileId(tx.profileId);
-    
+
     final txId = int.tryParse(tx.id ?? '');
     if (txId == null) {
       throw Exception('Invalid transaction ID for update: ${tx.id}');
     }
-    
+
     final companion = app_db.TransactionsCompanion(
       id: Value(txId),
       amountMinor: Value(tx.amount),
@@ -202,12 +214,12 @@ class OfflineDataService {
       remoteId: Value(tx.remoteId),
       updatedAt: Value(DateTime.now()),
     );
-    
+
     await _db.updateTransaction(companion);
     // Trigger background sync after transaction is updated
     unawaited(_syncService?.syncAfterCrud(tx.profileId, 'transaction'));
     _logger.info('✅ Transaction updated: ${tx.id}');
-    
+
     // Emit updated event
     if (_eventService != null) {
       await _eventService!.onTransactionUpdated(tx);
@@ -223,7 +235,7 @@ class OfflineDataService {
   }) async {
     try {
       _validateProfileId(profileId);
-      
+
       // Parse the date string to DateTime
       DateTime dateTime;
       try {
@@ -232,41 +244,46 @@ class OfflineDataService {
         _logger.warning('Failed to parse date: $date');
         return;
       }
-      
+
       // Find the transaction by amount, date, and profileId
       final profileIdInt = _profileIdToInt(profileId);
       final allTxs = await _db.getAllTransactions();
-      
+
       final txs = allTxs
-        .where((t) => 
-          t.amountMinor == amount &&
-          t.profileId == profileIdInt &&
-          t.date.year == dateTime.year &&
-          t.date.month == dateTime.month &&
-          t.date.day == dateTime.day
-        )
-        .toList();
-      
+          .where(
+            (t) =>
+                t.amountMinor == amount &&
+                t.profileId == profileIdInt &&
+                t.date.year == dateTime.year &&
+                t.date.month == dateTime.month &&
+                t.date.day == dateTime.day,
+          )
+          .toList();
+
       if (txs.isEmpty) {
-        _logger.warning('No transaction found for remoteId update: amount=$amount, date=$date');
+        _logger.warning(
+          'No transaction found for remoteId update: amount=$amount, date=$date',
+        );
         return;
       }
-      
+
       // If multiple transactions match, update the most recent one without a remoteId
       final txToUpdate = txs.firstWhere(
         (t) => t.remoteId == null || t.remoteId!.isEmpty,
         orElse: () => txs.last,
       );
-      
+
       final companion = app_db.TransactionsCompanion(
         id: Value(txToUpdate.id),
         remoteId: Value(remoteId),
         isSynced: Value(true),
         updatedAt: Value(DateTime.now()),
       );
-      
+
       await _db.updateTransaction(companion);
-      _logger.info('✅ Updated remoteId for transaction ${txToUpdate.id}: $remoteId');
+      _logger.info(
+        '✅ Updated remoteId for transaction ${txToUpdate.id}: $remoteId',
+      );
     } catch (e, stackTrace) {
       _logger.severe('Error updating transaction remoteId', e, stackTrace);
     }
@@ -277,27 +294,33 @@ class OfflineDataService {
     if (numericId == null) {
       throw Exception('Invalid transaction ID format: $id');
     }
-    
+
     // Get transaction before deleting for event
     final tx = await getTransaction(id);
-    
+
     try {
       // ✅ FIX: Use proper Drift update syntax that only updates deletion fields
-      await (_db.update(_db.transactions)
-            ..where((t) => t.id.equals(numericId)))
-          .write(app_db.TransactionsCompanion(
-            isDeleted: const Value(true),
-            deletedAt: Value(DateTime.now()),
-          ));
-      
+      await (_db.update(
+        _db.transactions,
+      )..where((t) => t.id.equals(numericId))).write(
+        app_db.TransactionsCompanion(
+          isDeleted: const Value(true),
+          deletedAt: Value(DateTime.now()),
+        ),
+      );
+
       _logger.info('✅ Transaction marked as deleted: $id (soft-delete)');
-      
+
       // Emit deleted event
       if (_eventService != null && tx != null) {
         await _eventService!.onTransactionDeleted(tx);
       }
     } catch (e, stackTrace) {
-      _logger.severe('Error marking transaction as deleted: $id', e, stackTrace);
+      _logger.severe(
+        'Error marking transaction as deleted: $id',
+        e,
+        stackTrace,
+      );
       rethrow;
     }
   }
@@ -308,8 +331,14 @@ class OfflineDataService {
   Future<void> deleteTransactionWithSync({
     required String transactionId,
     required String profileId,
-    required Future<Map<String, dynamic>> Function(String, List<String>) deleteToBackend,
+    required Future<Map<String, dynamic>> Function(String, List<String>)
+    deleteToBackend,
   }) async {
+    if (AppMode.localOnly) {
+      await deleteTransaction(transactionId);
+      return;
+    }
+
     final tx = await getTransaction(transactionId);
     if (tx == null) {
       throw Exception('Transaction not found: $transactionId');
@@ -318,25 +347,37 @@ class OfflineDataService {
     try {
       // Step 1: Mark as deleted locally
       await deleteTransaction(transactionId);
-      _logger.info('✅ Step 1: Marked transaction as deleted locally: $transactionId');
+      _logger.info(
+        '✅ Step 1: Marked transaction as deleted locally: $transactionId',
+      );
 
       // Step 2: If this transaction was synced to server, sync deletion immediately
       if (tx.remoteId != null && tx.remoteId!.isNotEmpty) {
-        _logger.info('🔄 Step 2: Syncing deletion to backend for: ${tx.remoteId}');
-        
+        _logger.info(
+          '🔄 Step 2: Syncing deletion to backend for: ${tx.remoteId}',
+        );
+
         try {
           final response = await deleteToBackend(profileId, [tx.remoteId!]);
           if (response['success'] == true) {
-            _logger.info('✅ Step 3: Deletion synced to backend - ${response['deleted']} marked as deleted on server');
+            _logger.info(
+              '✅ Step 3: Deletion synced to backend - ${response['deleted']} marked as deleted on server',
+            );
           } else {
-            _logger.warning('⚠️ Backend deletion response: ${response['error']}');
+            _logger.warning(
+              '⚠️ Backend deletion response: ${response['error']}',
+            );
           }
         } catch (syncError) {
-          _logger.warning('⚠️ Error syncing deletion to backend (transaction still marked deleted locally): $syncError');
+          _logger.warning(
+            '⚠️ Error syncing deletion to backend (transaction still marked deleted locally): $syncError',
+          );
           // Don't rethrow - transaction is already marked deleted locally
         }
       } else {
-        _logger.info('ℹ️ Transaction never synced to server, local deletion sufficient');
+        _logger.info(
+          'ℹ️ Transaction never synced to server, local deletion sufficient',
+        );
       }
     } catch (e, stackTrace) {
       _logger.severe('Error in deleteTransactionWithSync: $e', e, stackTrace);
@@ -351,7 +392,7 @@ class OfflineDataService {
     if (numericId == null) {
       throw Exception('Invalid transaction ID format: $id');
     }
-    
+
     await _db.deleteTransactionById(numericId);
     _logger.info('✅ Transaction hard deleted from database: $id');
   }
@@ -360,7 +401,7 @@ class OfflineDataService {
   Future<void> approvePendingTransaction(dom.Transaction tx) async {
     try {
       _logger.info('📝 Approving pending transaction: ${tx.id}');
-      
+
       // Check if transaction already exists
       if (tx.id != null && tx.id!.isNotEmpty) {
         try {
@@ -368,23 +409,25 @@ class OfflineDataService {
           if (existingId != null) {
             final existing = await _db.getTransactionById(existingId);
             if (existing != null) {
-              _logger.warning('⚠️ Transaction ${tx.id} already exists - updating instead');
-              
+              _logger.warning(
+                '⚠️ Transaction ${tx.id} already exists - updating instead',
+              );
+
               // Temporarily disable event service
               final tempEventService = _eventService;
               _eventService = null;
-              
+
               final updatedTx = tx.copyWith(isPending: false);
               await updateTransaction(updatedTx);
-              
+
               // Restore and emit once
               _eventService = tempEventService;
               await _db.deletePending(tx.id!);
-              
+
               if (_eventService != null) {
                 await _eventService!.onTransactionUpdated(updatedTx);
               }
-              
+
               _logger.info('✅ Existing transaction updated');
               return;
             }
@@ -393,32 +436,31 @@ class OfflineDataService {
           _logger.info('Transaction not found, creating new one');
         }
       }
-      
+
       // Create new transaction - temporarily disable events
       final tempEventService = _eventService;
       _eventService = null;
-      
+
       final approvedTransaction = tx.copyWith(
         id: null,
         isPending: false,
         isSynced: false,
         updatedAt: DateTime.now(),
       );
-      
+
       await saveTransaction(approvedTransaction);
-      
+
       // Restore event service
       _eventService = tempEventService;
-      
+
       await _db.deletePending(tx.id ?? '');
-      
+
       // Emit event once
       if (_eventService != null) {
         await _eventService!.onTransactionCreated(approvedTransaction);
       }
-      
+
       _logger.info('✅ Pending transaction approved (no duplication)');
-      
     } catch (e, stackTrace) {
       _logger.severe('Error approving pending transaction', e, stackTrace);
       rethrow;
@@ -427,17 +469,21 @@ class OfflineDataService {
 
   Future<List<dom.Transaction>> getAllTransactions(String profileId) async {
     _validateProfileId(profileId);
-    
+
     final profileIdInt = _profileIdToInt(profileId);
     final rows = await _db.getAllTransactions();
-    
+
     return rows
-      .where((r) => r.profileId == profileIdInt && !r.isDeleted)  // ✅ CRITICAL: Filter out soft-deleted transactions
-      .map((r) => _mapDbTransactionToDomain(r))
-      .toList();
+        .where(
+          (r) => r.profileId == profileIdInt && !r.isDeleted,
+        ) // ✅ CRITICAL: Filter out soft-deleted transactions
+        .map((r) => _mapDbTransactionToDomain(r))
+        .toList();
   }
 
-  Future<List<dom.Transaction>> getTransactionsByProfile(String profileId) async {
+  Future<List<dom.Transaction>> getTransactionsByProfile(
+    String profileId,
+  ) async {
     return await getAllTransactions(profileId);
   }
 
@@ -478,28 +524,28 @@ class OfflineDataService {
   Future<void> saveBudget(dom.Budget budget) async {
     await ensureInitialized();
     _validateProfileId(budget.profileId);
-    
+
     try {
       final budgetsKey = 'budgets_${_profileIdToInt(budget.profileId)}';
       final existingJson = _prefs!.getString(budgetsKey);
       List<Map<String, dynamic>> budgets = [];
-      
+
       if (existingJson != null) {
         final decoded = jsonDecode(existingJson) as List;
         budgets = decoded.cast<Map<String, dynamic>>();
       }
-      
+
       // ✅ USE toLocalJson() for local storage
       final budgetJson = budget.toLocalJson(); // This should return camelCase
-      
+
       final index = budgets.indexWhere((b) => b['id'] == budget.id);
-      
+
       if (index != -1) {
         budgets[index] = budgetJson;
       } else {
         budgets.add(budgetJson);
       }
-      
+
       await _prefs!.setString(budgetsKey, jsonEncode(budgets));
       _logger.info('Budget saved: ${budget.name}');
     } catch (e) {
@@ -516,16 +562,16 @@ class OfflineDataService {
   Future<List<dom.Budget>> getAllBudgets(String profileId) async {
     await ensureInitialized();
     _validateProfileId(profileId);
-    
+
     try {
       final budgetsKey = 'budgets_${_profileIdToInt(profileId)}';
       final existingJson = _prefs!.getString(budgetsKey);
-      
+
       if (existingJson == null) return [];
-      
+
       final decoded = jsonDecode(existingJson) as List;
       final budgets = decoded.cast<Map<String, dynamic>>();
-      
+
       return budgets.map((json) {
         json['profileId'] = profileId;
         return dom.Budget.fromJson(json);
@@ -540,10 +586,10 @@ class OfflineDataService {
     await ensureInitialized();
     final budgets = await getAllBudgets(profileId);
     if (budgets.isEmpty) return null;
-    
+
     final activeBudgets = budgets.where((b) => b.isActive).toList();
     if (activeBudgets.isEmpty) return null;
-    
+
     activeBudgets.sort((a, b) => b.startDate.compareTo(a.startDate));
     return activeBudgets.first;
   }
@@ -557,17 +603,17 @@ class OfflineDataService {
     await ensureInitialized();
     try {
       final keys = _prefs!.getKeys().where((k) => k.startsWith('budgets_'));
-      
+
       for (final key in keys) {
         final existingJson = _prefs!.getString(key);
         if (existingJson == null) continue;
-        
+
         final decoded = jsonDecode(existingJson) as List;
         var budgets = decoded.cast<Map<String, dynamic>>();
-        
+
         final originalLength = budgets.length;
         budgets.removeWhere((b) => b['id'] == budgetId);
-        
+
         if (budgets.length < originalLength) {
           await _prefs!.setString(key, jsonEncode(budgets));
           _logger.info('Budget deleted: $budgetId');
@@ -584,7 +630,7 @@ class OfflineDataService {
 
   Future<void> saveGoal(dom.Goal goal) async {
     _validateProfileId(goal.profileId);
-    
+
     final companion = app_db.GoalsCompanion.insert(
       title: goal.name,
       targetMinor: goal.targetAmount,
@@ -601,7 +647,7 @@ class OfflineDataService {
       createdAt: Value(goal.createdAt),
       updatedAt: Value(goal.updatedAt ?? DateTime.now()),
     );
-    
+
     final insertedId = await _db.insertGoal(companion);
     _logger.info('✅ Goal saved: ${goal.name} (ID: $insertedId)');
   }
@@ -612,24 +658,26 @@ class OfflineDataService {
 
   Future<List<dom.Goal>> getAllGoals(String profileId) async {
     _validateProfileId(profileId);
-    
+
     final profileIdInt = _profileIdToInt(profileId);
     final rows = await _db.getAllGoals();
-    
+
     return rows
-      .where((r) => r.profileId == profileIdInt && r.status != 'cancelled')  // ✅ CRITICAL: Filter out cancelled goals like deleted transactions
-      .map((r) => _mapDbGoalToDomain(r, profileId))
-      .toList();
+        .where(
+          (r) => r.profileId == profileIdInt && r.status != 'cancelled',
+        ) // ✅ CRITICAL: Filter out cancelled goals like deleted transactions
+        .map((r) => _mapDbGoalToDomain(r, profileId))
+        .toList();
   }
 
   Future<dom.Goal?> getGoal(String goalId) async {
     try {
       final id = int.tryParse(goalId);
       if (id == null) return null;
-      
+
       final goal = await _db.getGoalById(id);
       if (goal == null) return null;
-      
+
       return _mapDbGoalToDomain(goal, goal.profileId.toString());
     } catch (e) {
       _logger.warning('Goal not found: $goalId - $e');
@@ -643,19 +691,30 @@ class OfflineDataService {
   Future<void> updateGoalWithSync({
     required dom.Goal goal,
     required String profileId,
-    required Future<Map<String, dynamic>> Function(String, List<Map<String, dynamic>>) syncToBackend,
+    required Future<Map<String, dynamic>> Function(
+      String,
+      List<Map<String, dynamic>>,
+    )
+    syncToBackend,
   }) async {
     _validateProfileId(profileId);
-    
+
+    if (AppMode.localOnly) {
+      await updateGoal(goal);
+      return;
+    }
+
     try {
       // Step 1: Update locally
       await updateGoal(goal);
       _logger.info('✅ Goal updated locally: ${goal.id}');
-      
+
       // Step 2: If goal is linked to server (has remoteId), sync immediately
       if (goal.remoteId != null && goal.remoteId!.isNotEmpty) {
-        _logger.info('🔄 Syncing goal update to backend (remoteId: ${goal.remoteId})');
-        
+        _logger.info(
+          '🔄 Syncing goal update to backend (remoteId: ${goal.remoteId})',
+        );
+
         try {
           final goalData = {
             'id': goal.remoteId,
@@ -666,7 +725,7 @@ class OfflineDataService {
             'target_date': goal.targetDate.toIso8601String(),
             'goal_type': goal.goalType.name,
           };
-          
+
           final response = await syncToBackend(profileId, [goalData]);
           if (response['success'] == true) {
             _logger.info('✅ Goal update synced to backend');
@@ -674,7 +733,9 @@ class OfflineDataService {
             _logger.warning('⚠️ Backend sync response: ${response['error']}');
           }
         } catch (syncError) {
-          _logger.warning('⚠️ Error syncing goal update (local change preserved): $syncError');
+          _logger.warning(
+            '⚠️ Error syncing goal update (local change preserved): $syncError',
+          );
           // Don't rethrow - local update is already done
         }
       } else {
@@ -688,7 +749,7 @@ class OfflineDataService {
 
   Future<void> updateGoal(dom.Goal goal) async {
     _validateProfileId(goal.profileId);
-    
+
     final goalId = int.tryParse(goal.id!);
     if (goalId == null) {
       throw Exception('Invalid goal ID format: ${goal.id}');
@@ -720,7 +781,7 @@ class OfflineDataService {
     if (goalIdInt == null) {
       throw Exception('Invalid goal ID format: $goalId');
     }
-    
+
     await _db.deleteGoalById(goalIdInt);
     _logger.info('✅ Goal deleted: $goalId');
   }
@@ -736,7 +797,17 @@ class OfflineDataService {
     Future<Map<String, dynamic>> Function(String, List<String>)? syncCallback,
   ) async {
     _validateProfileId(profileId);
-    
+
+    if (AppMode.localOnly) {
+      final goal = await getGoal(goalId);
+      if (goal == null) {
+        return false;
+      }
+
+      await updateGoal(goal.copyWith(isSynced: false));
+      return true;
+    }
+
     try {
       // Step 1: Mark goal as deleted locally (immediate)
       final goalIdInt = int.tryParse(goalId);
@@ -768,12 +839,16 @@ class OfflineDataService {
             await updateGoal(syncedGoal);
             return true;
           } else {
-            _logger.warning('⚠️ Backend sync returned false for goal deletion: $goalId');
+            _logger.warning(
+              '⚠️ Backend sync returned false for goal deletion: $goalId',
+            );
             return false;
           }
         } catch (e) {
           // Sync failed, but local deletion persists (eventual consistency)
-          _logger.warning('[WARN] Goal deletion sync failed: $e (local deletion persists)');
+          _logger.warning(
+            '[WARN] Goal deletion sync failed: $e (local deletion persists)',
+          );
           return false;
         }
       }
@@ -791,7 +866,8 @@ class OfflineDataService {
   Future<Map<String, dynamic>> syncGoals(
     List<dom.Goal> goals,
     String profileId,
-    Future<Map<String, dynamic>> Function(String, List<Map<String, dynamic>>)? apiCallback,
+    Future<Map<String, dynamic>> Function(String, List<Map<String, dynamic>>)?
+    apiCallback,
   ) async {
     _validateProfileId(profileId);
 
@@ -824,7 +900,7 @@ class OfflineDataService {
 
       if (apiCallback != null) {
         final result = await apiCallback('goals', goalsData);
-        
+
         // Update local database with sync status
         if (result['success'] == true && result['synced_ids'] is List) {
           for (final goalId in result['synced_ids']) {
@@ -841,16 +917,10 @@ class OfflineDataService {
         return result;
       }
 
-      return {
-        'success': false,
-        'error': 'No API callback provided',
-      };
+      return {'success': false, 'error': 'No API callback provided'};
     } catch (e) {
       _logger.severe('❌ Error syncing goals: $e');
-      return {
-        'success': false,
-        'error': e.toString(),
-      };
+      return {'success': false, 'error': e.toString()};
     }
   }
 
@@ -891,19 +961,18 @@ class OfflineDataService {
     }
   }
 
-  Future<double> calculateGoalCurrentAmount(String goalId, String profileId) async {
+  Future<double> calculateGoalCurrentAmount(
+    String goalId,
+    String profileId,
+  ) async {
     try {
       final allTransactions = await getAllTransactions(profileId);
-      
-      final goalTransactions = allTransactions.where((tx) =>
-        tx.type == 'savings' &&
-        tx.goalId == goalId
-      ).toList();
-      
-      return goalTransactions.fold<double>(
-        0.0,
-        (sum, tx) => sum + tx.amount,
-      );
+
+      final goalTransactions = allTransactions
+          .where((tx) => tx.type == 'savings' && tx.goalId == goalId)
+          .toList();
+
+      return goalTransactions.fold<double>(0.0, (sum, tx) => sum + tx.amount);
     } catch (e) {
       _logger.warning('Error calculating goal amount: $e');
       return 0.0;
@@ -913,20 +982,25 @@ class OfflineDataService {
   Future<void> recalculateAllGoalAmounts(String profileId) async {
     try {
       _logger.info('🔄 Recalculating goal amounts for profile: $profileId');
-      
+
       final goals = await getAllGoals(profileId);
-      
+
       for (final goal in goals) {
-        final calculatedAmount = await calculateGoalCurrentAmount(goal.id!, profileId);
-        
+        final calculatedAmount = await calculateGoalCurrentAmount(
+          goal.id!,
+          profileId,
+        );
+
         if (calculatedAmount != goal.currentAmount) {
-          _logger.info('Updating goal ${goal.name}: ${goal.currentAmount} -> $calculatedAmount');
-          
+          _logger.info(
+            'Updating goal ${goal.name}: ${goal.currentAmount} -> $calculatedAmount',
+          );
+
           final updatedGoal = goal.copyWith(currentAmount: calculatedAmount);
           await updateGoal(updatedGoal);
         }
       }
-      
+
       _logger.info('✅ Goal amount recalculation complete');
     } catch (e, stackTrace) {
       _logger.severe('Error recalculating goal amounts', e, stackTrace);
@@ -937,7 +1011,7 @@ class OfflineDataService {
 
   Future<void> savePendingTransaction(dom.Transaction tx) async {
     _validateProfileId(tx.profileId);
-    
+
     final companion = app_db.PendingTransactionsCompanion.insert(
       id: tx.id ?? _uuid.v4(),
       amountMinor: tx.amount,
@@ -950,34 +1024,38 @@ class OfflineDataService {
       type: Value(tx.type),
       category: Value(tx.category),
     );
-    
+
     await _db.insertPending(companion);
     _logger.info('✅ Pending transaction saved');
   }
 
   Future<List<dom.Transaction>> getPendingTransactions(String profileId) async {
     _validateProfileId(profileId);
-    
+
     final profileIdInt = _profileIdToInt(profileId);
     final rows = await _db.getAllPending(profileIdInt);
-    
-    return rows.map((r) => dom.Transaction(
-      id: r.id,
-      remoteId: null,
-      amount: r.amountMinor,
-      type: r.type,
-      category: r.category,
-      description: r.description ?? '',
-      date: r.date,
-      smsSource: r.rawSms ?? '',
-      profileId: profileId,
-      isPending: true,
-      isExpense: r.isExpense,
-      currency: r.currency,
-      isSynced: false,
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
-    )).toList();
+
+    return rows
+        .map(
+          (r) => dom.Transaction(
+            id: r.id,
+            remoteId: null,
+            amount: r.amountMinor,
+            type: r.type,
+            category: r.category,
+            description: r.description ?? '',
+            date: r.date,
+            smsSource: r.rawSms ?? '',
+            profileId: profileId,
+            isPending: true,
+            isExpense: r.isExpense,
+            currency: r.currency,
+            isSynced: false,
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          ),
+        )
+        .toList();
   }
 
   Future<void> deletePendingTransaction(String id) async {
@@ -989,7 +1067,7 @@ class OfflineDataService {
     return pending.length;
   }
 
-// ==================== LOANS ====================
+  // ==================== LOANS ====================
 
   Future<int> saveLoan(dom.Loan loan) async {
     final companion = app_db.LoansCompanion.insert(
@@ -1009,20 +1087,20 @@ class OfflineDataService {
       createdAt: Value(loan.createdAt ?? DateTime.now()),
       updatedAt: Value(loan.updatedAt ?? DateTime.now()),
     );
-    
+
     return await _db.insertLoan(companion);
   }
 
   Future<List<dom.Loan>> getAllLoans(String profileId) async {
     _validateProfileId(profileId);
-    
+
     final profileIdInt = _profileIdToInt(profileId);
     final rows = await _db.getAllLoans();
-    
+
     return rows
-      .where((r) => r.profileId == profileIdInt && !r.isDeleted)
-      .map((r) => _mapDbLoanToDomain(r, profileId))
-      .toList();
+        .where((r) => r.profileId == profileIdInt && !r.isDeleted)
+        .map((r) => _mapDbLoanToDomain(r, profileId))
+        .toList();
   }
 
   Future<void> updateLoan(dom.Loan loan) async {
@@ -1050,6 +1128,7 @@ class OfflineDataService {
 
     await _db.updateLoan(companion);
   }
+
   dom.Loan _mapDbLoanToDomain(app_db.Loan r, String profileId) {
     return dom.Loan(
       id: r.id.toString(),
@@ -1077,10 +1156,10 @@ class OfflineDataService {
     try {
       final id = int.tryParse(loanId);
       if (id == null) return null;
-      
+
       final loan = await _db.getLoanById(id);
       if (loan == null) return null;
-      
+
       return _mapDbLoanToDomain(loan, loan.profileId.toString());
     } catch (e) {
       _logger.warning('Loan not found: $loanId - $e');
@@ -1094,16 +1173,16 @@ class OfflineDataService {
     if (loanIdInt == null) {
       throw Exception('Invalid loan ID format: $loanId');
     }
-    
+
     try {
       // ✅ FIX: Use proper Drift update syntax that only updates deletion fields
-      await (_db.update(_db.loans)
-            ..where((l) => l.id.equals(loanIdInt)))
-          .write(app_db.LoansCompanion(
-            isDeleted: const Value(true),
-            deletedAt: Value(DateTime.now()),
-          ));
-      
+      await (_db.update(_db.loans)..where((l) => l.id.equals(loanIdInt))).write(
+        app_db.LoansCompanion(
+          isDeleted: const Value(true),
+          deletedAt: Value(DateTime.now()),
+        ),
+      );
+
       _logger.info('Marked loan as deleted: $loanId');
     } catch (e, stackTrace) {
       _logger.severe('Error deleting loan: $loanId', e, stackTrace);
@@ -1117,8 +1196,14 @@ class OfflineDataService {
   Future<void> deleteLoanWithSync({
     required String loanId,
     required String profileId,
-    required Future<Map<String, dynamic>> Function(String, List<String>) deleteToBackend,
+    required Future<Map<String, dynamic>> Function(String, List<String>)
+    deleteToBackend,
   }) async {
+    if (AppMode.localOnly) {
+      await deleteLoan(loanId);
+      return;
+    }
+
     final loan = await getLoan(loanId);
     if (loan == null) {
       throw Exception('Loan not found: $loanId');
@@ -1131,21 +1216,31 @@ class OfflineDataService {
 
       // Step 2: If this loan was synced to server, sync deletion immediately
       if (loan.remoteId != null && loan.remoteId!.isNotEmpty) {
-        _logger.info('🔄 Step 2: Syncing deletion to backend for: ${loan.remoteId}');
-        
+        _logger.info(
+          '🔄 Step 2: Syncing deletion to backend for: ${loan.remoteId}',
+        );
+
         try {
           final response = await deleteToBackend(profileId, [loan.remoteId!]);
           if (response['success'] == true) {
-            _logger.info('✅ Step 3: Deletion synced to backend - ${response['deleted']} marked as deleted on server');
+            _logger.info(
+              '✅ Step 3: Deletion synced to backend - ${response['deleted']} marked as deleted on server',
+            );
           } else {
-            _logger.warning('⚠️ Backend deletion response: ${response['error']}');
+            _logger.warning(
+              '⚠️ Backend deletion response: ${response['error']}',
+            );
           }
         } catch (syncError) {
-          _logger.warning('⚠️ Error syncing deletion to backend (loan still marked deleted locally): $syncError');
+          _logger.warning(
+            '⚠️ Error syncing deletion to backend (loan still marked deleted locally): $syncError',
+          );
           // Don't rethrow - loan is already marked deleted locally
         }
       } else {
-        _logger.info('ℹ️ Loan never synced to server, local deletion sufficient');
+        _logger.info(
+          'ℹ️ Loan never synced to server, local deletion sufficient',
+        );
       }
     } catch (e, stackTrace) {
       _logger.severe('Error in deleteLoanWithSync: $e', e, stackTrace);
@@ -1159,7 +1254,7 @@ class OfflineDataService {
     if (loanIdInt == null) {
       throw Exception('Invalid loan ID format: $loanId');
     }
-    
+
     try {
       await _db.deleteLoanById(loanIdInt);
       _logger.info('Hard deleted loan: $loanId');
@@ -1175,7 +1270,7 @@ class OfflineDataService {
     if (loanIdInt == null) {
       throw Exception('Invalid loan ID format: $loanId');
     }
-    
+
     try {
       // Get the loan first to preserve other fields
       final loan = await _db.getLoanById(loanIdInt);
@@ -1183,7 +1278,7 @@ class OfflineDataService {
         _logger.warning('Loan not found: $loanId');
         return;
       }
-      
+
       // Update only the remoteId and isSynced fields
       await _db.updateLoan(
         app_db.LoansCompanion(
@@ -1204,7 +1299,7 @@ class OfflineDataService {
           createdAt: Value(loan.createdAt),
         ),
       );
-      
+
       _logger.info('Removed remote ID from loan: $loanId');
     } catch (e, stackTrace) {
       _logger.severe('Error removing remote loan ID: $loanId', e, stackTrace);
@@ -1212,19 +1307,18 @@ class OfflineDataService {
     }
   }
 
-
   // ==================== UTILITY METHODS ====================
 
   Future<double> getAverageMonthlySpending(String profileId) async {
     final transactions = await getAllTransactions(profileId);
-    
+
     if (transactions.isEmpty) return 0;
 
     final threeMonthsAgo = DateTime.now().subtract(const Duration(days: 90));
     final expenses = transactions
-      .where((tx) => tx.type == 'expense' && tx.date.isAfter(threeMonthsAgo))
-      .map((tx) => tx.amount)
-      .toList();
+        .where((tx) => tx.type == 'expense' && tx.date.isAfter(threeMonthsAgo))
+        .map((tx) => tx.amount)
+        .toList();
 
     if (expenses.isEmpty) return 0;
 
@@ -1247,7 +1341,10 @@ class OfflineDataService {
   Future<void> updatePendingTransactionCount(String profileId) async {
     try {
       final pending = await getPendingTransactions(profileId);
-      await _prefs!.setInt('pending_transaction_count_$profileId', pending.length);
+      await _prefs!.setInt(
+        'pending_transaction_count_$profileId',
+        pending.length,
+      );
     } catch (e) {
       _logger.warning('Error updating pending transaction count: $e');
     }
@@ -1263,7 +1360,10 @@ class OfflineDataService {
     await updatePendingTransactionCount(tx.profileId);
   }
 
-  Future<void> deletePendingTransactionWithCount(String id, String profileId) async {
+  Future<void> deletePendingTransactionWithCount(
+    String id,
+    String profileId,
+  ) async {
     await deletePendingTransaction(id);
     await updatePendingTransactionCount(profileId);
   }
@@ -1271,27 +1371,27 @@ class OfflineDataService {
   Future<void> clearSyncMarkers(String profileId) async {
     try {
       _validateProfileId(profileId);
-      
+
       final transactions = await getAllTransactions(profileId);
       for (final tx in transactions) {
         await updateTransaction(tx.copyWith(isSynced: false));
       }
-      
+
       final budgets = await getAllBudgets(profileId);
       for (final budget in budgets) {
         await updateBudget(budget.copyWith(isSynced: false));
       }
-      
+
       final goals = await getAllGoals(profileId);
       for (final goal in goals) {
         await updateGoal(goal.copyWith(isSynced: false));
       }
-      
+
       final loans = await getAllLoans(profileId);
       for (final loan in loans) {
         await updateLoan(loan.copyWith(isSynced: false));
       }
-      
+
       _logger.info('✅ Sync markers cleared for profile: $profileId');
     } catch (e, stackTrace) {
       _logger.severe('Error clearing sync markers', e, stackTrace);
