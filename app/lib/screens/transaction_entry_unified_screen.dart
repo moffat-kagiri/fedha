@@ -395,14 +395,11 @@ class _TransactionEntryUnifiedScreenState extends State<TransactionEntryUnifiedS
           await eventService.onTransactionUpdated(transaction); 
         }
       } else {
-        // Create new transaction with event emission
+        // Create new transaction - event will be emitted by OfflineDataService
         success = await TransactionOperations.createTransaction(
           transaction: transaction,
           offlineService: dataService,
         );
-        if (success) {
-          await eventService.onTransactionCreated(transaction); 
-        }
       }
       
       if (success) {

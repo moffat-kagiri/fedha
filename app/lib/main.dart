@@ -28,15 +28,11 @@ import 'services/offline_data_service.dart';
 import 'services/auth_service.dart';
 import 'services/api_client.dart';
 import 'services/theme_service.dart';
-import 'config/app_mode.dart';
 import 'config/api_config.dart';
 import 'config/environment_config.dart';
 import 'services/currency_service.dart';
 import 'services/biometric_auth_service.dart';
 import 'services/service_stubs.dart' as stubs;
-import 'utils/connection_manager.dart';
-import 'services/unified_sync_service.dart';
-import 'services/connectivity_service.dart' as conn_svc;
 import 'services/sms_listener_service.dart';
 import 'services/permissions_service.dart';
 import 'theme/app_theme.dart';
@@ -166,12 +162,8 @@ Future<void> main() async {
       ),
     );
 
-    // ✅ Network discovery runs AFTER first frame is painted — never blocks UI
-    if (!AppMode.localOnly) {
-      unawaited(_initializeNetworkServicesInBackground());
-    } else {
-      logger.info('Local-only mode enabled - skipping backend initialization');
-    }
+    // Running in local-only mode - network services not needed
+    logger.info('✅ App launched in local-only mode');
   } catch (e, stackTrace) {
     logger.severe('❌ App initialization failed', e, stackTrace);
     _launchErrorApp(e);
@@ -212,22 +204,12 @@ Future<void> _initializeLocalServices() async {
   final apiClient = ApiClient.instance;
   final offlineDataService = OfflineDataService();
 
-  // ✅ Init API client with config only — no health check here
+  // ✅ Init API client with config only — no connection test here
   final initialConfig = kDebugMode
       ? ApiConfig.development()
       : ApiConfig.production();
   apiClient.init(config: initialConfig);
   logger.info('✅ API client configured (no connection test)');
-
-  final unifiedSyncService = UnifiedSyncService.instance;
-  await unifiedSyncService.initialize(
-    offlineDataService: offlineDataService,
-    apiClient: apiClient,
-    authService: authService,
-  );
-  logger.info('✅ Sync service initialized');
-
-  offlineDataService.setSyncService(unifiedSyncService);
 
   final budgetService = BudgetService.instance;
   await budgetService.initialize(offlineDataService);
@@ -236,134 +218,18 @@ Future<void> _initializeLocalServices() async {
   logger.info('✅ All local services ready');
 }
 
-// ==================== BACKGROUND NETWORK INITIALIZATION ====================
-// Runs after runApp — the UI is already visible. Any delay here is invisible
-// to the user. ConnectivityService and sync will notify listeners when ready.
-
-Future<void> _initializeNetworkServicesInBackground() async {
-  final logger = AppLogger.getLogger('NetworkInit');
-  if (AppMode.localOnly) {
-    logger.info('Local-only mode enabled - background network init skipped');
-    return;
-  }
-
-  try {
-    logger.info('🌐 Starting background network initialization...');
-
-    final apiClient = ApiClient.instance;
-
-    // Step 1: Fast connectivity check using the platform's network status
-    // (connectivity_plus reads the OS — no HTTP request, near-instant)
-    final connectivityService = conn_svc.ConnectivityService(apiClient);
-    await connectivityService.initialize();
-
-    final hasConnectivity = await connectivityService.hasInternetConnection();
-    logger.info(
-      'Internet: ${hasConnectivity ? "✅ Available" : "❌ Unavailable"}',
-    );
-
-    if (!hasConnectivity) {
-      logger.info('Offline — skipping server discovery');
-      return;
-    }
-
-    // Step 2: In debug mode, probe for the best local endpoint.
-    // Use a short overall timeout cap so even a slow LAN doesn't hang here.
-    if (kDebugMode) {
-      logger.info('Dev mode: probing for best connection (capped at 5s)...');
-
-      try {
-        final bestConnectionUrl =
-            await ConnectionManager.findWorkingConnection().timeout(
-              const Duration(seconds: 5),
-              onTimeout: () {
-                logger.warning(
-                  'Connection probe timed out — using default config',
-                );
-                return null;
-              },
-            );
-
-        if (bestConnectionUrl != null) {
-          final ApiConfig optimalConfig;
-
-          if (bestConnectionUrl.contains('trycloudflare.com')) {
-            optimalConfig = ApiConfig.cloudflare(tunnelUrl: bestConnectionUrl);
-          } else if (bestConnectionUrl.contains('192.168.') ||
-              bestConnectionUrl.contains('10.0.2.2') ||
-              bestConnectionUrl.contains('localhost')) {
-            optimalConfig = ApiConfig.development().copyWith(
-              primaryApiUrl: _extractHost(bestConnectionUrl),
-            );
-          } else {
-            optimalConfig = ApiConfig.custom(
-              apiUrl: _extractHost(bestConnectionUrl),
-              useSecureConnections: bestConnectionUrl.startsWith('https'),
-            );
-          }
-
-          apiClient.init(config: optimalConfig);
-          logger.info('✅ API client reconfigured: $bestConnectionUrl');
-
-          // Quick health verify — also capped
-          final isHealthy = await apiClient.checkServerHealth().timeout(
-            const Duration(seconds: 3),
-            onTimeout: () => false,
-          );
-
-          if (!isHealthy) {
-            logger.warning('Health check failed — reverting to default config');
-            final fallback = kDebugMode
-                ? ApiConfig.development()
-                : ApiConfig.production();
-            apiClient.init(config: fallback);
-          }
-        }
-      } catch (e) {
-        logger.warning('Connection probe error (non-fatal): $e');
-      }
-    }
-
-    // Step 3: If user is logged in, trigger background sync now that
-    // network is confirmed available.
-    final authService = AuthService.instance;
-    if (authService.hasActiveProfile && authService.profileId != null) {
-      logger.info('🔄 Triggering post-startup background sync...');
-      unawaited(_runPostStartupSync(authService.profileId!));
-    }
-
-    logger.info('✅ Background network initialization complete');
-  } catch (e, stackTrace) {
-    logger.warning(
-      'Background network init failed (non-fatal): $e',
-      e,
-      stackTrace,
-    );
-    // Never rethrow — the app is already running fine with local data
-  }
-}
-
 // ==================== POST-STARTUP SYNC ====================
-// Called only after network is confirmed. Keeps startup clean.
+// Note: In local-only mode, this function is not used.
 Future<void> _runPostStartupSync(String profileId) async {
   final logger = AppLogger.getLogger('PostStartupSync');
 
   try {
     final offlineDataService = OfflineDataService();
-    final unifiedSyncService = UnifiedSyncService.instance;
     final budgetService = BudgetService.instance;
     final transactionEventService = TransactionEventService();
 
-    unifiedSyncService.setCurrentProfile(profileId);
-
-    final syncResult = await unifiedSyncService.syncAll();
-    if (syncResult.success) {
-      logger.info(
-        '✅ Post-startup sync complete. '
-        'Downloaded: ${syncResult.totalDownloaded}, '
-        'Uploaded: ${syncResult.totalUploaded}',
-      );
-    }
+    // No network sync in local-only mode
+    // Just recalculate local state
 
     // Use the correct service and method name
     await transactionEventService.recalculateAll(profileId);
@@ -379,92 +245,7 @@ Future<void> _runPostStartupSync(String profileId) async {
 
     logger.info('✅ Post-startup background processing complete');
   } catch (e, stackTrace) {
-    logger.warning('Post-startup sync failed (non-fatal)', e, stackTrace);
-  }
-}
-
-Future<void> _initializeNetworkServices() async {
-  final logger = AppLogger.getLogger('NetworkInit');
-  // ==================== STEP 1: Initialize API Client ====================
-
-  final apiClient = ApiClient.instance;
-
-  final initialConfig = kDebugMode
-      ? ApiConfig.development()
-      : ApiConfig.production();
-
-  apiClient.init(config: initialConfig);
-  logger.info(
-    'API client initialized with ${kDebugMode ? "development" : "production"} config',
-  );
-
-  // Set initial config based on build mode
-
-  final connectivityService = conn_svc.ConnectivityService(apiClient);
-  await connectivityService.initialize();
-
-  final hasConnectivity = await connectivityService.hasInternetConnection();
-  logger.info(
-    'Internet connectivity: ${hasConnectivity ? "✅ Available" : "❌ Unavailable"}',
-  );
-
-  if (hasConnectivity && kDebugMode) {
-    logger.info('Development mode: Searching for best connection...');
-
-    try {
-      final bestConnectionUrl = await ConnectionManager.findWorkingConnection();
-
-      if (bestConnectionUrl != null) {
-        logger.info('✅ Found working connection: $bestConnectionUrl');
-        // ==================== STEP 3: Find Best Connection (Development Only) ====================
-
-        final ApiConfig optimalConfig;
-
-        if (bestConnectionUrl.contains('trycloudflare.com')) {
-          logger.info('Using Cloudflare tunnel configuration');
-          optimalConfig = ApiConfig.cloudflare(tunnelUrl: bestConnectionUrl);
-        } else if (bestConnectionUrl.contains('192.168.') ||
-            bestConnectionUrl.contains('10.0.2.2') ||
-            bestConnectionUrl.contains('localhost')) {
-          logger.info('Using local network configuration');
-          optimalConfig = ApiConfig.development().copyWith(
-            primaryApiUrl: _extractHost(bestConnectionUrl),
-          );
-        } else {
-          logger.info('Using custom host configuration');
-          optimalConfig = ApiConfig.custom(
-            apiUrl: _extractHost(bestConnectionUrl),
-            useSecureConnections: bestConnectionUrl.startsWith('https'),
-          );
-        }
-
-        apiClient.init(config: optimalConfig);
-        logger.info('API client reconfigured with optimal connection');
-
-        // Verify the connection works
-
-        final isHealthy = await apiClient.checkServerHealth();
-        if (isHealthy) {
-          logger.info('✅ Server health check passed');
-        } else {
-          logger.warning(
-            '⚠️ Server health check failed, falling back to initial config',
-          );
-          apiClient.init(config: initialConfig);
-        }
-      }
-    } catch (e, stackTrace) {
-      logger.severe('Error finding optimal connection', e, stackTrace);
-    }
-  }
-}
-
-String _extractHost(String url) {
-  try {
-    final uri = Uri.parse(url);
-    return uri.host + (uri.hasPort ? ':${uri.port}' : '');
-  } catch (e) {
-    return url.replaceAll(RegExp(r'https?://'), '').split('/')[0];
+    logger.warning('Post-startup processing failed (non-fatal)', e, stackTrace);
   }
 }
 
@@ -476,9 +257,6 @@ List<SingleChildWidget> _buildProviders() {
       value: OfflineDataService(), // Returns the singleton instance
     ),
     Provider<ApiClient>.value(value: ApiClient.instance),
-    Provider<conn_svc.ConnectivityService>.value(
-      value: conn_svc.ConnectivityService(ApiClient.instance),
-    ),
     Provider<GoalTransactionService>.value(
       value: GoalTransactionService(OfflineDataService()),
     ),
@@ -516,9 +294,6 @@ List<SingleChildWidget> _buildProviders() {
     ),
     ChangeNotifierProvider<SmsListenerService>.value(
       value: SmsListenerService.instance,
-    ),
-    ChangeNotifierProvider<UnifiedSyncService>.value(
-      value: UnifiedSyncService.instance,
     ),
     ChangeNotifierProvider<PermissionsService>.value(
       value: PermissionsService.instance,
@@ -579,26 +354,8 @@ Future<void> _registerBackgroundTasks(String profileId) async {
 
     logger.info('✅ Daily review task registered');
 
-    // ==================== SYNC TASK (BACKGROUND SYNC) ====================
-    // This runs periodically to sync data in background
-    if (!AppMode.localOnly) {
-      await Workmanager().registerPeriodicTask(
-        'background_sync',
-        'background_sync_task',
-        frequency: const Duration(hours: 4), // Sync every 4 hours
-        initialDelay: const Duration(minutes: 5),
-        constraints: Constraints(
-          networkType: NetworkType.connected, // Needs network for sync
-          requiresBatteryNotLow: false,
-          requiresCharging: false,
-          requiresDeviceIdle: true, // Sync when device is idle
-          requiresStorageNotLow: false,
-        ),
-        inputData: {'profileId': profileId, 'task_type': 'background_sync'},
-      );
-
-      logger.info('✅ Background sync task registered');
-    }
+    // Note: Background sync task not registered in local-only mode
+    // All transactions are stored locally in SQLite database
 
     // ==================== ONE-TIME IMMEDIATE TASK ====================
     // Process SMS immediately on registration

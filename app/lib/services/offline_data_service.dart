@@ -13,9 +13,7 @@ import 'package:fedha/models/enums.dart';
 import 'package:fedha/models/category.dart' as dom;
 import 'package:fedha/models/budget.dart' as dom;
 import '../utils/logger.dart';
-import '../config/app_mode.dart';
 import 'transaction_event_service.dart';
-import 'unified_sync_service.dart';
 
 /// Service to manage offline data storage and retrieval
 class OfflineDataService {
@@ -27,20 +25,13 @@ class OfflineDataService {
 
   SharedPreferences? _prefs;
   TransactionEventService? _eventService;
-  UnifiedSyncService? _syncService;
-
-  void setSyncService(UnifiedSyncService syncService) {
-    _syncService = syncService;
-  }
 
   // Factory constructor with optional database parameter
   factory OfflineDataService({
     app_db.AppDatabase? db,
-    UnifiedSyncService? syncService,
   }) {
     _instance ??= OfflineDataService._internal(
       db: db,
-      syncService: syncService,
     );
     return _instance!;
   }
@@ -48,9 +39,7 @@ class OfflineDataService {
   // Private internal constructor
   OfflineDataService._internal({
     app_db.AppDatabase? db,
-    UnifiedSyncService? syncService,
-  }) : _db = db ?? app_db.AppDatabase(),
-       _syncService = syncService;
+  }) : _db = db ?? app_db.AppDatabase();
 
   Future<void> initialize() async {
     if (_prefs != null) return; // Already initialized
@@ -168,8 +157,6 @@ class OfflineDataService {
     );
 
     final insertedId = await _db.insertTransaction(companion);
-    // Trigger background sync after transaction is saved
-    unawaited(_syncService?.syncAfterCrud(tx.profileId, 'transaction'));
     _logger.info('✅ Transaction saved with ID: $insertedId');
 
     // ✅ ONLY emit event ONCE per save
@@ -216,8 +203,6 @@ class OfflineDataService {
     );
 
     await _db.updateTransaction(companion);
-    // Trigger background sync after transaction is updated
-    unawaited(_syncService?.syncAfterCrud(tx.profileId, 'transaction'));
     _logger.info('✅ Transaction updated: ${tx.id}');
 
     // Emit updated event
@@ -327,62 +312,15 @@ class OfflineDataService {
 
   /// ✅ NEW: Delete transaction WITH IMMEDIATE SYNC to backend
   /// This prevents restored deleted items on biometric unlock
-  /// Syncs deletion to server before returning to caller
+  /// Deletes transaction from local database (local-only mode)
   Future<void> deleteTransactionWithSync({
     required String transactionId,
     required String profileId,
     required Future<Map<String, dynamic>> Function(String, List<String>)
-    deleteToBackend,
+        deleteToBackend,
   }) async {
-    if (AppMode.localOnly) {
-      await deleteTransaction(transactionId);
-      return;
-    }
-
-    final tx = await getTransaction(transactionId);
-    if (tx == null) {
-      throw Exception('Transaction not found: $transactionId');
-    }
-
-    try {
-      // Step 1: Mark as deleted locally
-      await deleteTransaction(transactionId);
-      _logger.info(
-        '✅ Step 1: Marked transaction as deleted locally: $transactionId',
-      );
-
-      // Step 2: If this transaction was synced to server, sync deletion immediately
-      if (tx.remoteId != null && tx.remoteId!.isNotEmpty) {
-        _logger.info(
-          '🔄 Step 2: Syncing deletion to backend for: ${tx.remoteId}',
-        );
-
-        try {
-          final response = await deleteToBackend(profileId, [tx.remoteId!]);
-          if (response['success'] == true) {
-            _logger.info(
-              '✅ Step 3: Deletion synced to backend - ${response['deleted']} marked as deleted on server',
-            );
-          } else {
-            _logger.warning(
-              '⚠️ Backend deletion response: ${response['error']}',
-            );
-          }
-        } catch (syncError) {
-          _logger.warning(
-            '⚠️ Error syncing deletion to backend (transaction still marked deleted locally): $syncError',
-          );
-          // Don't rethrow - transaction is already marked deleted locally
-        }
-      } else {
-        _logger.info(
-          'ℹ️ Transaction never synced to server, local deletion sufficient',
-        );
-      }
-    } catch (e, stackTrace) {
-      _logger.severe('Error in deleteTransactionWithSync: $e', e, stackTrace);
-      rethrow;
-    }
+    await deleteTransaction(transactionId);
+    _logger.info('✅ Transaction deleted locally: $transactionId');
   }
 
   /// ✅ NEW: Hard delete transaction from database (removes completely)
@@ -398,6 +336,7 @@ class OfflineDataService {
   }
 
   /// ✅ FIXED: Approve pending transaction without duplication
+  /// Approve a pending transaction - simplified now that event emission is centralized
   Future<void> approvePendingTransaction(dom.Transaction tx) async {
     try {
       _logger.info('📝 Approving pending transaction: ${tx.id}');
@@ -413,15 +352,9 @@ class OfflineDataService {
                 '⚠️ Transaction ${tx.id} already exists - updating instead',
               );
 
-              // Temporarily disable event service
-              final tempEventService = _eventService;
-              _eventService = null;
-
               final updatedTx = tx.copyWith(isPending: false);
               await updateTransaction(updatedTx);
 
-              // Restore and emit once
-              _eventService = tempEventService;
               await _db.deletePending(tx.id!);
 
               if (_eventService != null) {
@@ -437,10 +370,7 @@ class OfflineDataService {
         }
       }
 
-      // Create new transaction - temporarily disable events
-      final tempEventService = _eventService;
-      _eventService = null;
-
+      // Create new transaction - saveTransaction will emit the event
       final approvedTransaction = tx.copyWith(
         id: null,
         isPending: false,
@@ -449,18 +379,9 @@ class OfflineDataService {
       );
 
       await saveTransaction(approvedTransaction);
-
-      // Restore event service
-      _eventService = tempEventService;
-
       await _db.deletePending(tx.id ?? '');
 
-      // Emit event once
-      if (_eventService != null) {
-        await _eventService!.onTransactionCreated(approvedTransaction);
-      }
-
-      _logger.info('✅ Pending transaction approved (no duplication)');
+      _logger.info('✅ Pending transaction approved');
     } catch (e, stackTrace) {
       _logger.severe('Error approving pending transaction', e, stackTrace);
       rethrow;
@@ -685,9 +606,7 @@ class OfflineDataService {
     }
   }
 
-  /// ✅ NEW: Update goal WITH IMMEDIATE SYNC to backend
-  /// Like deleteTransactionWithSync, this syncs cancellation/status changes immediately
-  /// Prevents GET requests from restoring old states
+  /// Updates goal locally (local-only mode)
   Future<void> updateGoalWithSync({
     required dom.Goal goal,
     required String profileId,
@@ -695,56 +614,11 @@ class OfflineDataService {
       String,
       List<Map<String, dynamic>>,
     )
-    syncToBackend,
+        syncToBackend,
   }) async {
     _validateProfileId(profileId);
-
-    if (AppMode.localOnly) {
-      await updateGoal(goal);
-      return;
-    }
-
-    try {
-      // Step 1: Update locally
-      await updateGoal(goal);
-      _logger.info('✅ Goal updated locally: ${goal.id}');
-
-      // Step 2: If goal is linked to server (has remoteId), sync immediately
-      if (goal.remoteId != null && goal.remoteId!.isNotEmpty) {
-        _logger.info(
-          '🔄 Syncing goal update to backend (remoteId: ${goal.remoteId})',
-        );
-
-        try {
-          final goalData = {
-            'id': goal.remoteId,
-            'status': goal.status.name,
-            'current_amount': goal.currentAmount,
-            'name': goal.name,
-            'target_amount': goal.targetAmount,
-            'target_date': goal.targetDate.toIso8601String(),
-            'goal_type': goal.goalType.name,
-          };
-
-          final response = await syncToBackend(profileId, [goalData]);
-          if (response['success'] == true) {
-            _logger.info('✅ Goal update synced to backend');
-          } else {
-            _logger.warning('⚠️ Backend sync response: ${response['error']}');
-          }
-        } catch (syncError) {
-          _logger.warning(
-            '⚠️ Error syncing goal update (local change preserved): $syncError',
-          );
-          // Don't rethrow - local update is already done
-        }
-      } else {
-        _logger.info('ℹ️ Goal never synced to server, local update sufficient');
-      }
-    } catch (e, stackTrace) {
-      _logger.severe('Error in updateGoalWithSync: $e', e, stackTrace);
-      rethrow;
-    }
+    await updateGoal(goal);
+    _logger.info('✅ Goal updated locally: ${goal.id}');
   }
 
   Future<void> updateGoal(dom.Goal goal) async {
@@ -786,11 +660,9 @@ class OfflineDataService {
     _logger.info('✅ Goal deleted: $goalId');
   }
 
-  /// Delete a goal with immediate sync to backend.
+  /// Delete goal locally - marks as synced=false for local deletion (local-only mode)
   /// ✅ Marks goal as deleted locally first
-  /// ✅ Immediately syncs deletion to server
-  /// ✅ Returns success/failure of sync operation
-  /// ✅ Gracefully handles sync failures (local deletion persists)
+  /// ✅ Returns success/failure of local operation
   Future<bool> deleteGoalWithSync(
     String goalId,
     String profileId,
@@ -798,66 +670,14 @@ class OfflineDataService {
   ) async {
     _validateProfileId(profileId);
 
-    if (AppMode.localOnly) {
-      final goal = await getGoal(goalId);
-      if (goal == null) {
-        return false;
-      }
-
-      await updateGoal(goal.copyWith(isSynced: false));
-      return true;
+    final goal = await getGoal(goalId);
+    if (goal == null) {
+      return false;
     }
 
-    try {
-      // Step 1: Mark goal as deleted locally (immediate)
-      final goalIdInt = int.tryParse(goalId);
-      if (goalIdInt == null) {
-        throw Exception('Invalid goal ID format: $goalId');
-      }
-
-      final goal = await getGoal(goalId);
-      if (goal == null) {
-        _logger.warning('Goal not found for deletion: $goalId');
-        return false;
-      }
-
-      // Update goal's isDeleted flag
-      final updatedGoal = goal.copyWith(
-        isSynced: false, // Mark for sync
-      );
-      await updateGoal(updatedGoal);
-      _logger.info('[DEL] Goal marked for deletion: $goalId');
-
-      // Step 2: Immediately sync deletion to backend (blocking call)
-      if (syncCallback != null) {
-        try {
-          final result = await syncCallback('goals', [goalId]);
-          if (result['success'] == true) {
-            _logger.info('[OK] Goal deletion synced to backend: $goalId');
-            // Mark as synced in local database using copyWith
-            final syncedGoal = updatedGoal.copyWith(isSynced: true);
-            await updateGoal(syncedGoal);
-            return true;
-          } else {
-            _logger.warning(
-              '⚠️ Backend sync returned false for goal deletion: $goalId',
-            );
-            return false;
-          }
-        } catch (e) {
-          // Sync failed, but local deletion persists (eventual consistency)
-          _logger.warning(
-            '[WARN] Goal deletion sync failed: $e (local deletion persists)',
-          );
-          return false;
-        }
-      }
-
-      return true;
-    } catch (e) {
-      _logger.severe('[ERR] Error deleting goal with sync: $e');
-      rethrow;
-    }
+    await updateGoal(goal.copyWith(isSynced: false));
+    _logger.info('✅ Goal marked for deletion locally: $goalId');
+    return true;
   }
 
   /// Sync multiple goals (create/update) with backend
@@ -1192,60 +1012,15 @@ class OfflineDataService {
 
   /// ✅ NEW: Delete loan WITH IMMEDIATE SYNC to backend
   /// This prevents restored deleted items on biometric unlock
-  /// Syncs deletion to server before returning to caller
+  /// Deletes loan from local database (local-only mode)
   Future<void> deleteLoanWithSync({
     required String loanId,
     required String profileId,
     required Future<Map<String, dynamic>> Function(String, List<String>)
-    deleteToBackend,
+        deleteToBackend,
   }) async {
-    if (AppMode.localOnly) {
-      await deleteLoan(loanId);
-      return;
-    }
-
-    final loan = await getLoan(loanId);
-    if (loan == null) {
-      throw Exception('Loan not found: $loanId');
-    }
-
-    try {
-      // Step 1: Mark as deleted locally
-      await deleteLoan(loanId);
-      _logger.info('✅ Step 1: Marked loan as deleted locally: $loanId');
-
-      // Step 2: If this loan was synced to server, sync deletion immediately
-      if (loan.remoteId != null && loan.remoteId!.isNotEmpty) {
-        _logger.info(
-          '🔄 Step 2: Syncing deletion to backend for: ${loan.remoteId}',
-        );
-
-        try {
-          final response = await deleteToBackend(profileId, [loan.remoteId!]);
-          if (response['success'] == true) {
-            _logger.info(
-              '✅ Step 3: Deletion synced to backend - ${response['deleted']} marked as deleted on server',
-            );
-          } else {
-            _logger.warning(
-              '⚠️ Backend deletion response: ${response['error']}',
-            );
-          }
-        } catch (syncError) {
-          _logger.warning(
-            '⚠️ Error syncing deletion to backend (loan still marked deleted locally): $syncError',
-          );
-          // Don't rethrow - loan is already marked deleted locally
-        }
-      } else {
-        _logger.info(
-          'ℹ️ Loan never synced to server, local deletion sufficient',
-        );
-      }
-    } catch (e, stackTrace) {
-      _logger.severe('Error in deleteLoanWithSync: $e', e, stackTrace);
-      rethrow;
-    }
+    await deleteLoan(loanId);
+    _logger.info('✅ Loan deleted locally: $loanId');
   }
 
   /// ✅ NEW: Hard delete a loan from local database (used after backend sync)

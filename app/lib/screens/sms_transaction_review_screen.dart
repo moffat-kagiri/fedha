@@ -35,10 +35,16 @@ class _SmsTransactionReviewScreenState extends State<SmsTransactionReviewScreen>
     });
     
     if (hasPermissions && !smsService.isListening) {
-      await smsService.startListening(
-        offlineDataService: offlineDataService,  // ADD named parameter
-        profileId: profileId,                     // ADD profileId
-      );
+      final dataService = Provider.of<OfflineDataService>(context, listen: false);
+      final authService = Provider.of<AuthService>(context, listen: false);
+      final profileId = authService.currentProfile?.id ?? '';
+      
+      if (profileId.isNotEmpty) {
+        await smsService.startListening(
+          offlineDataService: dataService,
+          profileId: profileId,
+        );
+      }
     }
   }
 
@@ -166,10 +172,16 @@ class _SmsTransactionReviewScreenState extends State<SmsTransactionReviewScreen>
             if (smsService.isListening) {
               await smsService.stopListening();
             } else {
-              await smsService.startListening(
-                offlineDataService: offlineDataService,
-                profileId: profileId,
-              );
+              final dataService = Provider.of<OfflineDataService>(context, listen: false);
+              final authService = Provider.of<AuthService>(context, listen: false);
+              final profileId = authService.currentProfile?.id ?? '';
+              
+              if (profileId.isNotEmpty) {
+                await smsService.startListening(
+                  offlineDataService: dataService,
+                  profileId: profileId,
+                );
+              }
             }
             setState(() {});
           } else {

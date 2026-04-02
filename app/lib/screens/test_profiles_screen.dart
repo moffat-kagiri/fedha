@@ -5,7 +5,7 @@ import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 import '../services/offline_data_service.dart';
 import '../models/profile.dart';
-import '../utils/test_profile_creator.dart';
+// TestProfileCreator import removed - utility not available in offline-first build
 
 class TestProfilesScreen extends StatefulWidget {
   const TestProfilesScreen({super.key});
@@ -32,12 +32,15 @@ class _TestProfilesScreenState extends State<TestProfilesScreen> {
     });
 
     try {
-      // FIXED: Use static method correctly
-      final profiles = await TestProfileCreator.listAllProfiles();
+      final authService = context.read<AuthService>();
+      final currentProfile = authService.currentProfile;
+      
+      if (currentProfile != null) {
+        _profiles = [currentProfile];
+      }
       
       if (mounted) {
         setState(() {
-          _profiles = profiles;
           _isLoading = false;
         });
       }
@@ -54,110 +57,26 @@ class _TestProfilesScreenState extends State<TestProfilesScreen> {
   Future<void> _createTestProfiles() async {
     setState(() {
       _isLoading = true;
-      _message = 'Creating test profiles...';
+      _message = 'Test profile creation not available in offline-first mode';
+      _isLoading = false;
     });
-
-    try {
-      // FIXED: Use static method correctly
-      final results = await TestProfileCreator.createBothProfiles();
-      
-      final personal = results['personal'];
-      final business = results['business'];
-      
-      if (mounted) {
-        setState(() {
-          _message = 'Created profiles:\n'
-              'Personal: ${personal?.email ?? "Failed"}\n'
-              'Business: ${business?.email ?? "Failed"}';
-          _isLoading = false;
-        });
-        
-        // Reload profile list
-        await _loadProfiles();
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _message = 'Error creating profiles: $e';
-          _isLoading = false;
-        });
-      }
-    }
   }
 
   Future<void> _createSingleProfile(String type) async {
     setState(() {
       _isLoading = true;
-      _message = 'Creating $type profile...';
+      _message = 'Test profile creation not available in offline-first mode';
+      _isLoading = false;
     });
-
-    try {
-      final authService = context.read<AuthService>();
-      final offlineDataService = context.read<OfflineDataService>();
-      
-      final creator = TestProfileCreator(
-        authService: authService,
-        offlineDataService: offlineDataService,
-      );
-
-      Profile? profile;
-      
-      if (type == 'personal') {
-        profile = await creator.createTestProfile(
-          firstName: 'Personal',
-          lastName: 'User',
-          email: 'personal.${DateTime.now().millisecondsSinceEpoch}@fedha.test',
-        );
-      } else {
-        profile = await creator.createTestProfile(
-          firstName: 'Business',
-          lastName: 'Owner',
-          email: 'business.${DateTime.now().millisecondsSinceEpoch}@fedha.test',
-        );
-      }
-
-      if (mounted) {
-        setState(() {
-          _message = profile != null
-              ? 'Created $type profile: ${profile.email}'
-              : 'Failed to create $type profile';
-          _isLoading = false;
-        });
-        
-        await _loadProfiles();
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _message = 'Error: $e';
-          _isLoading = false;
-        });
-      }
-    }
   }
 
   Future<void> _loadSampleData(Profile profile) async {
     setState(() {
       _isLoading = true;
-      _message = 'Loading sample data for ${profile.name}...';
+      _message = 'Sample data loading not available in offline-first mode';
+      _isLoading = false;
     });
-
-    try {
-      final authService = context.read<AuthService>();
-      final offlineDataService = context.read<OfflineDataService>();
-      
-      final creator = TestProfileCreator(
-        authService: authService,
-        offlineDataService: offlineDataService,
-      );
-
-      await creator.loadSampleTransactions(profile.id);
-
-      if (mounted) {
-        setState(() {
-          _message = 'Sample data loaded for ${profile.name}';
-          _isLoading = false;
-        });
+  }
       }
     } catch (e) {
       if (mounted) {

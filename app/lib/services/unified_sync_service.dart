@@ -7,7 +7,6 @@ import '../models/budget.dart';
 import '../models/loan.dart';
 import '../models/enums.dart';
 import '../utils/logger.dart';
-import '../config/app_mode.dart';
 import 'offline_data_service.dart';
 import 'api_client.dart';
 import 'auth_service.dart';
@@ -48,10 +47,8 @@ class UnifiedSyncService with ChangeNotifier {
     _apiClient = apiClient;
     _authService = authService;
     _isInitialized = true;
-    if (!AppMode.localOnly) {
-      _setupAuthListener();
-    }
-    _logger.info('UnifiedSyncService initialized');
+    // Note: Running in local-only mode - no network sync
+    _logger.info('UnifiedSyncService initialized (local-only mode)');
   }
 
   void _setupAuthListener() {
@@ -112,48 +109,12 @@ class UnifiedSyncService with ChangeNotifier {
     final result = SyncResult(timestamp: DateTime.now());
 
     try {
-      if (AppMode.localOnly) {
-        await _updateLocalCounts(result, profileId);
-        result.serverAvailable = false;
-        result.success = true;
-        _lastSyncTime = DateTime.now();
-        return result;
-      }
-
-      _logger.info('Starting full sync for profile: $profileId');
-
-      final isOnline = await _apiClient.checkServerHealth();
-      result.serverAvailable = isOnline;
-
-      if (isOnline) {
-        // Sync in parallel for better performance
-        final results = await Future.wait<EntitySyncResult>([
-          _syncTransactionsBatch(profileId),
-          _syncGoalsBatch(profileId),
-          _syncBudgetsBatch(profileId),
-          _syncLoansBatch(profileId),
-          _syncPendingTransactions(profileId),
-        ]);
-
-        result.transactions = results[0];
-        result.goals = results[1];
-        result.budgets = results[2];
-        result.loans = results[3];
-        result.pendingTransactions = results[4];
-
-        result.success = true;
-        _lastSyncTime = DateTime.now();
-
-        _logger.info(
-          'Sync completed. Downloaded: ${result.totalDownloaded}, '
-          'Uploaded: ${result.totalUploaded}',
-        );
-      } else {
-        // Offline mode - just count local data
-        await _updateLocalCounts(result, profileId);
-        result.success = true;
-        _lastSyncTime = DateTime.now();
-      }
+      // Running in local-only mode - perform local sync only
+      await _updateLocalCounts(result, profileId);
+      result.serverAvailable = false;
+      result.success = true;
+      _lastSyncTime = DateTime.now();
+      return result;
     } catch (e, stackTrace) {
       _logger.severe('Sync failed', e, stackTrace);
       result.success = false;
@@ -1391,73 +1352,18 @@ class UnifiedSyncService with ChangeNotifier {
   }
 
   /// ✅ NEW: Perform initial sync after login/signup
-  /// Downloads all user data from server and saves to local database
+  /// In local-only mode, returns immediately with no server sync
   Future<SyncResult> performInitialSync(
     String profileId,
     String authToken,
   ) async {
-    if (AppMode.localOnly) {
-      return SyncResult(
-        success: true,
-        serverAvailable: false,
-        timestamp: DateTime.now(),
-      );
-    }
-
-    if (_isSyncing) {
-      _logger.warning('Sync already in progress, skipping initial sync');
-      return SyncResult(
-        success: false,
-        error: 'Sync already in progress',
-        timestamp: DateTime.now(),
-      );
-    }
-
-    _isSyncing = true;
-    _currentProfileId = profileId;
-    notifyListeners();
-
-    final result = SyncResult(timestamp: DateTime.now());
-
-    try {
-      _logger.info('📥 Starting initial sync for profile: $profileId');
-
-      final isOnline = await _apiClient.checkServerHealth();
-      result.serverAvailable = isOnline;
-
-      if (!isOnline) {
-        _logger.warning('Server unavailable - cannot perform initial sync');
-        result.success = false;
-        result.error = 'Server unavailable';
-        return result;
-      }
-
-      // ==================== DOWNLOAD ALL DATA FROM SERVER ====================
-
-      // 1. Fetch and save transactions
-      result.transactions = await _downloadAndSaveTransactions(
-        profileId,
-        authToken,
-      );
-
-      // 2. Fetch and save goals
-      result.goals = await _downloadAndSaveGoals(profileId, authToken);
-
-      // 3. Fetch and save budgets
-      result.budgets = await _downloadAndSaveBudgets(profileId, authToken);
-
-      // 4. Fetch and save loans
-      result.loans = await _downloadAndSaveLoans(profileId, authToken);
-
-      result.success = true;
-      _lastSyncTime = DateTime.now();
-
-      _logger.info(
-        '✅ Initial sync complete. Downloaded: ${result.totalDownloaded} items',
-      );
-    } catch (e, stackTrace) {
-      _logger.severe('Initial sync failed', e, stackTrace);
-      result.success = false;
+    // Running in local-only mode - skip server initialization
+    return SyncResult(
+      success: true,
+      serverAvailable: false,
+      timestamp: DateTime.now(),
+    );
+  }
       result.error = e.toString();
     } finally {
       _isSyncing = false;
@@ -1755,8 +1661,9 @@ class UnifiedSyncService with ChangeNotifier {
 
   // Sync only the entity that was just created/updated/deleted to minimize delay
   // and provide instant feedback to user
+  // In local-only mode, this is a no-op
   Future<void> syncAfterCrud(String profileId, String entityType) async {
-    if (AppMode.localOnly) return;
+    return; // Local-only mode: no backend sync
 
     // 1. Guard clauses
     if (!_apiClient.isAuthenticated) return;

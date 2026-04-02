@@ -15,7 +15,6 @@ import 'api_client.dart';
 import 'biometric_auth_service.dart';
 import 'offline_data_service.dart';
 import 'sms_listener_service.dart';
-import 'unified_sync_service.dart';
 import 'budget_service.dart';
 
 class AuthService with ChangeNotifier {
@@ -25,7 +24,6 @@ class AuthService with ChangeNotifier {
   // Dependencies
   OfflineDataService? _offlineDataService;
   BiometricAuthService? _biometricService;
-  UnifiedSyncService? _syncService;
   BudgetService? _budgetService;
 
   final _uuid = const Uuid();
@@ -49,7 +47,6 @@ class AuthService with ChangeNotifier {
   Future<void> initializeWithAllDependencies({
     required OfflineDataService offlineDataService,
     BiometricAuthService? biometricService,
-    UnifiedSyncService? syncService,
     BudgetService? budgetService,
   }) async {
     if (_isInitialized) {
@@ -62,7 +59,6 @@ class AuthService with ChangeNotifier {
 
       _offlineDataService = offlineDataService;
       _biometricService = biometricService;
-      _syncService = syncService;
       _budgetService = budgetService;
 
       await _restoreActiveProfile();
@@ -410,19 +406,7 @@ class AuthService with ChangeNotifier {
       await setCurrentProfile(profile.id);
       await _biometricService?.registerSuccessfulPasswordLogin();
 
-      // ✅ NEW: Trigger initial sync via UnifiedSyncService
-      if (_syncService != null) {
-        _logger.info('🔄 Triggering initial data sync...');
-        _syncService!.setCurrentProfile(profile.id);
-
-        // Perform initial sync in background (don't block login)
-        unawaited(_syncService!.performInitialSync(profile.id, authToken));
-      } else {
-        _logger.warning(
-          '⚠️ SyncService not available - data will sync on next app launch',
-        );
-      }
-
+      // Running in local-only mode - data stored locally
       _logger.info('✅ Login successful: $email');
       return LoginResult.success(
         profile: profile,
@@ -600,15 +584,7 @@ class AuthService with ChangeNotifier {
       await _storeProfile(newProfile);
       await setCurrentProfile(newProfile.id);
 
-      // ✅ NEW: Trigger initial sync via UnifiedSyncService
-      if (_syncService != null && authToken != null) {
-        _logger.info('🔄 Triggering initial data sync...');
-        _syncService!.setCurrentProfile(newProfile.id);
-
-        // Perform initial sync in background
-        unawaited(_syncService!.performInitialSync(newProfile.id, authToken));
-      }
-
+      // Running in local-only mode - data stored locally
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('is_first_login', false);
 

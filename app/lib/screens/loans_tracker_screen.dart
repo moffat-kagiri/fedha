@@ -5,8 +5,6 @@ import '../theme/app_theme.dart';
 import '../services/offline_data_service.dart';
 import '../services/auth_service.dart';
 import '../services/api_client.dart';
-import '../services/unified_sync_service.dart';
-import '../services/connectivity_service.dart';
 import '../models/loan.dart' as domain_loan;
 
 class LoansTrackerScreen extends StatefulWidget {

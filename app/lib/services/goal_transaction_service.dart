@@ -57,12 +57,8 @@ class GoalTransactionService {
       updatedAt: DateTime.now(),
     );
 
-    // Save transaction
+    // Save transaction - this will trigger onTransactionCreated via OfflineDataService
     await _offlineService.saveTransaction(transaction);
-    
-    // Emit event - this will update goal if goalId is provided
-    final eventService = TransactionEventService();;
-    await eventService.onTransactionCreated(transaction);
     
     _logger.info('✅ Savings transaction saved - Event system will update goal if linked');
     
@@ -226,13 +222,9 @@ class GoalTransactionService {
       updatedAt: DateTime.now(),
     );
 
-    final eventService = TransactionEventService();;
-    
+    // Save transfers - these will trigger onTransactionCreated via OfflineDataService
     await _offlineService.saveTransaction(withdrawalTransaction);
-    await eventService.onTransactionCreated(withdrawalTransaction);
-    
     await _offlineService.saveTransaction(depositTransaction);
-    await eventService.onTransactionCreated(depositTransaction);
     
     _logger.info('✅ Transfer complete - Event system will update both goals');
   }

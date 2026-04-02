@@ -344,7 +344,11 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
         'save_to_google': _saveToGoogle,
       };
 
-      final success = await authService.createAccount(profileData);
+      final success = await authService.signup(
+        email: profileData['email'],
+        password: profileData['pin'],
+        fullName: profileData['full_name'] ?? '',
+      );
 
       if (success && mounted) {
         // Show success message

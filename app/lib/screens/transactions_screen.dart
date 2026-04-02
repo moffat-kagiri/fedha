@@ -7,8 +7,6 @@ import '../models/enums.dart';
 import '../services/auth_service.dart';
 import '../services/offline_data_service.dart';
 import '../services/api_client.dart';
-import '../services/connectivity_service.dart';
-import '../services/unified_sync_service.dart';
 import '../utils/logger.dart';
 import 'transaction_entry_unified_screen.dart';
 import '../widgets/transaction_dialog.dart';
