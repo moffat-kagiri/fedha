@@ -1364,14 +1364,6 @@ class UnifiedSyncService with ChangeNotifier {
       timestamp: DateTime.now(),
     );
   }
-      result.error = e.toString();
-    } finally {
-      _isSyncing = false;
-      notifyListeners();
-    }
-
-    return result;
-  }
 
   /// ✅ NEW: Download and save transactions
   Future<EntitySyncResult> _downloadAndSaveTransactions(

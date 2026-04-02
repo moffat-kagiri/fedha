@@ -41,6 +41,7 @@ import 'services/profile_management_extension.dart';
 import 'services/budget_service.dart';
 import 'services/transaction_event_service.dart';
 import 'services/goal_transaction_service.dart';
+import 'services/unified_sync_service.dart';
 import 'data/app_database.dart' as data_db;
 
 // Background services
@@ -194,15 +195,16 @@ Future<void> _initializeLocalServices() async {
 
   // Auth service restores profile from SharedPreferences — no network needed
   final authService = AuthService.instance;
+  final offlineDataService = OfflineDataService();
+  
   await authService.initializeWithDependencies(
-    offlineDataService: OfflineDataService(),
+    offlineDataService: offlineDataService,
     biometricService: BiometricAuthService.instance,
   );
   logger.info('✅ Auth service initialized');
 
   // Sync and budget services initialize their local state only
   final apiClient = ApiClient.instance;
-  final offlineDataService = OfflineDataService();
 
   // ✅ Init API client with config only — no connection test here
   final initialConfig = kDebugMode
@@ -214,6 +216,15 @@ Future<void> _initializeLocalServices() async {
   final budgetService = BudgetService.instance;
   await budgetService.initialize(offlineDataService);
   logger.info('✅ Budget service initialized');
+
+  // Initialize unified sync service
+  final unifiedSyncService = UnifiedSyncService.instance;
+  await unifiedSyncService.initialize(
+    offlineDataService: offlineDataService,
+    apiClient: apiClient,
+    authService: authService,
+  );
+  logger.info('✅ Unified sync service initialized');
 
   logger.info('✅ All local services ready');
 }
@@ -301,6 +312,9 @@ List<SingleChildWidget> _buildProviders() {
     ChangeNotifierProvider<AuthService>.value(value: AuthService.instance),
     ChangeNotifierProvider<ThemeService>.value(value: ThemeService.instance),
     ChangeNotifierProvider<BudgetService>.value(value: BudgetService.instance),
+    ChangeNotifierProvider<UnifiedSyncService>.value(
+      value: UnifiedSyncService.instance,
+    ),
   ];
 }
 
@@ -480,9 +494,13 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           }
         } else if (isLoggedIn) {
           // 🔴 CRITICAL: Set profile for sync service on resume
-          final syncService = context.read<UnifiedSyncService>();
-          if (authService.profileId != null) {
-            syncService.setCurrentProfile(authService.profileId!);
+          try {
+            final syncService = context.read<UnifiedSyncService>();
+            if (authService.profileId != null) {
+              syncService.setCurrentProfile(authService.profileId!);
+            }
+          } catch (e) {
+            _logger.warning('Sync service not available on resume: $e');
           }
 
           // Restart foreground SMS listener
@@ -558,11 +576,15 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     _logger.info('✅ Biometric unlock successful');
 
     final authService = context.read<AuthService>();
-    final syncService = context.read<UnifiedSyncService>();
-
-    // 🔴 CRITICAL: Set profile for sync service
-    if (authService.profileId != null) {
-      syncService.setCurrentProfile(authService.profileId!);
+    
+    // Set profile for sync service (with safe fallback)
+    try {
+      final syncService = context.read<UnifiedSyncService>();
+      if (authService.profileId != null) {
+        syncService.setCurrentProfile(authService.profileId!);
+      }
+    } catch (e) {
+      _logger.warning('Could not set sync profile: $e');
     }
 
     // Navigate FIRST - instant response
