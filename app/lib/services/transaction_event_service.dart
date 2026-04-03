@@ -46,9 +46,6 @@ class TransactionEventService extends ChangeNotifier {
   BudgetService? _budgetService;
   String? _currentProfileId;
   
-  // Track processed transaction IDs to prevent duplicate processing
-  final Set<String> _processedTransactionIds = {};
-  
   Stream<TransactionEvent> get eventStream => _eventController.stream;
 
   Future<void> initialize({
@@ -63,7 +60,8 @@ class TransactionEventService extends ChangeNotifier {
     _offlineDataService = offlineDataService;
     _budgetService = budgetService;
     
-    _eventController.stream.listen(_handleTransactionEvent);
+    // ✅ NOTE: Event handling happens in emitter methods (_onTransactionCreated, etc.)
+    // No need to listen here since handlers are called before events are broadcast
     
     _logger.info('TransactionEventService initialized');
   }
@@ -76,13 +74,12 @@ class TransactionEventService extends ChangeNotifier {
   // ==================== EVENT EMITTERS ====================
 
   Future<void> onTransactionCreated(Transaction transaction) async {
-    // Check if we've already processed this transaction
-    if (transaction.id != null && _processedTransactionIds.contains(transaction.id)) {
-      _logger.info('Transaction ${transaction.id} already processed, skipping');
-      return;
-    }
-    
     _logger.info('Transaction created: ${transaction.id} - ${transaction.amountMinor}');
+    
+    // ✅ FIX: Process FIRST, then emit to listeners
+    await _handleTransactionAdded(transaction);
+    
+    // ✅ NOW emit the event to UI listeners
     _eventController.add(TransactionEvent(
       type: TransactionEventType.created,
       transaction: transaction,
@@ -98,6 +95,10 @@ class TransactionEventService extends ChangeNotifier {
       _logger.info('Preserving budget category: ${transaction.budgetCategory}');
     }
     
+    // ✅ FIX: Process FIRST, then emit to listeners
+    await _handleTransactionUpdated(transaction);
+    
+    // ✅ NOW emit the event to UI listeners
     _eventController.add(TransactionEvent(
       type: TransactionEventType.updated,
       transaction: transaction,
@@ -107,6 +108,11 @@ class TransactionEventService extends ChangeNotifier {
 
   Future<void> onTransactionDeleted(Transaction transaction) async {
     _logger.info('Transaction deleted: ${transaction.id}');
+    
+    // ✅ FIX: Process FIRST, then emit to listeners
+    await _handleTransactionDeleted(transaction);
+    
+    // ✅ NOW emit the event to UI listeners
     _eventController.add(TransactionEvent(
       type: TransactionEventType.deleted,
       transaction: transaction,
@@ -116,6 +122,11 @@ class TransactionEventService extends ChangeNotifier {
 
   Future<void> onTransactionApproved(Transaction transaction) async {
     _logger.info('Transaction approved: ${transaction.id}');
+    
+    // ✅ FIX: Process FIRST, then emit to listeners
+    await _handleTransactionAdded(transaction);
+    
+    // ✅ NOW emit the event to UI listeners
     _eventController.add(TransactionEvent(
       type: TransactionEventType.approved,
       transaction: transaction,
@@ -124,48 +135,8 @@ class TransactionEventService extends ChangeNotifier {
   }
 
   // ==================== EVENT HANDLERS ====================
-
-  Future<void> _handleTransactionEvent(TransactionEvent event) async {
-    try {
-      // Skip if transaction has no ID or is already being processed
-      if (event.transaction.id == null) {
-        _logger.warning('Transaction has no ID, skipping processing');
-        return;
-      }
-      
-      final transactionId = event.transaction.id!;
-      
-      if (_processedTransactionIds.contains(transactionId)) {
-        _logger.info('Skipping duplicate processing for transaction: $transactionId');
-        return;
-      }
-      
-      _processedTransactionIds.add(transactionId);
-      
-      switch (event.type) {
-        case TransactionEventType.created:
-        case TransactionEventType.approved:
-          await _handleTransactionAdded(event.transaction);
-          break;
-        case TransactionEventType.updated:
-          await _handleTransactionUpdated(event.transaction);
-          break;
-        case TransactionEventType.deleted:
-          await _handleTransactionDeleted(event.transaction);
-          break;
-      }
-      
-      // Clean up after a delay to prevent memory leak
-      Future.delayed(const Duration(seconds: 5), () {
-        _processedTransactionIds.remove(transactionId);
-      });
-    } catch (e, stackTrace) {
-      _logger.severe('Error handling transaction event', e, stackTrace);
-      if (event.transaction.id != null) {
-        _processedTransactionIds.remove(event.transaction.id!);
-      }
-    }
-  }
+  // Event handlers are now called directly from emitter methods before broadcasting
+  // This ensures processing completes before UI listeners receive events
 
   Future<void> _handleTransactionAdded(Transaction transaction) async {
     if (_offlineDataService == null || _budgetService == null) {
@@ -195,6 +166,11 @@ class TransactionEventService extends ChangeNotifier {
         // ✅ FIXED: Always recalculate from scratch when adding new transaction
         // This prevents double-counting and ensures accuracy
         await _recalculateGoalProgress(transaction.goalId!);
+        
+        // ✅ FIX: Notify listeners after goal progress is updated
+        // This ensures UI components listening to this service are refreshed
+        _logger.info('📡 Notifying listeners after goal progress update');
+        notifyListeners();
       } else {
         _logger.info('💰 Savings transaction without goal - tracked in general savings budget');
       }
@@ -207,6 +183,10 @@ class TransactionEventService extends ChangeNotifier {
     // ✅ FIX: Always recalculate goal progress when transaction is updated
     if (transaction.goalId != null && transaction.goalId!.isNotEmpty) {
       await _recalculateGoalProgress(transaction.goalId!);
+      
+      // ✅ FIX: Notify listeners after goal progress is updated
+      _logger.info('📡 Notifying listeners after goal progress update (transaction update)');
+      notifyListeners();
     }
   }
 
@@ -225,6 +205,10 @@ class TransactionEventService extends ChangeNotifier {
       if (transaction.goalId != null && transaction.goalId!.isNotEmpty) {
         // ✅ FIXED: Recalculate from scratch when deleting
         await _recalculateGoalProgress(transaction.goalId!);
+        
+        // ✅ FIX: Notify listeners after goal progress is updated
+        _logger.info('📡 Notifying listeners after goal progress update (transaction delete)');
+        notifyListeners();
       }
     }
   }
@@ -535,7 +519,7 @@ class TransactionEventService extends ChangeNotifier {
       // ✅ IMPROVED: Filter for savings transactions linked to this specific goal
       final goalTransactions = allTransactions.where((tx) =>
         tx.goalId == goalId && 
-        (tx.type == 'savings' || (tx.category?.toLowerCase().contains('savings') ?? false))
+        (tx.type == 'savings' || (tx.category != null && tx.category!.toLowerCase().contains('savings')))
       ).toList();
 
       // ✅ IMPROVED: Use the correct amount calculation
@@ -581,6 +565,10 @@ class TransactionEventService extends ChangeNotifier {
     }
     
     _logger.info('✅ Recalculation complete');
+    
+    // ✅ FIX: Notify listeners after all recalculations
+    _logger.info('📡 Notifying listeners after complete recalculation');
+    notifyListeners();
   }
 
   /// ✅ NEW: Reassign transactions to new budgets when categories change
@@ -673,7 +661,6 @@ class TransactionEventService extends ChangeNotifier {
   @override
   void dispose() {
     _eventController.close();
-    _processedTransactionIds.clear();
     super.dispose();
   }
 }

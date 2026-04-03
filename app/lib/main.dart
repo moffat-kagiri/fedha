@@ -217,6 +217,15 @@ Future<void> _initializeLocalServices() async {
   await budgetService.initialize(offlineDataService);
   logger.info('✅ Budget service initialized');
 
+  // ✅ FIX: Initialize TransactionEventService and link to OfflineDataService
+  final transactionEventService = TransactionEventService();
+  await transactionEventService.initialize(
+    offlineDataService: offlineDataService,
+    budgetService: budgetService,
+  );
+  offlineDataService.setEventService(transactionEventService);
+  logger.info('✅ Transaction event service initialized and linked');
+
   // Initialize unified sync service
   final unifiedSyncService = UnifiedSyncService.instance;
   await unifiedSyncService.initialize(
@@ -300,8 +309,8 @@ List<SingleChildWidget> _buildProviders() {
     Provider<RiskAssessmentService>.value(
       value: RiskAssessmentService(data_db.AppDatabase()),
     ),
-    ChangeNotifierProvider<TransactionEventService>(
-      create: (_) => TransactionEventService(),
+    ChangeNotifierProvider<TransactionEventService>.value(
+      value: TransactionEventService(), // Returns singleton already initialized
     ),
     ChangeNotifierProvider<SmsListenerService>.value(
       value: SmsListenerService.instance,
