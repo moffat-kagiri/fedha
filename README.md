@@ -109,7 +109,7 @@ Then configure the app to connect to your backend:
 
 #### Option 2: Download Pre-Built APK (Android Only) ⭐ **Easiest for End Users**
 
-**Latest Release:** [Download Fedha v1.0.0 APK](https://github.com/moffat-kagiri/fedha/releases/download/v1.0.0/app-release.apk) (65 MB)
+**Latest Release:** [Download Fedha v1.0.1 APK](https://github.com/moffat-kagiri/fedha/releases/download/v1.0.1/app-release.apk) (65 MB)
 
 **Installation Steps:**
 1. Download the APK file to your Android device (Android 11+)

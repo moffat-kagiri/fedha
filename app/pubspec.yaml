@@ -2,7 +2,7 @@ name: fedha
 description: Fedha Budget Tracker - Your Personal Finance Companion
 publish_to: 'none'  # Prevents accidental publication
 
-version: 1.0.0+1
+version: 1.0.1+2
 repository: https://github.com/moffat-kagiri/fedha
 homepage: https://fedha-project.example.com
 environment:
